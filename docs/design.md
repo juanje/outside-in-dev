@@ -100,7 +100,7 @@ Shortening the same URL twice must return the same short code. ...
 
 Parser rules:
 
-- FR: `^### (FR-[A-Z][A-Z0-9]*-\d{2,3}): (.+)$`
+- FR: `^### (FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?): (.+)$` (an optional lowercase suffix, as in `FR-PERM-06b`, see ADR-026)
 - NFR: `^### (NFR-\d{2,3}): (.+)$`
 - The body of each requirement is the text up to the next heading of level ≤ 3.
 - Level-2 section titles are not interpreted: the parser is guided only by the IDs, so it works the same with a `SPEC.md` in other languages.

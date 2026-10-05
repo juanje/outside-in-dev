@@ -161,3 +161,10 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** Require `quality_gate` now and the rest later; add all three together once `session.json` exists.
 **Decision.** Until the feature cycle exists, `oid progress done` enforces FR-PROG-06 only. The `quality_gate` step, the passed gate and the per-scenario TDD cycle are added together, with `session.json`, as part of the feature cycle (FR-RUN-06, FR-RUN-07).
 **Consequences.** While bootstrapping, a feature can be marked done from any step; the quality gate before every commit (`AGENTS.md`), the pre-commit `oid check` and CI hold the line meanwhile. This is not reopened before FR-RUN.
+
+## ADR-026: FR ids may carry a one-letter suffix
+
+**Context.** Buddy, the first project to adopt oid, splits requirements by adding a lowercase letter to the number (`FR-PERM-06b`, `FR-SETTINGS-03c`); four of its 91 tracked features use such ids, one of them its only pending feature. The id pattern in `DOMAIN.md` (`FR-[A-Z][A-Z0-9]*-\d{2,3}`) rejected them in `SPEC.md`, in `progress.json` and in `oid check`, so `oid init --import-progress` would have dropped them.
+**Options.** Treat them as frozen debt and leave them out of the imported progress (ADR-011); widen the pattern.
+**Decision.** An FR id may end in one optional lowercase letter: `FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?`. NFR ids are unchanged.
+**Consequences.** Projects that split requirements this way adopt oid without renaming them. The SPEC.md parser, the progress schema and `oid check` all use the same pattern.
