@@ -467,6 +467,14 @@
         {
           "name": "A feature file with a Gherkin syntax error is reported in the JSON document",
           "bdd": "pass"
+        },
+        {
+          "name": "Closing the check output after the first chunk still fails a check with violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "Closing the status output after the first chunk still succeeds",
+          "bdd": "pass"
         }
       ]
     },
