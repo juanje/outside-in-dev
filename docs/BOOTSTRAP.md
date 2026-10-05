@@ -108,9 +108,9 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.2.0`.
-- [ ] Add `oid check` to the quality gate in `AGENTS.md`.
-- [ ] Add a git pre-commit hook that runs `oid check` (`scripts/pre-commit`, installed into `.git/hooks/`).
+- [x] Tag and install `v0.2.0`.
+- [x] Add `oid check` to the quality gate in `AGENTS.md`.
+- [x] Add a git pre-commit hook that runs `oid check` (`scripts/pre-commit`, installed into `.git/hooks/`).
 
 ### 2.3 Project setup — FR-INIT-01 … FR-INIT-03
 

@@ -34,9 +34,12 @@ Never skip the quality gate before committing.
 npx tsc --noEmit
 npm run test:unit
 npm run test:bdd
+oid check
 ```
 
-Plus, once they exist, `oid check` (FR-CHECK) and `oid metrics --changed` (FR-MET). `docs/BOOTSTRAP.md` says when each one joins the gate.
+`oid check` is the installed build. It also runs as a git pre-commit hook: install it with `cp scripts/pre-commit .git/hooks/pre-commit`.
+
+Plus, once it exists, `oid metrics --changed` (FR-MET). `docs/BOOTSTRAP.md` says when it joins the gate.
 
 ## Rules
 
