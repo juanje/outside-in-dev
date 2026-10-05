@@ -29,6 +29,26 @@
         {
           "name": "A missing progress file is reported",
           "bdd": "pass"
+        },
+        {
+          "name": "Running oid without a command lists the valid commands",
+          "bdd": "pass"
+        },
+        {
+          "name": "An unknown command is named and the valid commands are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Running oid progress without a subcommand lists the valid subcommands",
+          "bdd": "pass"
+        },
+        {
+          "name": "An unknown progress subcommand is named and the valid ones are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Show without a feature ID prints its usage",
+          "bdd": "pass"
         }
       ]
     },
@@ -48,6 +68,14 @@
         {
           "name": "A requirement missing from SPEC.md is refused",
           "bdd": "pass"
+        },
+        {
+          "name": "Add without a feature ID prints its usage",
+          "bdd": "pass"
+        },
+        {
+          "name": "Add without a title prints its usage and tracks nothing",
+          "bdd": "pass"
         }
       ]
     },
@@ -66,6 +94,10 @@
         },
         {
           "name": "Focusing a feature that is not tracked is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Focus without a feature ID prints its usage",
           "bdd": "pass"
         }
       ]
@@ -102,6 +134,14 @@
         {
           "name": "A feature that is not tracked is rejected",
           "bdd": "pass"
+        },
+        {
+          "name": "Step without a feature ID prints its usage",
+          "bdd": "pass"
+        },
+        {
+          "name": "Step without a cycle step prints its usage",
+          "bdd": "pass"
         }
       ]
     },
@@ -133,6 +173,14 @@
         {
           "name": "A feature that has not started cannot hold scenarios",
           "bdd": "pass"
+        },
+        {
+          "name": "Scenario without arguments prints its usage",
+          "bdd": "pass"
+        },
+        {
+          "name": "Scenario without a name prints its usage",
+          "bdd": "pass"
         }
       ]
     },
@@ -163,6 +211,10 @@
         },
         {
           "name": "A feature that is not tracked is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Done without a feature ID prints its usage",
           "bdd": "pass"
         }
       ]
