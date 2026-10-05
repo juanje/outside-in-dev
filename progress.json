@@ -299,6 +299,14 @@
         {
           "name": "The consistency check reports a non-object entry instead of crashing",
           "bdd": "pass"
+        },
+        {
+          "name": "A scenario with an unknown field is rejected with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "The consistency check reports a scenario with an unknown field as a progress violation",
+          "bdd": "pass"
         }
       ]
     },
