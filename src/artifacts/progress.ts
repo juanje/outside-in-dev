@@ -29,11 +29,21 @@ export function loadProgress(cwd: string): Progress {
   if (!existsSync(path)) {
     throw new ProgressError(`${PROGRESS_FILE} not found in ${cwd}`);
   }
-  return JSON.parse(readFileSync(path, "utf8")) as Progress;
+  const document: unknown = JSON.parse(readFileSync(path, "utf8"));
+  requireValid(document);
+  return document as Progress;
+}
+
+function requireValid(document: unknown): void {
+  const violations = validateProgress(document);
+  if (violations.length > 0) {
+    throw new ProgressError(`${PROGRESS_FILE} is invalid:\n${violations.map((v) => `  ${v}`).join("\n")}`);
+  }
 }
 
 /** Writes the file atomically: a temporary file in the same directory, then a rename. */
 export function saveProgress(cwd: string, progress: Progress): void {
+  requireValid(progress);
   const path = join(cwd, PROGRESS_FILE);
   const temporary = `${path}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(progress, null, 2)}\n`);
@@ -95,4 +105,68 @@ export function completeFeature(feature: FeatureProgress): FeatureProgress {
   }
   const { cycle_step: _step, ...rest } = feature;
   return { ...rest, status: "done" };
+}
+
+const TOP_LEVEL_FIELDS = ["current_focus", "features"];
+const CYCLE_STEPS = ["select", "bdd_red", "tdd_red", "tdd_green", "refactor", "quality_gate"];
+const FEATURE_ID_PATTERN = /^FR-[A-Z][A-Z0-9]*-\d{2,3}$/;
+const FEATURE_STATUSES = ["pending", "in_progress", "done"];
+const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
+const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
+
+function unknownFields(object: object, allowed: string[], path: string): string[] {
+  return Object.keys(object)
+    .filter((field) => !allowed.includes(field))
+    .map((field) => `${path}${field}: unknown field`);
+}
+
+function validateFeature(feature: FeatureProgress, path: string): string[] {
+  const violations = unknownFields(feature, FEATURE_FIELDS, `${path}.`);
+  for (const field of REQUIRED_FEATURE_FIELDS) {
+    if (!(field in feature)) violations.push(`${path}.${field}: missing required field`);
+  }
+  if ((feature.status === "pending" || feature.status === "done") && "cycle_step" in feature) {
+    violations.push(`${path}.cycle_step: not allowed on a ${feature.status} feature`);
+  }
+  if (feature.status === "in_progress" && !("cycle_step" in feature)) {
+    violations.push(`${path}.cycle_step: missing required field on an in-progress feature`);
+  }
+  if ("id" in feature && !FEATURE_ID_PATTERN.test(feature.id)) {
+    violations.push(`${path}.id: invalid value "${feature.id}" (expected an id like FR-AREA-01)`);
+  }
+  if (feature.cycle_step !== undefined && !CYCLE_STEPS.includes(feature.cycle_step)) {
+    violations.push(`${path}.cycle_step: invalid value "${feature.cycle_step}" (allowed: ${CYCLE_STEPS.join(", ")})`);
+  }
+  if ("title" in feature && typeof feature.title !== "string") {
+    violations.push(`${path}.title: wrong type (expected string)`);
+  } else if (feature.title === "") {
+    violations.push(`${path}.title: must not be empty`);
+  }
+  if ("status" in feature && !FEATURE_STATUSES.includes(feature.status)) {
+    violations.push(`${path}.status: invalid value "${feature.status}" (allowed: ${FEATURE_STATUSES.join(", ")})`);
+  }
+  (feature.scenarios ?? []).forEach((scenario, index) => {
+    if (scenario.name === "") violations.push(`${path}.scenarios[${index}].name: must not be empty`);
+    if (!SCENARIO_STATUSES.includes(scenario.bdd)) {
+      violations.push(
+        `${path}.scenarios[${index}].bdd: invalid value "${scenario.bdd}" (allowed: ${SCENARIO_STATUSES.join(", ")})`,
+      );
+    }
+  });
+  return violations;
+}
+
+/** Returns one message per schema violation; an empty list means the document is valid. */
+export function validateProgress(document: unknown): string[] {
+  const progress = document as Progress;
+  const violations = unknownFields(progress, TOP_LEVEL_FIELDS, "");
+  if (typeof progress.current_focus !== "string" && progress.current_focus !== null) {
+    violations.push("current_focus: wrong type (expected string or null)");
+  }
+  if (!Array.isArray(progress.features)) {
+    violations.push("features: wrong type (expected array)");
+    return violations;
+  }
+  progress.features.forEach((feature, index) => violations.push(...validateFeature(feature, `features[${index}]`)));
+  return violations;
 }
