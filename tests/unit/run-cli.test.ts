@@ -219,6 +219,48 @@ describe("runCli check", () => {
     expect(result.stdout).not.toContain("FR-X-02");
   });
 
+  it("exits 1 when there is a violation", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n");
+    expect(run(["check"]).exitCode).toBe(1);
+  });
+
+  it("prints a single JSON document with the SPEC.md violation and exits 1 under --json", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n");
+    const result = run(["check", "--json"]);
+    const report = JSON.parse(result.stdout);
+    expect(report.ok).toBe(false);
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0].check).toBe("spec");
+    expect(report.violations[0].message).toMatch(/FR-X-01.*empty body/);
+    expect(result.exitCode).toBe(1);
+  });
+
+  it("labels a feature file violation as traceability under --json", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    mkdirSync(join(dir, "features"), { recursive: true });
+    writeFileSync(join(dir, "features/alpha.feature"), "Feature: Alpha\n\n  Scenario: Orphan alpha\n");
+    const { violations } = JSON.parse(run(["check", "--json"]).stdout);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].check).toBe("traceability");
+    expect(violations[0].message).toContain("Orphan alpha");
+  });
+
+  it("labels progress.json violations as progress under --json", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    writeProgress({ current_focus: "FR-X-01", features: [] });
+    const { violations } = JSON.parse(run(["check", "--json"]).stdout);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].check).toBe("progress");
+    expect(violations[0].message).toContain("FR-X-01");
+  });
+
+  it("prints ok with no violations and exits 0 under --json when the project is clean", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    const result = run(["check", "--json"]);
+    expect(JSON.parse(result.stdout)).toEqual({ ok: true, violations: [] });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("says there are no violations when SPEC.md is clean", () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
     expect(run(["check"]).stdout).toContain("no violations");

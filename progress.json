@@ -342,7 +342,33 @@
     {
       "id": "FR-CHECK-04",
       "title": "Machine-readable results",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A SPEC.md violation makes the check fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "A traceability violation makes the check fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress violation makes the check fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "A clean project passes and a violation then makes it fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "The JSON report lists every violation with its kind",
+          "bdd": "pass"
+        },
+        {
+          "name": "The JSON report of a clean project is ok and empty",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-INIT-01",
