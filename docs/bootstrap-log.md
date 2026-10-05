@@ -15,3 +15,4 @@ One row per FR. "Built with": `claude-code` or `oid run`. Health delta: change i
 | FR-CHECK-02 | claude-code | 0 | 0 | — | — | — | gherkin AST tags (feature+rule inherited); NFR headings join the shared SPEC parser, progress add still FR-only |
 | FR-CHECK-03 | claude-code | 0 | 0 | — | — | — | consistency rules over effective-tag scenario list (listScenarios shared with traceability); invalid or malformed progress.json reported, missing one skipped |
 | FR-CHECK-04 | claude-code | 0 | 0 | — | — | — | runCheck returns the exit code and builds one violation list (spec, traceability, progress) rendered as text or JSON; one extra unit test was written in a tdd_red step |
+| fix: FR-PROG-07 | claude-code | 0 | 0 | — | — | — | non-object entries (document, feature, scenario, scenarios, scenario name) reported as schema violations instead of TypeError |

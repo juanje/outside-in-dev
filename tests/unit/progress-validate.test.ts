@@ -120,4 +120,47 @@ describe("validateProgress", () => {
     };
     expect(validateProgress(document)).toEqual(["features[0].scenarios[0].name: must not be empty"]);
   });
+
+  it.each([[null], [[]], ["text"], [7]])("reports a top-level document that is not an object: %j", (document) => {
+    expect(validateProgress(document)).toEqual(["$: wrong type (expected object)"]);
+  });
+
+  it.each([[42], [null], [["x"]], ["text"]])("reports a feature entry that is not an object: %j", (entry) => {
+    const document = { current_focus: null, features: [{ id: "FR-X-01", title: "Alpha", status: "pending" }, entry] };
+    expect(validateProgress(document)).toEqual(["features[1]: wrong type (expected object)"]);
+  });
+
+  it.each([[{}], ["text"], [null], [7]])("reports a scenarios field that is not an array: %j", (scenarios) => {
+    const document = {
+      current_focus: null,
+      features: [{ id: "FR-X-01", title: "Alpha", status: "in_progress", cycle_step: "select", scenarios }],
+    };
+    expect(validateProgress(document)).toEqual(["features[0].scenarios: wrong type (expected array)"]);
+  });
+
+  it.each([["Alpha works"], [null], [3], [[]]])("reports a scenario entry that is not an object: %j", (entry) => {
+    const document = {
+      current_focus: null,
+      features: [
+        {
+          id: "FR-X-01",
+          title: "Alpha",
+          status: "in_progress",
+          cycle_step: "select",
+          scenarios: [{ name: "Works", bdd: "pass" }, entry],
+        },
+      ],
+    };
+    expect(validateProgress(document)).toEqual(["features[0].scenarios[1]: wrong type (expected object)"]);
+  });
+
+  it.each([[5], [null], [["x"]]])("reports a scenario name that is not a string: %j", (name) => {
+    const document = {
+      current_focus: null,
+      features: [
+        { id: "FR-X-01", title: "Alpha", status: "in_progress", cycle_step: "select", scenarios: [{ name, bdd: "pass" }] },
+      ],
+    };
+    expect(validateProgress(document)).toEqual(["features[0].scenarios[0].name: wrong type (expected string)"]);
+  });
 });

@@ -215,6 +215,34 @@
         {
           "name": "A change that would make the file invalid is not written",
           "bdd": "pass"
+        },
+        {
+          "name": "A progress file that is a list instead of an object is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file that is null is reported without a stack trace",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature entry that is not an object is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario entry that is not an object is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario name that is not a string is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenarios field that is not a list is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "The consistency check reports a non-object entry instead of crashing",
+          "bdd": "pass"
         }
       ]
     },
