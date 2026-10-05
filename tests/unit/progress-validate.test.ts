@@ -163,4 +163,9 @@ describe("validateProgress", () => {
     };
     expect(validateProgress(document)).toEqual(["features[0].scenarios[0].name: wrong type (expected string)"]);
   });
+
+  it("accepts a feature id with a one-letter lower-case suffix", () => {
+    const document = { current_focus: null, features: [{ id: "FR-X-01b", title: "Alpha b", status: "pending" }] };
+    expect(validateProgress(document)).toEqual([]);
+  });
 });

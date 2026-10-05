@@ -80,6 +80,10 @@
         {
           "name": "Add without a title prints its usage and tracks nothing",
           "bdd": "pass"
+        },
+        {
+          "name": "A requirement with a one-letter suffix can be added as a feature",
+          "bdd": "pass"
         }
       ]
     },
@@ -307,6 +311,10 @@
         {
           "name": "The consistency check reports a scenario with an unknown field as a progress violation",
           "bdd": "pass"
+        },
+        {
+          "name": "A progress file tracking an id with a one-letter suffix is valid",
+          "bdd": "pass"
         }
       ]
     },
@@ -350,6 +358,10 @@
         {
           "name": "A lone Given sentence without a later Then is not flagged",
           "bdd": "pass"
+        },
+        {
+          "name": "A duplicate requirement id with a one-letter suffix is reported",
+          "bdd": "pass"
         }
       ]
     },
@@ -388,6 +400,10 @@
         },
         {
           "name": "A feature file with a Gherkin syntax error is reported with its file name",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario tagged with an id with a one-letter suffix is traced to SPEC.md",
           "bdd": "pass"
         }
       ]
