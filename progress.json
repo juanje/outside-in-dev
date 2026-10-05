@@ -108,7 +108,33 @@
     {
       "id": "FR-PROG-05",
       "title": "Record scenario status",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "The status of an existing scenario is updated",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is not yet recorded is created",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario can be set back to pending",
+          "bdd": "pass"
+        },
+        {
+          "name": "A status other than pass, fail or pending is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is not tracked is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that has not started cannot hold scenarios",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-06",

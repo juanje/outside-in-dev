@@ -177,3 +177,12 @@ describe("runCli progress step", () => {
     expect(readProgress().features[1].cycle_step).toBe("tdd_green");
   });
 });
+
+describe("runCli progress scenario", () => {
+  it("records the scenario status and saves it", () => {
+    writeProgress(SAMPLE);
+    const result = run(["progress", "scenario", "pass", "FR-X-02", "Beta works"]);
+    expect(result.exitCode).toBe(0);
+    expect(readProgress().features[1].scenarios[0]).toEqual({ name: "Beta works", bdd: "pass" });
+  });
+});

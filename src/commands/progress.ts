@@ -1,4 +1,4 @@
-import { advanceStep, loadProgress, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, loadProgress, recordScenario, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -44,6 +44,12 @@ function stepFeature(progress: Progress, io: CliIo, id: string, step: string): v
   saveProgress(io.cwd, progress);
 }
 
+function recordFeatureScenario(progress: Progress, io: CliIo, status: string, id: string, name: string): void {
+  const feature = requireFeature(progress, id);
+  progress.features[progress.features.indexOf(feature)] = recordScenario(feature, name, status);
+  saveProgress(io.cwd, progress);
+}
+
 function showStatus(progress: Progress, io: CliIo): void {
   for (const feature of progress.features) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
@@ -53,11 +59,14 @@ function showStatus(progress: Progress, io: CliIo): void {
 
 export function runProgress(args: string[], io: CliIo): void {
   const progress = loadProgress(io.cwd);
-  const [command, id, value] = args;
+  const [command, ...operands] = args;
   if (command === "current") showCurrent(progress, io);
-  else if (command === "show") showFeature(progress, io, id);
-  else if (command === "add") addFeature(progress, io, id!, value!);
-  else if (command === "focus") focusFeature(progress, io, id!);
-  else if (command === "step") stepFeature(progress, io, id!, value!);
-  else showStatus(progress, io);
+  else if (command === "show") showFeature(progress, io, operands[0]);
+  else if (command === "add") addFeature(progress, io, operands[0]!, operands[1]!);
+  else if (command === "focus") focusFeature(progress, io, operands[0]!);
+  else if (command === "step") stepFeature(progress, io, operands[0]!, operands[1]!);
+  else if (command === "scenario") {
+    const [status, id, name] = operands;
+    recordFeatureScenario(progress, io, status!, id!, name!);
+  } else showStatus(progress, io);
 }
