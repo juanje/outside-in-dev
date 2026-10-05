@@ -1,4 +1,4 @@
-import { loadProgress, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, loadProgress, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -38,6 +38,12 @@ function focusFeature(progress: Progress, io: CliIo, id: string): void {
   saveProgress(io.cwd, progress);
 }
 
+function stepFeature(progress: Progress, io: CliIo, id: string, step: string): void {
+  const feature = requireFeature(progress, id);
+  progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step);
+  saveProgress(io.cwd, progress);
+}
+
 function showStatus(progress: Progress, io: CliIo): void {
   for (const feature of progress.features) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
@@ -47,10 +53,11 @@ function showStatus(progress: Progress, io: CliIo): void {
 
 export function runProgress(args: string[], io: CliIo): void {
   const progress = loadProgress(io.cwd);
-  const [command, id, title] = args;
+  const [command, id, value] = args;
   if (command === "current") showCurrent(progress, io);
   else if (command === "show") showFeature(progress, io, id);
-  else if (command === "add") addFeature(progress, io, id!, title!);
+  else if (command === "add") addFeature(progress, io, id!, value!);
   else if (command === "focus") focusFeature(progress, io, id!);
+  else if (command === "step") stepFeature(progress, io, id!, value!);
   else showStatus(progress, io);
 }

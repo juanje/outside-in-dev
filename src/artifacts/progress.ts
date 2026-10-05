@@ -45,3 +45,23 @@ export function requireFeature(progress: Progress, id: string | undefined): Feat
   if (!feature) throw new ProgressError(`${id} is not tracked in ${PROGRESS_FILE}`);
   return feature;
 }
+
+const START_STEP = "select";
+
+const NEXT_STEPS: Record<string, string[]> = {
+  select: ["bdd_red"],
+  bdd_red: ["tdd_red"],
+  tdd_red: ["tdd_green"],
+  tdd_green: ["refactor", "tdd_red", "bdd_red", "quality_gate"],
+  refactor: ["tdd_red", "bdd_red", "quality_gate"],
+};
+
+/** Returns the feature moved to `step`; the input is not modified. */
+export function advanceStep(feature: FeatureProgress, step: string): FeatureProgress {
+  const from = feature.cycle_step ?? feature.status;
+  const allowed = feature.status === "pending" ? [START_STEP] : (NEXT_STEPS[from] ?? []);
+  if (!allowed.includes(step)) {
+    throw new ProgressError(`cannot move ${feature.id} from ${from} to ${step}`);
+  }
+  return { ...feature, status: "in_progress", cycle_step: step, scenarios: feature.scenarios ?? [] };
+}

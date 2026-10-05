@@ -168,3 +168,12 @@ describe("runCli progress focus", () => {
     expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(before);
   });
 });
+
+describe("runCli progress step", () => {
+  it("moves the feature to the next step and saves it", () => {
+    writeProgress(SAMPLE);
+    const result = run(["progress", "step", "FR-X-02", "tdd_green"]);
+    expect(result.exitCode).toBe(0);
+    expect(readProgress().features[1].cycle_step).toBe("tdd_green");
+  });
+});
