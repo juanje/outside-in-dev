@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { checkTraceability, listScenarios } from "../../src/artifacts/traceability.js";
 
 describe("checkTraceability", () => {
+  it("reports a feature file with a Gherkin syntax error instead of throwing", () => {
+    const text = ["Feature: Broken", "", "  Scenario: One", "    Given a", "Feature: Again"].join("\n");
+    const violations = checkTraceability([{ path: "features/broken.feature", text }], ["FR-X-01"]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ file: "features/broken.feature", scenario: "" });
+    expect(violations[0]!.kind).toMatch(/^Gherkin syntax error/);
+  });
+
   it("reports a scenario that has no tags at all", () => {
     const text = ["Feature: Login", "", "  Scenario: Orphan login"].join("\n");
     expect(checkTraceability([{ path: "features/login.feature", text }], ["FR-X-01"])).toEqual([

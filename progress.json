@@ -321,6 +321,10 @@
         {
           "name": "A project fixed to trace every scenario reports no violations",
           "bdd": "pass"
+        },
+        {
+          "name": "A feature file with a Gherkin syntax error is reported with its file name",
+          "bdd": "pass"
         }
       ]
     },
@@ -394,6 +398,18 @@
         },
         {
           "name": "The JSON report of a clean project is ok and empty",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing SPEC.md is reported as a violation",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing SPEC.md is reported in the JSON document",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature file with a Gherkin syntax error is reported in the JSON document",
           "bdd": "pass"
         }
       ]
