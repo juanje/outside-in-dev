@@ -21,25 +21,39 @@ function readFeatureSources(cwd: string) {
     });
 }
 
-export function runCheck(io: CliIo): void {
+type Violation = { check: "spec" | "traceability" | "progress"; message: string };
+
+export function runCheck(io: CliIo, json = false): number {
   const text = readFileSync(join(io.cwd, SPEC_FILE), "utf8");
-  const reports = validateSpec(text).map(({ id, kind }) => `${SPEC_FILE}: ${id}: ${kind}`);
+  const violations: Violation[] = validateSpec(text).map(({ id, kind }) => ({
+    check: "spec",
+    message: `${SPEC_FILE}: ${id}: ${kind}`,
+  }));
   const knownIds = parseRequirements(text).map((requirement) => requirement.id);
   const sources = readFeatureSources(io.cwd);
   for (const { file, scenario, kind } of checkTraceability(sources, knownIds)) {
-    reports.push(`${file}: ${scenario}: ${kind}`);
+    violations.push({ check: "traceability", message: `${file}: ${scenario}: ${kind}` });
   }
   if (existsSync(join(io.cwd, PROGRESS_FILE))) {
     try {
       const progress = loadProgress(io.cwd);
       for (const { feature, scenario, kind } of checkProgressConsistency(progress, listScenarios(sources))) {
-        reports.push(`${PROGRESS_FILE}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`);
+        violations.push({
+          check: "progress",
+          message: `${PROGRESS_FILE}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`,
+        });
       }
     } catch (error) {
       if (!(error instanceof ProgressError)) throw error;
-      reports.push(error.message);
+      violations.push({ check: "progress", message: error.message });
     }
   }
-  for (const report of reports) io.stdout(`${report}\n`);
-  if (reports.length === 0) io.stdout("no violations\n");
+  const ok = violations.length === 0;
+  if (json) {
+    io.stdout(`${JSON.stringify({ ok, violations })}\n`);
+  } else {
+    for (const { message } of violations) io.stdout(`${message}\n`);
+    if (ok) io.stdout("no violations\n");
+  }
+  return ok ? 0 : 1;
 }

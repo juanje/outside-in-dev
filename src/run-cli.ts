@@ -5,8 +5,8 @@ import { runProgress } from "./commands/progress.js";
 
 export function runCli(args: string[], io: CliIo): number {
   try {
-    if (args[0] === "check") runCheck(io);
-    else runProgress(args.slice(1), io);
+    if (args[0] === "check") return runCheck(io, args.includes("--json"));
+    runProgress(args.slice(1), io);
     return 0;
   } catch (error) {
     if (error instanceof ProgressError) {
