@@ -114,6 +114,14 @@ describe("convertProgress", () => {
     expect(notes).toEqual(["FR-DEMO-01: 2 scenarios dropped"]);
   });
 
+  it("says scenario, not scenarios, when a pending feature had exactly one", () => {
+    const { notes } = convertProgress({
+      current_focus: null,
+      features: [{ id: "FR-DEMO-01", title: "A", status: "pending", scenarios: [{ name: "Only", bdd: "pending" }] }],
+    });
+    expect(notes).toEqual(["FR-DEMO-01: 1 scenario dropped"]);
+  });
+
   it("converts a pending feature that has no scenarios field without listing anything", () => {
     const { progress, notes } = convertProgress({
       current_focus: null,
@@ -147,6 +155,14 @@ describe("convertProgress", () => {
     expect(notes).toEqual(["unit_tests dropped from 3 scenarios"]);
   });
 
+  it("says scenario, not scenarios, when exactly one scenario had unit_tests", () => {
+    const { notes } = convertProgress({
+      current_focus: null,
+      features: [{ id: "FR-DEMO-01", title: "A", status: "done", scenarios: [{ name: "Only", bdd: "pass", unit_tests: 3 }] }],
+    });
+    expect(notes).toEqual(["unit_tests dropped from 1 scenario"]);
+  });
+
   it("drops other scenario fields and lists them with their value", () => {
     const { progress, notes } = convertProgress({
       current_focus: null,
@@ -163,7 +179,7 @@ describe("convertProgress", () => {
     expect(notes).toEqual([
       "FR-DEMO-01, scenario Three: owner juan dropped",
       "FR-DEMO-01, scenario Three: retries 2 dropped",
-      "unit_tests dropped from 1 scenarios",
+      "unit_tests dropped from 1 scenario",
     ]);
   });
 
