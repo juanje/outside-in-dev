@@ -1,0 +1,47 @@
+name: Quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: BDD scenarios
+        run: npm run test:bdd
+
+      # oid runs from an installed build, never from the working tree (AGENTS.md):
+      # pack this commit and install the tarball, as the bootstrap releases do.
+      - name: Install oid from a packed tarball
+        run: |
+          npm run build
+          npm pack
+          npm install -g ./outside-in-dev-*.tgz
+
+      - name: Consistency checks
+        run: oid check
