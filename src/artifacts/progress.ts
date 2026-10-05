@@ -46,6 +46,8 @@ export function requireFeature(progress: Progress, id: string | undefined): Feat
   return feature;
 }
 
+const SCENARIO_STATUSES = ["pass", "fail", "pending"];
+
 const START_STEP = "select";
 
 const NEXT_STEPS: Record<string, string[]> = {
@@ -64,4 +66,19 @@ export function advanceStep(feature: FeatureProgress, step: string): FeatureProg
     throw new ProgressError(`cannot move ${feature.id} from ${from} to ${step}`);
   }
   return { ...feature, status: "in_progress", cycle_step: step, scenarios: feature.scenarios ?? [] };
+}
+
+/** Returns the feature with the scenario's status set, appending the scenario if needed; the input is not modified. */
+export function recordScenario(feature: FeatureProgress, name: string, bdd: string): FeatureProgress {
+  if (!SCENARIO_STATUSES.includes(bdd)) {
+    throw new ProgressError(`invalid scenario status "${bdd}": use pass, fail or pending`);
+  }
+  if (feature.status === "pending") {
+    throw new ProgressError(`${feature.id} has not started and cannot hold scenarios`);
+  }
+  const existing = feature.scenarios ?? [];
+  const scenarios = existing.some((s) => s.name === name)
+    ? existing.map((s) => (s.name === name ? { name, bdd } : s))
+    : [...existing, { name, bdd }];
+  return { ...feature, scenarios };
 }

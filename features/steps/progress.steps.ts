@@ -137,3 +137,16 @@ Given("a completed feature {string}", function (this: OidWorld, id: string) {
 Then("the feature {string} has the cycle step {string}", function (this: OidWorld, id: string, step: string) {
   assert.equal(feature(this.loadProgress(), id).cycle_step, step);
 });
+
+Then(
+  "the feature {string} has the scenario {string} marked {string}",
+  function (this: OidWorld, id: string, name: string, bdd: string) {
+    const scenario = feature(this.loadProgress(), id).scenarios?.find((s) => s.name === name);
+    assert.ok(scenario, `feature ${id} has no scenario "${name}"`);
+    assert.equal(scenario.bdd, bdd);
+  },
+);
+
+Then("the feature {string} has {int} scenarios", function (this: OidWorld, id: string, count: number) {
+  assert.equal(feature(this.loadProgress(), id).scenarios?.length ?? 0, count);
+});
