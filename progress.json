@@ -1,0 +1,345 @@
+{
+  "current_focus": null,
+  "features": [
+    {
+      "id": "FR-PROG-01",
+      "title": "Show progress",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-02",
+      "title": "Add a feature",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-03",
+      "title": "Focus a feature",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-04",
+      "title": "Advance the cycle step",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-05",
+      "title": "Record scenario status",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-06",
+      "title": "Mark a feature done",
+      "status": "pending"
+    },
+    {
+      "id": "FR-PROG-07",
+      "title": "Reject an invalid progress file",
+      "status": "pending"
+    },
+    {
+      "id": "FR-CHECK-01",
+      "title": "Validate SPEC.md",
+      "status": "pending"
+    },
+    {
+      "id": "FR-CHECK-02",
+      "title": "Check scenario traceability",
+      "status": "pending"
+    },
+    {
+      "id": "FR-CHECK-03",
+      "title": "Check progress consistency",
+      "status": "pending"
+    },
+    {
+      "id": "FR-CHECK-04",
+      "title": "Machine-readable results",
+      "status": "pending"
+    },
+    {
+      "id": "FR-INIT-01",
+      "title": "Detect the project setup",
+      "status": "pending"
+    },
+    {
+      "id": "FR-INIT-02",
+      "title": "Initialise progress from SPEC.md",
+      "status": "pending"
+    },
+    {
+      "id": "FR-INIT-03",
+      "title": "Import progress from another schema",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-01",
+      "title": "Detect complexity",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-02",
+      "title": "Detect duplication",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-03",
+      "title": "Detect dead code",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-04",
+      "title": "Detect magic values",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-05",
+      "title": "Detect documentation drift",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-06",
+      "title": "Record and show code health",
+      "status": "pending"
+    },
+    {
+      "id": "FR-MET-07",
+      "title": "Separate existing debt from new findings",
+      "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-01",
+      "title": "Verify a unit Red",
+      "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-02",
+      "title": "Verify a BDD Red",
+      "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-03",
+      "title": "Check that steps load",
+      "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-04",
+      "title": "Verify a Green without regressions",
+      "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-05",
+      "title": "Check the integrity of a change",
+      "status": "pending"
+    },
+    {
+      "id": "FR-GIT-01",
+      "title": "Work in an isolated worktree",
+      "status": "pending"
+    },
+    {
+      "id": "FR-GIT-02",
+      "title": "Checkpoint and roll back",
+      "status": "pending"
+    },
+    {
+      "id": "FR-GIT-03",
+      "title": "One commit per feature",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-01",
+      "title": "Isolated agent sessions",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-02",
+      "title": "Tools and paths per step",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-03",
+      "title": "Secrets are never readable",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-04",
+      "title": "Completion report",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-05",
+      "title": "Detect provider failures",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-06",
+      "title": "Hints after a failed edit",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-07",
+      "title": "Request a dependency",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-08",
+      "title": "Context per task",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-01",
+      "title": "Start a run",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-02",
+      "title": "Write and review feature files",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-03",
+      "title": "BDD Red",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-04",
+      "title": "TDD inner loop",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-05",
+      "title": "Refactor after each Green",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-06",
+      "title": "Quality gate",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-07",
+      "title": "Commit the feature",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-08",
+      "title": "Retries and escalation",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-09",
+      "title": "Resume, abort and concurrency",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-10",
+      "title": "Budget",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-01",
+      "title": "Progress view",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-02",
+      "title": "Decision cards and feature review",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-03",
+      "title": "Plain output without a terminal",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-04",
+      "title": "Final report",
+      "status": "pending"
+    },
+    {
+      "id": "FR-DEC-01",
+      "title": "Decisions through the classifier",
+      "status": "pending"
+    },
+    {
+      "id": "FR-DEC-02",
+      "title": "Conservative fallback",
+      "status": "pending"
+    },
+    {
+      "id": "FR-DEC-03",
+      "title": "Decision history",
+      "status": "pending"
+    },
+    {
+      "id": "FR-DEC-04",
+      "title": "Detect a stuck loop",
+      "status": "pending"
+    },
+    {
+      "id": "FR-REF-01",
+      "title": "Refactor the whole feature",
+      "status": "pending"
+    },
+    {
+      "id": "FR-REF-02",
+      "title": "Refactored tests keep testing",
+      "status": "pending"
+    },
+    {
+      "id": "FR-REF-03",
+      "title": "Triage findings",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-05",
+      "title": "Talk it through",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-06",
+      "title": "Notifications",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TUI-07",
+      "title": "Watch a run",
+      "status": "pending"
+    },
+    {
+      "id": "FR-SPEC-01",
+      "title": "Interactive design session",
+      "status": "pending"
+    },
+    {
+      "id": "FR-SPEC-02",
+      "title": "Design readiness check",
+      "status": "pending"
+    },
+    {
+      "id": "FR-SPEC-03",
+      "title": "Register new requirements",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TIDY-01",
+      "title": "Analyse and plan a cleanup",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TIDY-02",
+      "title": "Review the cleanup plan",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TIDY-03",
+      "title": "Apply cleanup items",
+      "status": "pending"
+    },
+    {
+      "id": "FR-TIDY-04",
+      "title": "Propose a cleanup",
+      "status": "pending"
+    }
+  ]
+}

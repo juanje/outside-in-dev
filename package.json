@@ -1,0 +1,32 @@
+{
+  "name": "outside-in-dev",
+  "version": "0.0.0",
+  "description": "oid — a command-line harness that enforces Outside-In (Spec → BDD → TDD) on AI coding agents",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "bin": {
+    "oid": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:bdd": "NODE_OPTIONS=\"--import tsx\" cucumber-js",
+    "test": "npm run test:unit && npm run test:bdd"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "1.0.3",
+    "@earendil-works/pi-ai": "1.0.3",
+    "@earendil-works/pi-coding-agent": "1.0.3",
+    "@earendil-works/pi-tui": "1.0.3"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "13.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "3.2.7"
+  }
+}
