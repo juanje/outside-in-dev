@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const PROGRESS_FILE = "progress.json";
@@ -30,4 +30,12 @@ export function loadProgress(cwd: string): Progress {
     throw new ProgressError(`${PROGRESS_FILE} not found in ${cwd}`);
   }
   return JSON.parse(readFileSync(path, "utf8")) as Progress;
+}
+
+/** Writes the file atomically: a temporary file in the same directory, then a rename. */
+export function saveProgress(cwd: string, progress: Progress): void {
+  const path = join(cwd, PROGRESS_FILE);
+  const temporary = `${path}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(progress, null, 2)}\n`);
+  renameSync(temporary, path);
 }

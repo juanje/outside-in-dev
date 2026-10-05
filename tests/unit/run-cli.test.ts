@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -104,5 +104,47 @@ describe("runCli progress", () => {
     const result = run(["progress", "show", "FR-X-99"]);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("FR-X-99");
+  });
+});
+
+function writeSpec(...ids: string[]) {
+  const sections = ids.map((id) => `### ${id}: Title of ${id}\n\nDescription of ${id}.\n`);
+  writeFileSync(join(dir, "SPEC.md"), `# Spec\n\n${sections.join("\n")}`);
+}
+
+function readProgress() {
+  return JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"));
+}
+
+describe("runCli progress add", () => {
+  it("appends a pending feature at the end", () => {
+    writeSpec("FR-X-01", "FR-X-04");
+    writeProgress(SAMPLE);
+    const result = run(["progress", "add", "FR-X-04", "Delta"]);
+    expect(result.exitCode).toBe(0);
+    const features = readProgress().features;
+    expect(features).toHaveLength(4);
+    expect(features[3]).toEqual({ id: "FR-X-04", title: "Delta", status: "pending" });
+  });
+
+  it("refuses an id that is already tracked and leaves the file unchanged", () => {
+    writeSpec("FR-X-01");
+    writeProgress(SAMPLE);
+    const before = readFileSync(join(dir, "progress.json"), "utf8");
+    const result = run(["progress", "add", "FR-X-01", "Again"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("FR-X-01");
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(before);
+  });
+
+  it("refuses an id that SPEC.md does not define and leaves the file unchanged", () => {
+    writeSpec("FR-X-01", "FR-X-02");
+    writeProgress(SAMPLE);
+    const before = readFileSync(join(dir, "progress.json"), "utf8");
+    const result = run(["progress", "add", "FR-X-99", "Ghost"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("FR-X-99");
+    expect(result.stderr).toContain("SPEC.md");
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(before);
   });
 });
