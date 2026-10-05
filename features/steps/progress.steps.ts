@@ -162,3 +162,21 @@ Given("a progress file containing:", function (this: OidWorld, content: string) 
 Then("the error output does not contain {string}", function (this: OidWorld, text: string) {
   assert.ok(!this.stderr.includes(text), `stderr unexpectedly contains "${text}":\n${this.stderr}`);
 });
+
+Given("{int} tracked features with long titles", function (this: OidWorld, count: number) {
+  const areas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const perArea = 99;
+  const features: Feature[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = `FR-${areas[Math.floor(i / perArea)]}-${String((i % perArea) + 1).padStart(2, "0")}`;
+    features.push({ id, title: `Feature number ${i + 1} ${"x".repeat(120)}`, status: "pending" });
+  }
+  this.saveProgress({ current_focus: null, features });
+});
+
+When(
+  "I run {string} and close its output after the first chunk",
+  async function (this: OidWorld, commandLine: string) {
+    await this.runClosingOutputEarly(commandLine);
+  },
+);

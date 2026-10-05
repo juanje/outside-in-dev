@@ -1,5 +1,5 @@
 import { After, Before, setWorldConstructor, World } from "@cucumber/cucumber";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -87,6 +87,25 @@ export class OidWorld extends World {
     this.stdout = result.stdout ?? "";
     this.stderr = result.stderr ?? "";
     this.exitCode = result.status;
+  }
+
+  /** Runs the command with piped output, reads the first chunk of stdout, then destroys the stream. */
+  async runClosingOutputEarly(commandLine: string): Promise<void> {
+    const args = splitArgs(commandLine);
+    if (args[0] === "oid") args.shift();
+    const child = spawn(process.execPath, ["--import", TSX_LOADER_URL, CLI_PATH, ...args], {
+      cwd: this.dir,
+      env: { ...process.env, NODE_OPTIONS: "" },
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => (stderr += chunk));
+    const exited = new Promise<number | null>((done) => child.on("close", (code) => done(code)));
+    await new Promise<void>((done) => child.stdout.once("data", () => done()));
+    child.stdout.destroy();
+    this.exitCode = await exited;
+    this.stdout = "";
+    this.stderr = stderr;
   }
 }
 

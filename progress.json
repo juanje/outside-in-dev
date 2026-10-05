@@ -49,6 +49,10 @@
         {
           "name": "Show without a feature ID prints its usage",
           "bdd": "pass"
+        },
+        {
+          "name": "Closing the status output after the first chunk leaves no error output",
+          "bdd": "pass"
         }
       ]
     },
