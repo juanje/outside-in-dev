@@ -119,6 +119,7 @@ const FEATURE_ID_PATTERN = /^FR-[A-Z][A-Z0-9]*-\d{2,3}$/;
 const FEATURE_STATUSES = ["pending", "in_progress", "done"];
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
+const SCENARIO_FIELDS = ["name", "bdd"];
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -137,7 +138,7 @@ function unknownFields(object: object, allowed: string[], path: string): string[
 function validateScenario(scenario: unknown, path: string): string[] {
   if (!isObject(scenario)) return [notAnObject(path)];
   const { name, bdd } = scenario as ScenarioProgress;
-  const violations: string[] = [];
+  const violations = unknownFields(scenario, SCENARIO_FIELDS, `${path}.`);
   if (typeof name !== "string") {
     violations.push(`${path}.name: wrong type (expected string)`);
   } else if (name === "") {
