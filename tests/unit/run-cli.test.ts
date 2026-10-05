@@ -186,3 +186,27 @@ describe("runCli progress scenario", () => {
     expect(readProgress().features[1].scenarios[0]).toEqual({ name: "Beta works", bdd: "pass" });
   });
 });
+
+describe("runCli progress done", () => {
+  const FINISHED = {
+    id: "FR-X-02",
+    title: "Beta",
+    status: "in_progress",
+    cycle_step: "quality_gate",
+    scenarios: [{ name: "Beta works", bdd: "pass" }],
+  };
+
+  it("marks the feature done and clears the focus when it was focused", () => {
+    writeProgress({ current_focus: "FR-X-02", features: [FINISHED] });
+    const result = run(["progress", "done", "FR-X-02"]);
+    expect(result.exitCode).toBe(0);
+    const progress = readProgress();
+    expect(progress.current_focus).toBeNull();
+    expect(progress.features[0]).toEqual({
+      id: "FR-X-02",
+      title: "Beta",
+      status: "done",
+      scenarios: [{ name: "Beta works", bdd: "pass" }],
+    });
+  });
+});

@@ -9,3 +9,4 @@ One row per FR. "Built with": `claude-code` or `oid run`. Health delta: change i
 | FR-PROG-03 | claude-code | 0 | 0 | — | — | — | focus never changes status |
 | FR-PROG-04 | claude-code | 0 | 0 | — | — | — | transition table; pending starts with select |
 | FR-PROG-05 | claude-code | 0 | 0 | — | — | — | scenario upserts bdd status; pending features refused |
+| FR-PROG-06 | claude-code | 0 | 0 | — | — | — | done requires all scenarios passing; clears focus |
