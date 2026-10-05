@@ -200,4 +200,61 @@ export default defineConfig({
     expect(stdout).toContain(".outside-in.json");
     expect(stdout).toContain(".gitignore");
   });
+
+  it("creates progress.json with every FR of SPEC.md as a pending feature, in order", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject(
+      "SPEC.md",
+      "### NFR-01: Speed\n\nFast.\n\n### FR-A-02: Second\n\nText.\n\n### FR-A-01: First\n\nText.\n",
+    );
+    const { exitCode } = runInit();
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual({
+      current_focus: null,
+      features: [
+        { id: "FR-A-02", title: "Second", status: "pending" },
+        { id: "FR-A-01", title: "First", status: "pending" },
+      ],
+    });
+  });
+
+  it("leaves an existing progress.json untouched and says so", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n");
+    const existing = '{ "current_focus": null, "features": [] }\n';
+    writeProject("progress.json", existing);
+    const { exitCode, stdout } = runInit();
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(existing);
+    expect(stdout).toContain("progress.json already exists");
+  });
+
+  it("creates no progress.json and says so when there is no SPEC.md", () => {
+    writeProject("tsconfig.json", "{}");
+    const { exitCode, stdout } = runInit();
+    expect(exitCode).toBe(0);
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+    expect(stdout).toContain("SPEC.md not found");
+  });
+
+  it("reports a duplicate FR id, creates no progress.json and keeps the configuration", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n\n### FR-A-01: Again\n\nText.\n");
+    const { exitCode, stderr } = runInit();
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("FR-A-01");
+    expect(stderr).toContain("duplicate ID");
+    expect(stderr).toContain(".outside-in.json was written");
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+    expect(readConfig().stack).toBe("typescript");
+  });
+
+  it("reports an empty FR title and creates no progress.json", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject("SPEC.md", "### FR-A-01:\n\nText.\n");
+    const { exitCode, stderr } = runInit();
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("FR-A-01: empty title");
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+  });
 });
