@@ -299,7 +299,45 @@
     {
       "id": "FR-CHECK-03",
       "title": "Check progress consistency",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A focus on a feature that is not in progress is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A focus on a feature that is not tracked is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A done feature with a scenario that does not pass is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A started feature that no feature file tags is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is only selected needs no feature file yet",
+          "bdd": "pass"
+        },
+        {
+          "name": "A recorded scenario that no feature file contains is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A recorded scenario that belongs to another requirement is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An invalid progress file is reported instead of crashing",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project fixed to be consistent reports no violations",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-CHECK-04",

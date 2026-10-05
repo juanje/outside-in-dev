@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkTraceability } from "../../src/artifacts/traceability.js";
+import { checkTraceability, listScenarios } from "../../src/artifacts/traceability.js";
 
 describe("checkTraceability", () => {
   it("reports a scenario that has no tags at all", () => {
@@ -45,5 +45,27 @@ describe("checkTraceability", () => {
   it("counts a requirement tag inherited from a Rule", () => {
     const text = ["Feature: Login", "", "  @FR-X-01", "  Rule: Credentials", "", "    Scenario: Rule login"].join("\n");
     expect(checkTraceability([{ path: "features/login.feature", text }], ["FR-X-01"])).toEqual([]);
+  });
+});
+
+describe("listScenarios", () => {
+  it("lists every scenario with its effective tags: Feature, Rule and its own", () => {
+    const text = [
+      "@FR-X-01",
+      "Feature: Login",
+      "",
+      "  @wip",
+      "  Scenario: Direct login",
+      "",
+      "  @FR-X-02",
+      "  Rule: Credentials",
+      "",
+      "    @smoke",
+      "    Scenario: Rule login",
+    ].join("\n");
+    expect(listScenarios([{ path: "features/login.feature", text }])).toEqual([
+      { file: "features/login.feature", name: "Direct login", tags: ["@FR-X-01", "@wip"] },
+      { file: "features/login.feature", name: "Rule login", tags: ["@FR-X-01", "@FR-X-02", "@smoke"] },
+    ]);
   });
 });

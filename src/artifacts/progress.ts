@@ -29,7 +29,13 @@ export function loadProgress(cwd: string): Progress {
   if (!existsSync(path)) {
     throw new ProgressError(`${PROGRESS_FILE} not found in ${cwd}`);
   }
-  const document: unknown = JSON.parse(readFileSync(path, "utf8"));
+  let document: unknown;
+  try {
+    document = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new ProgressError(`${PROGRESS_FILE} is not valid JSON: ${error.message}`);
+  }
   requireValid(document);
   return document as Progress;
 }
