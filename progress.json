@@ -582,6 +582,18 @@
         {
           "name": "An equivalent .gitignore line without the slash is reported as already ignoring",
           "bdd": "pass"
+        },
+        {
+          "name": "A tsconfig.json with line and block comments is read",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tsconfig.json with trailing commas is read",
+          "bdd": "pass"
+        },
+        {
+          "name": "A comment-like text inside a string of tsconfig.json is kept",
+          "bdd": "pass"
         }
       ]
     },
