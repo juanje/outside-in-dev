@@ -8,7 +8,7 @@ Each phase lists its goal, the work, the exit criteria, and **what changes after
 
 | Phase | Milestone | Status |
 |:--|:--|:--|
-| 0. Repository and design | — | ☐ |
+| 0. Repository and design | — | ☑ |
 | 1. Spikes | — | ☐ |
 | 2. Deterministic core, dogfooded by replacement | M0 | ☐ |
 | 3. Agents and the feature cycle | M1 | ☐ |
@@ -25,7 +25,7 @@ Each phase lists its goal, the work, the exit criteria, and **what changes after
 **Work.**
 
 - [x] Create the `outside-in-dev` repository with `README.md`, `SPEC.md`, `DOMAIN.md`, `DECISIONS.md`, `AGENTS.md`, `CLAUDE.md`, `progress.json`, `docs/METHODOLOGY.md`, `docs/BOOTSTRAP.md` and `docs/design.md`. Add the MIT `LICENSE` file by hand.
-- [ ] Review `SPEC.md` as a human: this is the methodology's design phase, done by hand. Reorder, merge or drop FRs; check the MVP, the scope boundaries and the NFRs.
+- [x] Review `SPEC.md` as a human: this is the methodology's design phase, done by hand. Reorder, merge or drop FRs; check the MVP, the scope boundaries and the NFRs.
 - [x] Scaffold the project (`chore:` commit, no behaviour):
   - `package.json`: name `outside-in-dev`, `"type": "module"`, `"license": "MIT"`, `"engines": { "node": ">=22.19.0" }` (what `@earendil-works/pi-coding-agent@1.0.3` declares), `bin: { "oid": "dist/cli.js" }`, scripts `build` (`tsc`), `typecheck` (`tsc --noEmit`), `test:unit` (`vitest run`), `test:bdd` (`NODE_OPTIONS="--import tsx" cucumber-js`), `test` (both).
   - Dependencies pinned exactly: `@earendil-works/pi-coding-agent`, `pi-ai`, `pi-agent-core`, `pi-tui` at `1.0.3`. Dev: `typescript@7.0.2`, `tsx@4.23.15`, `vitest@3.2.7`, `@cucumber/cucumber@13.3.0`. Stay on vitest 3: the failure shapes in `DOMAIN.md` were observed on vitest 3, and the npm `latest` tag is vitest 5.
