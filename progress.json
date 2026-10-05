@@ -598,6 +598,34 @@
         {
           "name": "A specification found only in specs/ moves the progress file and the design documents there",
           "bdd": "pass"
+        },
+        {
+          "name": "The include entries that point at tests are left out of the source paths and reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A directory holding the unit tests or the scenarios is a test root",
+          "bdd": "pass"
+        },
+        {
+          "name": "The src directory is never a test root, but test files in it are left out",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without any entry left the source paths fall back to src",
+          "bdd": "pass"
+        },
+        {
+          "name": "A shared directory at the root becomes the shared paths",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tsconfig.json include that is not a list of strings is still reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a shared directory the shared paths are empty",
+          "bdd": "pass"
         }
       ]
     },

@@ -77,6 +77,51 @@ describe("oid init", () => {
     expect(readConfig().stack).toBe("typescript");
   });
 
+  it("takes a shared/ directory at the root as the shared paths", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "shared"));
+    runInit();
+    expect(readConfig().paths.shared).toEqual(["shared/**"]);
+  });
+
+  it("leaves the include entries of a conventional test directory out of the source paths", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts"] }));
+    runInit();
+    expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
+  });
+
+  it("falls back to src/** when every include entry points at tests", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["tests/**/*.ts"] }));
+    runInit();
+    expect(readConfig().paths.source).toEqual(["src/**"]);
+  });
+
+  it("leaves the include entries with a test file pattern out of the source paths", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "src/**/*.test.ts", "lib/**/*.spec.tsx"] }));
+    runInit();
+    expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
+  });
+
+  it("treats the directory of the detected test paths as a test directory", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["lib/**/*.ts", "checks/**/*.ts"] }));
+    writeProject("vitest.config.ts", 'export default { test: { include: ["checks/**/*.test.ts"] } };');
+    runInit();
+    expect(readConfig().paths.source).toEqual(["lib/**/*.ts"]);
+  });
+
+  it("never treats src as a test directory, even when the unit tests live in it", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts"] }));
+    writeProject("vitest.config.ts", 'export default { test: { include: ["src/**/*.test.ts"] } };');
+    runInit();
+    expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
+  });
+
+  it("lists the include entries it left out of the source paths as tests", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts", "lib/**/*.spec.ts"] }));
+    const { stdout } = runInit();
+    expect(stdout).toContain("left out of paths.source as tests: tests/**/*.ts, lib/**/*.spec.ts");
+  });
+
   it("takes the source paths from the include entries of tsconfig.json", () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["lib/**/*.ts", "app/**/*.ts"] }));
     runInit();
