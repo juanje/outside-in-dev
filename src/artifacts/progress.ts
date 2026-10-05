@@ -48,9 +48,9 @@ export function requireValid(document: unknown): void {
   }
 }
 
-export function saveProgress(cwd: string, progress: Progress): void {
+export function saveProgress(cwd: string, progress: Progress, file: string = PROGRESS_FILE): void {
   requireValid(progress);
-  writeFileAtomic(join(cwd, PROGRESS_FILE), `${JSON.stringify(progress, null, 2)}\n`);
+  writeFileAtomic(join(cwd, file), `${JSON.stringify(progress, null, 2)}\n`);
 }
 
 export function requireFeature(progress: Progress, id: string | undefined): FeatureProgress {

@@ -77,3 +77,9 @@ Then(
     assert.ok(!(field in scenario), `scenario "${name}" of ${id} still has the field ${field}`);
   },
 );
+
+Then("the file {string} lists the features {string}", function (this: OidWorld, path: string, ids: string) {
+  assert.ok(existsSync(this.path(path)), `${path} does not exist; stdout: ${this.stdout}; stderr: ${this.stderr}`);
+  const document = JSON.parse(readFileSync(this.path(path), "utf8")) as { features: { id: string }[] };
+  assert.deepEqual(document.features.map((f) => f.id), ids.split(",").map((id) => id.trim()));
+});

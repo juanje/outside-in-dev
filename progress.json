@@ -594,6 +594,10 @@
         {
           "name": "A comment-like text inside a string of tsconfig.json is kept",
           "bdd": "pass"
+        },
+        {
+          "name": "A specification found only in specs/ moves the progress file and the design documents there",
+          "bdd": "pass"
         }
       ]
     },
@@ -624,6 +628,18 @@
         },
         {
           "name": "An empty requirement title prevents the progress file",
+          "bdd": "pass"
+        },
+        {
+          "name": "The progress file is created beside a specification kept in specs/",
+          "bdd": "pass"
+        },
+        {
+          "name": "An existing progress file beside a specification kept in specs/ is left untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "A specification kept in specs/ that cannot become a progress file is named with its path",
           "bdd": "pass"
         }
       ]
