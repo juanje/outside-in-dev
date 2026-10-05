@@ -664,6 +664,18 @@
         {
           "name": "Ids are not checked against SPEC.md and the progress file is not rebuilt from it",
           "bdd": "pass"
+        },
+        {
+          "name": "A converted progress with a feature id that is not an FR id leaves the project untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "A converted progress with a feature without a title leaves the project untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "No .gitignore is created when the converted progress is invalid",
+          "bdd": "pass"
         }
       ]
     },
