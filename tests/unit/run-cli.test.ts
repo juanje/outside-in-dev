@@ -210,3 +210,17 @@ describe("runCli progress done", () => {
     });
   });
 });
+
+describe("runCli check", () => {
+  it("prints the requirement ID and the kind of each SPEC.md violation", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\n### FR-X-02: Beta\n\nDoes beta.\n");
+    const result = run(["check"]);
+    expect(result.stdout).toMatch(/FR-X-01.*empty body/);
+    expect(result.stdout).not.toContain("FR-X-02");
+  });
+
+  it("says there are no violations when SPEC.md is clean", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    expect(run(["check"]).stdout).toContain("no violations");
+  });
+});
