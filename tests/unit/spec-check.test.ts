@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readRequirementIds, validateSpec } from "../../src/artifacts/spec.js";
+import { parseRequirements, readRequirementIds, validateSpec } from "../../src/artifacts/spec.js";
 
 describe("validateSpec", () => {
   it("reports a requirement ID that is defined twice", () => {
@@ -48,5 +48,12 @@ describe("readRequirementIds", () => {
     const dir = mkdtempSync(join(tmpdir(), "oid-spec-"));
     writeFileSync(join(dir, "SPEC.md"), ["### FR-X-01: Alpha", "", "Does alpha.", "", "### NFR-01: Speed", "", "Is fast."].join("\n"));
     expect(readRequirementIds(dir)).toEqual(["FR-X-01"]);
+  });
+});
+
+describe("parseRequirements", () => {
+  it("recognises a requirement id with a one-letter lower-case suffix", () => {
+    const requirements = parseRequirements(["### FR-X-01b: Alpha b", "", "Does alpha b."].join("\n"));
+    expect(requirements.map((requirement) => requirement.id)).toEqual(["FR-X-01b"]);
   });
 });

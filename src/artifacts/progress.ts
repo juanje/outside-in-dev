@@ -115,7 +115,9 @@ export function completeFeature(feature: FeatureProgress): FeatureProgress {
 
 const TOP_LEVEL_FIELDS = ["current_focus", "features"];
 const CYCLE_STEPS = ["select", "bdd_red", "tdd_red", "tdd_green", "refactor", "quality_gate"];
-const FEATURE_ID_PATTERN = /^FR-[A-Z][A-Z0-9]*-\d{2,3}$/;
+/** The FR id pattern (ADR-026), shared with the SPEC.md parser. */
+export const FR_ID_SOURCE = "FR-[A-Z][A-Z0-9]*-\\d{2,3}[a-z]?";
+const FEATURE_ID_PATTERN = new RegExp(`^${FR_ID_SOURCE}$`);
 const FEATURE_STATUSES = ["pending", "in_progress", "done"];
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];

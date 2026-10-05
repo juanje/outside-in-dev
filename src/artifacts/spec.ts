@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ProgressError } from "./progress.js";
+import { FR_ID_SOURCE, ProgressError } from "./progress.js";
 
 export const SPEC_FILE = "SPEC.md";
 
-const REQUIREMENT_HEADING = /^### (FR-[A-Z][A-Z0-9]*-\d{2,3}|NFR-\d{2,3}):(.*)$/;
+const REQUIREMENT_HEADING = new RegExp(`^### (${FR_ID_SOURCE}|NFR-\\d{2,3}):(.*)$`);
 
 export function readRequirementIds(cwd: string): string[] {
   const path = join(cwd, SPEC_FILE);
