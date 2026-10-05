@@ -611,7 +611,53 @@
     {
       "id": "FR-INIT-03",
       "title": "Import progress from another schema",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Blocked and deferred features become pending and are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "The cycle step of an in-progress feature is carried over or converted",
+          "bdd": "pass"
+        },
+        {
+          "name": "Done features lose their cycle step silently unless it was something else",
+          "bdd": "pass"
+        },
+        {
+          "name": "Pending features lose their cycle step and scenarios, which are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Unit test counts are dropped and counted once, other scenario fields are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Fields the article does not define are dropped and listed with their value",
+          "bdd": "pass"
+        },
+        {
+          "name": "The focus is kept when it points to an in-progress feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "The focus is cleared when its feature is no longer in progress",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file already in the current schema is left unchanged",
+          "bdd": "pass"
+        },
+        {
+          "name": "Importing without a progress file is an error and writes nothing",
+          "bdd": "pass"
+        },
+        {
+          "name": "Ids are not checked against SPEC.md and the progress file is not rebuilt from it",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-01",

@@ -58,3 +58,22 @@ Then("the file {string} is unchanged", function (this: OidWorld, path: string) {
   assert.notEqual(original, undefined, `no fixture was written for ${path}`);
   assert.equal(readFileSync(this.path(path), "utf8"), original);
 });
+
+function importedFeature(world: OidWorld, id: string): Record<string, unknown> {
+  const found = world.loadProgress().features.find((f) => f.id === id);
+  assert.ok(found, `feature ${id} is not in progress.json`);
+  return found as unknown as Record<string, unknown>;
+}
+
+Then("the feature {string} has no field {string}", function (this: OidWorld, id: string, field: string) {
+  assert.ok(!(field in importedFeature(this, id)), `feature ${id} still has the field ${field}`);
+});
+
+Then(
+  "the scenario {string} of the feature {string} has no field {string}",
+  function (this: OidWorld, name: string, id: string, field: string) {
+    const scenario = this.loadProgress().features.find((f) => f.id === id)?.scenarios?.find((s) => s.name === name);
+    assert.ok(scenario, `feature ${id} has no scenario "${name}"`);
+    assert.ok(!(field in scenario), `scenario "${name}" of ${id} still has the field ${field}`);
+  },
+);

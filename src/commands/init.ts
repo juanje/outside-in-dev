@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
-import { ProgressError, PROGRESS_FILE, saveProgress } from "../artifacts/progress.js";
+import { ProgressError, PROGRESS_FILE, saveProgress, validateProgress } from "../artifacts/progress.js";
+import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { detectCommands, withOutsideInIgnored } from "../artifacts/project-setup.js";
 import { parseRequirements, SPEC_FILE, validateSpec } from "../artifacts/spec.js";
@@ -108,7 +109,16 @@ function initialiseProgress(io: CliIo): void {
   }
 }
 
-export function runInit(io: CliIo): number {
+const ALREADY_CURRENT = "current";
+
+/** Converts the progress.json of the project to the current schema without writing it. */
+function convertExistingProgress(io: CliIo): Conversion | typeof ALREADY_CURRENT {
+  const document = readJson(io.cwd, PROGRESS_FILE);
+  if (document === undefined) throw new ProgressError(`${PROGRESS_FILE} not found in ${io.cwd}`);
+  return validateProgress(document).length === 0 ? ALREADY_CURRENT : convertProgress(document);
+}
+
+export function runInit(io: CliIo, importProgress: boolean): number {
   if (existsSync(join(io.cwd, CONFIG_FILE))) {
     throw new ProgressError(`${CONFIG_FILE} already exists; remove it to run oid init again`);
   }
@@ -116,10 +126,18 @@ export function runInit(io: CliIo): number {
   if (!isTypeScriptProject(io.cwd, manifest)) {
     throw new ProgressError("only TypeScript projects are supported");
   }
+  const imported = importProgress ? convertExistingProgress(io) : undefined;
   const config = parseProjectConfig(detectConfig(io.cwd, manifest));
   writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
   writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(readText(io.cwd, GITIGNORE_FILE)));
-  initialiseProgress(io);
+  if (imported === ALREADY_CURRENT) {
+    io.stdout(`${PROGRESS_FILE} is already in the current schema.\n`);
+  } else if (imported) {
+    saveProgress(io.cwd, imported.progress);
+    imported.notes.forEach((note) => io.stdout(`${note}\n`));
+  } else {
+    initialiseProgress(io);
+  }
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
   io.stdout(`Wrote ${CONFIG_FILE} and added .outside-in/ to ${GITIGNORE_FILE}.\n`);
   return 0;
