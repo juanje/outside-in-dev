@@ -118,7 +118,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 - [ ] Tag and install `v0.3.0`.
 - [x] Run `oid init` on oid itself and review the generated `.outside-in.json`; commit it.
-- [ ] Rehearse `oid init --import-progress` on a **throwaway copy** of Buddy. Note what fails or is lost in the bootstrap log (below); do not commit anything in Buddy.
+- [x] Rehearse `oid init --import-progress` on a **throwaway copy** of Buddy. Note what fails or is lost in the bootstrap log (below); do not commit anything in Buddy.
 
 ### 2.4 Code health — FR-MET-01 … FR-MET-07
 

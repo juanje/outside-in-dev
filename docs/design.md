@@ -1180,7 +1180,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 
 | Command | Function |
 |:--|:--|
-| `oid init [--import-progress]` | Creates `.outside-in.json`, detecting the stack, the paths (from `tsconfig.json`'s `include` and the cucumber and vitest configuration) and the commands (from `package.json`'s scripts). Adds `.outside-in/` to `.gitignore` and initialises `progress.json` from `SPEC.md` if it does not exist. With `--import-progress`, converts a `progress.json` with another schema (below). |
+| `oid init [--import-progress [PATH]]` | Creates `.outside-in.json`, detecting the stack, the paths (from `tsconfig.json`'s `include` and the cucumber and vitest configuration) and the commands (from `package.json`'s scripts). Adds `.outside-in/` to `.gitignore` and initialises `progress.json` from `SPEC.md` if it does not exist. With `--import-progress`, converts a `progress.json` with another schema (below), read from `PATH` or found at `progress.json` or `specs/progress.json`, and writes it beside the spec (`paths.progress`). |
 | `oid spec [--fr ID]` | Interactive Phase 0. |
 | `oid tidy [--scope PATH…] [--max-items N] [--yes]` | Periodic project cleanup (§14.1). |
 | `oid metrics [--since DATE] [--changed]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
