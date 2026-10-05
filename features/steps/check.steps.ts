@@ -48,3 +48,8 @@ Then("every JSON violation message is a line printed by {string}", function (thi
     assert.ok(lines.includes(message), `"${message}" is not a line of the plain output:\n${lines.join("\n")}`);
   }
 });
+
+Given("a SPEC.md with {int} requirements sharing one ID", function (this: OidWorld, count: number) {
+  const section = "### FR-DUP-01: Same title\n\nThe tool does the same thing.\n\n";
+  this.write("SPEC.md", section.repeat(count));
+});
