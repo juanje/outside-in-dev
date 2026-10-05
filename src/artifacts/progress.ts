@@ -46,7 +46,8 @@ export function requireFeature(progress: Progress, id: string | undefined): Feat
   return feature;
 }
 
-const SCENARIO_STATUSES = ["pass", "fail", "pending"];
+const PASSING = "pass";
+const SCENARIO_STATUSES = [PASSING, "fail", "pending"];
 
 const START_STEP = "select";
 
@@ -81,4 +82,17 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
     ? existing.map((s) => (s.name === name ? { name, bdd } : s))
     : [...existing, { name, bdd }];
   return { ...feature, scenarios };
+}
+
+/** Returns the feature marked done, without a cycle step; the input is not modified. */
+export function completeFeature(feature: FeatureProgress): FeatureProgress {
+  if (!feature.scenarios?.length) {
+    throw new ProgressError(`${feature.id} has no scenarios and cannot be marked done`);
+  }
+  const failing = feature.scenarios.filter((s) => s.bdd !== PASSING).map((s) => `"${s.name}"`);
+  if (failing.length > 0) {
+    throw new ProgressError(`${feature.id} cannot be marked done: scenarios not passing: ${failing.join(", ")}`);
+  }
+  const { cycle_step: _step, ...rest } = feature;
+  return { ...rest, status: "done" };
 }

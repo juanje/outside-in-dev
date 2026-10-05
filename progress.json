@@ -139,7 +139,33 @@
     {
       "id": "FR-PROG-06",
       "title": "Mark a feature done",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A feature whose scenarios all pass is marked done",
+          "bdd": "pass"
+        },
+        {
+          "name": "Marking the focused feature done clears the focus",
+          "bdd": "pass"
+        },
+        {
+          "name": "Marking another feature done keeps the focus",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature without scenarios is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature with a scenario that does not pass is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is not tracked is refused",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-07",

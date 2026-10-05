@@ -150,3 +150,7 @@ Then(
 Then("the feature {string} has {int} scenarios", function (this: OidWorld, id: string, count: number) {
   assert.equal(feature(this.loadProgress(), id).scenarios?.length ?? 0, count);
 });
+
+Then("no feature is focused in the progress file", function (this: OidWorld) {
+  assert.equal(this.loadProgress().current_focus, null);
+});

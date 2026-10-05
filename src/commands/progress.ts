@@ -1,4 +1,4 @@
-import { advanceStep, loadProgress, recordScenario, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, completeFeature, loadProgress, recordScenario, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -50,6 +50,13 @@ function recordFeatureScenario(progress: Progress, io: CliIo, status: string, id
   saveProgress(io.cwd, progress);
 }
 
+function doneFeature(progress: Progress, io: CliIo, id: string): void {
+  const feature = requireFeature(progress, id);
+  progress.features[progress.features.indexOf(feature)] = completeFeature(feature);
+  if (progress.current_focus === id) progress.current_focus = null;
+  saveProgress(io.cwd, progress);
+}
+
 function showStatus(progress: Progress, io: CliIo): void {
   for (const feature of progress.features) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
@@ -65,6 +72,7 @@ export function runProgress(args: string[], io: CliIo): void {
   else if (command === "add") addFeature(progress, io, operands[0]!, operands[1]!);
   else if (command === "focus") focusFeature(progress, io, operands[0]!);
   else if (command === "step") stepFeature(progress, io, operands[0]!, operands[1]!);
+  else if (command === "done") doneFeature(progress, io, operands[0]!);
   else if (command === "scenario") {
     const [status, id, name] = operands;
     recordFeatureScenario(progress, io, status!, id!, name!);
