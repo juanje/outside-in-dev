@@ -4,17 +4,14 @@ The procedure for agents working on this repository while oid is being bootstrap
 
 ## Session start
 
-1. Read the current progress:
-   - If `oid progress` is installed (from FR-PROG on): `oid progress current`.
-   - Before that: read `progress.json`.
-2. If the user names a feature: make sure it is tracked and focused (`oid progress add` / `focus`, or edit `progress.json` by hand before FR-PROG exists).
+1. Read the current progress: `oid progress current` (and `oid progress status` for the whole list).
+2. If the user names a feature: make sure it is tracked and focused (`oid progress add` / `focus`; a pending feature starts with `oid progress step FR-… select`).
 3. If no feature is named and there is no focus: ask.
 4. Continue the focused feature from its `cycle_step`.
 
 ## Updating progress
 
-- From FR-PROG on: only through `oid progress`. Never edit `progress.json` by hand.
-- Before FR-PROG exists: edit `progress.json` by hand, touching only the article's fields (`current_focus`, `status`, `cycle_step`, `scenarios[].name`, `scenarios[].bdd`). No notes, no extra fields.
+Only through the installed `oid progress` command (`add`, `focus`, `step`, `scenario`, `done`). Never edit `progress.json` by hand, and never run oid from this working tree.
 
 Update it after every step transition.
 
@@ -69,7 +66,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 ### 7. Done
 
-- Mark every scenario `pass` and the feature done (`oid progress done FR-…` from FR-PROG on; it refuses if any scenario is not passing).
+- Mark every scenario `pass` and the feature done (`oid progress done FR-…`; it refuses if any scenario is not passing).
 - Commit: `feat(<area>): FR-AREA-NN <title>`.
 
 ## Do not
