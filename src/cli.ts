@@ -1,2 +1,8 @@
-// Entry compiled to dist/cli.js. No behaviour yet.
-export {};
+#!/usr/bin/env node
+import { runCli } from "./run-cli.js";
+
+process.exitCode = runCli(process.argv.slice(2), {
+  cwd: process.cwd(),
+  stdout: (text) => process.stdout.write(text),
+  stderr: (text) => process.stderr.write(text),
+});
