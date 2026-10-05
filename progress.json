@@ -505,7 +505,77 @@
     {
       "id": "FR-INIT-01",
       "title": "Detect the project setup",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A TypeScript project with no special configuration gets the defaults",
+          "bdd": "pass"
+        },
+        {
+          "name": "The configuration file is two-space JSON with a trailing newline",
+          "bdd": "pass"
+        },
+        {
+          "name": "The output says what was detected and written",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project is recognised as TypeScript by its dependencies alone",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project that is not TypeScript is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Source paths come from the include entries of tsconfig.json",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tsconfig.json that is not plain JSON is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Unit test paths come from the vitest configuration",
+          "bdd": "pass"
+        },
+        {
+          "name": "Feature and step paths come from the cucumber configuration",
+          "bdd": "pass"
+        },
+        {
+          "name": "Commands come from the scripts of package.json",
+          "bdd": "pass"
+        },
+        {
+          "name": "Biome scripts are recognised as formatter and linter",
+          "bdd": "pass"
+        },
+        {
+          "name": "A script that only chains other scripts is not chosen over the one that runs the tool",
+          "bdd": "pass"
+        },
+        {
+          "name": "Commands fall back to the standard invocations when no script matches",
+          "bdd": "pass"
+        },
+        {
+          "name": "The .outside-in/ directory is added to a new .gitignore",
+          "bdd": "pass"
+        },
+        {
+          "name": "The .outside-in/ directory is appended to an existing .gitignore",
+          "bdd": "pass"
+        },
+        {
+          "name": "An equivalent .gitignore line is not duplicated",
+          "bdd": "pass"
+        },
+        {
+          "name": "An existing configuration file is refused and nothing is changed",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-INIT-02",
