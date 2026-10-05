@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
-import { ProgressError, PROGRESS_FILE, saveProgress, validateProgress } from "../artifacts/progress.js";
+import { ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
 import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { detectCommands, isOutsideInIgnored, withOutsideInIgnored } from "../artifacts/project-setup.js";
@@ -115,7 +115,10 @@ const ALREADY_CURRENT = "current";
 function convertExistingProgress(io: CliIo): Conversion | typeof ALREADY_CURRENT {
   const document = readJson(io.cwd, PROGRESS_FILE);
   if (document === undefined) throw new ProgressError(`${PROGRESS_FILE} not found in ${io.cwd}`);
-  return validateProgress(document).length === 0 ? ALREADY_CURRENT : convertProgress(document);
+  if (validateProgress(document).length === 0) return ALREADY_CURRENT;
+  const conversion = convertProgress(document);
+  requireValid(conversion.progress);
+  return conversion;
 }
 
 export function runInit(io: CliIo, importProgress: boolean): number {

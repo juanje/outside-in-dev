@@ -41,7 +41,7 @@ export function loadProgress(cwd: string): Progress {
   return document as Progress;
 }
 
-function requireValid(document: unknown): void {
+export function requireValid(document: unknown): void {
   const violations = validateProgress(document);
   if (violations.length > 0) {
     throw new ProgressError(`${PROGRESS_FILE} is invalid:\n${violations.map((v) => `  ${v}`).join("\n")}`);

@@ -35,6 +35,18 @@ describe("oid init --import-progress", () => {
     expect(existsSync(join(dir, ".gitignore"))).toBe(false);
   });
 
+  it("reports the violations of an invalid converted progress and writes nothing", () => {
+    const original = JSON.stringify({ current_focus: null, features: [{ id: "FR-1", title: "A", status: "pending" }] });
+    writeFileSync(join(dir, "progress.json"), original);
+    writeFileSync(join(dir, ".gitignore"), "dist/\n");
+    const { exitCode, stderr } = runImport();
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("features[0].id");
+    expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
+    expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe("dist/\n");
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(original);
+  });
+
   it("converts the progress file in place, lists what changed and still writes the configuration", () => {
     writeFileSync(
       join(dir, "progress.json"),
