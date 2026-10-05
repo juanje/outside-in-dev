@@ -26,10 +26,15 @@ export function detectCommands(scripts: Record<string, string>): DetectedCommand
 const OUTSIDE_IN_ENTRY = ".outside-in/";
 const EQUIVALENT_ENTRIES = [OUTSIDE_IN_ENTRY, ".outside-in"];
 
+/** Whether the .gitignore already has a line equivalent to `.outside-in/`. */
+export function isOutsideInIgnored(gitignore: string | undefined): boolean {
+  return gitignore !== undefined && gitignore.split("\n").some((line) => EQUIVALENT_ENTRIES.includes(line.trim()));
+}
+
 /** The content of .gitignore with `.outside-in/` ignored; unchanged when an equivalent line is already there. */
 export function withOutsideInIgnored(gitignore: string | undefined): string {
   if (gitignore === undefined || gitignore === "") return `${OUTSIDE_IN_ENTRY}\n`;
-  if (gitignore.split("\n").some((line) => EQUIVALENT_ENTRIES.includes(line.trim()))) return gitignore;
+  if (isOutsideInIgnored(gitignore)) return gitignore;
   const separator = gitignore.endsWith("\n") ? "" : "\n";
   return `${gitignore}${separator}${OUTSIDE_IN_ENTRY}\n`;
 }

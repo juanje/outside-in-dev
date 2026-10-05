@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withOutsideInIgnored } from "../../src/artifacts/project-setup.js";
+import { isOutsideInIgnored, withOutsideInIgnored } from "../../src/artifacts/project-setup.js";
 
 describe("withOutsideInIgnored", () => {
   it("creates the content of a new .gitignore", () => {
@@ -14,5 +14,17 @@ describe("withOutsideInIgnored", () => {
   it.each([".outside-in/", ".outside-in"])("leaves a .gitignore that already has %s unchanged", (line) => {
     const gitignore = `node_modules/\n${line}\ndist/\n`;
     expect(withOutsideInIgnored(gitignore)).toBe(gitignore);
+  });
+});
+
+describe("isOutsideInIgnored", () => {
+  it.each([".outside-in/", ".outside-in", "  .outside-in/  "])("recognises the equivalent line %j", (line) => {
+    expect(isOutsideInIgnored(`dist/\n${line}\n`)).toBe(true);
+  });
+
+  it("is false for a missing or unrelated .gitignore", () => {
+    expect(isOutsideInIgnored(undefined)).toBe(false);
+    expect(isOutsideInIgnored("")).toBe(false);
+    expect(isOutsideInIgnored("dist/\n.outside-in-old/\n")).toBe(false);
   });
 });
