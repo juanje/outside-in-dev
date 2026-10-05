@@ -99,8 +99,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.1.0`.
-- [ ] `docs/METHODOLOGY.md`: remove the "before FR-PROG exists" instructions; progress is updated only through `oid progress`.
+- [x] Tag and install `v0.1.0`.
+- [x] `docs/METHODOLOGY.md`: remove the "before FR-PROG exists" instructions; progress is updated only through `oid progress`.
 
 ### 2.2 Consistency checks — FR-CHECK-01 … FR-CHECK-04
 
