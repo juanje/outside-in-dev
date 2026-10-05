@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
 import { ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
 import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
@@ -31,16 +32,29 @@ function asObject(value: unknown): JsonObject | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonObject) : undefined;
 }
 
+/** Parses the text of a project file: tsconfig.json as JSON with comments and trailing commas, the rest as strict JSON. */
+function parseProjectJson(name: string, text: string): unknown {
+  if (name !== TSCONFIG_FILE) {
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      throw new ProgressError(`${name} is not valid JSON: ${error.message}`);
+    }
+  }
+  const errors: ParseError[] = [];
+  const document: unknown = parseJsonc(text, errors, { allowTrailingComma: true });
+  if (errors.length > 0) {
+    const { error, offset } = errors[0]!;
+    throw new ProgressError(`${name} is not valid JSON: ${printParseErrorCode(error)} at offset ${offset}`);
+  }
+  return document;
+}
+
 /** Reads a JSON file of the project; undefined when it does not exist. The content is not trusted. */
 function readJson(cwd: string, name: string): unknown {
   const text = readText(cwd, name);
-  if (text === undefined) return undefined;
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    throw new ProgressError(`${name} is not valid JSON: ${error.message}`);
-  }
+  return text === undefined ? undefined : parseProjectJson(name, text);
 }
 
 function readText(cwd: string, name: string): string | undefined {

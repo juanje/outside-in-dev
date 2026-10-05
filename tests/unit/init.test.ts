@@ -83,6 +83,13 @@ describe("oid init", () => {
     expect(readConfig().paths.source).toEqual(["lib/**/*.ts", "app/**/*.ts"]);
   });
 
+  it("reads a tsconfig.json with comments and trailing commas", () => {
+    writeProject("tsconfig.json", '{\n // c\n "compilerOptions": {}, /* b */\n "include": ["lib/**/*.ts",],\n}');
+    const { exitCode } = runInit();
+    expect(exitCode).toBe(0);
+    expect(readConfig().paths.source).toEqual(["lib/**/*.ts"]);
+  });
+
   it("reports a tsconfig.json that is not plain JSON and writes nothing", () => {
     writeProject("tsconfig.json", '{ "include": ["src/**"]');
     const { exitCode, stderr } = runInit();
