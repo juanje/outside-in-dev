@@ -4,7 +4,33 @@
     {
       "id": "FR-PROG-01",
       "title": "Show progress",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Current shows the focused feature with its scenarios",
+          "bdd": "pass"
+        },
+        {
+          "name": "Current says so when no feature is focused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status lists every tracked feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "Show prints one feature with its scenarios and their status",
+          "bdd": "pass"
+        },
+        {
+          "name": "Show fails for a feature that is not tracked",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing progress file is reported",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-02",
