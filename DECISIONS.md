@@ -154,3 +154,10 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Context.** oid should be built with its own methodology and used on itself as early as possible, but it does not exist yet. A separate proof of concept of prompt-driven methodology would repeat what Buddy already proved. The real unknowns are technical: the Pi sandbox, Jev on real traces, `pi-tui`.
 **Decision.** Build oid with Claude Code following the methodology through `AGENTS.md`, after time-boxed spikes for the technical unknowns. Order the requirements so that each deterministic piece replaces a manual part of the process as soon as it exists (progress, checks, metrics, Red/Green verification). Switch to `oid run` on small requirements once the inner loop works. Keep the manual path available until the decision layer is stable, and always run oid from an installed build, never from the code it is changing. See `docs/BOOTSTRAP.md`.
 **Consequences.** Dogfooding starts in the first week. A bug in oid cannot block its own fix.
+
+## ADR-025: `oid progress done` checks only what the progress file can prove
+
+**Context.** FR-PROG-06 lets `oid progress done` mark a feature done when it has at least one scenario and every scenario is in `pass`. `docs/design.md` §4.4 adds three more conditions: the feature is at `cycle_step: quality_gate`, the quality gate has passed, and every scenario went through at least one TDD cycle. The last two can only be checked from `.outside-in/session.json`, which arrives with the feature cycle (FR-RUN).
+**Options.** Require `quality_gate` now and the rest later; add all three together once `session.json` exists.
+**Decision.** Until the feature cycle exists, `oid progress done` enforces FR-PROG-06 only. The `quality_gate` step, the passed gate and the per-scenario TDD cycle are added together, with `session.json`, as part of the feature cycle (FR-RUN-06, FR-RUN-07).
+**Consequences.** While bootstrapping, a feature can be marked done from any step; the quality gate before every commit (`AGENTS.md`), the pre-commit `oid check` and CI hold the line meanwhile. This is not reopened before FR-RUN.
