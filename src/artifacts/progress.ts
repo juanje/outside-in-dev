@@ -120,10 +120,33 @@ const FEATURE_STATUSES = ["pending", "in_progress", "done"];
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
 
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function notAnObject(path: string): string {
+  return `${path}: wrong type (expected object)`;
+}
+
 function unknownFields(object: object, allowed: string[], path: string): string[] {
   return Object.keys(object)
     .filter((field) => !allowed.includes(field))
     .map((field) => `${path}${field}: unknown field`);
+}
+
+function validateScenario(scenario: unknown, path: string): string[] {
+  if (!isObject(scenario)) return [notAnObject(path)];
+  const { name, bdd } = scenario as ScenarioProgress;
+  const violations: string[] = [];
+  if (typeof name !== "string") {
+    violations.push(`${path}.name: wrong type (expected string)`);
+  } else if (name === "") {
+    violations.push(`${path}.name: must not be empty`);
+  }
+  if (!SCENARIO_STATUSES.includes(bdd)) {
+    violations.push(`${path}.bdd: invalid value "${bdd}" (allowed: ${SCENARIO_STATUSES.join(", ")})`);
+  }
+  return violations;
 }
 
 function validateFeature(feature: FeatureProgress, path: string): string[] {
@@ -151,20 +174,20 @@ function validateFeature(feature: FeatureProgress, path: string): string[] {
   if ("status" in feature && !FEATURE_STATUSES.includes(feature.status)) {
     violations.push(`${path}.status: invalid value "${feature.status}" (allowed: ${FEATURE_STATUSES.join(", ")})`);
   }
-  (feature.scenarios ?? []).forEach((scenario, index) => {
-    if (scenario.name === "") violations.push(`${path}.scenarios[${index}].name: must not be empty`);
-    if (!SCENARIO_STATUSES.includes(scenario.bdd)) {
-      violations.push(
-        `${path}.scenarios[${index}].bdd: invalid value "${scenario.bdd}" (allowed: ${SCENARIO_STATUSES.join(", ")})`,
-      );
-    }
-  });
+  if (feature.scenarios !== undefined && !Array.isArray(feature.scenarios)) {
+    violations.push(`${path}.scenarios: wrong type (expected array)`);
+  } else {
+    (feature.scenarios ?? []).forEach((scenario: unknown, index) =>
+      violations.push(...validateScenario(scenario, `${path}.scenarios[${index}]`)),
+    );
+  }
   return violations;
 }
 
 /** Returns one message per schema violation; an empty list means the document is valid. */
 export function validateProgress(document: unknown): string[] {
-  const progress = document as Progress;
+  if (!isObject(document)) return [notAnObject("$")];
+  const progress = document as unknown as Progress;
   const violations = unknownFields(progress, TOP_LEVEL_FIELDS, "");
   if (typeof progress.current_focus !== "string" && progress.current_focus !== null) {
     violations.push("current_focus: wrong type (expected string or null)");
@@ -173,6 +196,9 @@ export function validateProgress(document: unknown): string[] {
     violations.push("features: wrong type (expected array)");
     return violations;
   }
-  progress.features.forEach((feature, index) => violations.push(...validateFeature(feature, `features[${index}]`)));
+  progress.features.forEach((feature: unknown, index) => {
+    const path = `features[${index}]`;
+    violations.push(...(isObject(feature) ? validateFeature(feature as FeatureProgress, path) : [notAnObject(path)]));
+  });
   return violations;
 }

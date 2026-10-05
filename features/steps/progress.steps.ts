@@ -158,3 +158,7 @@ Then("no feature is focused in the progress file", function (this: OidWorld) {
 Given("a progress file containing:", function (this: OidWorld, content: string) {
   this.write("progress.json", `${content}\n`);
 });
+
+Then("the error output does not contain {string}", function (this: OidWorld, text: string) {
+  assert.ok(!this.stderr.includes(text), `stderr unexpectedly contains "${text}":\n${this.stderr}`);
+});
