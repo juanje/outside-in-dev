@@ -35,7 +35,21 @@
     {
       "id": "FR-PROG-02",
       "title": "Add a feature",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A specified requirement is added as a pending feature at the end",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is already tracked is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A requirement missing from SPEC.md is refused",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-03",

@@ -5,3 +5,4 @@ One row per FR. "Built with": `claude-code` or `oid run`. Health delta: change i
 | FR | Built with | Retries | Human interventions | Cost | Time | Health delta | Notes |
 |:--|:--|:--|:--|:--|:--|:--|:--|
 | FR-PROG-01 | claude-code | 0 | 0 | — | — | — | current, status and show; BDD runs the CLI as a subprocess |
+| FR-PROG-02 | claude-code | 0 | 0 | — | — | — | add checks tracked ids and SPEC.md headings; atomic save |

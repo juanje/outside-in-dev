@@ -73,3 +73,33 @@ Then("the output does not contain {string}", function (this: OidWorld, text: str
 Then("the error output contains {string}", function (this: OidWorld, text: string) {
   assert.ok(this.stderr.includes(text), `stderr does not contain "${text}":\n${this.stderr}`);
 });
+
+Given("a SPEC.md defining the requirements {string}", function (this: OidWorld, ids: string) {
+  const sections = ids
+    .split(",")
+    .map((id) => id.trim())
+    .map((id) => `### ${id}: Title of ${id}\n\nDescription of ${id}.\n`);
+  this.write("SPEC.md", `# Spec\n\n## Requirements\n\n${sections.join("\n")}`);
+});
+
+Then("the progress file lists the features {string}", function (this: OidWorld, ids: string) {
+  const actual = this.loadProgress().features.map((f) => f.id);
+  assert.deepEqual(actual, ids.split(",").map((id) => id.trim()));
+});
+
+Then("the feature {string} has the title {string}", function (this: OidWorld, id: string, title: string) {
+  assert.equal(feature(this.loadProgress(), id).title, title);
+});
+
+Then("the feature {string} has the status {string}", function (this: OidWorld, id: string, status: string) {
+  assert.equal(feature(this.loadProgress(), id).status, status);
+});
+
+Then("the feature {string} has no cycle step", function (this: OidWorld, id: string) {
+  assert.equal(feature(this.loadProgress(), id).cycle_step, undefined);
+});
+
+Then("the progress file is unchanged", function (this: OidWorld) {
+  assert.notEqual(this.progressBefore, null, "no progress file existed before the command");
+  assert.equal(this.readProgressRaw(), this.progressBefore);
+});
