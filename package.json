@@ -18,6 +18,8 @@
     "test": "npm run test:unit && npm run test:bdd"
   },
   "dependencies": {
+    "@cucumber/gherkin": "42.0.1",
+    "@cucumber/messages": "34.2.1",
     "@earendil-works/pi-agent-core": "1.0.3",
     "@earendil-works/pi-ai": "1.0.3",
     "@earendil-works/pi-coding-agent": "1.0.3",

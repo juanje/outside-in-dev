@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -222,5 +222,17 @@ describe("runCli check", () => {
   it("says there are no violations when SPEC.md is clean", () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
     expect(run(["check"]).stdout).toContain("no violations");
+  });
+});
+
+describe("oid check traceability", () => {
+  it("reports an untraced scenario from the feature files, naming file and scenario", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    mkdirSync(join(dir, "features/nested"), { recursive: true });
+    writeFileSync(join(dir, "features/nested/alpha.feature"), "Feature: Alpha\n\n  Scenario: Orphan alpha\n");
+    const { stdout } = run(["check"]);
+    expect(stdout).toContain("features/nested/alpha.feature");
+    expect(stdout).toContain("Orphan alpha");
+    expect(stdout).not.toContain("no violations");
   });
 });
