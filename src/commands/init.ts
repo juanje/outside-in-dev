@@ -24,10 +24,15 @@ const BLOCKING_SPEC_PROBLEMS = ["duplicate ID", "empty title"];
 
 const STRING_LITERAL = /"([^"]*)"|'([^']*)'/g;
 
-type JsonObject = Record<string, any>;
+type JsonObject = Record<string, unknown>;
 
-/** Reads a JSON file of the project; undefined when it does not exist. */
-function readJson(cwd: string, name: string): JsonObject | undefined {
+/** The value as a JSON object; undefined for anything else (arrays, strings, numbers, null). */
+function asObject(value: unknown): JsonObject | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonObject) : undefined;
+}
+
+/** Reads a JSON file of the project; undefined when it does not exist. The content is not trusted. */
+function readJson(cwd: string, name: string): unknown {
   const text = readText(cwd, name);
   if (text === undefined) return undefined;
   try {
@@ -56,19 +61,33 @@ function extractStringArray(source: string, key: string): string[] | undefined {
   return [...array[1]!.matchAll(STRING_LITERAL)].map((literal) => literal[1] ?? literal[2]!);
 }
 
+/** The fields of an object-valued field of the manifest; none when it is missing or not an object. */
+function manifestSection(manifest: JsonObject | undefined, key: string): JsonObject {
+  return asObject(manifest?.[key]) ?? {};
+}
+
 function isTypeScriptProject(cwd: string, manifest: JsonObject | undefined): boolean {
-  const dependencies = { ...manifest?.dependencies, ...manifest?.devDependencies };
+  const dependencies = { ...manifestSection(manifest, "dependencies"), ...manifestSection(manifest, "devDependencies") };
   return existsSync(join(cwd, TSCONFIG_FILE)) || "typescript" in dependencies;
 }
 
-function detectConfig(cwd: string, manifest: JsonObject | undefined): ProjectConfig {
+/** A configuration as detected, before it is validated: what the project's files hold is not trusted. */
+type DetectedConfig = Omit<ProjectConfig, "paths"> & { paths: Omit<ProjectConfig["paths"], "source"> & { source: unknown } };
+
+/** The scripts of the manifest that are commands. */
+function manifestScripts(manifest: JsonObject | undefined): Record<string, string> {
+  const scripts = manifestSection(manifest, "scripts");
+  return Object.fromEntries(Object.entries(scripts).filter((script): script is [string, string] => typeof script[1] === "string"));
+}
+
+function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedConfig {
   const vitestConfig = readFirstExisting(cwd, VITEST_CONFIGS);
   const cucumberConfig = readFirstExisting(cwd, CUCUMBER_CONFIGS);
   return {
     version: 1,
     stack: "typescript",
     paths: {
-      source: readJson(cwd, TSCONFIG_FILE)?.include ?? DEFAULT_SOURCE,
+      source: asObject(readJson(cwd, TSCONFIG_FILE))?.include ?? DEFAULT_SOURCE,
       shared: [],
       unit_tests: extractStringArray(vitestConfig, "include") ?? DEFAULT_UNIT_TESTS,
       bdd_features: extractStringArray(cucumberConfig, "paths") ?? DEFAULT_BDD_FEATURES,
@@ -80,7 +99,7 @@ function detectConfig(cwd: string, manifest: JsonObject | undefined): ProjectCon
       progress: "progress.json",
     },
     commands: {
-      ...detectCommands(manifest?.scripts ?? {}),
+      ...detectCommands(manifestScripts(manifest)),
       coverage: null,
       extra_checks: [],
     },
@@ -125,7 +144,7 @@ export function runInit(io: CliIo, importProgress: boolean): number {
   if (existsSync(join(io.cwd, CONFIG_FILE))) {
     throw new ProgressError(`${CONFIG_FILE} already exists; remove it to run oid init again`);
   }
-  const manifest = readJson(io.cwd, PACKAGE_FILE);
+  const manifest = asObject(readJson(io.cwd, PACKAGE_FILE));
   if (!isTypeScriptProject(io.cwd, manifest)) {
     throw new ProgressError("only TypeScript projects are supported");
   }

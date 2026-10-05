@@ -1,4 +1,4 @@
-import { CYCLE_STEPS, FEATURE_FIELDS, PROGRESS_FILE, ProgressError, SCENARIO_FIELDS, type FeatureProgress, type Progress } from "./progress.js";
+import { CYCLE_STEPS, FEATURE_FIELDS, PROGRESS_FILE, ProgressError, SCENARIO_FIELDS, type Progress } from "./progress.js";
 
 export interface Conversion {
   progress: Progress;
@@ -11,6 +11,18 @@ const UNIT_TESTS_FIELD = "unit_tests";
 const DEFAULT_STEP = "select";
 const CONVERTED_STEPS: Record<string, string> = { spec_review: "select", implementing: "tdd_red", bdd_green: "quality_gate" };
 
+/** An object of the old schema: any field may be there, none is trusted. */
+type OldObject = Record<string, unknown>;
+
+/** The value as an object of the old schema; anything that is not an object has no fields. */
+function asObject(value: unknown): OldObject {
+  return typeof value === "object" && value !== null ? (value as OldObject) : {};
+}
+
+function isOneOf(allowed: string[], value: unknown): boolean {
+  return typeof value === "string" && allowed.includes(value);
+}
+
 /** A field value as shown in a note: strings as written, anything else as JSON. */
 function show(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
@@ -22,10 +34,12 @@ function scenarioCount(count: number): string {
 }
 
 /** Reduces the scenarios of a feature to name and bdd, listing the extra fields; returns how many had unit_tests. */
-function convertScenarios(feature: any, notes: string[]): number {
+function convertScenarios(feature: OldObject, notes: string[]): number {
   let withUnitTests = 0;
-  if (feature.scenarios) {
-    feature.scenarios = feature.scenarios.map((scenario: any) => {
+  if (Array.isArray(feature.scenarios)) {
+    const scenarios: unknown[] = feature.scenarios;
+    feature.scenarios = scenarios.map((item) => {
+      const scenario = asObject(item);
       const { name, bdd } = scenario;
       if (UNIT_TESTS_FIELD in scenario) withUnitTests++;
       for (const [field, value] of Object.entries(scenario)) {
@@ -40,26 +54,30 @@ function convertScenarios(feature: any, notes: string[]): number {
 }
 
 /** Converts a progress document written for another schema to the current one; the input is not modified. */
-export function convertProgress(document: any): Conversion {
-  if (!Array.isArray(document?.features)) {
+export function convertProgress(document: unknown): Conversion {
+  const { features: oldFeatures, current_focus } = asObject(document);
+  if (!Array.isArray(oldFeatures)) {
     throw new ProgressError(`${PROGRESS_FILE} cannot be imported: features must be a list`);
   }
   const notes: string[] = [];
   let unitTestScenarios = 0;
-  const features = document.features.map((old: any): FeatureProgress => {
+  const features = oldFeatures.map((item: unknown): OldObject => {
+    const old = asObject(item);
     const feature = { ...old };
-    if (PENDING_EQUIVALENTS.includes(old.status)) {
+    if (isOneOf(PENDING_EQUIVALENTS, old.status)) {
       feature.status = "pending";
       notes.push(`${old.id}: status ${old.status} converted to pending`);
     }
-    if (old.status === "in_progress" && !CYCLE_STEPS.includes(old.cycle_step)) {
-      const converted = CONVERTED_STEPS[old.cycle_step] ?? DEFAULT_STEP;
+    if (old.status === "in_progress" && !isOneOf(CYCLE_STEPS, old.cycle_step)) {
+      const converted = (typeof old.cycle_step === "string" ? CONVERTED_STEPS[old.cycle_step] : undefined) ?? DEFAULT_STEP;
       feature.cycle_step = converted;
       notes.push(`${old.id}: cycle_step ${old.cycle_step} converted to ${converted}`);
     }
     if (feature.status === "pending") {
       delete feature.scenarios;
-      if (old.scenarios?.length > 0) notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
+      if (Array.isArray(old.scenarios) && old.scenarios.length > 0) {
+        notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
+      }
     }
     if (feature.status === "pending" || feature.status === "done") {
       delete feature.cycle_step;
@@ -77,10 +95,11 @@ export function convertProgress(document: any): Conversion {
     return feature;
   });
   if (unitTestScenarios > 0) notes.push(`unit_tests dropped from ${scenarioCount(unitTestScenarios)}`);
-  let focus = document.current_focus;
-  if (focus !== null && features.find((f: FeatureProgress) => f.id === focus)?.status !== "in_progress") {
+  let focus = current_focus;
+  if (focus !== null && features.find((f) => f.id === focus)?.status !== "in_progress") {
     notes.push(`current_focus ${focus} reset to null`);
     focus = null;
   }
-  return { progress: { current_focus: focus, features }, notes };
+  // The result of the conversion is not trusted either: the caller validates it against the schema before it is written.
+  return { progress: { current_focus: focus, features } as unknown as Progress, notes };
 }
