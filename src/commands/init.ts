@@ -16,6 +16,10 @@ const VITEST_CONFIGS = ["vitest.config.ts", "vitest.config.mts", "vitest.config.
 const CUCUMBER_CONFIGS = ["cucumber.mjs", "cucumber.js", "cucumber.cjs", "cucumber.json"];
 
 const SPECS_DIR = "specs";
+const SHARED_DIR = "shared";
+const TEST_ROOTS = ["test", "tests", "__tests__", "spec", "specs", "features"];
+const SOURCE_DIR = "src";
+const TEST_FILE_PATTERN = /\.(test|spec)\./;
 const DEFAULT_SOURCE = ["src/**"];
 const DEFAULT_UNIT_TESTS = ["tests/unit/**"];
 const DEFAULT_BDD_FEATURES = ["features/**/*.feature"];
@@ -100,22 +104,47 @@ function detectSpecPath(cwd: string): string {
   return !existsSync(join(cwd, SPEC_FILE)) && existsSync(join(cwd, SPECS_DIR, SPEC_FILE)) ? posix.join(SPECS_DIR, SPEC_FILE) : SPEC_FILE;
 }
 
-function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedConfig {
+/** The first directory of a glob. */
+function firstSegment(glob: string): string {
+  return glob.split("/")[0]!;
+}
+
+/** Whether an include entry points at tests: a test directory or a test file pattern. */
+function isTestEntry(entry: string, testRoots: string[]): boolean {
+  return testRoots.includes(firstSegment(entry)) || TEST_FILE_PATTERN.test(entry);
+}
+
+/** The include entries of tsconfig.json without the ones that point at tests; anything that is not a list is passed on to validation. */
+function sourceWithoutTests(include: unknown, testRoots: string[]): { source: unknown; leftOut: string[] } {
+  if (!Array.isArray(include)) return { source: include ?? DEFAULT_SOURCE, leftOut: [] };
+  const leftOut = include.map(String).filter((entry) => isTestEntry(entry, testRoots));
+  const kept = include.filter((entry) => !leftOut.includes(String(entry)));
+  return { source: kept.length > 0 ? kept : DEFAULT_SOURCE, leftOut };
+}
+
+function detectConfig(cwd: string, manifest: JsonObject | undefined): { config: DetectedConfig; leftOut: string[] } {
   const vitestConfig = readFirstExisting(cwd, VITEST_CONFIGS);
   const cucumberConfig = readFirstExisting(cwd, CUCUMBER_CONFIGS);
   const spec = detectSpecPath(cwd);
   const specDir = posix.dirname(spec);
   const besideSpec = (file: string): string => posix.join(specDir, file);
-  return {
+  const unitTests = extractStringArray(vitestConfig, "include") ?? DEFAULT_UNIT_TESTS;
+  const bddFeatures = extractStringArray(cucumberConfig, "paths") ?? DEFAULT_BDD_FEATURES;
+  const bddSteps =
+    extractStringArray(cucumberConfig, "import") ?? extractStringArray(cucumberConfig, "require") ?? DEFAULT_BDD_STEPS;
+  const testRoots = [...TEST_ROOTS, ...[...unitTests, ...bddFeatures, ...bddSteps].map(firstSegment)].filter(
+    (root) => root !== SOURCE_DIR,
+  );
+  const { source, leftOut } = sourceWithoutTests(asObject(readJson(cwd, TSCONFIG_FILE))?.include, testRoots);
+  const config: DetectedConfig = {
     version: 1,
     stack: "typescript",
     paths: {
-      source: asObject(readJson(cwd, TSCONFIG_FILE))?.include ?? DEFAULT_SOURCE,
-      shared: [],
-      unit_tests: extractStringArray(vitestConfig, "include") ?? DEFAULT_UNIT_TESTS,
-      bdd_features: extractStringArray(cucumberConfig, "paths") ?? DEFAULT_BDD_FEATURES,
-      bdd_steps:
-        extractStringArray(cucumberConfig, "import") ?? extractStringArray(cucumberConfig, "require") ?? DEFAULT_BDD_STEPS,
+      source,
+      shared: existsSync(join(cwd, SHARED_DIR)) ? [`${SHARED_DIR}/**`] : [],
+      unit_tests: unitTests,
+      bdd_features: bddFeatures,
+      bdd_steps: bddSteps,
       docs: ["README.md", "docs/**"],
       spec,
       design: [spec, besideSpec("DOMAIN.md"), besideSpec("DECISIONS.md")],
@@ -127,6 +156,7 @@ function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedCo
       extra_checks: [],
     },
   };
+  return { config, leftOut };
 }
 
 /** Creates the progress file from the requirements of the specification unless it already exists. */
@@ -172,7 +202,8 @@ export function runInit(io: CliIo, importProgress: boolean): number {
     throw new ProgressError("only TypeScript projects are supported");
   }
   const imported = importProgress ? convertExistingProgress(io) : undefined;
-  const config = parseProjectConfig(detectConfig(io.cwd, manifest));
+  const detected = detectConfig(io.cwd, manifest);
+  const config = parseProjectConfig(detected.config);
   writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
   const gitignore = readText(io.cwd, GITIGNORE_FILE);
   const alreadyIgnored = isOutsideInIgnored(gitignore);
@@ -186,6 +217,7 @@ export function runInit(io: CliIo, importProgress: boolean): number {
     initialiseProgress(io, config.paths);
   }
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
+  if (detected.leftOut.length > 0) io.stdout(`Include entries left out of paths.source as tests: ${detected.leftOut.join(", ")}\n`);
   io.stdout(
     alreadyIgnored
       ? `Wrote ${CONFIG_FILE}; ${GITIGNORE_FILE} already ignores .outside-in/.\n`
