@@ -54,7 +54,21 @@
     {
       "id": "FR-PROG-03",
       "title": "Focus a feature",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Focusing a tracked feature sets the current focus",
+          "bdd": "pass"
+        },
+        {
+          "name": "Focusing does not change the status of the feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "Focusing a feature that is not tracked is refused",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-04",

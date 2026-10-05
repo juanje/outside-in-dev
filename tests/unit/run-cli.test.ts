@@ -148,3 +148,23 @@ describe("runCli progress add", () => {
     expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(before);
   });
 });
+
+describe("runCli progress focus", () => {
+  it("sets the focus without changing any status", () => {
+    writeProgress(SAMPLE);
+    const result = run(["progress", "focus", "FR-X-01"]);
+    expect(result.exitCode).toBe(0);
+    const progress = readProgress();
+    expect(progress.current_focus).toBe("FR-X-01");
+    expect(progress.features.map((f: { status: string }) => f.status)).toEqual(["pending", "in_progress", "done"]);
+  });
+
+  it("refuses an untracked id and leaves the file unchanged", () => {
+    writeProgress(SAMPLE);
+    const before = readFileSync(join(dir, "progress.json"), "utf8");
+    const result = run(["progress", "focus", "FR-X-99"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("FR-X-99");
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(before);
+  });
+});
