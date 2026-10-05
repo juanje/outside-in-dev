@@ -175,6 +175,15 @@ export default defineConfig({
     expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe("dist/\n.outside-in/\n");
   });
 
+  it("says the .gitignore already ignores .outside-in/ instead of claiming to add it, and leaves the file alone", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject(".gitignore", "dist/\n.outside-in\n");
+    const { stdout } = runInit();
+    expect(stdout).toContain(".gitignore already ignores .outside-in/");
+    expect(stdout).not.toContain("added .outside-in/");
+    expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe("dist/\n.outside-in\n");
+  });
+
   it("refuses when .outside-in.json already exists and changes nothing", () => {
     writeProject("tsconfig.json", "{}");
     writeProject(".outside-in.json", '{ "hand": "edited" }');

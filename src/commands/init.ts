@@ -4,7 +4,7 @@ import { writeFileAtomic } from "../artifacts/atomic-write.js";
 import { ProgressError, PROGRESS_FILE, saveProgress, validateProgress } from "../artifacts/progress.js";
 import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
-import { detectCommands, withOutsideInIgnored } from "../artifacts/project-setup.js";
+import { detectCommands, isOutsideInIgnored, withOutsideInIgnored } from "../artifacts/project-setup.js";
 import { parseRequirements, SPEC_FILE, validateSpec } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -129,7 +129,9 @@ export function runInit(io: CliIo, importProgress: boolean): number {
   const imported = importProgress ? convertExistingProgress(io) : undefined;
   const config = parseProjectConfig(detectConfig(io.cwd, manifest));
   writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
-  writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(readText(io.cwd, GITIGNORE_FILE)));
+  const gitignore = readText(io.cwd, GITIGNORE_FILE);
+  const alreadyIgnored = isOutsideInIgnored(gitignore);
+  if (!alreadyIgnored) writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(gitignore));
   if (imported === ALREADY_CURRENT) {
     io.stdout(`${PROGRESS_FILE} is already in the current schema.\n`);
   } else if (imported) {
@@ -139,6 +141,10 @@ export function runInit(io: CliIo, importProgress: boolean): number {
     initialiseProgress(io);
   }
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
-  io.stdout(`Wrote ${CONFIG_FILE} and added .outside-in/ to ${GITIGNORE_FILE}.\n`);
+  io.stdout(
+    alreadyIgnored
+      ? `Wrote ${CONFIG_FILE}; ${GITIGNORE_FILE} already ignores .outside-in/.\n`
+      : `Wrote ${CONFIG_FILE} and added .outside-in/ to ${GITIGNORE_FILE}.\n`,
+  );
   return 0;
 }

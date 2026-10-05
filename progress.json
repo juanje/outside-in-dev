@@ -574,6 +574,14 @@
         {
           "name": "An existing configuration file is refused and nothing is changed",
           "bdd": "pass"
+        },
+        {
+          "name": "A .gitignore that already ignores .outside-in/ is reported as such and left alone",
+          "bdd": "pass"
+        },
+        {
+          "name": "An equivalent .gitignore line without the slash is reported as already ignoring",
+          "bdd": "pass"
         }
       ]
     },
