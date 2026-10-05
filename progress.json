@@ -221,7 +221,45 @@
     {
       "id": "FR-CHECK-01",
       "title": "Validate SPEC.md",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A clean SPEC.md reports no violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "A duplicate requirement ID is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A requirement with an empty title is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A requirement with an empty body is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Given step followed by a Then step is reported as acceptance criteria",
+          "bdd": "pass"
+        },
+        {
+          "name": "Bulleted and bold Gherkin steps are reported as acceptance criteria",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Scenario line is reported as acceptance criteria",
+          "bdd": "pass"
+        },
+        {
+          "name": "An ordinary sentence starting with When is not flagged",
+          "bdd": "pass"
+        },
+        {
+          "name": "A lone Given sentence without a later Then is not flagged",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-CHECK-02",

@@ -11,3 +11,4 @@ One row per FR. "Built with": `claude-code` or `oid run`. Health delta: change i
 | FR-PROG-05 | claude-code | 0 | 0 | — | — | — | scenario upserts bdd status; pending features refused |
 | FR-PROG-06 | claude-code | 0 | 0 | — | — | — | done requires all scenarios passing; clears focus |
 | FR-PROG-07 | claude-code | 0 | 0 | — | — | — | hand-written schema validator on the single load/save path |
+| FR-CHECK-01 | claude-code | 0 | 1 | — | — | — | SPEC.md parser shared with progress; a stray scenario recorded by a grep was undone by restoring progress.json and replaying via oid progress |
