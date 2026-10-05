@@ -7,3 +7,4 @@ One row per FR. "Built with": `claude-code` or `oid run`. Health delta: change i
 | FR-PROG-01 | claude-code | 0 | 0 | — | — | — | current, status and show; BDD runs the CLI as a subprocess |
 | FR-PROG-02 | claude-code | 0 | 0 | — | — | — | add checks tracked ids and SPEC.md headings; atomic save |
 | FR-PROG-03 | claude-code | 0 | 0 | — | — | — | focus never changes status |
+| FR-PROG-04 | claude-code | 0 | 0 | — | — | — | transition table; pending starts with select |

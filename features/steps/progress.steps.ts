@@ -107,3 +107,33 @@ Then("the progress file is unchanged", function (this: OidWorld) {
 Then("the current focus is {string}", function (this: OidWorld, id: string) {
   assert.equal(this.loadProgress().current_focus, id);
 });
+
+Given(
+  "a started feature {string} at step {string}",
+  function (this: OidWorld, id: string, step: string) {
+    const progress = this.loadProgress();
+    progress.features.push({
+      id,
+      title: `Title of ${id}`,
+      status: "in_progress",
+      cycle_step: step,
+      scenarios: [],
+    });
+    this.saveProgress(progress);
+  },
+);
+
+Given("a completed feature {string}", function (this: OidWorld, id: string) {
+  const progress = this.loadProgress();
+  progress.features.push({
+    id,
+    title: `Title of ${id}`,
+    status: "done",
+    scenarios: [{ name: "It works", bdd: "pass" }],
+  });
+  this.saveProgress(progress);
+});
+
+Then("the feature {string} has the cycle step {string}", function (this: OidWorld, id: string, step: string) {
+  assert.equal(feature(this.loadProgress(), id).cycle_step, step);
+});

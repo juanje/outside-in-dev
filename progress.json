@@ -73,7 +73,37 @@
     {
       "id": "FR-PROG-04",
       "title": "Advance the cycle step",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A pending feature is started with select",
+          "bdd": "pass"
+        },
+        {
+          "name": "The cycle moves forward through its steps",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step that the cycle does not allow is rejected",
+          "bdd": "pass"
+        },
+        {
+          "name": "An unknown step name is rejected",
+          "bdd": "pass"
+        },
+        {
+          "name": "A pending feature can only start with select",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is done cannot change step",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is not tracked is rejected",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-PROG-05",
