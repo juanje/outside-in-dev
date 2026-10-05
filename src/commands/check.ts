@@ -24,15 +24,16 @@ function readFeatureSources(cwd: string) {
 type Violation = { check: "spec" | "traceability" | "progress"; message: string };
 
 export function runCheck(io: CliIo, json = false): number {
-  const text = readFileSync(join(io.cwd, SPEC_FILE), "utf8");
-  const violations: Violation[] = validateSpec(text).map(({ id, kind }) => ({
-    check: "spec",
-    message: `${SPEC_FILE}: ${id}: ${kind}`,
-  }));
+  const specPath = join(io.cwd, SPEC_FILE);
+  const specFound = existsSync(specPath);
+  const text = specFound ? readFileSync(specPath, "utf8") : "";
+  const violations: Violation[] = specFound
+    ? validateSpec(text).map(({ id, kind }) => ({ check: "spec", message: `${SPEC_FILE}: ${id}: ${kind}` }))
+    : [{ check: "spec", message: `${SPEC_FILE} not found` }];
   const knownIds = parseRequirements(text).map((requirement) => requirement.id);
   const sources = readFeatureSources(io.cwd);
   for (const { file, scenario, kind } of checkTraceability(sources, knownIds)) {
-    violations.push({ check: "traceability", message: `${file}: ${scenario}: ${kind}` });
+    violations.push({ check: "traceability", message: `${file}: ${scenario ? `${scenario}: ` : ""}${kind}` });
   }
   if (existsSync(join(io.cwd, PROGRESS_FILE))) {
     try {

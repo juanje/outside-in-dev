@@ -20,12 +20,26 @@ export interface ListedScenario {
   tags: string[];
 }
 
+const PARSER_ERRORS_HEADING = "Parser errors:";
+
+function parseFeature(text: string) {
+  const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
+  try {
+    return { feature: parser.parse(text).feature };
+  } catch (error) {
+    const detail = String(error instanceof Error ? error.message : error)
+      .split("\n")
+      .filter((line) => line.trim() !== "" && line !== PARSER_ERRORS_HEADING)
+      .join("; ");
+    return { error: detail };
+  }
+}
+
 /** Lists every scenario of the feature files with its effective tags (Feature, Rule, own). */
 export function listScenarios(sources: FeatureSource[]): ListedScenario[] {
   const listed: ListedScenario[] = [];
   for (const { path, text } of sources) {
-    const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
-    const feature = parser.parse(text).feature;
+    const { feature } = parseFeature(text);
     if (!feature) continue;
     for (const { rule, scenario } of feature.children) {
       const found = [
@@ -44,6 +58,10 @@ export function listScenarios(sources: FeatureSource[]): ListedScenario[] {
 
 export function checkTraceability(sources: FeatureSource[], knownIds: string[]): TraceabilityViolation[] {
   const violations: TraceabilityViolation[] = [];
+  for (const { path, text } of sources) {
+    const { error } = parseFeature(text);
+    if (error !== undefined) violations.push({ file: path, scenario: "", kind: `Gherkin syntax error: ${error}` });
+  }
   for (const { file, name, tags } of listScenarios(sources)) {
     if (!tags.some((tag) => tag.startsWith("@FR-"))) {
       violations.push({ file, scenario: name, kind: "no @FR tag" });
