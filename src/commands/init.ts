@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
-import { ProgressError } from "../artifacts/progress.js";
+import { ProgressError, PROGRESS_FILE, saveProgress } from "../artifacts/progress.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { detectCommands, withOutsideInIgnored } from "../artifacts/project-setup.js";
+import { parseRequirements, SPEC_FILE, validateSpec } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
 const TSCONFIG_FILE = "tsconfig.json";
@@ -16,6 +17,9 @@ const DEFAULT_SOURCE = ["src/**"];
 const DEFAULT_UNIT_TESTS = ["tests/unit/**"];
 const DEFAULT_BDD_FEATURES = ["features/**/*.feature"];
 const DEFAULT_BDD_STEPS = ["features/steps/**", "features/support/**"];
+
+/** The SPEC.md problems that make a valid progress file impossible. */
+const BLOCKING_SPEC_PROBLEMS = ["duplicate ID", "empty title"];
 
 const STRING_LITERAL = /"([^"]*)"|'([^']*)'/g;
 
@@ -82,6 +86,28 @@ function detectConfig(cwd: string, manifest: JsonObject | undefined): ProjectCon
   };
 }
 
+/** Creates progress.json from the requirements of SPEC.md unless it already exists. */
+function initialiseProgress(io: CliIo): void {
+  const spec = readText(io.cwd, SPEC_FILE);
+  if (existsSync(join(io.cwd, PROGRESS_FILE))) {
+    io.stdout(`${PROGRESS_FILE} already exists and was left untouched.\n`);
+  } else if (spec !== undefined) {
+    const problems = validateSpec(spec).filter((violation) => BLOCKING_SPEC_PROBLEMS.includes(violation.kind));
+    if (problems.length > 0) {
+      const lines = problems.map((problem) => `  ${problem.id}: ${problem.kind}`).join("\n");
+      throw new ProgressError(
+        `${SPEC_FILE} cannot be turned into ${PROGRESS_FILE}:\n${lines}\n${CONFIG_FILE} was written; no ${PROGRESS_FILE} was created`,
+      );
+    }
+    const features = parseRequirements(spec)
+      .filter((requirement) => requirement.id.startsWith("FR-"))
+      .map(({ id, title }) => ({ id, title, status: "pending" }));
+    saveProgress(io.cwd, { current_focus: null, features });
+  } else {
+    io.stdout(`${SPEC_FILE} not found: no ${PROGRESS_FILE} was created.\n`);
+  }
+}
+
 export function runInit(io: CliIo): number {
   if (existsSync(join(io.cwd, CONFIG_FILE))) {
     throw new ProgressError(`${CONFIG_FILE} already exists; remove it to run oid init again`);
@@ -93,6 +119,7 @@ export function runInit(io: CliIo): number {
   const config = parseProjectConfig(detectConfig(io.cwd, manifest));
   writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
   writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(readText(io.cwd, GITIGNORE_FILE)));
+  initialiseProgress(io);
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
   io.stdout(`Wrote ${CONFIG_FILE} and added .outside-in/ to ${GITIGNORE_FILE}.\n`);
   return 0;

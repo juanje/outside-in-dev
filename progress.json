@@ -580,7 +580,33 @@
     {
       "id": "FR-INIT-02",
       "title": "Initialise progress from SPEC.md",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Every requirement of SPEC.md becomes a pending feature, in specification order",
+          "bdd": "pass"
+        },
+        {
+          "name": "Titles are the heading text as written",
+          "bdd": "pass"
+        },
+        {
+          "name": "An existing progress file is left untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a SPEC.md no progress file is created",
+          "bdd": "pass"
+        },
+        {
+          "name": "A duplicate requirement id prevents the progress file",
+          "bdd": "pass"
+        },
+        {
+          "name": "An empty requirement title prevents the progress file",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-INIT-03",
