@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -271,6 +271,26 @@ export default defineConfig({
     const { exitCode, stderr } = runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("FR-A-01: empty title");
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+  });
+
+  it("detects a specification kept in specs/ and puts the progress file and design documents beside it", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "specs"));
+    writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
+    runInit();
+    const { paths } = readConfig();
+    expect(paths.spec).toBe("specs/SPEC.md");
+    expect(paths.progress).toBe("specs/progress.json");
+    expect(paths.design).toEqual(["specs/SPEC.md", "specs/DOMAIN.md", "specs/DECISIONS.md"]);
+  });
+
+  it("creates the progress file beside a specification kept in specs/", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "specs"));
+    writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
+    runInit();
+    expect(JSON.parse(readFileSync(join(dir, "specs/progress.json"), "utf8")).features[0].id).toBe("FR-A-01");
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
 });

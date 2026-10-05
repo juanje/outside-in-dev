@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
 import { ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
@@ -15,6 +15,7 @@ const GITIGNORE_FILE = ".gitignore";
 const VITEST_CONFIGS = ["vitest.config.ts", "vitest.config.mts", "vitest.config.js", "vitest.config.mjs"];
 const CUCUMBER_CONFIGS = ["cucumber.mjs", "cucumber.js", "cucumber.cjs", "cucumber.json"];
 
+const SPECS_DIR = "specs";
 const DEFAULT_SOURCE = ["src/**"];
 const DEFAULT_UNIT_TESTS = ["tests/unit/**"];
 const DEFAULT_BDD_FEATURES = ["features/**/*.feature"];
@@ -94,9 +95,17 @@ function manifestScripts(manifest: JsonObject | undefined): Record<string, strin
   return Object.fromEntries(Object.entries(scripts).filter((script): script is [string, string] => typeof script[1] === "string"));
 }
 
+/** Where the specification lives: the root SPEC.md, else specs/SPEC.md, else the root default. */
+function detectSpecPath(cwd: string): string {
+  return !existsSync(join(cwd, SPEC_FILE)) && existsSync(join(cwd, SPECS_DIR, SPEC_FILE)) ? posix.join(SPECS_DIR, SPEC_FILE) : SPEC_FILE;
+}
+
 function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedConfig {
   const vitestConfig = readFirstExisting(cwd, VITEST_CONFIGS);
   const cucumberConfig = readFirstExisting(cwd, CUCUMBER_CONFIGS);
+  const spec = detectSpecPath(cwd);
+  const specDir = posix.dirname(spec);
+  const besideSpec = (file: string): string => posix.join(specDir, file);
   return {
     version: 1,
     stack: "typescript",
@@ -108,9 +117,9 @@ function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedCo
       bdd_steps:
         extractStringArray(cucumberConfig, "import") ?? extractStringArray(cucumberConfig, "require") ?? DEFAULT_BDD_STEPS,
       docs: ["README.md", "docs/**"],
-      spec: "SPEC.md",
-      design: ["SPEC.md", "DOMAIN.md", "DECISIONS.md"],
-      progress: "progress.json",
+      spec,
+      design: [spec, besideSpec("DOMAIN.md"), besideSpec("DECISIONS.md")],
+      progress: besideSpec(PROGRESS_FILE),
     },
     commands: {
       ...detectCommands(manifestScripts(manifest)),
@@ -120,25 +129,25 @@ function detectConfig(cwd: string, manifest: JsonObject | undefined): DetectedCo
   };
 }
 
-/** Creates progress.json from the requirements of SPEC.md unless it already exists. */
-function initialiseProgress(io: CliIo): void {
-  const spec = readText(io.cwd, SPEC_FILE);
-  if (existsSync(join(io.cwd, PROGRESS_FILE))) {
-    io.stdout(`${PROGRESS_FILE} already exists and was left untouched.\n`);
+/** Creates the progress file from the requirements of the specification unless it already exists. */
+function initialiseProgress(io: CliIo, { spec: specFile, progress: progressFile }: ProjectConfig["paths"]): void {
+  const spec = readText(io.cwd, specFile);
+  if (existsSync(join(io.cwd, progressFile))) {
+    io.stdout(`${progressFile} already exists and was left untouched.\n`);
   } else if (spec !== undefined) {
     const problems = validateSpec(spec).filter((violation) => BLOCKING_SPEC_PROBLEMS.includes(violation.kind));
     if (problems.length > 0) {
       const lines = problems.map((problem) => `  ${problem.id}: ${problem.kind}`).join("\n");
       throw new ProgressError(
-        `${SPEC_FILE} cannot be turned into ${PROGRESS_FILE}:\n${lines}\n${CONFIG_FILE} was written; no ${PROGRESS_FILE} was created`,
+        `${specFile} cannot be turned into ${progressFile}:\n${lines}\n${CONFIG_FILE} was written; no ${progressFile} was created`,
       );
     }
     const features = parseRequirements(spec)
       .filter((requirement) => requirement.id.startsWith("FR-"))
       .map(({ id, title }) => ({ id, title, status: "pending" }));
-    saveProgress(io.cwd, { current_focus: null, features });
+    saveProgress(io.cwd, { current_focus: null, features }, progressFile);
   } else {
-    io.stdout(`${SPEC_FILE} not found: no ${PROGRESS_FILE} was created.\n`);
+    io.stdout(`${specFile} not found: no ${progressFile} was created.\n`);
   }
 }
 
@@ -174,7 +183,7 @@ export function runInit(io: CliIo, importProgress: boolean): number {
     saveProgress(io.cwd, imported.progress);
     imported.notes.forEach((note) => io.stdout(`${note}\n`));
   } else {
-    initialiseProgress(io);
+    initialiseProgress(io, config.paths);
   }
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
   io.stdout(
