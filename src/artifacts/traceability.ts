@@ -1,5 +1,5 @@
 import { AstBuilder, GherkinClassicTokenMatcher, Parser } from "@cucumber/gherkin";
-import { IdGenerator, type Scenario, type Tag } from "@cucumber/messages";
+import { IdGenerator } from "@cucumber/messages";
 
 const REQUIREMENT_TAG = /^@(?:FR|NFR)-/;
 
@@ -14,31 +14,43 @@ export interface TraceabilityViolation {
   kind: string;
 }
 
-export function checkTraceability(sources: FeatureSource[], knownIds: string[]): TraceabilityViolation[] {
-  const violations: TraceabilityViolation[] = [];
+export interface ListedScenario {
+  file: string;
+  name: string;
+  tags: string[];
+}
+
+/** Lists every scenario of the feature files with its effective tags (Feature, Rule, own). */
+export function listScenarios(sources: FeatureSource[]): ListedScenario[] {
+  const listed: ListedScenario[] = [];
   for (const { path, text } of sources) {
     const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
     const feature = parser.parse(text).feature;
     if (!feature) continue;
-    const scenarios: { scenario: Scenario; inherited: readonly Tag[] }[] = [];
     for (const { rule, scenario } of feature.children) {
-      if (scenario) scenarios.push({ scenario, inherited: feature.tags });
-      if (!rule) continue;
-      for (const ruleChild of rule.children) {
-        if (ruleChild.scenario) {
-          scenarios.push({ scenario: ruleChild.scenario, inherited: [...feature.tags, ...rule.tags] });
-        }
+      const found = [
+        ...(scenario ? [{ scenario, inherited: feature.tags }] : []),
+        ...(rule?.children ?? []).flatMap(({ scenario: nested }) =>
+          nested ? [{ scenario: nested, inherited: [...feature.tags, ...rule!.tags] }] : [],
+        ),
+      ];
+      for (const { scenario: item, inherited } of found) {
+        listed.push({ file: path, name: item.name, tags: [...inherited, ...item.tags].map(({ name }) => name) });
       }
     }
-    for (const { scenario, inherited } of scenarios) {
-      const tags = [...inherited, ...scenario.tags];
-      if (!tags.some(({ name }) => name.startsWith("@FR-"))) {
-        violations.push({ file: path, scenario: scenario.name, kind: "no @FR tag" });
-      }
-      for (const { name } of tags) {
-        if (REQUIREMENT_TAG.test(name) && !knownIds.includes(name.slice(1))) {
-          violations.push({ file: path, scenario: scenario.name, kind: `unknown tag ${name}` });
-        }
+  }
+  return listed;
+}
+
+export function checkTraceability(sources: FeatureSource[], knownIds: string[]): TraceabilityViolation[] {
+  const violations: TraceabilityViolation[] = [];
+  for (const { file, name, tags } of listScenarios(sources)) {
+    if (!tags.some((tag) => tag.startsWith("@FR-"))) {
+      violations.push({ file, scenario: name, kind: "no @FR tag" });
+    }
+    for (const tag of tags) {
+      if (REQUIREMENT_TAG.test(tag) && !knownIds.includes(tag.slice(1))) {
+        violations.push({ file, scenario: name, kind: `unknown tag ${tag}` });
       }
     }
   }

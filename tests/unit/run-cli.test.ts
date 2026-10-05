@@ -236,3 +236,47 @@ describe("oid check traceability", () => {
     expect(stdout).not.toContain("no violations");
   });
 });
+
+describe("oid check progress consistency", () => {
+  it("reports progress that contradicts the feature files, naming feature and scenario", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    mkdirSync(join(dir, "features"), { recursive: true });
+    writeFileSync(join(dir, "features/alpha.feature"), "@FR-X-01\nFeature: Alpha\n\n  Scenario: Real alpha\n");
+    writeProgress({
+      current_focus: null,
+      features: [
+        {
+          id: "FR-X-01",
+          title: "Alpha",
+          status: "in_progress",
+          cycle_step: "tdd_red",
+          scenarios: [{ name: "Ghost alpha", bdd: "fail" }],
+        },
+      ],
+    });
+    const { stdout } = run(["check"]);
+    expect(stdout).toMatch(/FR-X-01.*Ghost alpha/);
+    expect(stdout).not.toContain("Real alpha");
+    expect(stdout).not.toContain("no violations");
+  });
+
+  it("reports an invalid progress file with its schema message instead of crashing", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    writeProgress({
+      current_focus: null,
+      features: [{ id: "FR-X-01", title: "Alpha", status: "pending", notes: "x" }],
+    });
+    const result = run(["check"]);
+    expect(result.stdout).toContain("progress.json");
+    expect(result.stdout).toContain("features[0].notes");
+    expect(result.stdout).not.toContain("no violations");
+  });
+
+  it("reports a progress file that is not valid JSON instead of crashing", () => {
+    writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
+    writeFileSync(join(dir, "progress.json"), "{ not json");
+    const result = run(["check"]);
+    expect(result.stdout).toContain("progress.json is not valid JSON");
+    expect(result.stdout).not.toContain("no violations");
+  });
+});
