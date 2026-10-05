@@ -1,5 +1,6 @@
 import { advanceStep, completeFeature, loadProgress, recordScenario, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
+import { commandError } from "../cli-usage.js";
 import type { CliIo } from "../cli-io.js";
 
 function summary(feature: FeatureProgress): string {
@@ -64,9 +65,29 @@ function showStatus(progress: Progress, io: CliIo): void {
   }
 }
 
+const ID = "FR-xxx";
+const OPERANDS: Record<string, string[]> = {
+  current: [],
+  status: [],
+  show: [ID],
+  add: [ID, '"<title>"'],
+  focus: [ID],
+  step: [ID, "<cycle_step>"],
+  scenario: ["<pass|fail|pending>", ID, '"<scenario name>"'],
+  done: [ID],
+};
+const SUBCOMMANDS = Object.keys(OPERANDS);
+
 export function runProgress(args: string[], io: CliIo): void {
-  const progress = loadProgress(io.cwd);
   const [command, ...operands] = args;
+  if (!SUBCOMMANDS.includes(command!)) {
+    throw commandError("subcommand", command, SUBCOMMANDS);
+  }
+  const expected = OPERANDS[command]!;
+  if (operands.length < expected.length) {
+    throw new ProgressError(`usage: oid progress ${command} ${expected.join(" ")}`);
+  }
+  const progress = loadProgress(io.cwd);
   if (command === "current") showCurrent(progress, io);
   else if (command === "show") showFeature(progress, io, operands[0]);
   else if (command === "add") addFeature(progress, io, operands[0]!, operands[1]!);
