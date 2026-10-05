@@ -87,7 +87,7 @@ Context an agent cannot discover from the code: vocabulary, data formats, and ho
 ### NFR-01: Deterministic first
 ```
 
-Patterns: `^### (FR-[A-Z][A-Z0-9]*-\d{2,3}): (.+)$` and `^### (NFR-\d{2,3}): (.+)$`. The body runs to the next heading of level 3 or above. Level-2 headings are free text and ignored. A requirement must not contain acceptance criteria: a Gherkin-style sequence (a line starting with `Given`, plain, bulleted or bold, followed later by one starting with `Then`) or a `Scenario:` line. An ordinary sentence that starts with "When" is not one.
+Patterns: `^### (FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?): (.+)$` and `^### (NFR-\d{2,3}): (.+)$`. The body runs to the next heading of level 3 or above. An FR id may end in one lowercase letter (`FR-PERM-06b`): a requirement split off an existing one keeps its number. Level-2 headings are free text and ignored. A requirement must not contain acceptance criteria: a Gherkin-style sequence (a line starting with `Given`, plain, bulleted or bold, followed later by one starting with `Then`) or a `Scenario:` line. An ordinary sentence that starts with "When" is not one.
 
 ### Feature file
 
