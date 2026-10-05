@@ -264,7 +264,37 @@
     {
       "id": "FR-CHECK-02",
       "title": "Check scenario traceability",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A scenario without a requirement tag is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An NFR tag alone does not trace a scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "A requirement tag inherited from the Feature counts",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tag naming a requirement missing from SPEC.md is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An NFR tag missing from SPEC.md is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Tags that are not requirement tags are ignored",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project fixed to trace every scenario reports no violations",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-CHECK-03",

@@ -4,14 +4,16 @@ import { ProgressError } from "./progress.js";
 
 export const SPEC_FILE = "SPEC.md";
 
-const REQUIREMENT_HEADING = /^### (FR-[A-Z][A-Z0-9]*-\d{2,3}):(.*)$/;
+const REQUIREMENT_HEADING = /^### (FR-[A-Z][A-Z0-9]*-\d{2,3}|NFR-\d{2,3}):(.*)$/;
 
 export function readRequirementIds(cwd: string): string[] {
   const path = join(cwd, SPEC_FILE);
   if (!existsSync(path)) {
     throw new ProgressError(`${SPEC_FILE} not found in ${cwd}`);
   }
-  return parseRequirements(readFileSync(path, "utf8")).map((requirement) => requirement.id);
+  return parseRequirements(readFileSync(path, "utf8"))
+    .map((requirement) => requirement.id)
+    .filter((id) => id.startsWith("FR-"));
 }
 
 interface SpecViolation {
@@ -27,7 +29,7 @@ interface Requirement {
   body: string[];
 }
 
-function parseRequirements(text: string): Requirement[] {
+export function parseRequirements(text: string): Requirement[] {
   const requirements: Requirement[] = [];
   let current: Requirement | undefined;
   for (const line of text.split("\n")) {

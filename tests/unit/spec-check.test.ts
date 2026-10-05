@@ -1,5 +1,8 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { validateSpec } from "../../src/artifacts/spec.js";
+import { readRequirementIds, validateSpec } from "../../src/artifacts/spec.js";
 
 describe("validateSpec", () => {
   it("reports a requirement ID that is defined twice", () => {
@@ -30,5 +33,20 @@ describe("validateSpec", () => {
   it("reports a Scenario line as acceptance criteria", () => {
     const text = ["### FR-X-01: Alpha", "", "Scenario: The tool prints a report"].join("\n");
     expect(validateSpec(text)).toEqual([{ id: "FR-X-01", kind: "acceptance criteria" }]);
+  });
+});
+
+describe("validateSpec with NFR headings", () => {
+  it("recognises an NFR heading as a requirement", () => {
+    const text = ["### NFR-01:", "", "It is fast."].join("\n");
+    expect(validateSpec(text)).toEqual([{ id: "NFR-01", kind: "empty title" }]);
+  });
+});
+
+describe("readRequirementIds", () => {
+  it("lists feature requirements only, not NFRs", () => {
+    const dir = mkdtempSync(join(tmpdir(), "oid-spec-"));
+    writeFileSync(join(dir, "SPEC.md"), ["### FR-X-01: Alpha", "", "Does alpha.", "", "### NFR-01: Speed", "", "Is fast."].join("\n"));
+    expect(readRequirementIds(dir)).toEqual(["FR-X-01"]);
   });
 });
