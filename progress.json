@@ -170,7 +170,53 @@
     {
       "id": "FR-PROG-07",
       "title": "Reject an invalid progress file",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An unknown field on a feature is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "An unknown field at the top level is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A status outside the allowed values is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing required field is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A value of the wrong type is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario with an invalid status is reported with its path",
+          "bdd": "pass"
+        },
+        {
+          "name": "A pending feature with a cycle step is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An in-progress feature without a cycle step is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A done feature with a cycle step is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A command that would change an invalid file is refused and leaves it untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "A change that would make the file invalid is not written",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-CHECK-01",

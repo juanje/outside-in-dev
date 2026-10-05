@@ -154,3 +154,7 @@ Then("the feature {string} has {int} scenarios", function (this: OidWorld, id: s
 Then("no feature is focused in the progress file", function (this: OidWorld) {
   assert.equal(this.loadProgress().current_focus, null);
 });
+
+Given("a progress file containing:", function (this: OidWorld, content: string) {
+  this.write("progress.json", `${content}\n`);
+});
