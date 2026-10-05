@@ -103,3 +103,7 @@ Then("the progress file is unchanged", function (this: OidWorld) {
   assert.notEqual(this.progressBefore, null, "no progress file existed before the command");
   assert.equal(this.readProgressRaw(), this.progressBefore);
 });
+
+Then("the current focus is {string}", function (this: OidWorld, id: string) {
+  assert.equal(this.loadProgress().current_focus, id);
+});

@@ -1,4 +1,4 @@
-import { loadProgress, ProgressError, PROGRESS_FILE, saveProgress, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { loadProgress, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -18,9 +18,7 @@ function showCurrent(progress: Progress, io: CliIo): void {
 }
 
 function showFeature(progress: Progress, io: CliIo, id: string | undefined): void {
-  const feature = progress.features.find((f) => f.id === id);
-  if (!feature) throw new ProgressError(`${id} is not tracked in ${PROGRESS_FILE}`);
-  io.stdout(describe(feature));
+  io.stdout(describe(requireFeature(progress, id)));
 }
 
 function addFeature(progress: Progress, io: CliIo, id: string, title: string): void {
@@ -31,6 +29,12 @@ function addFeature(progress: Progress, io: CliIo, id: string, title: string): v
     throw new ProgressError(`${id} is not defined in ${SPEC_FILE}`);
   }
   progress.features.push({ id, title, status: "pending" });
+  saveProgress(io.cwd, progress);
+}
+
+function focusFeature(progress: Progress, io: CliIo, id: string): void {
+  requireFeature(progress, id);
+  progress.current_focus = id;
   saveProgress(io.cwd, progress);
 }
 
@@ -47,5 +51,6 @@ export function runProgress(args: string[], io: CliIo): void {
   if (command === "current") showCurrent(progress, io);
   else if (command === "show") showFeature(progress, io, id);
   else if (command === "add") addFeature(progress, io, id!, title!);
+  else if (command === "focus") focusFeature(progress, io, id!);
   else showStatus(progress, io);
 }

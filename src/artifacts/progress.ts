@@ -39,3 +39,9 @@ export function saveProgress(cwd: string, progress: Progress): void {
   writeFileSync(temporary, `${JSON.stringify(progress, null, 2)}\n`);
   renameSync(temporary, path);
 }
+
+export function requireFeature(progress: Progress, id: string | undefined): FeatureProgress {
+  const feature = progress.features.find((f) => f.id === id);
+  if (!feature) throw new ProgressError(`${id} is not tracked in ${PROGRESS_FILE}`);
+  return feature;
+}
