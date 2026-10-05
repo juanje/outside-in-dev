@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeFileAtomic } from "./atomic-write.js";
 
 export const PROGRESS_FILE = "progress.json";
 
@@ -47,13 +48,9 @@ function requireValid(document: unknown): void {
   }
 }
 
-/** Writes the file atomically: a temporary file in the same directory, then a rename. */
 export function saveProgress(cwd: string, progress: Progress): void {
   requireValid(progress);
-  const path = join(cwd, PROGRESS_FILE);
-  const temporary = `${path}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(progress, null, 2)}\n`);
-  renameSync(temporary, path);
+  writeFileAtomic(join(cwd, PROGRESS_FILE), `${JSON.stringify(progress, null, 2)}\n`);
 }
 
 export function requireFeature(progress: Progress, id: string | undefined): FeatureProgress {

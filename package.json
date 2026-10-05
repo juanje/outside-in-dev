@@ -23,7 +23,8 @@
     "@earendil-works/pi-agent-core": "1.0.3",
     "@earendil-works/pi-ai": "1.0.3",
     "@earendil-works/pi-coding-agent": "1.0.3",
-    "@earendil-works/pi-tui": "1.0.3"
+    "@earendil-works/pi-tui": "1.0.3",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@cucumber/cucumber": "13.3.0",
