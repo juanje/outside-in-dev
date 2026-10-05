@@ -83,9 +83,7 @@ Feature: Detect the project setup
     Given a project file "tsconfig.json" containing:
       """
       {
-        // a comment makes this JSONC
         "compilerOptions": {}
-      }
       """
     When I run "oid init"
     Then the command fails

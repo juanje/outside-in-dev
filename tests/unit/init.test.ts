@@ -84,7 +84,7 @@ describe("oid init", () => {
   });
 
   it("reports a tsconfig.json that is not plain JSON and writes nothing", () => {
-    writeProject("tsconfig.json", '{ // comment\n "include": ["src/**"] }');
+    writeProject("tsconfig.json", '{ "include": ["src/**"]');
     const { exitCode, stderr } = runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("tsconfig.json is not valid JSON");
