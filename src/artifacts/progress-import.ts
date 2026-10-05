@@ -16,6 +16,11 @@ function show(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
+/** A count with its noun, in the singular for one: "1 scenario", "2 scenarios". */
+function scenarioCount(count: number): string {
+  return `${count} ${count === 1 ? "scenario" : "scenarios"}`;
+}
+
 /** Reduces the scenarios of a feature to name and bdd, listing the extra fields; returns how many had unit_tests. */
 function convertScenarios(feature: any, notes: string[]): number {
   let withUnitTests = 0;
@@ -54,7 +59,7 @@ export function convertProgress(document: any): Conversion {
     }
     if (feature.status === "pending") {
       delete feature.scenarios;
-      if (old.scenarios?.length > 0) notes.push(`${old.id}: ${old.scenarios.length} scenarios dropped`);
+      if (old.scenarios?.length > 0) notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
     }
     if (feature.status === "pending" || feature.status === "done") {
       delete feature.cycle_step;
@@ -71,7 +76,7 @@ export function convertProgress(document: any): Conversion {
     unitTestScenarios += convertScenarios(feature, notes);
     return feature;
   });
-  if (unitTestScenarios > 0) notes.push(`unit_tests dropped from ${unitTestScenarios} scenarios`);
+  if (unitTestScenarios > 0) notes.push(`unit_tests dropped from ${scenarioCount(unitTestScenarios)}`);
   let focus = document.current_focus;
   if (focus !== null && features.find((f: FeatureProgress) => f.id === focus)?.status !== "in_progress") {
     notes.push(`current_focus ${focus} reset to null`);

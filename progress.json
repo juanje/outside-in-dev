@@ -676,6 +676,14 @@
         {
           "name": "No .gitignore is created when the converted progress is invalid",
           "bdd": "pass"
+        },
+        {
+          "name": "One dropped scenario of a pending feature is reported in the singular",
+          "bdd": "pass"
+        },
+        {
+          "name": "One scenario with a unit test count is reported in the singular",
+          "bdd": "pass"
         }
       ]
     },
