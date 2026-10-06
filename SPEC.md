@@ -52,7 +52,7 @@ Its behavioural constraints are part of the MVP, not extras: agents cannot run c
 
 ### FR-PROG-01: Show progress
 
-`oid progress current`, `status` and `show FR-xxx` print the focused feature, all tracked features, or one feature with its scenarios. Every session, human or agent, starts by knowing where the work is without reading code or git history.
+`oid progress current`, `status` and `show FR-xxx` print the focused feature, an overview of the tracked features, or one feature with its scenarios. Every session, human or agent, starts by knowing where the work is without reading code or git history.
 
 ### FR-PROG-02: Add a feature
 
@@ -105,6 +105,10 @@ Every command validates `progress.json` against its schema before and after writ
 ### FR-CLI-01: Command help
 
 `oid --help`, `oid <command> --help` and `oid <command> <subcommand> --help` print what the command does, its subcommands, arguments and options, and exit 0. Anyone running oid, human or agent, can learn how to use it without triggering an error.
+
+### FR-CLI-02: Concise status
+
+`oid progress status` lists the features that are not done, marks the focused one and ends with the number of done features; `oid progress status --all` lists every tracked feature. The progress of a long project stays readable at a glance.
 
 ## Functional Requirements — Project setup
 
