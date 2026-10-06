@@ -1265,6 +1265,18 @@
         {
           "name": "oid metrics --help describes the option that records the baseline",
           "bdd": "pass"
+        },
+        {
+          "name": "The baseline file is a readable list of records, one per finding",
+          "bdd": "pass"
+        },
+        {
+          "name": "The baseline record of a complexity finding keeps N where the numbers were",
+          "bdd": "pass"
+        },
+        {
+          "name": "The baseline record of a duplication finding lists its two files and no lines",
+          "bdd": "pass"
         }
       ]
     },
