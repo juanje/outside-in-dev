@@ -1,4 +1,4 @@
-import type { FindingDraft } from "./findings.js";
+import { CATEGORY, type FindingDraft } from "./findings.js";
 import type { ProjectPaths } from "./project-paths.js";
 
 interface Named {
@@ -28,17 +28,17 @@ export function knipFindings(report: unknown, packageJson = ""): FindingDraft[] 
   const { issues } = report as { issues: KnipIssue[] };
   const dependency = (file: string, kind: string, { name }: Named): FindingDraft => {
     const line = declarationLine(packageJson, name);
-    return { category: "dead_code", file, range: { start: line, end: line }, detail: `unused ${kind} ${name}` };
+    return { category: CATEGORY.deadCode, file, range: { start: line, end: line }, detail: `unused ${kind} ${name}` };
   };
   return issues.flatMap(({ file, exports, types, files, dependencies, devDependencies }) => [
     ...[...exports, ...types].map(({ name, line }): FindingDraft => ({
-      category: "dead_code",
+      category: CATEGORY.deadCode,
       file,
       range: { start: line, end: line },
       symbol: name,
       detail: "unused export",
     })),
-    ...files.map(({ name }): FindingDraft => ({ category: "dead_code", file: name, range: { start: 1, end: 1 }, detail: "unused file" })),
+    ...files.map(({ name }): FindingDraft => ({ category: CATEGORY.deadCode, file: name, range: { start: 1, end: 1 }, detail: "unused file" })),
     ...dependencies.map((entry) => dependency(file, "dependency", entry)),
     ...devDependencies.map((entry) => dependency(file, "devDependency", entry)),
   ]);

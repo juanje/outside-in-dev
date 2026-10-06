@@ -1,4 +1,4 @@
-import { advanceStep, CYCLE_STEPS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
@@ -32,7 +32,7 @@ function addFeature(progress: Progress, io: Context, id: string, title: string):
   if (!readRequirementIds(io.cwd, io.paths.spec).includes(id)) {
     throw new ProgressError(`${id} is not defined in ${io.paths.spec}`);
   }
-  progress.features.push({ id, title, status: "pending" });
+  progress.features.push({ id, title, status: FEATURE_STATUS.pending });
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
@@ -62,7 +62,7 @@ function doneFeature(progress: Progress, io: Context, id: string): void {
 }
 
 function showStatus(progress: Progress, io: Context, all: boolean): void {
-  const listed = all ? progress.features : progress.features.filter((f) => f.status !== "done");
+  const listed = all ? progress.features : progress.features.filter((f) => f.status !== FEATURE_STATUS.done);
   for (const feature of listed) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
     io.stdout(`${summary(feature)}${focus}\n`);

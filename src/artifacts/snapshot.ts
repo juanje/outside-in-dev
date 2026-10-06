@@ -1,4 +1,4 @@
-import { CATEGORIES, type Finding, type FindingCategory } from "./findings.js";
+import { CATEGORIES, CATEGORY, type Finding, type FindingCategory } from "./findings.js";
 
 /** The lines of each scanned code file, by path, apart from the source files and the test files. */
 export type ScannedCode = { source: Map<string, number>; tests: Map<string, number> };
@@ -23,7 +23,7 @@ function coveredLines(finding: Finding, files: Map<string, number>): number {
 /** The percentage, to one decimal, of the lines of `files` that duplication findings cover. */
 function duplicatedPercentage(findings: Finding[], files: Map<string, number>): number {
   const total = [...files.values()].reduce((sum, lines) => sum + lines, 0);
-  const duplicated = findings.filter((finding) => finding.category === "duplication").reduce((sum, finding) => sum + coveredLines(finding, files), 0);
+  const duplicated = findings.filter((finding) => finding.category === CATEGORY.duplication).reduce((sum, finding) => sum + coveredLines(finding, files), 0);
   return total === 0 ? 0 : Math.round((duplicated / total) * PERCENT * DECIMALS) / DECIMALS;
 }
 

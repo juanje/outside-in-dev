@@ -1,5 +1,5 @@
 import ts from "typescript-api";
-import { compareText, type FindingDraft } from "./findings.js";
+import { CATEGORY, compareText, type FindingDraft } from "./findings.js";
 
 interface LineRange {
   start: number;
@@ -87,7 +87,7 @@ export function findRepeatedStrings(files: { file: string; text: string }[], min
   return [...occurrences]
     .filter(([, all]) => all.length >= minRepeats)
     .map(([value, [first, ...others]]) => ({
-      category: "magic_value" as const,
+      category: CATEGORY.magicValue,
       ...first!,
       detail: `string "${value}" repeated ${others.length + 1} times`,
       related: others,

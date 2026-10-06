@@ -1,4 +1,4 @@
-import { CYCLE_STEPS, FEATURE_FIELDS, PROGRESS_FILE, ProgressError, SCENARIO_FIELDS, type Progress } from "./progress.js";
+import { CYCLE_STEP, CYCLE_STEPS, FEATURE_FIELDS, FEATURE_STATUS, PROGRESS_FILE, ProgressError, SCENARIO_FIELDS, type Progress } from "./progress.js";
 
 export interface Conversion {
   progress: Progress;
@@ -8,8 +8,10 @@ export interface Conversion {
 
 const PENDING_EQUIVALENTS = ["blocked", "deferred"];
 const UNIT_TESTS_FIELD = "unit_tests";
-const DEFAULT_STEP = "select";
-const CONVERTED_STEPS: Record<string, string> = { spec_review: "select", implementing: "tdd_red", bdd_green: "quality_gate" };
+const DEFAULT_STEP = CYCLE_STEP.select;
+/** A `cycle_step` the old schema used for a finished feature. */
+const LEGACY_DONE_STEP = "done";
+const CONVERTED_STEPS: Record<string, string> = { spec_review: CYCLE_STEP.select, implementing: CYCLE_STEP.tddRed, bdd_green: CYCLE_STEP.qualityGate };
 
 /** An object of the old schema: any field may be there, none is trusted. */
 type OldObject = Record<string, unknown>;
@@ -65,23 +67,23 @@ export function convertProgress(document: unknown): Conversion {
     const old = asObject(item);
     const feature = { ...old };
     if (isOneOf(PENDING_EQUIVALENTS, old.status)) {
-      feature.status = "pending";
+      feature.status = FEATURE_STATUS.pending;
       notes.push(`${old.id}: status ${old.status} converted to pending`);
     }
-    if (old.status === "in_progress" && !isOneOf(CYCLE_STEPS, old.cycle_step)) {
+    if (old.status === FEATURE_STATUS.inProgress && !isOneOf(CYCLE_STEPS, old.cycle_step)) {
       const converted = (typeof old.cycle_step === "string" ? CONVERTED_STEPS[old.cycle_step] : undefined) ?? DEFAULT_STEP;
       feature.cycle_step = converted;
       notes.push(`${old.id}: cycle_step ${old.cycle_step} converted to ${converted}`);
     }
-    if (feature.status === "pending") {
+    if (feature.status === FEATURE_STATUS.pending) {
       delete feature.scenarios;
       if (Array.isArray(old.scenarios) && old.scenarios.length > 0) {
         notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
       }
     }
-    if (feature.status === "pending" || feature.status === "done") {
+    if (feature.status === FEATURE_STATUS.pending || feature.status === FEATURE_STATUS.done) {
       delete feature.cycle_step;
-      if (old.cycle_step !== undefined && !(feature.status === "done" && old.cycle_step === "done")) {
+      if (old.cycle_step !== undefined && !(feature.status === FEATURE_STATUS.done && old.cycle_step === LEGACY_DONE_STEP)) {
         notes.push(`${old.id}: cycle_step ${old.cycle_step} dropped`);
       }
     }
@@ -96,7 +98,7 @@ export function convertProgress(document: unknown): Conversion {
   });
   if (unitTestScenarios > 0) notes.push(`unit_tests dropped from ${scenarioCount(unitTestScenarios)}`);
   let focus = current_focus;
-  if (focus !== null && features.find((f) => f.id === focus)?.status !== "in_progress") {
+  if (focus !== null && features.find((f) => f.id === focus)?.status !== FEATURE_STATUS.inProgress) {
     notes.push(`current_focus ${focus} reset to null`);
     focus = null;
   }
