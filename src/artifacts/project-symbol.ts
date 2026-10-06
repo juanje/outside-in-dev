@@ -9,6 +9,9 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2022,
   noEmit: true,
   skipLibCheck: true,
+  // Only the module's exports are read: the standard library is never needed, and loading it costs
+  // about 200 ms and tens of megabytes on every call.
+  noLib: true,
   types: [],
 };
 
