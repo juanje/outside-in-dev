@@ -30,4 +30,9 @@ describe("parseProjectConfig", () => {
   it("rejects an unsupported stack, naming the field", () => {
     expect(() => parseProjectConfig({ ...VALID, stack: "python" })).toThrow(/stack/);
   });
+
+  it("accepts the complexity limits of the refactor section, each one optional", () => {
+    const config = parseProjectConfig({ ...VALID, refactor: { detectors: { complexity: { max_cyclomatic: 3 } } } });
+    expect(config.refactor?.detectors?.complexity).toEqual({ max_cyclomatic: 3 });
+  });
 });

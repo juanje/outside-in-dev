@@ -3,6 +3,7 @@ import { commandError, HELP_FLAG, row } from "./cli-usage.js";
 import type { CliIo } from "./cli-io.js";
 import { runCheck } from "./commands/check.js";
 import { runInit } from "./commands/init.js";
+import { runMetrics } from "./commands/metrics.js";
 import { progressHelp, runProgress } from "./commands/progress.js";
 
 type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: string };
@@ -23,6 +24,11 @@ const COMMANDS: Record<string, CommandHelp> = {
     summary: "Detect the project setup and initialise progress",
     usage: "oid init [--import-progress [path]]",
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
+  },
+  metrics: {
+    summary: "Report the code-health findings of the project",
+    usage: "oid metrics",
+    options: {},
   },
 };
 const COMMAND_NAMES = Object.keys(COMMANDS);
@@ -58,6 +64,7 @@ export function runCli(args: string[], io: CliIo): number {
       return 0;
     }
     if (command === "check") return runCheck(io, rest.includes("--json"));
+    if (command === "metrics") return runMetrics(io);
     if (command === "init") return runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
     runProgress(rest, io);
     return 0;

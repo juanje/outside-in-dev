@@ -1,0 +1,105 @@
+import ts from "typescript-api";
+
+export interface ComplexityLimits {
+  max_cyclomatic: number;
+  max_depth: number;
+}
+
+interface ComplexFunction {
+  symbol: string;
+  start: number;
+  end: number;
+  detail: string;
+}
+
+const LOGICAL_OPERATORS = new Set([
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.QuestionQuestionToken,
+]);
+
+function isDecisionPoint(node: ts.Node): boolean {
+  return (
+    ts.isIfStatement(node) ||
+    ts.isIterationStatement(node, false) ||
+    ts.isCaseClause(node) ||
+    ts.isCatchClause(node) ||
+    ts.isConditionalExpression(node) ||
+    (ts.isBinaryExpression(node) && LOGICAL_OPERATORS.has(node.operatorToken.kind))
+  );
+}
+
+function isElseIf(node: ts.Node): boolean {
+  return ts.isIfStatement(node) && ts.isIfStatement(node.parent) && node.parent.elseStatement === node;
+}
+
+function isNestingBlock(node: ts.Node): boolean {
+  return (
+    (ts.isIfStatement(node) && !isElseIf(node)) ||
+    ts.isIterationStatement(node, false) ||
+    ts.isSwitchStatement(node) ||
+    ts.isTryStatement(node)
+  );
+}
+
+function measure(body: ts.Node): { cyclomatic: number; depth: number } {
+  let points = 0;
+  let deepest = 0;
+  const visit = (node: ts.Node, depth: number): void => {
+    const nested = isNestingBlock(node) ? depth + 1 : depth;
+    if (isDecisionPoint(node)) points++;
+    deepest = Math.max(deepest, nested);
+    ts.forEachChild(node, (child) => {
+      if (!ts.isFunctionLike(child)) visit(child, nested);
+    });
+  };
+  visit(body, 0);
+  return { cyclomatic: 1 + points, depth: deepest };
+}
+
+type FunctionWithBody = ts.FunctionDeclaration | ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression;
+
+function isFunctionWithBody(node: ts.Node): node is FunctionWithBody & { body: ts.Node } {
+  return (
+    (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) &&
+    node.body !== undefined
+  );
+}
+
+const ANONYMOUS = "<anonymous>";
+
+function symbolOf(node: FunctionWithBody): string {
+  if (ts.isMethodDeclaration(node)) {
+    const owner = ts.isClassLike(node.parent) && node.parent.name ? `${node.parent.name.text}.` : "";
+    return `${owner}${node.name.getText()}`;
+  }
+  if (node.name) return node.name.text;
+  const { parent } = node;
+  return ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name) ? parent.name.text : ANONYMOUS;
+}
+
+/** The functions of a source text whose cyclomatic complexity or nesting depth is above the limits. */
+export function findComplexFunctions(text: string, limits: ComplexityLimits): ComplexFunction[] {
+  const file = ts.createSourceFile("source.ts", text, ts.ScriptTarget.Latest, true);
+  const found: ComplexFunction[] = [];
+  const visit = (node: ts.Node): void => {
+    if (isFunctionWithBody(node)) {
+      const { cyclomatic, depth } = measure(node.body);
+      const exceeded = [
+        cyclomatic > limits.max_cyclomatic ? `cyclomatic complexity ${cyclomatic} > ${limits.max_cyclomatic}` : "",
+        depth > limits.max_depth ? `nesting depth ${depth} > ${limits.max_depth}` : "",
+      ].filter((detail) => detail !== "");
+      if (exceeded.length > 0) {
+        found.push({
+          symbol: symbolOf(node),
+          start: file.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+          end: file.getLineAndCharacterOfPosition(node.getEnd()).line + 1,
+          detail: exceeded.join("; "),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
