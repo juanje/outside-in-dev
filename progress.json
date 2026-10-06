@@ -1100,7 +1100,61 @@
     {
       "id": "FR-CLI-01",
       "title": "Command help",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "oid --help says what oid does and describes every command",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress --help lists every subcommand with its usage",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid check --help shows its usage and its option",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid init --help shows its usage and its option",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress step --help names the allowed cycle steps",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress scenario --help names the allowed statuses",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every progress subcommand has its own help",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help works in an empty directory",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help works with an invalid project configuration and leaves the project untouched",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help is printed instead of the missing-argument error",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help given after the arguments changes nothing",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help for a command that does not exist is an error, not help",
+          "bdd": "pass"
+        },
+        {
+          "name": "Help for a progress subcommand that does not exist is an error, not help",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

@@ -60,7 +60,7 @@ export function requireFeature(progress: Progress, id: string | undefined, file:
 }
 
 const PASSING = "pass";
-const SCENARIO_STATUSES = [PASSING, "fail", "pending"];
+export const SCENARIO_STATUSES = [PASSING, "fail", "pending"];
 
 const START_STEP = "select";
 
