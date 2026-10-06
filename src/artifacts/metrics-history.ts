@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Snapshot } from "./snapshot.js";
 
-const HISTORY_DIR = ".outside-in";
+export const HISTORY_DIR = ".outside-in";
 const HISTORY_FILE = "metrics.jsonl";
 
 function historyPath(cwd: string): string {

@@ -1228,7 +1228,45 @@
     {
       "id": "FR-MET-07",
       "title": "Separate existing debt from new findings",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "The baseline records the current findings and says how many",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finding that is in the baseline is left out of the changed lines and the run succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finding that is not in the baseline is listed and the run fails",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finding that moved to other lines is still the same finding",
+          "bdd": "pass"
+        },
+        {
+          "name": "The same finding in another file is new",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a baseline every finding on the changed lines is new",
+          "bdd": "pass"
+        },
+        {
+          "name": "The full report is not filtered by the baseline and succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "The changed lines and the baseline cannot be asked for together",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid metrics --help describes the option that records the baseline",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-VERIFY-01",
