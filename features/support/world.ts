@@ -102,6 +102,13 @@ export class OidWorld extends World {
     this.exitCode = result.status;
   }
 
+  /** Runs `git` with `args` in the project directory (never in the repository oid is developed in) and fails the step when git fails. */
+  git(...args: string[]): void {
+    const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
+    const result = spawnSync("git", args, { cwd: this.dir, env, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+  }
+
   /** Runs the command with piped output, reads the first chunk of stdout, then destroys the stream. */
   async runClosingOutputEarly(commandLine: string): Promise<void> {
     const args = splitArgs(commandLine);

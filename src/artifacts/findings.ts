@@ -1,4 +1,4 @@
-type FindingCategory = "complexity" | "dead_code" | "doc_drift" | "duplication" | "magic_value";
+export type FindingCategory = "complexity" | "dead_code" | "doc_drift" | "duplication" | "magic_value";
 
 export interface FindingDraft {
   category: FindingCategory;
@@ -15,7 +15,7 @@ export interface Finding extends FindingDraft {
 
 const ID_PREFIX: Record<FindingCategory, string> = { complexity: "cx", dead_code: "dead", doc_drift: "doc", duplication: "dup", magic_value: "magic" };
 const ID_DIGITS = 4;
-const CATEGORIES = Object.keys(ID_PREFIX) as FindingCategory[];
+export const CATEGORIES = Object.keys(ID_PREFIX) as FindingCategory[];
 
 export function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

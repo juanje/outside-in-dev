@@ -1157,7 +1157,73 @@
     {
       "id": "FR-MET-06",
       "title": "Record and show code health",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "The first run records a snapshot of every category and of duplication",
+          "bdd": "pass"
+        },
+        {
+          "name": "A later run appends to the history instead of replacing it",
+          "bdd": "pass"
+        },
+        {
+          "name": "The trend shows the categories whose count changed",
+          "bdd": "pass"
+        },
+        {
+          "name": "The percentage of duplicated lines in the source files is recorded and shown",
+          "bdd": "pass"
+        },
+        {
+          "name": "The duplication of the test files is recorded apart from the source files",
+          "bdd": "pass"
+        },
+        {
+          "name": "The trend shows a change in the percentage of duplicated lines",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only the findings on lines changed since the last commit are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "In a changed file only the changed lines count",
+          "bdd": "pass"
+        },
+        {
+          "name": "A file that is not committed yet counts as entirely changed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A staged change counts as changed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block duplicated between two files is listed when a changed line is in either of them",
+          "bdd": "pass"
+        },
+        {
+          "name": "Findings on a line of package.json that changed are listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run limited to the changed lines records no snapshot and shows no trend",
+          "bdd": "pass"
+        },
+        {
+          "name": "Changed lines cannot be told outside a git repository",
+          "bdd": "pass"
+        },
+        {
+          "name": "Changed lines cannot be told before the first commit",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid metrics --help describes the option that limits the findings to the changed lines",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-07",

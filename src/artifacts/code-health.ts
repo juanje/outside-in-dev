@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { globSync } from "tinyglobby";
 import ts from "typescript-api";
+import { countLines } from "./changed-lines.js";
 import { findCommentedOutCode } from "./commented-out-code.js";
 import { knipConfig, knipFindings } from "./dead-code.js";
 import { duplicationFindings } from "./duplication.js";
@@ -17,6 +18,7 @@ import { ProgressError } from "./progress.js";
 import { readJson, readText, TSCONFIG_FILE } from "./project-json.js";
 import type { DuplicationLimits, MagicValueLimits } from "./project-config.js";
 import type { ProjectPaths } from "./project-paths.js";
+import type { ScannedCode } from "./snapshot.js";
 
 /** The compiler options and files of the project's tsconfig.json (the file must exist). */
 function parsedTsconfig(cwd: string): ts.ParsedCommandLine {
@@ -47,6 +49,16 @@ const CODE_FILE = /\.[cm]?[jt]sx?$/;
 /** The TypeScript and JavaScript files that match the source and test globs of the project, whether or not tsconfig.json compiles them. */
 function globbedSourceAndTestFiles(cwd: string, paths: ProjectPaths): string[] {
   return globSync([...paths.source, ...paths.tests], { cwd }).filter((file) => CODE_FILE.test(file));
+}
+
+/** The lines of each TypeScript and JavaScript file of the project that the detectors scan, the test files apart from the source files. */
+export function scannedCode(cwd: string, paths: ProjectPaths): ScannedCode {
+  const testFiles = new Set(globSync(paths.tests, { cwd }));
+  const scanned: ScannedCode = { source: new Map(), tests: new Map() };
+  for (const file of globbedSourceAndTestFiles(cwd, paths)) {
+    (testFiles.has(file) ? scanned.tests : scanned.source).set(file, countLines(readFileSync(join(cwd, file), "utf8")));
+  }
+  return scanned;
 }
 
 /** The functions of the project's source files that are too complex, for the limits given. */
