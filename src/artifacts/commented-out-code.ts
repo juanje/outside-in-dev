@@ -39,11 +39,14 @@ function looksLikeProse(statement: ts.Statement): boolean {
   return ts.isExpressionStatement(statement) && ts.isIdentifier(statement.expression);
 }
 
+/** What the parser reports for a file; the compiler API types leave it out. */
+type ParsedSourceFile = ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] };
+
+/** Whether the text parses as TypeScript without syntax errors and holds more than prose. Only parses: never transforms, which can throw on broken input. */
 function isCode(code: string): boolean {
   if (DIRECTIVE.test(code)) return false;
-  const { diagnostics } = ts.transpileModule(code, { reportDiagnostics: true });
-  if (diagnostics?.length !== 0) return false;
-  return !ts.createSourceFile("comment.ts", code, ts.ScriptTarget.Latest).statements.every(looksLikeProse);
+  const sourceFile = ts.createSourceFile("comment.ts", code, ts.ScriptTarget.Latest) as ParsedSourceFile;
+  return sourceFile.parseDiagnostics.length === 0 && !sourceFile.statements.every(looksLikeProse);
 }
 
 /** The runs of line comments on consecutive lines, and each block comment on its own. */
