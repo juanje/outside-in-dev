@@ -1,0 +1,96 @@
+import { dirname, relative, resolve } from "node:path";
+import { isRelativeSpecifier } from "./source-roots.js";
+
+/** The classes of a failing test. The first two make a valid Red. */
+export const RED_CLASS = {
+  businessAssertion: "business_assertion",
+  missingImplementation: "missing_implementation",
+  testBug: "test_bug",
+  environment: "environment",
+} as const;
+
+export type RedClass = (typeof RED_CLASS)[keyof typeof RED_CLASS];
+
+/** What the classification decided: a valid Red, one that is not, or one that a person has to decide. */
+export const OUTCOME = { valid: "valid", invalid: "invalid", decision: "decision" } as const;
+
+/** The kinds of observation a run of the test can give. */
+export const FAILURE = { passed: "passed", load: "load", error: "error", noTest: "no_test", noReport: "no_report", notRun: "not_run" } as const;
+
+/** What a run of the test showed, from the runner's report. */
+export type Failure =
+  | { kind: typeof FAILURE.passed }
+  | { kind: typeof FAILURE.load; message: string }
+  | { kind: typeof FAILURE.error; message: string }
+  | { kind: typeof FAILURE.noTest; name: string; file: string }
+  | { kind: typeof FAILURE.noReport; exitCode: number | null }
+  | { kind: typeof FAILURE.notRun; status: string };
+
+/** What the classification needs to know about the project. */
+export interface ClassifyContext {
+  cwd: string;
+  /** Whether a path, relative to the project, is inside the source paths. */
+  isSource: (path: string) => boolean;
+  /** Whether a name imported by the test exists in the project module it comes from. */
+  resolveSymbol: (name: string) => "exists" | "missing" | "external";
+}
+
+/** The class of a failure: a valid Red, one that is not, or one a person has to decide. */
+export type Verdict =
+  | { outcome: typeof OUTCOME.valid | typeof OUTCOME.invalid; class: RedClass; reason: string }
+  | { outcome: typeof OUTCOME.decision; reason: string; candidate?: RedClass };
+
+/** The text on one line. */
+function oneLine(text: string): string {
+  return text.split(/\n/).map((line) => line.trim()).join(" ");
+}
+
+const MISSING_MODULE = /^Cannot find (?:module|package) '([^']+)' imported from '([^']+)'/;
+const NOT_CALLABLE = /^TypeError: (?:\(0 , (\w+)\)|(\w+)) is not a (?:function|constructor)/;
+
+/** A file that failed to load: a syntax error, a module that does not exist yet, a package that is not installed. */
+function classifyLoad(message: string, context: ClassifyContext): Verdict {
+  const missing = MISSING_MODULE.exec(message);
+  if (missing !== null) {
+    const [, specifier, importer] = missing;
+    if (isRelativeSpecifier(specifier!) && context.isSource(relative(context.cwd, resolve(dirname(importer!), specifier!)))) {
+      return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `the module ${specifier} does not exist yet` };
+    }
+    return { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `${specifier} cannot be found and is not a source module of the project` };
+  }
+  if (message.startsWith("Transform failed")) {
+    return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test file does not compile: ${oneLine(message)}` };
+  }
+  return { outcome: OUTCOME.decision, reason: "the test file failed to load" };
+}
+
+/** A test that ran and failed. */
+function classifyError(message: string, context: ClassifyContext): Verdict {
+  if (message.startsWith("AssertionError")) return { outcome: OUTCOME.decision, reason: "an assertion failed", candidate: RED_CLASS.businessAssertion };
+  const notCallable = NOT_CALLABLE.exec(message);
+  if (notCallable === null) return { outcome: OUTCOME.decision, reason: "the test failed with an error that is not an assertion" };
+  const [, wrapped, bare] = notCallable;
+  const name = wrapped ?? bare!;
+  const symbol = context.resolveSymbol(name);
+  if (symbol === "missing") return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `${name} does not exist yet` };
+  const why = symbol === "exists" ? `${name} exists in the project: the test may use it wrongly` : `${name} is not imported from a project module`;
+  return { outcome: OUTCOME.decision, reason: why };
+}
+
+/** Classifies a failure with the deterministic rules of the Red Gate. */
+export function classifyFailure(failure: Failure, context: ClassifyContext): Verdict {
+  switch (failure.kind) {
+    case FAILURE.passed:
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: "the test passes without new implementation" };
+    case FAILURE.load:
+      return classifyLoad(failure.message, context);
+    case FAILURE.error:
+      return classifyError(failure.message, context);
+    case FAILURE.notRun:
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test did not run (status ${failure.status})` };
+    case FAILURE.noReport:
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `the unit runner wrote no report (exit code ${failure.exitCode})` };
+    case FAILURE.noTest:
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `no test named "${failure.name}" ran in ${failure.file}` };
+  }
+}

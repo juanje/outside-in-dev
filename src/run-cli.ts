@@ -21,6 +21,14 @@ const COMMANDS: Record<string, CommandHelp> = {
     usage: "oid init [--import-progress [path]]",
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
   },
+  verify: {
+    summary: "Verify that a test is a valid Red",
+    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]',
+    options: {
+      "--decide": "Answer a failure that needs a decision: business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
+    },
+    extra: async () => "\nExit codes:\n  0  valid Red\n  1  not a valid Red, or a usage error\n  2  needs a decision: answer with --decide <class>\n",
+  },
   metrics: {
     summary: "Report the code-health findings of the project",
     usage: "oid metrics [--changed]\n       oid metrics --baseline",
@@ -31,6 +39,23 @@ const COMMANDS: Record<string, CommandHelp> = {
   },
 };
 const COMMAND_NAMES = Object.keys(COMMANDS);
+
+type Runner = (rest: string[], io: CliIo) => Promise<number>;
+
+/** What each command does with its arguments; a command's module loads only when it runs. */
+const RUNNERS: Record<string, Runner> = {
+  progress: async (rest, io) => {
+    (await import("./commands/progress.js")).runProgress(rest, io);
+    return 0;
+  },
+  check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
+  init: async (rest, io) => (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--"))),
+  verify: async (rest, io) => (await import("./commands/verify.js")).runVerify(io, rest),
+  metrics: async (rest, io) => {
+    const { runMetrics } = await import("./commands/metrics.js");
+    return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
+  },
+};
 
 function overviewHelp(): string {
   const commands = COMMAND_NAMES.map((name) => row(name, COMMANDS[name]!.summary)).join("");
@@ -63,16 +88,7 @@ export async function runCli(args: string[], io: CliIo): Promise<number> {
       io.stdout(await commandHelp(COMMANDS[command!]!));
       return 0;
     }
-    if (command === "check") return (await import("./commands/check.js")).runCheck(io, rest.includes("--json"));
-    if (command === "metrics") {
-      const { runMetrics } = await import("./commands/metrics.js");
-      return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
-    }
-    if (command === "init") {
-      return (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
-    }
-    (await import("./commands/progress.js")).runProgress(rest, io);
-    return 0;
+    return await RUNNERS[command!]!(rest, io);
   } catch (error) {
     if (error instanceof ProgressError) {
       io.stderr(`error: ${error.message}\n`);
