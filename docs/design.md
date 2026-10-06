@@ -1200,7 +1200,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 `oid progress` reads and writes `progress.json` with the schema and transitions of §4.4:
 
 ```
-oid progress current | status | show FR-xxx
+oid progress current | status [--all] | show FR-xxx
 oid progress add FR-xxx "Title"             # the FR must exist in SPEC.md
 oid progress focus FR-xxx
 oid progress step FR-xxx <cycle_step>       # rejects invalid transitions

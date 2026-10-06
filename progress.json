@@ -1155,6 +1155,11 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-CLI-02",
+      "title": "Concise status",
+      "status": "pending"
     }
   ]
 }
