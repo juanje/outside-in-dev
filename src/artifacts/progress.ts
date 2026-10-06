@@ -25,37 +25,37 @@ export interface Progress {
 /** An error whose message is meant to be shown to the user as is. */
 export class ProgressError extends Error {}
 
-export function loadProgress(cwd: string): Progress {
-  const path = join(cwd, PROGRESS_FILE);
+export function loadProgress(cwd: string, file: string = PROGRESS_FILE): Progress {
+  const path = join(cwd, file);
   if (!existsSync(path)) {
-    throw new ProgressError(`${PROGRESS_FILE} not found in ${cwd}`);
+    throw new ProgressError(`${file} not found in ${cwd}`);
   }
   let document: unknown;
   try {
     document = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
-    throw new ProgressError(`${PROGRESS_FILE} is not valid JSON: ${error.message}`);
+    throw new ProgressError(`${file} is not valid JSON: ${error.message}`);
   }
-  requireValid(document);
+  requireValid(document, file);
   return document as Progress;
 }
 
-export function requireValid(document: unknown): void {
+export function requireValid(document: unknown, file: string = PROGRESS_FILE): void {
   const violations = validateProgress(document);
   if (violations.length > 0) {
-    throw new ProgressError(`${PROGRESS_FILE} is invalid:\n${violations.map((v) => `  ${v}`).join("\n")}`);
+    throw new ProgressError(`${file} is invalid:\n${violations.map((v) => `  ${v}`).join("\n")}`);
   }
 }
 
 export function saveProgress(cwd: string, progress: Progress, file: string = PROGRESS_FILE): void {
-  requireValid(progress);
+  requireValid(progress, file);
   writeFileAtomic(join(cwd, file), `${JSON.stringify(progress, null, 2)}\n`);
 }
 
-export function requireFeature(progress: Progress, id: string | undefined): FeatureProgress {
+export function requireFeature(progress: Progress, id: string | undefined, file: string = PROGRESS_FILE): FeatureProgress {
   const feature = progress.features.find((f) => f.id === id);
-  if (!feature) throw new ProgressError(`${id} is not tracked in ${PROGRESS_FILE}`);
+  if (!feature) throw new ProgressError(`${id} is not tracked in ${file}`);
   return feature;
 }
 

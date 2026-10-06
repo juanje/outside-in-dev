@@ -6,10 +6,10 @@ export const SPEC_FILE = "SPEC.md";
 
 const REQUIREMENT_HEADING = new RegExp(`^### (${FR_ID_SOURCE}|NFR-\\d{2,3}):(.*)$`);
 
-export function readRequirementIds(cwd: string): string[] {
-  const path = join(cwd, SPEC_FILE);
+export function readRequirementIds(cwd: string, file: string = SPEC_FILE): string[] {
+  const path = join(cwd, file);
   if (!existsSync(path)) {
-    throw new ProgressError(`${SPEC_FILE} not found in ${cwd}`);
+    throw new ProgressError(`${file} not found in ${cwd}`);
   }
   return parseRequirements(readFileSync(path, "utf8"))
     .map((requirement) => requirement.id)

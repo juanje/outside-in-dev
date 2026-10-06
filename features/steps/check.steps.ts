@@ -1,5 +1,6 @@
 import { Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import type { OidWorld } from "../support/world.js";
 
 Given("a SPEC.md containing:", function (this: OidWorld, content: string) {
@@ -52,4 +53,46 @@ Then("every JSON violation message is a line printed by {string}", function (thi
 Given("a SPEC.md with {int} requirements sharing one ID", function (this: OidWorld, count: number) {
   const section = "### FR-DUP-01: Same title\n\nThe tool does the same thing.\n\n";
   this.write("SPEC.md", section.repeat(count));
+});
+
+const CONFIG_FILE = ".outside-in.json";
+
+type ProjectConfigFixture = { paths: { spec: string; progress: string; bdd_features: string[] } };
+
+function readConfigFixture(world: OidWorld): ProjectConfigFixture {
+  return JSON.parse(readFileSync(world.path(CONFIG_FILE), "utf8")) as ProjectConfigFixture;
+}
+
+Given(
+  "a project configuration with the spec {string}, the progress file {string} and the feature globs {string}",
+  function (this: OidWorld, spec: string, progress: string, globs: string) {
+    const config = {
+      version: 1,
+      stack: "typescript",
+      paths: {
+        source: ["src/**"],
+        shared: [],
+        unit_tests: ["tests/**"],
+        bdd_features: globs.split(",").map((glob) => glob.trim()),
+        bdd_steps: [],
+        docs: [],
+        spec,
+        design: [],
+        progress,
+      },
+      commands: { bdd: "bdd", unit: "unit", typecheck: "tsc", format: null, lint: null, coverage: null, extra_checks: [] },
+    };
+    this.write(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`);
+  },
+);
+
+Given("the project configuration also lists the feature glob {string}", function (this: OidWorld, glob: string) {
+  const config = readConfigFixture(this);
+  config.paths.bdd_features.push(glob);
+  this.write(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`);
+});
+
+Then("the file {string} contains {string}", function (this: OidWorld, path: string, text: string) {
+  assert.ok(existsSync(this.path(path)), `${path} does not exist; stdout: ${this.stdout}; stderr: ${this.stderr}`);
+  assert.ok(readFileSync(this.path(path), "utf8").includes(text), `${path} does not contain "${text}"`);
 });

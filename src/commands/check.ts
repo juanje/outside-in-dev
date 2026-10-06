@@ -1,47 +1,52 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseRequirements, SPEC_FILE, validateSpec } from "../artifacts/spec.js";
+import { globSync } from "tinyglobby";
+import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
+import { parseRequirements, validateSpec } from "../artifacts/spec.js";
 import { checkProgressConsistency } from "../artifacts/consistency.js";
-import { loadProgress, PROGRESS_FILE, ProgressError } from "../artifacts/progress.js";
+import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { checkTraceability, listScenarios } from "../artifacts/traceability.js";
 import type { CliIo } from "../cli-io.js";
 
-const FEATURES_DIR = "features";
-const FEATURE_EXTENSION = ".feature";
-
-function readFeatureSources(cwd: string) {
-  const dir = join(cwd, FEATURES_DIR);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { recursive: true, encoding: "utf8" })
-    .filter((name) => name.endsWith(FEATURE_EXTENSION))
+function readFeatureSources(cwd: string, globs: string[]) {
+  return globSync(globs, { cwd })
     .sort()
-    .map((name) => {
-      const path = `${FEATURES_DIR}/${name}`;
-      return { path, text: readFileSync(join(cwd, path), "utf8") };
-    });
+    .map((path) => ({ path, text: readFileSync(join(cwd, path), "utf8") }));
 }
 
-type Violation = { check: "spec" | "traceability" | "progress"; message: string };
+type Violation = { check: "config" | "spec" | "traceability" | "progress"; message: string };
+
+function reportJson(io: CliIo, violations: Violation[]): void {
+  io.stdout(`${JSON.stringify({ ok: violations.length === 0, violations })}\n`);
+}
 
 export function runCheck(io: CliIo, json = false): number {
-  const specPath = join(io.cwd, SPEC_FILE);
+  let paths: ProjectPaths;
+  try {
+    paths = loadProjectPaths(io.cwd);
+  } catch (error) {
+    if (!json || !(error instanceof ProgressError)) throw error;
+    reportJson(io, [{ check: "config", message: error.message }]);
+    return 1;
+  }
+  const specPath = join(io.cwd, paths.spec);
   const specFound = existsSync(specPath);
   const text = specFound ? readFileSync(specPath, "utf8") : "";
   const violations: Violation[] = specFound
-    ? validateSpec(text).map(({ id, kind }) => ({ check: "spec", message: `${SPEC_FILE}: ${id}: ${kind}` }))
-    : [{ check: "spec", message: `${SPEC_FILE} not found` }];
+    ? validateSpec(text).map(({ id, kind }) => ({ check: "spec", message: `${paths.spec}: ${id}: ${kind}` }))
+    : [{ check: "spec", message: `${paths.spec} not found` }];
   const knownIds = parseRequirements(text).map((requirement) => requirement.id);
-  const sources = readFeatureSources(io.cwd);
+  const sources = readFeatureSources(io.cwd, paths.features);
   for (const { file, scenario, kind } of checkTraceability(sources, knownIds)) {
     violations.push({ check: "traceability", message: `${file}: ${scenario ? `${scenario}: ` : ""}${kind}` });
   }
-  if (existsSync(join(io.cwd, PROGRESS_FILE))) {
+  if (existsSync(join(io.cwd, paths.progress))) {
     try {
-      const progress = loadProgress(io.cwd);
+      const progress = loadProgress(io.cwd, paths.progress);
       for (const { feature, scenario, kind } of checkProgressConsistency(progress, listScenarios(sources))) {
         violations.push({
           check: "progress",
-          message: `${PROGRESS_FILE}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`,
+          message: `${paths.progress}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`,
         });
       }
     } catch (error) {
@@ -51,7 +56,7 @@ export function runCheck(io: CliIo, json = false): number {
   }
   const ok = violations.length === 0;
   if (json) {
-    io.stdout(`${JSON.stringify({ ok, violations })}\n`);
+    reportJson(io, violations);
   } else {
     for (const { message } of violations) io.stdout(`${message}\n`);
     if (ok) io.stdout("no violations\n");

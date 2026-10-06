@@ -53,6 +53,14 @@
         {
           "name": "Closing the status output after the first chunk leaves no error output",
           "bdd": "pass"
+        },
+        {
+          "name": "oid progress status reads the configured progress file",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress with an invalid configuration fails naming the violation",
+          "bdd": "pass"
         }
       ]
     },
@@ -83,6 +91,14 @@
         },
         {
           "name": "A requirement with a one-letter suffix can be added as a feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress add writes the configured progress file and checks the configured spec",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress add names the configured spec when the requirement is missing",
           "bdd": "pass"
         }
       ]
@@ -188,6 +204,10 @@
         },
         {
           "name": "Scenario without a name prints its usage",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid progress scenario records into the configured progress file",
           "bdd": "pass"
         }
       ]
@@ -315,6 +335,10 @@
         {
           "name": "A progress file tracking an id with a one-letter suffix is valid",
           "bdd": "pass"
+        },
+        {
+          "name": "An invalid progress file is reported with its configured path",
+          "bdd": "pass"
         }
       ]
     },
@@ -362,6 +386,10 @@
         {
           "name": "A duplicate requirement id with a one-letter suffix is reported",
           "bdd": "pass"
+        },
+        {
+          "name": "A requirement problem is reported against the configured spec file",
+          "bdd": "pass"
         }
       ]
     },
@@ -405,6 +433,14 @@
         {
           "name": "A scenario tagged with an id with a one-letter suffix is traced to SPEC.md",
           "bdd": "pass"
+        },
+        {
+          "name": "Feature files are read from every configured glob",
+          "bdd": "pass"
+        },
+        {
+          "name": "Feature files outside the configured globs are not read",
+          "bdd": "pass"
         }
       ]
     },
@@ -447,6 +483,10 @@
         },
         {
           "name": "A project fixed to be consistent reports no violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "Progress is read from the configured progress file",
           "bdd": "pass"
         }
       ]
@@ -498,6 +538,18 @@
         },
         {
           "name": "Closing the status output after the first chunk still succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "A clean project with configured paths passes in the JSON report",
+          "bdd": "pass"
+        },
+        {
+          "name": "An invalid configuration is reported in the JSON document",
+          "bdd": "pass"
+        },
+        {
+          "name": "An invalid configuration is reported by oid check",
           "bdd": "pass"
         }
       ]

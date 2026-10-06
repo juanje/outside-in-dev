@@ -1,7 +1,10 @@
-import { advanceStep, completeFeature, loadProgress, recordScenario, ProgressError, PROGRESS_FILE, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
-import { readRequirementIds, SPEC_FILE } from "../artifacts/spec.js";
+import { advanceStep, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
+import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError } from "../cli-usage.js";
 import type { CliIo } from "../cli-io.js";
+
+type Context = CliIo & { paths: ProjectPaths };
 
 function summary(feature: FeatureProgress): string {
   const step = feature.cycle_step ? ` ${feature.cycle_step}` : "";
@@ -13,52 +16,52 @@ function describe(feature: FeatureProgress): string {
   return `${summary(feature)}\n${scenarios}`;
 }
 
-function showCurrent(progress: Progress, io: CliIo): void {
+function showCurrent(progress: Progress, io: Context): void {
   const focused = progress.features.find((f) => f.id === progress.current_focus);
   io.stdout(focused ? describe(focused) : "No feature is focused\n");
 }
 
-function showFeature(progress: Progress, io: CliIo, id: string | undefined): void {
-  io.stdout(describe(requireFeature(progress, id)));
+function showFeature(progress: Progress, io: Context, id: string | undefined): void {
+  io.stdout(describe(requireFeature(progress, id, io.paths.progress)));
 }
 
-function addFeature(progress: Progress, io: CliIo, id: string, title: string): void {
+function addFeature(progress: Progress, io: Context, id: string, title: string): void {
   if (progress.features.some((f) => f.id === id)) {
-    throw new ProgressError(`${id} is already tracked in ${PROGRESS_FILE}`);
+    throw new ProgressError(`${id} is already tracked in ${io.paths.progress}`);
   }
-  if (!readRequirementIds(io.cwd).includes(id)) {
-    throw new ProgressError(`${id} is not defined in ${SPEC_FILE}`);
+  if (!readRequirementIds(io.cwd, io.paths.spec).includes(id)) {
+    throw new ProgressError(`${id} is not defined in ${io.paths.spec}`);
   }
   progress.features.push({ id, title, status: "pending" });
-  saveProgress(io.cwd, progress);
+  saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function focusFeature(progress: Progress, io: CliIo, id: string): void {
-  requireFeature(progress, id);
+function focusFeature(progress: Progress, io: Context, id: string): void {
+  requireFeature(progress, id, io.paths.progress);
   progress.current_focus = id;
-  saveProgress(io.cwd, progress);
+  saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function stepFeature(progress: Progress, io: CliIo, id: string, step: string): void {
-  const feature = requireFeature(progress, id);
+function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
+  const feature = requireFeature(progress, id, io.paths.progress);
   progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step);
-  saveProgress(io.cwd, progress);
+  saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function recordFeatureScenario(progress: Progress, io: CliIo, status: string, id: string, name: string): void {
-  const feature = requireFeature(progress, id);
+function recordFeatureScenario(progress: Progress, io: Context, status: string, id: string, name: string): void {
+  const feature = requireFeature(progress, id, io.paths.progress);
   progress.features[progress.features.indexOf(feature)] = recordScenario(feature, name, status);
-  saveProgress(io.cwd, progress);
+  saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function doneFeature(progress: Progress, io: CliIo, id: string): void {
-  const feature = requireFeature(progress, id);
+function doneFeature(progress: Progress, io: Context, id: string): void {
+  const feature = requireFeature(progress, id, io.paths.progress);
   progress.features[progress.features.indexOf(feature)] = completeFeature(feature);
   if (progress.current_focus === id) progress.current_focus = null;
-  saveProgress(io.cwd, progress);
+  saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function showStatus(progress: Progress, io: CliIo): void {
+function showStatus(progress: Progress, io: Context): void {
   for (const feature of progress.features) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
     io.stdout(`${summary(feature)}${focus}\n`);
@@ -78,7 +81,7 @@ const OPERANDS: Record<string, string[]> = {
 };
 const SUBCOMMANDS = Object.keys(OPERANDS);
 
-export function runProgress(args: string[], io: CliIo): void {
+export function runProgress(args: string[], cli: CliIo): void {
   const [command, ...operands] = args;
   if (!SUBCOMMANDS.includes(command!)) {
     throw commandError("subcommand", command, SUBCOMMANDS);
@@ -87,7 +90,8 @@ export function runProgress(args: string[], io: CliIo): void {
   if (operands.length < expected.length) {
     throw new ProgressError(`usage: oid progress ${command} ${expected.join(" ")}`);
   }
-  const progress = loadProgress(io.cwd);
+  const io: Context = { ...cli, paths: loadProjectPaths(cli.cwd) };
+  const progress = loadProgress(io.cwd, io.paths.progress);
   if (command === "current") showCurrent(progress, io);
   else if (command === "show") showFeature(progress, io, operands[0]);
   else if (command === "add") addFeature(progress, io, operands[0]!, operands[1]!);
