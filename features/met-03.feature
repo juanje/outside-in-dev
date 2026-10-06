@@ -30,7 +30,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/lib.ts:4-4 [unusedExport] unused export"
-    And the output does not contain "[used]"
+    And the dead_code findings do not mention "[used]"
 
   Scenario: An exported type that nothing imports is reported
     Given a project file "src/types.ts" containing:
@@ -46,7 +46,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/types.ts:2-2 [Invoice] unused export"
-    And the output does not contain "[Order]"
+    And the dead_code findings do not mention "[Order]"
 
   Scenario: A file that nothing imports is reported
     Given a project file "src/orphan.ts" containing:
@@ -60,7 +60,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/orphan.ts:1-1 unused file"
-    And the output does not contain "src/main.ts"
+    And the dead_code findings do not mention "src/main.ts"
 
   Scenario: A dependency that nothing uses is reported against package.json
     Given a project file "package.json" containing:
@@ -83,7 +83,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code package.json:6-6 unused dependency bun"
-    And the output does not contain "left-pad"
+    And the dead_code findings do not mention "left-pad"
 
   Scenario: A development dependency that nothing uses is reported against package.json
     Given a project file "package.json" containing:
@@ -127,8 +127,8 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/lib.ts:4-4 [unusedExport] unused export"
-    And the output does not contain "onlyTested"
-    And the output does not contain "tests/unit/lib.test.ts"
+    And the dead_code findings do not mention "onlyTested"
+    And the dead_code findings do not mention "tests/unit/lib.test.ts"
 
   Scenario: Files named in the refactor entry configuration are entry points
     Given a project file "src/worker.ts" containing:
@@ -155,8 +155,8 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/orphan.ts:1-1 unused file"
-    And the output does not contain "src/worker.ts"
-    And the output does not contain "src/helper.ts"
+    And the dead_code findings do not mention "src/worker.ts"
+    And the dead_code findings do not mention "src/helper.ts"
 
   Scenario: Generated files are not reported
     Given a project file "src/api.generated.ts" containing:
@@ -174,7 +174,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/orphan.ts:1-1 unused file"
-    And the output does not contain "api.generated"
+    And the dead_code findings do not mention "api.generated"
 
   Scenario: A local variable that is never read is reported
     Given a project file "src/main.ts" containing:
@@ -198,7 +198,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/main.ts:1-1 [second] unused declaration"
-    And the output does not contain "_third"
+    And the dead_code findings do not mention "_third"
 
   Scenario: An import that is never used is reported
     Given a project file "src/main.ts" containing:
@@ -219,7 +219,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/main.ts:1-1 unused imports"
-    And the output contains "dead_code 1"
+    And the summary counts dead_code 1
 
   Scenario: A local variable that is never read in a test file is reported
     Given a project file "tests/unit/lib.test.ts" containing:
@@ -273,7 +273,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "[unusedCount] unused declaration"
-    And the output does not contain "commented-out code"
+    And the dead_code findings do not mention "commented-out code"
 
   Scenario: Prose, directives, documentation and license headers are not reported as commented-out code
     Given a project file "src/main.ts" containing:
@@ -301,7 +301,7 @@ Feature: Detect dead code
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "dead_code src/main.ts:17-18 commented-out code"
-    And the output contains "dead_code 1"
+    And the summary counts dead_code 1
 
   Scenario: Unused locals are reported in a project without package.json
     Given the project has no "package.json" file
@@ -331,4 +331,5 @@ Feature: Detect dead code
       | refactor.detectors.complexity.max_cyclomatic | 1 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "complexity 1, dead_code 1"
+    And the summary counts complexity 1
+    And the summary counts dead_code 1

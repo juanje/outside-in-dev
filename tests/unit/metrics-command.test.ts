@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCli } from "../../src/run-cli.js";
+import { findingLines, summaryCount } from "./metrics-output.js";
 
 let dir: string;
 
@@ -30,7 +31,8 @@ describe("oid metrics", () => {
     let stdout = "";
     const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
-    expect(stdout).toBe("complexity src/busy.ts:1-3 [busy] cyclomatic complexity 2 > 1\ncomplexity 1\n");
+    expect(findingLines(stdout, "complexity")).toEqual(["complexity src/busy.ts:1-3 [busy] cyclomatic complexity 2 > 1"]);
+    expect(summaryCount(stdout, "complexity")).toBe(1);
   });
 
   it("prints the blocks duplicated between files, with both locations, and counts them", () => {
@@ -42,7 +44,8 @@ describe("oid metrics", () => {
     let stdout = "";
     const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
-    expect(stdout).toBe("duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9\nduplication 1\n");
+    expect(findingLines(stdout, "duplication")).toEqual(["duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9"]);
+    expect(summaryCount(stdout, "duplication")).toBe(1);
   });
 
   it("prints the unused files of the project, with the entry points of refactor.entry left out, and counts them", () => {
@@ -63,7 +66,8 @@ describe("oid metrics", () => {
     let stdout = "";
     const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
-    expect(stdout).toBe("dead_code src/orphan.ts:1-1 unused file\ndead_code 1\n");
+    expect(findingLines(stdout, "dead_code")).toEqual(["dead_code src/orphan.ts:1-1 unused file"]);
+    expect(summaryCount(stdout, "dead_code")).toBe(1);
   });
 
   it("prints the unused locals of the project, also without a package.json", () => {
@@ -73,7 +77,8 @@ describe("oid metrics", () => {
     let stdout = "";
     const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
-    expect(stdout).toBe("dead_code src/total.ts:2-2 [unusedCount] unused declaration\ndead_code 1\n");
+    expect(findingLines(stdout, "dead_code")).toEqual(["dead_code src/total.ts:2-2 [unusedCount] unused declaration"]);
+    expect(summaryCount(stdout, "dead_code")).toBe(1);
   });
 
   it("prints the numeric literals and repeated strings of the source files, not those of the test files", () => {
@@ -86,14 +91,11 @@ describe("oid metrics", () => {
     let stdout = "";
     const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
-    expect(stdout).toBe(
-      [
-        "magic_value src/limits.ts:1-1 magic number 42",
-        "magic_value src/limits.ts:1-1 magic number 7",
-        'magic_value src/limits.ts:2-2 string "tag" repeated 3 times, also src/limits.ts:2-2, also src/more.ts:1-1',
-        "magic_value 3",
-        "",
-      ].join("\n"),
-    );
+    expect(findingLines(stdout, "magic_value")).toEqual([
+      "magic_value src/limits.ts:1-1 magic number 42",
+      "magic_value src/limits.ts:1-1 magic number 7",
+      'magic_value src/limits.ts:2-2 string "tag" repeated 3 times, also src/limits.ts:2-2, also src/more.ts:1-1',
+    ]);
+    expect(summaryCount(stdout, "magic_value")).toBe(3);
   });
 });

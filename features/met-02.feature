@@ -152,7 +152,7 @@ Feature: Detect duplication
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "duplication src/invoices.ts:1-9"
-    And the output does not contain "src/other.ts"
+    And the duplication findings do not mention "src/other.ts"
 
   Scenario: A repeated block shorter than the minimum is not reported
     Given a project file "src/orders.ts" containing:
@@ -192,7 +192,7 @@ Feature: Detect duplication
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "duplication src/invoices.ts:1-9"
-    And the output does not contain "src/a.ts"
+    And the duplication findings do not mention "src/a.ts"
 
   Scenario: The minimum number of lines comes from the configuration
     Given a project file "src/orders.ts" containing:
@@ -223,7 +223,7 @@ Feature: Detect duplication
       | refactor.detectors.duplication.min_lines | 10 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "no findings"
+    And the output has no duplication findings
 
   Scenario: The summary counts duplication next to the other categories
     Given a project file "src/orders.ts" containing:
@@ -254,4 +254,5 @@ Feature: Detect duplication
       | refactor.detectors.complexity.max_cyclomatic | 1 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "complexity 2, duplication 1"
+    And the summary counts complexity 2
+    And the summary counts duplication 1

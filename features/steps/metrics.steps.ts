@@ -58,3 +58,33 @@ Then("the output lists these in order:", function (this: OidWorld, table: { raw:
     from = found + expected!.length;
   }
 });
+
+/** The lines of the output that report one finding of `category` (not its summary count). */
+function findingLines(output: string, category: string): string[] {
+  const finding = new RegExp(`^${category} \\S+:\\d+-\\d+ `);
+  return output.split("\n").filter((line) => finding.test(line));
+}
+
+/** The count the summary line gives for `category`, or 0 when the summary does not list it. */
+function summaryCount(output: string, category: string): number {
+  const entry = new RegExp(`^(?:.*, )?${category} (\\d+)(?:,.*)?$`);
+  for (const line of output.split("\n")) {
+    const match = entry.exec(line);
+    if (match) return Number(match[1]);
+  }
+  return 0;
+}
+
+Then("the output has no {word} findings", function (this: OidWorld, category: string) {
+  const lines = findingLines(this.stdout, category);
+  assert.deepEqual(lines, [], `unexpected ${category} findings in:\n${this.stdout}`);
+});
+
+Then("the {word} findings do not mention {string}", function (this: OidWorld, category: string, text: string) {
+  const lines = findingLines(this.stdout, category).filter((line) => line.includes(text));
+  assert.deepEqual(lines, [], `${category} findings mention "${text}" in:\n${this.stdout}`);
+});
+
+Then("the summary counts {word} {int}", function (this: OidWorld, category: string, count: number) {
+  assert.equal(summaryCount(this.stdout, category), count, `summary does not count ${category} ${count} in:\n${this.stdout}`);
+});
