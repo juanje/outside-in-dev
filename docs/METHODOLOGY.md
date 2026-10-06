@@ -45,7 +45,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 - Write the **minimum** code in `src/` to make the test pass. Before writing a new function or constant, check whether one already exists (search the exported symbols of `src/`).
 - Do not touch tests in this step.
-- Run the whole unit suite and `npx tsc --noEmit`. No new type errors in `src/`.
+- Run the whole unit suite and `npx tsc --noEmit`. No new type errors in `src/`, the unit tests or the step definitions.
 - From FR-VERIFY on: `oid verify green`.
 
 ### 5. Refactor [`refactor`]
