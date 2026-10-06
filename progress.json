@@ -1159,7 +1159,33 @@
     {
       "id": "FR-CLI-02",
       "title": "Concise status",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Status lists the features that are not done and counts the done ones",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status marks the focused feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status still shows the done count when no feature is done",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status shows only the done count when every feature is done",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status help documents the --all option",
+          "bdd": "pass"
+        },
+        {
+          "name": "Status --all lists every tracked feature including the done ones",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

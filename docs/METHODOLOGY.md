@@ -4,7 +4,7 @@ The procedure for agents working on this repository while oid is being bootstrap
 
 ## Session start
 
-1. Read the current progress: `oid progress current` (and `oid progress status` for the whole list).
+1. Read the current progress: `oid progress current` (and `oid progress status` for the open features, `--all` for every tracked one).
 2. If the user names a feature: make sure it is tracked and focused (`oid progress add` / `focus`; a pending feature starts with `oid progress step FR-… select`).
 3. If no feature is named and there is no focus: ask.
 4. Continue the focused feature from its `cycle_step`.
