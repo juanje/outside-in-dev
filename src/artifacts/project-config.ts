@@ -38,6 +38,7 @@ const projectConfigSchema = z.strictObject({
           duplication: z.strictObject({ min_lines: z.number().optional(), min_tokens: z.number().optional() }).optional(),
         })
         .optional(),
+      entry: globs.optional(),
     })
     .optional(),
 });
@@ -74,4 +75,10 @@ export function loadComplexityLimits(cwd: string): { max_cyclomatic: number; max
 /** The duplication limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadDuplicationLimits(cwd: string): DuplicationLimits {
   return loadLimits(cwd, "duplication", DEFAULT_DUPLICATION);
+}
+
+/** The extra entry points of the project for the dead-code detector: `refactor.entry` of the configuration file. */
+export function loadRefactorEntry(cwd: string): string[] {
+  const document = readJson(cwd, CONFIG_FILE);
+  return document === undefined ? [] : (parseProjectConfig(document).refactor?.entry ?? []);
 }

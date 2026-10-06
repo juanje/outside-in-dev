@@ -948,7 +948,85 @@
     {
       "id": "FR-MET-03",
       "title": "Detect dead code",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An export that nothing imports is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An exported type that nothing imports is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A file that nothing imports is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A dependency that nothing uses is reported against package.json",
+          "bdd": "pass"
+        },
+        {
+          "name": "A development dependency that nothing uses is reported against package.json",
+          "bdd": "pass"
+        },
+        {
+          "name": "An export used only by a test is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Files named in the refactor entry configuration are entry points",
+          "bdd": "pass"
+        },
+        {
+          "name": "Generated files are not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A local variable that is never read is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A parameter that is never used is reported unless its name starts with an underscore",
+          "bdd": "pass"
+        },
+        {
+          "name": "An import that is never used is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An import declaration whose names are all unused is reported once",
+          "bdd": "pass"
+        },
+        {
+          "name": "A local variable that is never read in a test file is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Several consecutive comment lines that are code are reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block comment that is code is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A single commented-out line is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Prose, directives, documentation and license headers are not reported as commented-out code",
+          "bdd": "pass"
+        },
+        {
+          "name": "Unused locals are reported in a project without package.json",
+          "bdd": "pass"
+        },
+        {
+          "name": "The summary counts dead code next to the other categories",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-04",
