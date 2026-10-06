@@ -14,7 +14,7 @@ export function runCli(args: string[], io: CliIo): number {
       throw commandError("command", command, COMMANDS);
     }
     if (command === "check") return runCheck(io, rest.includes("--json"));
-    if (command === "init") return runInit(io, rest.includes("--import-progress"));
+    if (command === "init") return runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
     runProgress(rest, io);
     return 0;
   } catch (error) {
