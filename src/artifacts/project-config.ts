@@ -36,6 +36,7 @@ const projectConfigSchema = z.strictObject({
         .strictObject({
           complexity: z.strictObject({ max_cyclomatic: z.number().optional(), max_depth: z.number().optional() }).optional(),
           duplication: z.strictObject({ min_lines: z.number().optional(), min_tokens: z.number().optional() }).optional(),
+          magic_value: z.strictObject({ ignore: z.array(z.number()).optional(), min_string_repeats: z.number().optional() }).optional(),
         })
         .optional(),
       entry: globs.optional(),
@@ -75,6 +76,15 @@ export function loadComplexityLimits(cwd: string): { max_cyclomatic: number; max
 /** The duplication limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadDuplicationLimits(cwd: string): DuplicationLimits {
   return loadLimits(cwd, "duplication", DEFAULT_DUPLICATION);
+}
+
+export type MagicValueLimits = { ignore: number[]; min_string_repeats: number };
+
+const DEFAULT_MAGIC_VALUE = { ignore: [0, 1, -1], min_string_repeats: 3 };
+
+/** The magic value limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
+export function loadMagicValueLimits(cwd: string): MagicValueLimits {
+  return loadLimits(cwd, "magic_value", DEFAULT_MAGIC_VALUE);
 }
 
 /** The extra entry points of the project for the dead-code detector: `refactor.entry` of the configuration file. */

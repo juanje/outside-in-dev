@@ -11,9 +11,10 @@ import { duplicationFindings } from "./duplication.js";
 import { unusedDeclarationFindings } from "./unused-declarations.js";
 import { findComplexFunctions, type ComplexityLimits } from "./complexity.js";
 import type { FindingDraft } from "./findings.js";
+import { findMagicNumbers, findRepeatedStrings } from "./magic-values.js";
 import { ProgressError } from "./progress.js";
 import { readJson, readText, TSCONFIG_FILE } from "./project-json.js";
-import type { DuplicationLimits } from "./project-config.js";
+import type { DuplicationLimits, MagicValueLimits } from "./project-config.js";
 import type { ProjectPaths } from "./project-paths.js";
 
 /** The compiler options and files of the project's tsconfig.json (the file must exist). */
@@ -115,4 +116,13 @@ export function detectCommentedOutCode(cwd: string, paths: ProjectPaths): Findin
   return sourceAndTestFiles(cwd, paths).flatMap((file) =>
     findCommentedOutCode(readFileSync(join(cwd, file), "utf8")).map((range) => ({ category: "dead_code" as const, file, range, detail: "commented-out code" })),
   );
+}
+
+/** The numeric literals and repeated strings of the project's source files, not those of the test files. */
+export function detectMagicValues(cwd: string, paths: ProjectPaths, limits: MagicValueLimits): FindingDraft[] {
+  const sources = compiledMatching(cwd, paths.source, paths.tests).map((file) => ({ file, text: readFileSync(join(cwd, file), "utf8") }));
+  const numbers = sources.flatMap(({ file, text }) =>
+    findMagicNumbers(text, limits.ignore).map(({ start, end, detail }) => ({ category: "magic_value" as const, file, range: { start, end }, detail })),
+  );
+  return [...numbers, ...findRepeatedStrings(sources, limits.min_string_repeats)];
 }
