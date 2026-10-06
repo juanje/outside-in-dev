@@ -1,7 +1,7 @@
-import { advanceStep, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, CYCLE_STEPS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
-import { commandError } from "../cli-usage.js";
+import { commandError, HELP_FLAG, row } from "../cli-usage.js";
 import type { CliIo } from "../cli-io.js";
 
 type Context = CliIo & { paths: ProjectPaths };
@@ -69,26 +69,54 @@ function showStatus(progress: Progress, io: Context): void {
 }
 
 const ID = "FR-xxx";
-const OPERANDS: Record<string, string[]> = {
-  current: [],
-  status: [],
-  show: [ID],
-  add: [ID, '"<title>"'],
-  focus: [ID],
-  step: [ID, "<cycle_step>"],
-  scenario: ["<pass|fail|pending>", ID, '"<scenario name>"'],
-  done: [ID],
+type SubcommandHelp = { summary: string; operands: string[]; allowed?: { label: string; values: string[] } };
+const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
+  current: { summary: "Show the focused feature", operands: [] },
+  status: { summary: "List every tracked feature", operands: [] },
+  show: { summary: "Show one feature with its scenarios", operands: [ID] },
+  add: { summary: "Track a feature defined in the specification", operands: [ID, '"<title>"'] },
+  focus: { summary: "Focus a tracked feature", operands: [ID] },
+  step: {
+    summary: "Move a feature to its next cycle step",
+    operands: [ID, "<cycle_step>"],
+    allowed: { label: "Cycle steps", values: CYCLE_STEPS },
+  },
+  scenario: {
+    summary: "Record the status of a scenario",
+    operands: ["<pass|fail|pending>", ID, '"<scenario name>"'],
+    allowed: { label: "Statuses", values: SCENARIO_STATUSES },
+  },
+  done: { summary: "Mark a feature done once every scenario passes", operands: [ID] },
 };
-const SUBCOMMANDS = Object.keys(OPERANDS);
+const SUBCOMMANDS = Object.keys(SUBCOMMAND_HELP);
+
+function subcommandUsage(subcommand: string): string {
+  return ["oid progress", subcommand, ...SUBCOMMAND_HELP[subcommand]!.operands].join(" ");
+}
+
+function subcommandHelp(subcommand: string): string {
+  const { summary, allowed } = SUBCOMMAND_HELP[subcommand]!;
+  const values = allowed ? `\n${allowed.label}: ${allowed.values.join(", ")}\n` : "";
+  return `${summary}\n\nusage: ${subcommandUsage(subcommand)}\n${values}`;
+}
+
+/** The subcommands of `oid progress`, each with its summary and usage, for `oid progress --help`. */
+export function progressHelp(): string {
+  const entries = SUBCOMMANDS.map((name) => row(name, SUBCOMMAND_HELP[name]!.summary) + row("", subcommandUsage(name)));
+  return `\nSubcommands:\n${entries.join("")}`;
+}
 
 export function runProgress(args: string[], cli: CliIo): void {
   const [command, ...operands] = args;
   if (!SUBCOMMANDS.includes(command!)) {
     throw commandError("subcommand", command, SUBCOMMANDS);
   }
-  const expected = OPERANDS[command]!;
-  if (operands.length < expected.length) {
-    throw new ProgressError(`usage: oid progress ${command} ${expected.join(" ")}`);
+  if (operands.includes(HELP_FLAG)) {
+    cli.stdout(subcommandHelp(command));
+    return;
+  }
+  if (operands.length < SUBCOMMAND_HELP[command]!.operands.length) {
+    throw new ProgressError(`usage: ${subcommandUsage(command)}`);
   }
   const io: Context = { ...cli, paths: loadProjectPaths(cli.cwd) };
   const progress = loadProgress(io.cwd, io.paths.progress);

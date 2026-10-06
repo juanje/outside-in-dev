@@ -1,6 +1,6 @@
 import { After, Before, setWorldConstructor, World } from "@cucumber/cucumber";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +52,7 @@ export class OidWorld extends World {
   stderr = "";
   exitCode: number | null = null;
   progressBefore: string | null = null;
+  filesBefore = new Map<string, string>();
 
   path(rel: string): string {
     return join(this.dir, rel);
@@ -75,10 +76,22 @@ export class OidWorld extends World {
     this.write("progress.json", JSON.stringify(progress, null, 2) + "\n");
   }
 
+  /** Every file under the project directory, by relative path, with its content. */
+  snapshotFiles(): Map<string, string> {
+    const files = new Map<string, string>();
+    for (const entry of readdirSync(this.dir, { recursive: true, withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const rel = join(entry.parentPath, entry.name).slice(this.dir.length + 1);
+      files.set(rel, readFileSync(join(this.dir, rel), "utf8"));
+    }
+    return files;
+  }
+
   run(commandLine: string): void {
     const args = splitArgs(commandLine);
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
+    this.filesBefore = this.snapshotFiles();
     const result = spawnSync(process.execPath, ["--import", TSX_LOADER_URL, CLI_PATH, ...args], {
       cwd: this.dir,
       env: { ...process.env, NODE_OPTIONS: "" },
