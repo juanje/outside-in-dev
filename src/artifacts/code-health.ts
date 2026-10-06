@@ -42,6 +42,13 @@ function sourceAndTestFiles(cwd: string, paths: ProjectPaths): string[] {
   return compiledMatching(cwd, [...paths.source, ...paths.tests]);
 }
 
+const CODE_FILE = /\.[cm]?[jt]sx?$/;
+
+/** The TypeScript and JavaScript files that match the source and test globs of the project, whether or not tsconfig.json compiles them. */
+function globbedSourceAndTestFiles(cwd: string, paths: ProjectPaths): string[] {
+  return globSync([...paths.source, ...paths.tests], { cwd }).filter((file) => CODE_FILE.test(file));
+}
+
 /** The functions of the project's source files that are too complex, for the limits given. */
 export function detectComplexity(cwd: string, paths: ProjectPaths, limits: ComplexityLimits): FindingDraft[] {
   return compiledMatching(cwd, paths.source, paths.tests).flatMap((file) =>
@@ -61,7 +68,7 @@ const JSCPD_REPORT = "jscpd-report.json";
 
 /** The blocks that appear twice in the project's source and test files, found by jscpd run from oid's own dependencies. */
 export function detectDuplication(cwd: string, paths: ProjectPaths, limits: DuplicationLimits): FindingDraft[] {
-  const files = sourceAndTestFiles(cwd, paths);
+  const files = globbedSourceAndTestFiles(cwd, paths);
   if (files.length === 0) return [];
   const outputDir = mkdtempSync(join(tmpdir(), "oid-jscpd-"));
   try {
@@ -115,7 +122,7 @@ export function detectUnusedDeclarations(cwd: string, paths: ProjectPaths): Find
 
 /** The commented-out code of the project's source and test files. */
 export function detectCommentedOutCode(cwd: string, paths: ProjectPaths): FindingDraft[] {
-  return sourceAndTestFiles(cwd, paths).flatMap((file) =>
+  return globbedSourceAndTestFiles(cwd, paths).flatMap((file) =>
     findCommentedOutCode(readFileSync(join(cwd, file), "utf8")).map((range) => ({ category: "dead_code" as const, file, range, detail: "commented-out code" })),
   );
 }
