@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
-import { detectComplexity, detectDuplication } from "../../src/artifacts/code-health.js";
+import { detectComplexity, detectDuplication, detectCommentedOutCode, detectUnusedCode, detectUnusedDeclarations } from "../../src/artifacts/code-health.js";
 
 const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], tests: ["tests/unit/**"] };
 const LIMITS = { max_cyclomatic: 1, max_depth: 4 };
@@ -95,5 +95,50 @@ describe("detectDuplication", () => {
     write("other/orders.ts", CLONE.replace("NAME", "orderTotal"));
     write("other/invoices.ts", CLONE.replace("NAME", "invoiceTotal"));
     expect(detectDuplication(dir, PATHS, DUPLICATION_LIMITS)).toEqual([]);
+  });
+});
+
+const PACKAGE_JSON = ["{", '  "name": "fixture",', '  "main": "src/main.ts",', '  "dependencies": {', '    "bun": "1.0.0"', "  }", "}"].join("\n");
+
+describe("detectUnusedCode", () => {
+  it("reports the files and dependencies that nothing uses, run through knip with paths relative to the project", () => {
+    write("tsconfig.json", TSCONFIG);
+    write("package.json", PACKAGE_JSON);
+    write("src/main.ts", "console.log(1);\n");
+    write("src/orphan.ts", "export const lonely = 1;\n");
+    expect(detectUnusedCode(dir, PATHS, [])).toEqual([
+      { category: "dead_code", file: "src/orphan.ts", range: { start: 1, end: 1 }, detail: "unused file" },
+      { category: "dead_code", file: "package.json", range: { start: 5, end: 5 }, detail: "unused dependency bun" },
+    ]);
+  });
+
+  it("reports nothing, rather than failing, when the project has no package.json", () => {
+    write("tsconfig.json", TSCONFIG);
+    write("src/orphan.ts", "export const lonely = 1;\n");
+    expect(detectUnusedCode(dir, PATHS, [])).toEqual([]);
+  });
+});
+
+describe("detectUnusedDeclarations", () => {
+  it("reports the unused locals and parameters of source and test files even when tsconfig.json does not ask for them, and skips parameters that start with an underscore", () => {
+    write("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true, module: "NodeNext", target: "ES2022" }, include: ["src/**/*.ts", "tests/**/*.ts"] }));
+    write("src/pick.ts", "export function pick(first: number, second: number, _third: number): number {\n  return first;\n}\n");
+    write("tests/unit/pick.test.ts", "const leftover = 3;\nconsole.log(1);\n");
+    expect(detectUnusedDeclarations(dir, PATHS)).toEqual([
+      { category: "dead_code", file: "src/pick.ts", range: { start: 1, end: 1 }, symbol: "second", detail: "unused declaration" },
+      { category: "dead_code", file: "tests/unit/pick.test.ts", range: { start: 1, end: 1 }, symbol: "leftover", detail: "unused declaration" },
+    ]);
+  });
+});
+
+describe("detectCommentedOutCode", () => {
+  it("reports the commented-out code of the source and test files with their path relative to the project", () => {
+    write("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true }, include: ["src/**/*.ts", "tests/**/*.ts"] }));
+    write("src/total.ts", "export function total(): number {\n  // const old = 1;\n  // return old + 1;\n  return 2;\n}\n");
+    write("tests/unit/total.test.ts", "/*\nconst legacy = compute();\nlegacy.run();\n*/\n");
+    expect(detectCommentedOutCode(dir, PATHS)).toEqual([
+      { category: "dead_code", file: "src/total.ts", range: { start: 2, end: 3 }, detail: "commented-out code" },
+      { category: "dead_code", file: "tests/unit/total.test.ts", range: { start: 1, end: 4 }, detail: "commented-out code" },
+    ]);
   });
 });

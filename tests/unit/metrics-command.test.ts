@@ -44,4 +44,35 @@ describe("oid metrics", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toBe("duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9\nduplication 1\n");
   });
+
+  it("prints the unused files of the project, with the entry points of refactor.entry left out, and counts them", () => {
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "fixture", main: "src/main.ts" }));
+    writeFileSync(join(dir, "src/main.ts"), "console.log(1);\n");
+    writeFileSync(join(dir, "src/orphan.ts"), "export const lonely = 1;\n");
+    writeFileSync(join(dir, "src/worker.ts"), "console.log(2);\n");
+    const config = {
+      version: 1,
+      stack: "typescript",
+      paths: { source: ["src/**"], shared: [], unit_tests: [], bdd_features: [], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" },
+      commands: { bdd: "b", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] },
+      refactor: { entry: ["src/worker.ts"] },
+    };
+    writeFileSync(join(dir, ".outside-in.json"), JSON.stringify(config));
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe("dead_code src/orphan.ts:1-1 unused file\ndead_code 1\n");
+  });
+
+  it("prints the unused locals of the project, also without a package.json", () => {
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
+    writeFileSync(join(dir, "src/total.ts"), "export function total(items: number[]): number {\n  const unusedCount = items.length;\n  return 0;\n}\n");
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe("dead_code src/total.ts:2-2 [unusedCount] unused declaration\ndead_code 1\n");
+  });
 });

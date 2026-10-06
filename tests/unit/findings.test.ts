@@ -82,4 +82,10 @@ describe("renderReport", () => {
     const duplicate = { ...finding("dup-0001", 7), category: "duplication" as const };
     expect(renderReport([finding("cx-0001", 1), duplicate]).split("\n").at(-2)).toBe("complexity 1, duplication 1");
   });
+
+  it("counts dead code between complexity and duplication, the order of the lines", () => {
+    const duplicate = { ...finding("dup-0001", 7), category: "duplication" as const };
+    const dead = { ...finding("dead-0001", 3), category: "dead_code" as const };
+    expect(renderReport([finding("cx-0001", 1), dead, duplicate]).split("\n").at(-2)).toBe("complexity 1, dead_code 1, duplication 1");
+  });
 });
