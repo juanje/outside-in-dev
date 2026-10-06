@@ -1,4 +1,5 @@
 export default {
   paths: ["features/**/*.feature"],
-  import: ["features/steps/**/*.ts", "features/support/**/*.ts"],
+  import: ["features/tsx-register.mjs", "features/steps/**/*.ts", "features/support/**/*.ts"],
+  parallel: 4,
 };
