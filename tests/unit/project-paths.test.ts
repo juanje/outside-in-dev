@@ -15,7 +15,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function writeConfig(paths: { spec: string; progress: string; bdd_features: string[]; source?: string[]; unit_tests?: string[]; bdd_steps?: string[] }): void {
+function writeConfig(paths: { spec: string; progress: string; bdd_features: string[]; source?: string[]; unit_tests?: string[]; bdd_steps?: string[]; docs?: string[] }): void {
   const config = {
     version: 1,
     stack: "typescript",
@@ -34,6 +34,7 @@ describe("loadProjectPaths", () => {
       source: ["lib/**"],
       unit_tests: ["spec/**"],
       bdd_steps: ["specs/steps/**"],
+      docs: ["guide/**"],
     });
     expect(loadProjectPaths(dir)).toEqual({
       spec: "specs/SPEC.md",
@@ -41,6 +42,7 @@ describe("loadProjectPaths", () => {
       features: ["specs/features/**/*.feature", "extra/*.feature"],
       source: ["lib/**"],
       tests: ["spec/**", "specs/steps/**", "specs/features/**/*.feature", "extra/*.feature"],
+      docs: ["guide/**"],
     });
   });
 
@@ -51,6 +53,7 @@ describe("loadProjectPaths", () => {
       features: ["features/**/*.feature"],
       source: ["src/**"],
       tests: ["tests/unit/**", "features/steps/**", "features/support/**", "features/**/*.feature"],
+      docs: ["README.md", "docs/**"],
     });
   });
 

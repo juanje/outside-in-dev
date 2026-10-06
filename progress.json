@@ -1078,7 +1078,49 @@
     {
       "id": "FR-MET-05",
       "title": "Detect documentation drift",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A @param that names no parameter is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A parameter missing from a JSDoc that documents parameters is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A JSDoc that matches the signature or documents no parameters is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A destructured parameter is matched by the root name its JSDoc uses",
+          "bdd": "pass"
+        },
+        {
+          "name": "A function call in a Markdown file that no source file declares is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A PascalCase name in a Markdown file that no source file declares is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A relative path in a Markdown file to a file that does not exist is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Code in fenced blocks and other inline code is not checked",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only the Markdown files of the configured documentation paths are checked",
+          "bdd": "pass"
+        },
+        {
+          "name": "The default documentation paths are the README and the docs directory",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-06",

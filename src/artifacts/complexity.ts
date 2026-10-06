@@ -59,7 +59,7 @@ function measure(body: ts.Node): { cyclomatic: number; depth: number } {
 
 type FunctionWithBody = ts.FunctionDeclaration | ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression;
 
-function isFunctionWithBody(node: ts.Node): node is FunctionWithBody & { body: ts.Node } {
+export function isFunctionWithBody(node: ts.Node): node is FunctionWithBody & { body: ts.Node } {
   return (
     (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) &&
     node.body !== undefined
@@ -68,7 +68,7 @@ function isFunctionWithBody(node: ts.Node): node is FunctionWithBody & { body: t
 
 const ANONYMOUS = "<anonymous>";
 
-function symbolOf(node: FunctionWithBody): string {
+export function symbolOf(node: FunctionWithBody): string {
   if (ts.isMethodDeclaration(node)) {
     const owner = ts.isClassLike(node.parent) && node.parent.name ? `${node.parent.name.text}.` : "";
     return `${owner}${node.name.getText()}`;

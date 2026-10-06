@@ -98,4 +98,54 @@ describe("oid metrics", () => {
     ]);
     expect(summaryCount(stdout, "magic_value")).toBe(3);
   });
+
+  it("prints the JSDoc of the source files that does not match the signature, and counts it", () => {
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
+    writeFileSync(join(dir, "src/greet.ts"), "/**\n * Greets.\n * @param nmae who\n */\nexport function greet(name: string): string {\n  return name;\n}\n");
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(findingLines(stdout, "doc_drift")).toEqual([
+      "doc_drift src/greet.ts:1-4 [greet] @param nmae matches no parameter",
+      "doc_drift src/greet.ts:1-4 [greet] parameter name is not documented",
+    ]);
+    expect(summaryCount(stdout, "doc_drift")).toBe(2);
+  });
+
+  it("prints the code the Markdown files of the documentation paths name and the source does not declare", () => {
+    mkdirSync(join(dir, "src"));
+    mkdirSync(join(dir, "docs/guide"), { recursive: true });
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
+    writeFileSync(join(dir, "src/table.ts"), "export function renderTable(): string {\n  return '';\n}\n");
+    writeFileSync(join(dir, "README.md"), "# Demo\n\nCall `renderTable()`, not `drawChart()`.\n");
+    writeFileSync(join(dir, "docs/guide/api.md"), "See `OrderBook` and `src/old.ts`.\n");
+    writeFileSync(join(dir, "docs/guide/notes.txt"), "See `lostFromText()`.\n");
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(findingLines(stdout, "doc_drift")).toEqual([
+      "doc_drift README.md:3-3 `drawChart()` is not declared in source",
+      "doc_drift docs/guide/api.md:1-1 `OrderBook` is not declared in source",
+      "doc_drift docs/guide/api.md:1-1 `src/old.ts` does not exist",
+    ]);
+    expect(summaryCount(stdout, "doc_drift")).toBe(3);
+  });
+
+  it("finds a documented path from the base directory of a source root too", () => {
+    mkdirSync(join(dir, "lib/util"), { recursive: true });
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["lib/**/*.ts"] }));
+    writeFileSync(join(dir, "lib/util/text.ts"), "export const SEPARATOR = '-';\n");
+    writeFileSync(join(dir, "README.md"), "See `util/text.ts` and `util/gone.ts`.\n");
+    const config = {
+      version: 1,
+      stack: "typescript",
+      paths: { source: ["lib/**"], shared: [], unit_tests: [], bdd_features: [], bdd_steps: [], docs: ["README.md"], spec: "SPEC.md", design: [], progress: "progress.json" },
+      commands: { bdd: "b", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] },
+    };
+    writeFileSync(join(dir, ".outside-in.json"), JSON.stringify(config));
+    let stdout = "";
+    runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(findingLines(stdout, "doc_drift")).toEqual(["doc_drift README.md:1-1 `util/gone.ts` does not exist"]);
+  });
 });
