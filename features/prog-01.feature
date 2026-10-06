@@ -24,7 +24,7 @@ Feature: Show progress
     Given a tracked feature "FR-X-01" titled "Alpha"
     And a tracked feature "FR-X-02" with a scenario "Beta works" marked "pass"
     And the focus is on "FR-X-02"
-    When I run "oid progress status"
+    When I run "oid progress status --all"
     Then the command succeeds
     And the output contains "FR-X-01"
     And the output contains "Alpha"
