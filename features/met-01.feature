@@ -67,7 +67,7 @@ Feature: Detect complexity
     Given a project file "src/pair.ts" containing:
       """
       export function first(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
 
       export function second(a: boolean): number {
@@ -85,11 +85,11 @@ Feature: Detect complexity
       """
       export class Router {
         route(a: boolean): number {
-          return a ? 1 : 2;
+          return a ? 1 : 0;
         }
       }
 
-      export const pick = (a: boolean) => (a ? 1 : 2);
+      export const pick = (a: boolean) => (a ? 1 : 0);
 
       export const doubled = [1, 2].map((n) => (n > 1 ? n : 0));
       """
@@ -169,17 +169,17 @@ Feature: Detect complexity
     Given a project file "src/b.ts" containing:
       """
       export function fromB(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "src/a.ts" containing:
       """
       export function firstOfA(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
 
       export function secondOfA(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project configuration with:
@@ -195,7 +195,7 @@ Feature: Detect complexity
     Given a project file "tests/unit/busy.test.ts" containing:
       """
       export function busy(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project configuration with:
@@ -209,13 +209,13 @@ Feature: Detect complexity
     Given a project file "src/busy.test.ts" containing:
       """
       export function busyTest(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "src/busy.ts" containing:
       """
       export function busySource(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project configuration with:
@@ -230,13 +230,13 @@ Feature: Detect complexity
     Given a project file "lib/shared.ts" containing:
       """
       export function shared(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "src/ignored.ts" containing:
       """
       export function ignored(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "tsconfig.json" containing:
@@ -259,13 +259,13 @@ Feature: Detect complexity
     Given a project file "src/compiled.ts" containing:
       """
       export function compiled(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "src/skipped.ts" containing:
       """
       export function skipped(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project file "tsconfig.json" containing:
@@ -287,7 +287,7 @@ Feature: Detect complexity
     Given a project file "src/pair.ts" containing:
       """
       export function pair(a: boolean): number {
-        return a ? 1 : 2;
+        return a ? 1 : 0;
       }
       """
     And a project configuration with:

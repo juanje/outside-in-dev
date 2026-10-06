@@ -10,7 +10,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -22,7 +22,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -39,7 +39,7 @@ Feature: Detect duplication
       export function first(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -49,7 +49,7 @@ Feature: Detect duplication
       export function second(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -66,7 +66,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -78,7 +78,7 @@ Feature: Detect duplication
       export function expectedTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -95,7 +95,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -107,7 +107,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -124,7 +124,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -136,7 +136,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -160,7 +160,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -172,7 +172,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -181,12 +181,12 @@ Feature: Detect duplication
       """
     And a project file "src/a.ts" containing:
       """
-      export const a = [1, 2, 3].map((n) => n * 2);
+      export const a = [1, 0, -1].map((n) => n * -1);
       export const b = a.length;
       """
     And a project file "src/b.ts" containing:
       """
-      export const c = [1, 2, 3].map((n) => n * 2);
+      export const c = [1, 0, -1].map((n) => n * -1);
       export const d = c.length;
       """
     When I run "oid metrics"
@@ -200,7 +200,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -212,7 +212,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -231,7 +231,7 @@ Feature: Detect duplication
       export function orderTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;
@@ -243,7 +243,7 @@ Feature: Detect duplication
       export function invoiceTotal(items: number[]): number {
         let sum = 0;
         for (const item of items) {
-          sum += item * 2;
+          sum += item * 1;
           sum -= 1;
         }
         const average = sum / items.length;

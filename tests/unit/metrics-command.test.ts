@@ -18,7 +18,7 @@ describe("oid metrics", () => {
   it("prints the findings of the project with the configured limits and exits 0", () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
-    writeFileSync(join(dir, "src/busy.ts"), "export function busy(a: boolean): number {\n  return a ? 1 : 2;\n}\n");
+    writeFileSync(join(dir, "src/busy.ts"), "export function busy(a: boolean): number {\n  return a ? 1 : 0;\n}\n");
     const config = {
       version: 1,
       stack: "typescript",
@@ -36,7 +36,7 @@ describe("oid metrics", () => {
   it("prints the blocks duplicated between files, with both locations, and counts them", () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
-    const block = "export function NAME(items: number[]): number {\n  let sum = 0;\n  for (const item of items) {\n    sum += item * 2;\n    sum -= 1;\n  }\n  const average = sum / items.length;\n  return Math.round(average);\n}\n";
+    const block = "export function NAME(items: number[]): number {\n  let sum = 0;\n  for (const item of items) {\n    sum += item * 1;\n    sum -= 1;\n  }\n  const average = sum / items.length;\n  return Math.round(average);\n}\n";
     writeFileSync(join(dir, "src/orders.ts"), block.replace("NAME", "orderTotal"));
     writeFileSync(join(dir, "src/invoices.ts"), block.replace("NAME", "invoiceTotal"));
     let stdout = "";
@@ -51,7 +51,7 @@ describe("oid metrics", () => {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "fixture", main: "src/main.ts" }));
     writeFileSync(join(dir, "src/main.ts"), "console.log(1);\n");
     writeFileSync(join(dir, "src/orphan.ts"), "export const lonely = 1;\n");
-    writeFileSync(join(dir, "src/worker.ts"), "console.log(2);\n");
+    writeFileSync(join(dir, "src/worker.ts"), "console.log(1);\n");
     const config = {
       version: 1,
       stack: "typescript",
