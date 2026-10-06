@@ -103,4 +103,13 @@ describe("oid init --import-progress: where the progress file is", () => {
     expect(featureIds("progress.json")).toEqual(["FR-DEMO-01"]);
     expect(existsSync(join(dir, "old/progress.json"))).toBe(false);
   });
+
+  it("fails when the file given as an argument does not exist, naming it and writing nothing", () => {
+    put("progress.json", OLD_PROGRESS);
+    const { exitCode, stdout, stderr } = runImport("old/progress.json");
+    expect({ exitCode, stdout, stderr }).toEqual({ exitCode: 1, stdout: "", stderr: "error: old/progress.json not found\n" });
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(OLD_PROGRESS);
+    expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
+    expect(existsSync(join(dir, ".gitignore"))).toBe(false);
+  });
 });

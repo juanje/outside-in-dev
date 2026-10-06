@@ -338,4 +338,69 @@ export default defineConfig({
     expect(JSON.parse(readFileSync(join(dir, "specs/progress.json"), "utf8")).features[0].id).toBe("FR-A-01");
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
+
+  it("adds .outside-in/ to an empty .gitignore without a leading blank line", () => {
+    writeProject("tsconfig.json", "{}");
+    writeProject(".gitignore", "");
+    const { exitCode, stdout } = runInit();
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe(".outside-in/\n");
+    expect(stdout).toContain("added .outside-in/ to .gitignore");
+  });
+
+  it("validates what it detected before writing: an invalid value is reported by its field and nothing is written", () => {
+    writeProject("tsconfig.json", JSON.stringify({ include: "src/**" }));
+    writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n");
+    const { exitCode, stdout, stderr } = runInit();
+    expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
+    expect(stderr).toMatch(/^error: \.outside-in\.json is invalid:\n.*paths\.source/);
+    expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
+    expect(existsSync(join(dir, ".gitignore"))).toBe(false);
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+  });
+
+  it("keeps the root paths when SPEC.md exists at the root and in specs/", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "specs"));
+    writeProject("SPEC.md", "### FR-A-01: Root\n\nText.\n");
+    writeProject("specs/SPEC.md", "### FR-A-02: Specs\n\nText.\n");
+    runInit();
+    const { paths } = readConfig();
+    expect(paths.spec).toBe("SPEC.md");
+    expect(paths.progress).toBe("progress.json");
+    expect(paths.design).toEqual(["SPEC.md", "DOMAIN.md", "DECISIONS.md"]);
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8")).features.map((f: { id: string }) => f.id)).toEqual(["FR-A-01"]);
+    expect(existsSync(join(dir, "specs/progress.json"))).toBe(false);
+  });
+
+  it("names the actual progress file when it already exists beside a specification kept in specs/", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "specs"));
+    writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
+    writeProject("specs/progress.json", '{ "current_focus": null, "features": [] }\n');
+    const { exitCode, stdout } = runInit();
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("specs/progress.json already exists and was left untouched.\n");
+    expect(readFileSync(join(dir, "specs/progress.json"), "utf8")).toBe('{ "current_focus": null, "features": [] }\n');
+  });
+
+  it("names the actual spec and progress files when a specification kept in specs/ cannot become a progress file", () => {
+    writeProject("tsconfig.json", "{}");
+    mkdirSync(join(dir, "specs"));
+    writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n\n### FR-A-01: Again\n\nText.\n");
+    const { exitCode, stderr } = runInit();
+    expect(exitCode).toBe(1);
+    expect(stderr).toBe(
+      "error: specs/SPEC.md cannot be turned into specs/progress.json:\n  FR-A-01: duplicate ID\n.outside-in.json was written; no specs/progress.json was created\n",
+    );
+    expect(existsSync(join(dir, "specs/progress.json"))).toBe(false);
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+  });
+
+  it("says which specification was not found and which progress file was therefore not created", () => {
+    writeProject("tsconfig.json", "{}");
+    const { exitCode, stdout } = runInit();
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("SPEC.md not found: no progress.json was created.\n");
+  });
 });

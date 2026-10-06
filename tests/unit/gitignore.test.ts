@@ -11,6 +11,10 @@ describe("withOutsideInIgnored", () => {
     expect(withOutsideInIgnored("node_modules/")).toBe("node_modules/\n.outside-in/\n");
   });
 
+  it("starts the content of an empty .gitignore with the entry, without a blank line", () => {
+    expect(withOutsideInIgnored("")).toBe(".outside-in/\n");
+  });
+
   it.each([".outside-in/", ".outside-in"])("leaves a .gitignore that already has %s unchanged", (line) => {
     const gitignore = `node_modules/\n${line}\ndist/\n`;
     expect(withOutsideInIgnored(gitignore)).toBe(gitignore);
