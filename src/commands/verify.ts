@@ -12,10 +12,11 @@ import { parseBddTarget, parseUnitTarget } from "../artifacts/verify-target.js";
 import { normalizeVitestReport, selectTest, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import { GREEN, runGreen } from "./verify-green.js";
+import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
 
 const RED = "red";
-const SUBCOMMANDS = [RED, GREEN];
+const SUBCOMMANDS = [RED, GREEN, INTEGRITY];
 const DECIDE_FLAG = "--decide";
 const DECISIONS: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation, RED_CLASS.testBug, RED_CLASS.environment];
 const VALID_RED_CLASSES: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation];
@@ -149,6 +150,7 @@ function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): s
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
 export function runVerify(io: CliIo, args: string[]): number {
   if (args[0] === GREEN) return runGreen(io);
+  if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(target);
   const config = loadVerifyConfig(io.cwd);

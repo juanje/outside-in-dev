@@ -43,6 +43,7 @@ const projectConfigSchema = z.strictObject({
       entry: globs.optional(),
     })
     .optional(),
+  integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
 });
 
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
