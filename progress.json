@@ -1430,6 +1430,14 @@
         {
           "name": "A step file that statically imports a name its module does not export yet is not a Red",
           "bdd": "pass"
+        },
+        {
+          "name": "A default import of a module that does not exist yet is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A default import of a module with no default export is not a Red",
+          "bdd": "pass"
         }
       ]
     },
