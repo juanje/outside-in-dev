@@ -44,6 +44,16 @@ describe("oid init --help", () => {
   });
 });
 
+describe("oid metrics --help", () => {
+  it("shows what metrics does and its usage", () => {
+    const { exitCode, stdout, stderr } = run(["metrics", "--help"]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Report the code-health findings of the project");
+    expect(stdout).toContain("usage: oid metrics");
+  });
+});
+
 describe("oid progress --help", () => {
   it("describes every subcommand and shows its usage", () => {
     const { exitCode, stdout, stderr } = run(["progress", "--help"]);

@@ -830,7 +830,81 @@
     {
       "id": "FR-MET-01",
       "title": "Detect complexity",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A function with too many decision points is reported with its location",
+          "bdd": "pass"
+        },
+        {
+          "name": "A function nested too deeply is reported with its location",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project within the limits has no findings",
+          "bdd": "pass"
+        },
+        {
+          "name": "The summary counts the findings per category",
+          "bdd": "pass"
+        },
+        {
+          "name": "Methods, arrow functions and anonymous functions get a symbol",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every kind of decision point counts once and default does not count",
+          "bdd": "pass"
+        },
+        {
+          "name": "A nested function is counted on its own, not in the function around it",
+          "bdd": "pass"
+        },
+        {
+          "name": "Findings are listed by file and then by line",
+          "bdd": "pass"
+        },
+        {
+          "name": "Test files are not analysed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A file matching the configured test globs is a test even under the source path",
+          "bdd": "pass"
+        },
+        {
+          "name": "The source files are the ones the configuration names",
+          "bdd": "pass"
+        },
+        {
+          "name": "A source file that tsconfig.json does not compile is not analysed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Raising a limit in the configuration removes the finding",
+          "bdd": "pass"
+        },
+        {
+          "name": "A limit left out of the configuration keeps its default",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project without tsconfig.json is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "An invalid project configuration is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid --help lists the metrics command",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid metrics --help describes the command",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-02",
