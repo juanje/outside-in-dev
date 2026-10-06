@@ -52,7 +52,7 @@ const ALPHA_PROGRESS = { current_focus: null, features: [{ id: "FR-X-01", title:
 describe("oid progress with .outside-in.json", () => {
   it("reads the progress file named by paths.progress", () => {
     write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
-    const { exitCode, stdout } = run(["progress", "status"]);
+    const { exitCode, stdout } = run(["progress", "status", "--all"]);
     expect({ exitCode, stdout }).toEqual({ exitCode: 0, stdout: "FR-X-01  Alpha  pending\n" });
   });
 

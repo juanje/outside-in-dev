@@ -56,7 +56,7 @@ describe("runCli progress", () => {
 
   it("status lists every feature with its status and cycle step", () => {
     writeProgress(SAMPLE);
-    const result = run(["progress", "status"]);
+    const result = run(["progress", "status", "--all"]);
     expect(result.exitCode).toBe(0);
     const lines = result.stdout.trimEnd().split("\n");
     expect(lines).toHaveLength(3);
@@ -67,7 +67,7 @@ describe("runCli progress", () => {
 
   it("status marks the focused feature", () => {
     writeProgress(SAMPLE);
-    const lines = run(["progress", "status"]).stdout.trimEnd().split("\n");
+    const lines = run(["progress", "status", "--all"]).stdout.trimEnd().split("\n");
     expect(lines[1]).toContain("(focused)");
     expect(lines[0]).not.toContain("(focused)");
     expect(lines[2]).not.toContain("(focused)");
