@@ -55,6 +55,56 @@ function convertScenarios(feature: OldObject, notes: string[]): number {
   return withUnitTests;
 }
 
+function convertStatus(feature: OldObject, old: OldObject, notes: string[]): void {
+  if (!isOneOf(PENDING_EQUIVALENTS, old.status)) return;
+  feature.status = FEATURE_STATUS.pending;
+  notes.push(`${old.id}: status ${old.status} converted to pending`);
+}
+
+function convertCycleStep(feature: OldObject, old: OldObject, notes: string[]): void {
+  if (old.status !== FEATURE_STATUS.inProgress || isOneOf(CYCLE_STEPS, old.cycle_step)) return;
+  const converted = (typeof old.cycle_step === "string" ? CONVERTED_STEPS[old.cycle_step] : undefined) ?? DEFAULT_STEP;
+  feature.cycle_step = converted;
+  notes.push(`${old.id}: cycle_step ${old.cycle_step} converted to ${converted}`);
+}
+
+function dropScenariosOfPending(feature: OldObject, old: OldObject, notes: string[]): void {
+  if (feature.status !== FEATURE_STATUS.pending) return;
+  delete feature.scenarios;
+  if (Array.isArray(old.scenarios) && old.scenarios.length > 0) {
+    notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
+  }
+}
+
+function dropCycleStepOfUnstarted(feature: OldObject, old: OldObject, notes: string[]): void {
+  if (feature.status !== FEATURE_STATUS.pending && feature.status !== FEATURE_STATUS.done) return;
+  delete feature.cycle_step;
+  if (old.cycle_step !== undefined && !(feature.status === FEATURE_STATUS.done && old.cycle_step === LEGACY_DONE_STEP)) {
+    notes.push(`${old.id}: cycle_step ${old.cycle_step} dropped`);
+  }
+}
+
+function dropUnknownFields(feature: OldObject, old: OldObject, notes: string[]): void {
+  for (const [field, value] of Object.entries(old)) {
+    if (!FEATURE_FIELDS.includes(field)) {
+      delete feature[field];
+      notes.push(`${old.id}: ${field} ${show(value)} dropped`);
+    }
+  }
+}
+
+/** Converts a copy of one old feature; returns it with the number of unit-test scenarios dropped. */
+function convertFeature(item: unknown, notes: string[]): { feature: OldObject; unitTestScenarios: number } {
+  const old = asObject(item);
+  const feature = { ...old };
+  convertStatus(feature, old, notes);
+  convertCycleStep(feature, old, notes);
+  dropScenariosOfPending(feature, old, notes);
+  dropCycleStepOfUnstarted(feature, old, notes);
+  dropUnknownFields(feature, old, notes);
+  return { feature, unitTestScenarios: convertScenarios(feature, notes) };
+}
+
 /** Converts a progress document written for another schema to the current one; the input is not modified. */
 export function convertProgress(document: unknown): Conversion {
   const { features: oldFeatures, current_focus } = asObject(document);
@@ -64,37 +114,9 @@ export function convertProgress(document: unknown): Conversion {
   const notes: string[] = [];
   let unitTestScenarios = 0;
   const features = oldFeatures.map((item: unknown): OldObject => {
-    const old = asObject(item);
-    const feature = { ...old };
-    if (isOneOf(PENDING_EQUIVALENTS, old.status)) {
-      feature.status = FEATURE_STATUS.pending;
-      notes.push(`${old.id}: status ${old.status} converted to pending`);
-    }
-    if (old.status === FEATURE_STATUS.inProgress && !isOneOf(CYCLE_STEPS, old.cycle_step)) {
-      const converted = (typeof old.cycle_step === "string" ? CONVERTED_STEPS[old.cycle_step] : undefined) ?? DEFAULT_STEP;
-      feature.cycle_step = converted;
-      notes.push(`${old.id}: cycle_step ${old.cycle_step} converted to ${converted}`);
-    }
-    if (feature.status === FEATURE_STATUS.pending) {
-      delete feature.scenarios;
-      if (Array.isArray(old.scenarios) && old.scenarios.length > 0) {
-        notes.push(`${old.id}: ${scenarioCount(old.scenarios.length)} dropped`);
-      }
-    }
-    if (feature.status === FEATURE_STATUS.pending || feature.status === FEATURE_STATUS.done) {
-      delete feature.cycle_step;
-      if (old.cycle_step !== undefined && !(feature.status === FEATURE_STATUS.done && old.cycle_step === LEGACY_DONE_STEP)) {
-        notes.push(`${old.id}: cycle_step ${old.cycle_step} dropped`);
-      }
-    }
-    for (const [field, value] of Object.entries(old)) {
-      if (!FEATURE_FIELDS.includes(field)) {
-        delete feature[field];
-        notes.push(`${old.id}: ${field} ${show(value)} dropped`);
-      }
-    }
-    unitTestScenarios += convertScenarios(feature, notes);
-    return feature;
+    const converted = convertFeature(item, notes);
+    unitTestScenarios += converted.unitTestScenarios;
+    return converted.feature;
   });
   if (unitTestScenarios > 0) notes.push(`unit_tests dropped from ${scenarioCount(unitTestScenarios)}`);
   let focus = current_focus;

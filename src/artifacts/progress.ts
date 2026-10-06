@@ -163,38 +163,46 @@ function validateScenario(scenario: unknown, path: string): string[] {
   return violations;
 }
 
-function validateFeature(feature: FeatureProgress, path: string): string[] {
-  const violations = unknownFields(feature, FEATURE_FIELDS, `${path}.`);
-  for (const field of REQUIRED_FEATURE_FIELDS) {
-    if (!(field in feature)) violations.push(`${path}.${field}: missing required field`);
-  }
+function missingFields(feature: FeatureProgress, path: string): string[] {
+  return REQUIRED_FEATURE_FIELDS.filter((field) => !(field in feature)).map((field) => `${path}.${field}: missing required field`);
+}
+
+/** The rule that only a started feature has a cycle step, and a feature in progress must have one. */
+function validateCycleStepPresence(feature: FeatureProgress, path: string): string[] {
   if ((feature.status === FEATURE_STATUS.pending || feature.status === FEATURE_STATUS.done) && "cycle_step" in feature) {
-    violations.push(`${path}.cycle_step: not allowed on a ${feature.status} feature`);
+    return [`${path}.cycle_step: not allowed on a ${feature.status} feature`];
   }
   if (feature.status === FEATURE_STATUS.inProgress && !("cycle_step" in feature)) {
-    violations.push(`${path}.cycle_step: missing required field on an in-progress feature`);
+    return [`${path}.cycle_step: missing required field on an in-progress feature`];
   }
+  return [];
+}
+
+function validateTitle(feature: FeatureProgress, path: string): string[] {
+  if ("title" in feature && typeof feature.title !== "string") return [`${path}.title: wrong type (expected string)`];
+  return feature.title === "" ? [`${path}.title: must not be empty`] : [];
+}
+
+function validateScenarios(feature: FeatureProgress, path: string): string[] {
+  if (feature.scenarios !== undefined && !Array.isArray(feature.scenarios)) {
+    return [`${path}.scenarios: wrong type (expected array)`];
+  }
+  return (feature.scenarios ?? []).flatMap((scenario: unknown, index) => validateScenario(scenario, `${path}.scenarios[${index}]`));
+}
+
+function validateFeature(feature: FeatureProgress, path: string): string[] {
+  const violations = [...unknownFields(feature, FEATURE_FIELDS, `${path}.`), ...missingFields(feature, path), ...validateCycleStepPresence(feature, path)];
   if ("id" in feature && !FEATURE_ID_PATTERN.test(feature.id)) {
     violations.push(`${path}.id: invalid value "${feature.id}" (expected an id like FR-AREA-01)`);
   }
   if (feature.cycle_step !== undefined && !CYCLE_STEPS.includes(feature.cycle_step)) {
     violations.push(`${path}.cycle_step: invalid value "${feature.cycle_step}" (allowed: ${CYCLE_STEPS.join(", ")})`);
   }
-  if ("title" in feature && typeof feature.title !== "string") {
-    violations.push(`${path}.title: wrong type (expected string)`);
-  } else if (feature.title === "") {
-    violations.push(`${path}.title: must not be empty`);
-  }
+  violations.push(...validateTitle(feature, path));
   if ("status" in feature && !FEATURE_STATUSES.includes(feature.status)) {
     violations.push(`${path}.status: invalid value "${feature.status}" (allowed: ${FEATURE_STATUSES.join(", ")})`);
   }
-  if (feature.scenarios !== undefined && !Array.isArray(feature.scenarios)) {
-    violations.push(`${path}.scenarios: wrong type (expected array)`);
-  } else {
-    (feature.scenarios ?? []).forEach((scenario: unknown, index) =>
-      violations.push(...validateScenario(scenario, `${path}.scenarios[${index}]`)),
-    );
-  }
+  violations.push(...validateScenarios(feature, path));
   return violations;
 }
 

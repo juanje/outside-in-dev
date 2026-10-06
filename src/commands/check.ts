@@ -20,6 +20,45 @@ function reportJson(io: CliIo, violations: Violation[]): void {
   io.stdout(`${JSON.stringify({ ok: violations.length === 0, violations })}\n`);
 }
 
+type Source = ReturnType<typeof readFeatureSources>[number];
+
+function checkSpecFile(io: CliIo, paths: ProjectPaths): { text: string; violations: Violation[] } {
+  const specPath = join(io.cwd, paths.spec);
+  if (!existsSync(specPath)) return { text: "", violations: [{ check: "spec", message: `${paths.spec} not found` }] };
+  const text = readFileSync(specPath, "utf8");
+  return { text, violations: validateSpec(text).map(({ id, kind }) => ({ check: "spec", message: `${paths.spec}: ${id}: ${kind}` })) };
+}
+
+function checkFeatureTags(sources: Source[], knownIds: string[]): Violation[] {
+  return checkTraceability(sources, knownIds).map(({ file, scenario, kind }) => ({
+    check: "traceability",
+    message: `${file}: ${scenario ? `${scenario}: ` : ""}${kind}`,
+  }));
+}
+
+function checkProgressFile(io: CliIo, paths: ProjectPaths, sources: Source[]): Violation[] {
+  if (!existsSync(join(io.cwd, paths.progress))) return [];
+  try {
+    const progress = loadProgress(io.cwd, paths.progress);
+    return checkProgressConsistency(progress, listScenarios(sources)).map(({ feature, scenario, kind }) => ({
+      check: "progress",
+      message: `${paths.progress}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`,
+    }));
+  } catch (error) {
+    if (!(error instanceof ProgressError)) throw error;
+    return [{ check: "progress", message: error.message }];
+  }
+}
+
+function report(io: CliIo, violations: Violation[], json: boolean): void {
+  if (json) {
+    reportJson(io, violations);
+    return;
+  }
+  for (const { message } of violations) io.stdout(`${message}\n`);
+  if (violations.length === 0) io.stdout("no violations\n");
+}
+
 export function runCheck(io: CliIo, json = false): number {
   let paths: ProjectPaths;
   try {
@@ -29,37 +68,10 @@ export function runCheck(io: CliIo, json = false): number {
     reportJson(io, [{ check: "config", message: error.message }]);
     return 1;
   }
-  const specPath = join(io.cwd, paths.spec);
-  const specFound = existsSync(specPath);
-  const text = specFound ? readFileSync(specPath, "utf8") : "";
-  const violations: Violation[] = specFound
-    ? validateSpec(text).map(({ id, kind }) => ({ check: "spec", message: `${paths.spec}: ${id}: ${kind}` }))
-    : [{ check: "spec", message: `${paths.spec} not found` }];
-  const knownIds = parseRequirements(text).map((requirement) => requirement.id);
+  const spec = checkSpecFile(io, paths);
   const sources = readFeatureSources(io.cwd, paths.features);
-  for (const { file, scenario, kind } of checkTraceability(sources, knownIds)) {
-    violations.push({ check: "traceability", message: `${file}: ${scenario ? `${scenario}: ` : ""}${kind}` });
-  }
-  if (existsSync(join(io.cwd, paths.progress))) {
-    try {
-      const progress = loadProgress(io.cwd, paths.progress);
-      for (const { feature, scenario, kind } of checkProgressConsistency(progress, listScenarios(sources))) {
-        violations.push({
-          check: "progress",
-          message: `${paths.progress}: ${feature}: ${scenario ? `${scenario}: ` : ""}${kind}`,
-        });
-      }
-    } catch (error) {
-      if (!(error instanceof ProgressError)) throw error;
-      violations.push({ check: "progress", message: error.message });
-    }
-  }
-  const ok = violations.length === 0;
-  if (json) {
-    reportJson(io, violations);
-  } else {
-    for (const { message } of violations) io.stdout(`${message}\n`);
-    if (ok) io.stdout("no violations\n");
-  }
-  return ok ? 0 : 1;
+  const knownIds = parseRequirements(spec.text).map((requirement) => requirement.id);
+  const violations = [...spec.violations, ...checkFeatureTags(sources, knownIds), ...checkProgressFile(io, paths, sources)];
+  report(io, violations, json);
+  return violations.length === 0 ? 0 : 1;
 }

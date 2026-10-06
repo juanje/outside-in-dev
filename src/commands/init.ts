@@ -178,7 +178,8 @@ function convertExistingProgress(io: CliIo, given: string | undefined): Existing
   return { source, conversion };
 }
 
-export function runInit(io: CliIo, importProgress: boolean, progressPath?: string): number {
+/** The package manifest of the project, once nothing stands in the way of initialising it. */
+function requireInitialisable(io: CliIo): JsonObject | undefined {
   if (existsSync(join(io.cwd, CONFIG_FILE))) {
     throw new ProgressError(`${CONFIG_FILE} already exists; remove it to run oid init again`);
   }
@@ -186,40 +187,52 @@ export function runInit(io: CliIo, importProgress: boolean, progressPath?: strin
   if (!isTypeScriptProject(io.cwd, manifest)) {
     throw new ProgressError("only TypeScript projects are supported");
   }
-  const imported = importProgress ? convertExistingProgress(io, progressPath) : undefined;
-  const detected = detectConfig(io.cwd, manifest);
-  const config = parseProjectConfig(detected.config);
-  if (imported && imported.source !== config.paths.progress && existsSync(join(io.cwd, config.paths.progress))) {
-    throw new ProgressError(
-      `${config.paths.progress} already exists and is not ${imported.source}; nothing was written or removed`,
-    );
+  return manifest;
+}
+
+function requireNoOtherProgress(io: CliIo, imported: ExistingProgress | undefined, destination: string): void {
+  if (imported && imported.source !== destination && existsSync(join(io.cwd, destination))) {
+    throw new ProgressError(`${destination} already exists and is not ${imported.source}; nothing was written or removed`);
   }
-  writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
-  const gitignore = readText(io.cwd, GITIGNORE_FILE);
-  const alreadyIgnored = isOutsideInIgnored(gitignore);
-  if (!alreadyIgnored) writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(gitignore));
-  if (imported) {
-    const destination = config.paths.progress;
-    if (imported.conversion === ALREADY_CURRENT) {
-      io.stdout(`${imported.source} is already in the current schema.\n`);
-      if (imported.source !== destination) writeFileAtomic(join(io.cwd, destination), readText(io.cwd, imported.source)!);
-    } else {
-      saveProgress(io.cwd, imported.conversion.progress, destination);
-      imported.conversion.notes.forEach((note) => io.stdout(`${note}\n`));
-    }
-    if (imported.source !== destination) {
-      rmSync(join(io.cwd, imported.source));
-      io.stdout(`progress read from ${imported.source} and written to ${destination}; ${imported.source} was removed\n`);
-    }
+}
+
+/** Writes the converted progress to its destination and removes the old file when it was somewhere else. */
+function writeImportedProgress(io: CliIo, imported: ExistingProgress, destination: string): void {
+  if (imported.conversion === ALREADY_CURRENT) {
+    io.stdout(`${imported.source} is already in the current schema.\n`);
+    if (imported.source !== destination) writeFileAtomic(join(io.cwd, destination), readText(io.cwd, imported.source)!);
   } else {
-    initialiseProgress(io, config.paths);
+    saveProgress(io.cwd, imported.conversion.progress, destination);
+    imported.conversion.notes.forEach((note) => io.stdout(`${note}\n`));
   }
+  if (imported.source !== destination) {
+    rmSync(join(io.cwd, imported.source));
+    io.stdout(`progress read from ${imported.source} and written to ${destination}; ${imported.source} was removed\n`);
+  }
+}
+
+function reportInitialised(io: CliIo, config: ProjectConfig, leftOut: string[], alreadyIgnored: boolean): void {
   io.stdout(`Detected a ${config.stack} project (source: ${config.paths.source.join(", ")}).\n`);
-  if (detected.leftOut.length > 0) io.stdout(`Include entries left out of paths.source as tests: ${detected.leftOut.join(", ")}\n`);
+  if (leftOut.length > 0) io.stdout(`Include entries left out of paths.source as tests: ${leftOut.join(", ")}\n`);
   io.stdout(
     alreadyIgnored
       ? `Wrote ${CONFIG_FILE}; ${GITIGNORE_FILE} already ignores .outside-in/.\n`
       : `Wrote ${CONFIG_FILE} and added .outside-in/ to ${GITIGNORE_FILE}.\n`,
   );
+}
+
+export function runInit(io: CliIo, importProgress: boolean, progressPath?: string): number {
+  const manifest = requireInitialisable(io);
+  const imported = importProgress ? convertExistingProgress(io, progressPath) : undefined;
+  const detected = detectConfig(io.cwd, manifest);
+  const config = parseProjectConfig(detected.config);
+  requireNoOtherProgress(io, imported, config.paths.progress);
+  writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
+  const gitignore = readText(io.cwd, GITIGNORE_FILE);
+  const alreadyIgnored = isOutsideInIgnored(gitignore);
+  if (!alreadyIgnored) writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(gitignore));
+  if (imported) writeImportedProgress(io, imported, config.paths.progress);
+  else initialiseProgress(io, config.paths);
+  reportInitialised(io, config, detected.leftOut, alreadyIgnored);
   return 0;
 }
