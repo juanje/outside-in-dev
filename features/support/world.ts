@@ -1,9 +1,10 @@
-import { After, Before, setWorldConstructor, World } from "@cucumber/cucumber";
+import { After, Before, BeforeAll, setWorldConstructor, World } from "@cucumber/cucumber";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runCli } from "../../src/run-cli.js";
 
 const CLI_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../../src/cli.ts");
 const TSX_LOADER_URL = import.meta.resolve("tsx");
@@ -92,14 +93,15 @@ export class OidWorld extends World {
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
-    const result = spawnSync(process.execPath, ["--import", TSX_LOADER_URL, CLI_PATH, ...args], {
+    let stdout = "";
+    let stderr = "";
+    this.exitCode = runCli(args, {
       cwd: this.dir,
-      env: { ...process.env, NODE_OPTIONS: "" },
-      encoding: "utf8",
+      stdout: (text) => (stdout += text),
+      stderr: (text) => (stderr += text),
     });
-    this.stdout = result.stdout ?? "";
-    this.stderr = result.stderr ?? "";
-    this.exitCode = result.status;
+    this.stdout = stdout;
+    this.stderr = stderr;
   }
 
   /** Runs `git` with `args` in the project directory (never in the repository oid is developed in) and fails the step when git fails. */
@@ -130,6 +132,13 @@ export class OidWorld extends World {
 }
 
 setWorldConstructor(OidWorld);
+
+// oid spawns `git`, `jscpd` and `knip` with the inherited environment. Under a git hook, GIT_* variables
+// would point oid's git at the real repository instead of the scenario's directory; and `--import tsx` in
+// NODE_OPTIONS (set to load these steps) would be resolved relative to the scenario's directory and fail.
+BeforeAll(function () {
+  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "NODE_OPTIONS"]) delete process.env[name];
+});
 
 Before(function (this: OidWorld) {
   this.dir = mkdtempSync(join(tmpdir(), "oid-bdd-"));
