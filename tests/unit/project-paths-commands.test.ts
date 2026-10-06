@@ -93,6 +93,93 @@ describe("oid progress with .outside-in.json", () => {
   });
 });
 
+const STARTED_PROGRESS = {
+  current_focus: "FR-X-01",
+  features: [
+    {
+      id: "FR-X-01",
+      title: "Alpha",
+      status: "in_progress",
+      cycle_step: "quality_gate",
+      scenarios: [{ name: "Alpha works", bdd: "pass" }],
+    },
+  ],
+};
+const ROOT_DECOY = { current_focus: null, features: [{ id: "FR-ROOT-01", title: "Decoy", status: "pending" }] };
+
+function readSpecsProgress() {
+  return JSON.parse(readFileSync(join(dir, "specs/progress.json"), "utf8"));
+}
+
+describe("oid progress subcommands with paths.progress", () => {
+  beforeEach(() => {
+    write("progress.json", JSON.stringify(ROOT_DECOY));
+  });
+
+  it("current reads the focused feature from the progress file named by paths.progress", () => {
+    write("specs/progress.json", JSON.stringify(STARTED_PROGRESS));
+    const { exitCode, stdout } = run(["progress", "current"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("FR-X-01");
+    expect(stdout).toContain("quality_gate");
+    expect(stdout).toContain("Alpha works");
+    expect(stdout).not.toContain("FR-ROOT-01");
+  });
+
+  it("show reads the feature from the progress file named by paths.progress", () => {
+    write("specs/progress.json", JSON.stringify(STARTED_PROGRESS));
+    const { exitCode, stdout } = run(["progress", "show", "FR-X-01"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Alpha works");
+    expect(run(["progress", "show", "FR-ROOT-01"]).stderr).toBe("error: FR-ROOT-01 is not tracked in specs/progress.json\n");
+  });
+
+  it("step writes the new cycle step to the progress file named by paths.progress and not to the root", () => {
+    write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
+    expect(run(["progress", "step", "FR-X-01", "select"]).exitCode).toBe(0);
+    expect(readSpecsProgress().features[0]).toMatchObject({ status: "in_progress", cycle_step: "select" });
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual(ROOT_DECOY);
+  });
+
+  it("scenario writes the recorded scenario to the progress file named by paths.progress and not to the root", () => {
+    write("specs/progress.json", JSON.stringify({ ...STARTED_PROGRESS, features: [{ ...STARTED_PROGRESS.features[0], scenarios: [] }] }));
+    expect(run(["progress", "scenario", "fail", "FR-X-01", "Alpha works"]).exitCode).toBe(0);
+    expect(readSpecsProgress().features[0].scenarios).toEqual([{ name: "Alpha works", bdd: "fail" }]);
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual(ROOT_DECOY);
+  });
+
+  it("done writes the finished feature to the progress file named by paths.progress and not to the root", () => {
+    write("specs/progress.json", JSON.stringify(STARTED_PROGRESS));
+    expect(run(["progress", "done", "FR-X-01"]).exitCode).toBe(0);
+    const { current_focus, features } = readSpecsProgress();
+    expect(current_focus).toBeNull();
+    expect(features[0]).toEqual({ id: "FR-X-01", title: "Alpha", status: "done", scenarios: [{ name: "Alpha works", bdd: "pass" }] });
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual(ROOT_DECOY);
+  });
+});
+
+describe("an invalid .outside-in.json", () => {
+  it.each([
+    ["oid check", ["check"]],
+    ["oid progress status", ["progress", "status"]],
+    ["oid progress focus", ["progress", "focus", "FR-X-01"]],
+  ])("makes %s fail with an error naming the violation and nothing else", (_label, args) => {
+    write("progress.json", JSON.stringify(ALPHA_PROGRESS));
+    write(".outside-in.json", JSON.stringify({ version: 2 }));
+    const { exitCode, stdout, stderr } = run(args);
+    expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
+    expect(stderr).toMatch(/^error: \.outside-in\.json is invalid:\n.*version/);
+    expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual(ALPHA_PROGRESS);
+  });
+
+  it("makes oid check fail naming the file when it is not JSON", () => {
+    write(".outside-in.json", "{ not json");
+    const { exitCode, stdout, stderr } = run(["check"]);
+    expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
+    expect(stderr).toMatch(/^error: \.outside-in\.json is not valid JSON/);
+  });
+});
+
 describe("oid check with .outside-in.json", () => {
   it("reads the spec named by paths.spec and names it in the violations", () => {
     write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n\n### FR-X-01: Alpha\n\nThe tool does alpha.\n");
