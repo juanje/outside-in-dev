@@ -4,10 +4,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildProblem } from "./build-freshness.js";
 import { runCli } from "../../src/run-cli.js";
 
-const CLI_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../../src/cli.ts");
-const TSX_LOADER_URL = import.meta.resolve("tsx");
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 
 export type Scenario = { name: string; bdd: string };
 export type Feature = {
@@ -115,7 +116,7 @@ export class OidWorld extends World {
   async runClosingOutputEarly(commandLine: string): Promise<void> {
     const args = splitArgs(commandLine);
     if (args[0] === "oid") args.shift();
-    const child = spawn(process.execPath, ["--import", TSX_LOADER_URL, CLI_PATH, ...args], {
+    const child = spawn(process.execPath, [BUILT_CLI, ...args], {
       cwd: this.dir,
       env: { ...process.env, NODE_OPTIONS: "" },
     });
@@ -142,6 +143,12 @@ BeforeAll(function () {
 
 Before(function (this: OidWorld) {
   this.dir = mkdtempSync(join(tmpdir(), "oid-bdd-"));
+});
+
+// A scenario that needs a real process runs the build: refuse to test a missing or stale one.
+Before({ tags: "@process" }, function () {
+  const problem = buildProblem(REPO_ROOT);
+  if (problem !== null) throw new Error(problem);
 });
 
 After(function (this: OidWorld) {

@@ -14,7 +14,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:bdd": "NODE_OPTIONS=\"--import tsx\" cucumber-js",
+    "test:bdd": "npm run build && NODE_OPTIONS=\"--import tsx\" cucumber-js",
     "test": "npm run test:unit && npm run test:bdd"
   },
   "dependencies": {
