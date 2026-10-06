@@ -10,17 +10,20 @@ export interface ProjectPaths {
   source: string[];
   /** Globs of the test files: unit tests, BDD steps and feature files. */
   tests: string[];
+  /** Globs of the documentation files; only the Markdown ones are checked. */
+  docs: string[];
 }
 
 const DEFAULT_FEATURES = ["features/**/*.feature"];
 const DEFAULT_SOURCE = ["src/**"];
+const DEFAULT_DOCS = ["README.md", "docs/**"];
 const DEFAULT_TESTS = ["tests/unit/**", "features/steps/**", "features/support/**", ...DEFAULT_FEATURES];
 
-/** The spec, progress file, feature, source and test globs the commands work with, relative to `cwd`. */
+/** The spec, progress file, feature, source, test and documentation globs the commands work with, relative to `cwd`. */
 export function loadProjectPaths(cwd: string): ProjectPaths {
   const document = readJson(cwd, CONFIG_FILE);
   if (document === undefined) {
-    return { spec: SPEC_FILE, progress: PROGRESS_FILE, features: DEFAULT_FEATURES, source: DEFAULT_SOURCE, tests: DEFAULT_TESTS };
+    return { spec: SPEC_FILE, progress: PROGRESS_FILE, features: DEFAULT_FEATURES, source: DEFAULT_SOURCE, tests: DEFAULT_TESTS, docs: DEFAULT_DOCS };
   }
   const { paths } = parseProjectConfig(document);
   return {
@@ -29,5 +32,6 @@ export function loadProjectPaths(cwd: string): ProjectPaths {
     features: paths.bdd_features,
     source: paths.source,
     tests: [...paths.unit_tests, ...paths.bdd_steps, ...paths.bdd_features],
+    docs: paths.docs,
   };
 }

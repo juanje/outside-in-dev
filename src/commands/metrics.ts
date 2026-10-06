@@ -1,4 +1,4 @@
-import { detectCommentedOutCode, detectComplexity, detectDuplication, detectMagicValues, detectUnusedCode, detectUnusedDeclarations } from "../artifacts/code-health.js";
+import { detectCommentedOutCode, detectComplexity, detectDocDrift, detectDuplication, detectMagicValues, detectUnusedCode, detectUnusedDeclarations } from "../artifacts/code-health.js";
 import { numberFindings, renderReport } from "../artifacts/findings.js";
 import { loadComplexityLimits, loadDuplicationLimits, loadMagicValueLimits, loadRefactorEntry } from "../artifacts/project-config.js";
 import { loadProjectPaths } from "../artifacts/project-paths.js";
@@ -13,6 +13,7 @@ export function runMetrics(io: CliIo): number {
     ...detectUnusedCode(io.cwd, paths, loadRefactorEntry(io.cwd)),
     ...detectUnusedDeclarations(io.cwd, paths),
     ...detectCommentedOutCode(io.cwd, paths),
+    ...detectDocDrift(io.cwd, paths),
     ...detectMagicValues(io.cwd, paths, loadMagicValueLimits(io.cwd)),
   ];
   io.stdout(renderReport(numberFindings(drafts)));

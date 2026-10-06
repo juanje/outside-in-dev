@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
@@ -9,6 +9,7 @@ import { findCommentedOutCode } from "./commented-out-code.js";
 import { knipConfig, knipFindings } from "./dead-code.js";
 import { duplicationFindings } from "./duplication.js";
 import { unusedDeclarationFindings } from "./unused-declarations.js";
+import { declaredNames, findJsdocDrift, findStaleReferences } from "./doc-drift.js";
 import { findComplexFunctions, type ComplexityLimits } from "./complexity.js";
 import type { FindingDraft } from "./findings.js";
 import { findMagicNumbers, findRepeatedStrings } from "./magic-values.js";
@@ -54,6 +55,7 @@ export function detectComplexity(cwd: string, paths: ProjectPaths, limits: Compl
   );
 }
 
+const MARKDOWN_EXTENSION = ".md";
 const JSCPD_BIN = createRequire(import.meta.url).resolve("jscpd/run-jscpd.js");
 const JSCPD_REPORT = "jscpd-report.json";
 
@@ -125,4 +127,33 @@ export function detectMagicValues(cwd: string, paths: ProjectPaths, limits: Magi
     findMagicNumbers(text, limits.ignore).map(({ start, end, detail }) => ({ category: "magic_value" as const, file, range: { start, end }, detail })),
   );
   return [...numbers, ...findRepeatedStrings(sources, limits.min_string_repeats)];
+}
+
+/** The directory a glob starts in: its leading segments that have no wildcard (for a glob without one, the directory of the file). */
+function globBase(glob: string): string {
+  const segments = glob.split("/");
+  const wildcard = segments.findIndex((segment) => /[*?[{(!]/.test(segment));
+  return segments.slice(0, wildcard).join("/");
+}
+
+/** The JSDoc of the project's source files whose parameters do not match the signature, and the code the Markdown documentation names that does not exist. */
+export function detectDocDrift(cwd: string, paths: ProjectPaths): FindingDraft[] {
+  const sources = compiledMatching(cwd, paths.source, paths.tests).map((file) => ({ file, text: readFileSync(join(cwd, file), "utf8") }));
+  const jsdoc = sources.flatMap(({ file, text }) =>
+    findJsdocDrift(text).map(({ start, end, symbol, detail }) => ({ category: "doc_drift" as const, file, range: { start, end }, symbol, detail })),
+  );
+  const declared = new Set(sources.flatMap(({ text }) => [...declaredNames(text)]));
+  const roots = ["", ...paths.source.map(globBase)];
+  const exists = (path: string): boolean => roots.some((root) => existsSync(join(cwd, root, path)));
+  const stale = globSync(paths.docs, { cwd })
+    .filter((file) => file.endsWith(MARKDOWN_EXTENSION))
+    .flatMap((file) =>
+      findStaleReferences(readFileSync(join(cwd, file), "utf8"), declared, exists).map(({ line, detail }) => ({
+        category: "doc_drift" as const,
+        file,
+        range: { start: line, end: line },
+        detail,
+      })),
+    );
+  return [...jsdoc, ...stale];
 }
