@@ -30,23 +30,22 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 - **Stop and show the feature file to the human before writing steps.** Feature files are reviewed once, up front.
 - Write step definitions in `features/steps/` with real assertions. No stubs, no pending markers.
 - **Import source that does not exist yet dynamically, inside the step** (`const { x } = await import("../../src/…")`). A static import of a missing module stops cucumber-js before any scenario runs.
-- Run the scenario: `npm run test:bdd -- features/<file>.feature:<line>`.
-- Confirm a **valid Red**: the steps run and fail because the behaviour is missing. "Undefined", "pending", "ambiguous" or a crash before running are not Red.
-- From FR-VERIFY on: `oid verify red features/<file>.feature:<line>` decides.
+- Run `oid verify red features/<file>.feature:<line>`. It decides whether the scenario is a **valid Red**: the steps run and fail because the behaviour is missing. "Undefined", "pending", "ambiguous", a crash before running, or a static import of something that does not exist yet are not Red (exit 1).
+
+**Needs a decision (exit 2).** When `oid verify red` cannot classify a failure by itself (a failing assertion, or an error it cannot attribute), it prints the failure and the questions to answer, and exits 2. Whoever drives the cycle answers them, not the agent that wrote the test: is it the assertion of the new behaviour, failing for the right reason, and does the test check something meaningful? Then `oid verify red "<target>" --decide <class>`: `business_assertion` or `missing_implementation` for a valid Red, `test_bug` or `environment` otherwise (ADR-030).
+
+**The verify gates the step.** Leave `bdd_red`, `tdd_red` or `tdd_green` only after the matching `oid verify` passed for the focused feature; `oid verify integrity` reports changes the current step does not allow (source while writing tests, tests while writing code, approved feature files, forbidden patterns). In Claude Code both are enforced by hooks (`.claude/settings.json`, `scripts/claude-hook.mjs`).
 
 ### 3. TDD Red [`tdd_red`]
 
 - Write **one** failing unit test in `tests/unit/` for the next piece of logic the scenario needs.
-- Run it: `npm run test:unit -- <file> -t "<name>"`.
-- Confirm a valid Red. If it passes, it is not driving anything: delete it or fix it. A `TypeError: (0 , name) is not a function` is a valid Red only if `name` does not exist yet.
-- From FR-VERIFY on: `oid verify red "<file> > <name>"` decides.
+- Run `oid verify red "<file> > <name>"`. It decides whether the test is a valid Red (exit 0) or not (exit 1). If it passes, it is not driving anything: fix it or delete it.
 
 ### 4. TDD Green [`tdd_green`]
 
 - Write the **minimum** code in `src/` to make the test pass. Before writing a new function or constant, check whether one already exists (search the exported symbols of `src/`).
 - Do not touch tests in this step.
-- Run the whole unit suite and `npx tsc --noEmit`. No new type errors in `src/`, the unit tests or the step definitions.
-- From FR-VERIFY on: `oid verify green`.
+- Run `oid verify green`: the whole unit suite, every scenario recorded as `pass`, and the type check of `src/`. It must say `green: ok`. Type errors in the unit tests or the step definitions are not allowed either (`npx tsc --noEmit`).
 
 ### 5. Refactor [`refactor`]
 
