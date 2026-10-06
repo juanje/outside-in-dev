@@ -1444,7 +1444,25 @@
     {
       "id": "FR-VERIFY-04",
       "title": "Verify a Green without regressions",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A Green with no regression passes and is checkpointed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failing unit test, a scenario that was passing and a type error are regressions",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario recorded as passing that no longer exists is a problem",
+          "bdd": "pass"
+        },
+        {
+          "name": "Step files that cucumber could not load are a problem, and no scenario is run",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-VERIFY-05",

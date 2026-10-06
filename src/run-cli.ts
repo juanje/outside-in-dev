@@ -22,12 +22,12 @@ const COMMANDS: Record<string, CommandHelp> = {
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
   },
   verify: {
-    summary: "Verify that a test or a scenario is a valid Red",
-    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]',
+    summary: "Verify that a test or a scenario is a valid Red, or that a Green has no regression",
+    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify green',
     options: {
       "--decide": "Answer a failure that needs a decision: business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
     },
-    extra: async () => "\nExit codes:\n  0  valid Red\n  1  not a valid Red, or a usage error\n  2  needs a decision: answer with --decide <class>\n",
+    extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n",
   },
   metrics: {
     summary: "Report the code-health findings of the project",

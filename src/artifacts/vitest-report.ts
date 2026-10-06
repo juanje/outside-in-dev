@@ -1,4 +1,6 @@
+import { relative } from "node:path";
 import { z } from "zod";
+import { firstLine } from "./lines.js";
 import { ProgressError } from "./progress.js";
 
 const testSchema = z.object({
@@ -38,4 +40,13 @@ export function selectTest(files: UnitFileResult[], name: string): TestSelection
   if (candidates.length === 0) return { kind: "none" };
   if (candidates.length > 1) return { kind: "several", fullNames: candidates.map((candidate) => candidate.fullName) };
   return { kind: "found", test: candidates[0]! };
+}
+
+/** One line for each test of the report that failed and each file that did not load: the file relative to the project, the full name of the test and the first line of the failure. */
+export function unitProblems(files: UnitFileResult[], cwd: string): string[] {
+  return files.flatMap(({ file, message, tests }) => {
+    const path = relative(cwd, file);
+    if (message !== "") return [`unit ${path}: ${firstLine(message)}`];
+    return tests.filter((test) => test.status === "failed").map((test) => `unit ${path} > ${test.fullName}: ${firstLine(test.failureMessages[0] ?? "")}`);
+  });
 }

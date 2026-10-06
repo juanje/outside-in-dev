@@ -1,18 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { globSync } from "tinyglobby";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { parseRequirements, validateSpec } from "../artifacts/spec.js";
 import { checkProgressConsistency } from "../artifacts/consistency.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
-import { checkTraceability, listScenarios } from "../artifacts/traceability.js";
+import { checkTraceability, listScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import type { CliIo } from "../cli-io.js";
-
-function readFeatureSources(cwd: string, globs: string[]) {
-  return globSync(globs, { cwd })
-    .sort()
-    .map((path) => ({ path, text: readFileSync(join(cwd, path), "utf8") }));
-}
 
 type Violation = { check: "config" | "spec" | "traceability" | "progress"; message: string };
 

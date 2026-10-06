@@ -176,8 +176,8 @@ describe("oid verify red", () => {
   it("names the valid subcommands when the subcommand is missing or unknown", async () => {
     const results = [await runInProject(["verify"]), await runInProject(["verify", "bogus"])];
     expect(results.map(({ exitCode, stderr }) => ({ exitCode, stderr }))).toEqual([
-      { exitCode: 1, stderr: "error: missing subcommand; valid subcommands: red\n" },
-      { exitCode: 1, stderr: "error: unknown subcommand bogus; valid subcommands: red\n" },
+      { exitCode: 1, stderr: "error: missing subcommand; valid subcommands: red, green\n" },
+      { exitCode: 1, stderr: "error: unknown subcommand bogus; valid subcommands: red, green\n" },
     ]);
   });
 
