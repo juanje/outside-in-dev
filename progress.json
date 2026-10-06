@@ -1031,7 +1031,49 @@
     {
       "id": "FR-MET-04",
       "title": "Detect magic values",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A numeric literal in an expression is reported with its location",
+          "bdd": "pass"
+        },
+        {
+          "name": "A negative numeric literal is reported with its sign",
+          "bdd": "pass"
+        },
+        {
+          "name": "The trivial values 0, 1 and -1 are not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A number named by a constant, an enum member or a literal type is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Numbers in test files are not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A string repeated across files is reported once at its first occurrence with the others",
+          "bdd": "pass"
+        },
+        {
+          "name": "A string that appears fewer times than the minimum is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Imports, object keys, constants, types and the empty string do not count as repeated strings",
+          "bdd": "pass"
+        },
+        {
+          "name": "Values listed in refactor.detectors.magic_value.ignore are not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "The minimum number of string repeats comes from refactor.detectors.magic_value.min_string_repeats",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-05",

@@ -75,4 +75,25 @@ describe("oid metrics", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toBe("dead_code src/total.ts:2-2 [unusedCount] unused declaration\ndead_code 1\n");
   });
+
+  it("prints the numeric literals and repeated strings of the source files, not those of the test files", () => {
+    mkdirSync(join(dir, "src"));
+    mkdirSync(join(dir, "tests/unit"), { recursive: true });
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts"] }));
+    writeFileSync(join(dir, "src/limits.ts"), 'export const isLong = (n: number) => n > 42 || n === 7;\nexport const label = (s: string) => s + "tag" + "tag";\n');
+    writeFileSync(join(dir, "src/more.ts"), 'export const other = ["tag"];\n');
+    writeFileSync(join(dir, "tests/unit/limits.test.ts"), "export const big = 4242;\n");
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe(
+      [
+        "magic_value src/limits.ts:1-1 magic number 42",
+        "magic_value src/limits.ts:1-1 magic number 7",
+        'magic_value src/limits.ts:2-2 string "tag" repeated 3 times, also src/limits.ts:2-2, also src/more.ts:1-1',
+        "magic_value 3",
+        "",
+      ].join("\n"),
+    );
+  });
 });

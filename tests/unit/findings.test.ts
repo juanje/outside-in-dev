@@ -58,6 +58,15 @@ describe("formatFinding with a related location", () => {
   });
 });
 
+describe("magic value findings", () => {
+  it("are numbered with the magic prefix and counted after duplication", () => {
+    const draft = (category: "duplication" | "magic_value") => ({ category, file: "src/a.ts", range: { start: 1, end: 1 }, detail: "d" });
+    const findings = numberFindings([draft("magic_value"), draft("duplication")]);
+    expect(findings.map(({ id }) => id)).toEqual(["dup-0001", "magic-0001"]);
+    expect(renderReport(findings).split("\n").at(-2)).toBe("duplication 1, magic_value 1");
+  });
+});
+
 describe("renderReport", () => {
   const finding = (id: string, start: number) => ({
     id,
