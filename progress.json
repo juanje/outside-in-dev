@@ -740,6 +740,38 @@
         {
           "name": "One scenario with a unit test count is reported in the singular",
           "bdd": "pass"
+        },
+        {
+          "name": "A progress file in specs/ is found and converted in place",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file at the root is moved beside a specification kept in specs/",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file in specs/ is moved to the root beside a specification kept there",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file given as an argument is read from there and moved beside the specification",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file already in the current schema is moved the same way",
+          "bdd": "pass"
+        },
+        {
+          "name": "An existing progress file at the destination that is not the source stops everything",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a progress file anywhere the error names the places looked at",
+          "bdd": "pass"
+        },
+        {
+          "name": "A progress file given as an argument that does not exist is an error",
+          "bdd": "pass"
         }
       ]
     },

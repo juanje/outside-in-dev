@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join, posix } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
@@ -183,17 +183,33 @@ function initialiseProgress(io: CliIo, { spec: specFile, progress: progressFile 
 
 const ALREADY_CURRENT = "current";
 
-/** Converts the progress.json of the project to the current schema without writing it. */
-function convertExistingProgress(io: CliIo): Conversion | typeof ALREADY_CURRENT {
-  const document = readJson(io.cwd, PROGRESS_FILE);
-  if (document === undefined) throw new ProgressError(`${PROGRESS_FILE} not found in ${io.cwd}`);
-  if (validateProgress(document).length === 0) return ALREADY_CURRENT;
-  const conversion = convertProgress(document);
-  requireValid(conversion.progress);
-  return conversion;
+/** Where the existing progress file is looked for when no path is given, in order. */
+const PROGRESS_CANDIDATES = [PROGRESS_FILE, posix.join(SPECS_DIR, PROGRESS_FILE)];
+
+type ExistingProgress = { source: string; conversion: Conversion | typeof ALREADY_CURRENT };
+
+/** The existing progress file to import: the given path, else the first candidate that exists; undefined when there is none. */
+function findProgressSource(cwd: string, given: string | undefined): string | undefined {
+  if (given !== undefined) return existsSync(join(cwd, given)) ? posix.normalize(given) : undefined;
+  return PROGRESS_CANDIDATES.find((candidate) => existsSync(join(cwd, candidate)));
 }
 
-export function runInit(io: CliIo, importProgress: boolean): number {
+/** Converts the existing progress file of the project to the current schema without writing it. */
+function convertExistingProgress(io: CliIo, given: string | undefined): ExistingProgress {
+  const source = findProgressSource(io.cwd, given);
+  if (source === undefined) {
+    throw new ProgressError(
+      given === undefined ? `${PROGRESS_FILE} not found (looked at: ${PROGRESS_CANDIDATES.join(", ")})` : `${given} not found`,
+    );
+  }
+  const document = readJson(io.cwd, source);
+  if (validateProgress(document).length === 0) return { source, conversion: ALREADY_CURRENT };
+  const conversion = convertProgress(document);
+  requireValid(conversion.progress);
+  return { source, conversion };
+}
+
+export function runInit(io: CliIo, importProgress: boolean, progressPath?: string): number {
   if (existsSync(join(io.cwd, CONFIG_FILE))) {
     throw new ProgressError(`${CONFIG_FILE} already exists; remove it to run oid init again`);
   }
@@ -201,18 +217,31 @@ export function runInit(io: CliIo, importProgress: boolean): number {
   if (!isTypeScriptProject(io.cwd, manifest)) {
     throw new ProgressError("only TypeScript projects are supported");
   }
-  const imported = importProgress ? convertExistingProgress(io) : undefined;
+  const imported = importProgress ? convertExistingProgress(io, progressPath) : undefined;
   const detected = detectConfig(io.cwd, manifest);
   const config = parseProjectConfig(detected.config);
+  if (imported && imported.source !== config.paths.progress && existsSync(join(io.cwd, config.paths.progress))) {
+    throw new ProgressError(
+      `${config.paths.progress} already exists and is not ${imported.source}; nothing was written or removed`,
+    );
+  }
   writeFileAtomic(join(io.cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
   const gitignore = readText(io.cwd, GITIGNORE_FILE);
   const alreadyIgnored = isOutsideInIgnored(gitignore);
   if (!alreadyIgnored) writeFileAtomic(join(io.cwd, GITIGNORE_FILE), withOutsideInIgnored(gitignore));
-  if (imported === ALREADY_CURRENT) {
-    io.stdout(`${PROGRESS_FILE} is already in the current schema.\n`);
-  } else if (imported) {
-    saveProgress(io.cwd, imported.progress);
-    imported.notes.forEach((note) => io.stdout(`${note}\n`));
+  if (imported) {
+    const destination = config.paths.progress;
+    if (imported.conversion === ALREADY_CURRENT) {
+      io.stdout(`${imported.source} is already in the current schema.\n`);
+      if (imported.source !== destination) writeFileAtomic(join(io.cwd, destination), readText(io.cwd, imported.source)!);
+    } else {
+      saveProgress(io.cwd, imported.conversion.progress, destination);
+      imported.conversion.notes.forEach((note) => io.stdout(`${note}\n`));
+    }
+    if (imported.source !== destination) {
+      rmSync(join(io.cwd, imported.source));
+      io.stdout(`progress read from ${imported.source} and written to ${destination}; ${imported.source} was removed\n`);
+    }
   } else {
     initialiseProgress(io, config.paths);
   }
