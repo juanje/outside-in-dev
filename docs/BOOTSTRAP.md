@@ -127,9 +127,9 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 **Switch-over.**
 
 - [ ] Tag and install `v0.4.0`.
-- [ ] Record the baseline on oid: `oid metrics`.
-- [ ] `docs/METHODOLOGY.md`, steps 5 and 6: use `oid metrics --changed` instead of the manual checklist.
-- [ ] Add `oid metrics --changed` to the quality gate in `AGENTS.md` (blocking only on new findings).
+- [x] Record the baseline on oid: `oid metrics`.
+- [x] `docs/METHODOLOGY.md`, steps 5 and 6: use `oid metrics --changed` instead of the manual checklist.
+- [x] Add `oid metrics --changed` to the quality gate in `AGENTS.md` (blocking only on new findings).
 - [ ] Run `oid metrics` read-only on Buddy and keep the report: it is the "before" picture for its migration.
 
 ### 2.5 Verification — FR-VERIFY-01 … FR-VERIFY-05

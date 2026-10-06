@@ -1,9 +1,10 @@
 #!/bin/sh
-# Runs oid's consistency checks before every commit.
+# Runs oid's consistency checks and its code-health check on the changed lines before every commit.
 # Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 # Uses the installed oid build, never this working tree (AGENTS.md).
 if ! command -v oid >/dev/null 2>&1; then
   echo "pre-commit: oid is not installed; install a release tarball (docs/BOOTSTRAP.md)" >&2
   exit 1
 fi
-exec oid check
+oid check || exit 1
+exec oid metrics --changed
