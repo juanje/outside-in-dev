@@ -32,4 +32,16 @@ describe("oid metrics", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toBe("complexity src/busy.ts:1-3 [busy] cyclomatic complexity 2 > 1\ncomplexity 1\n");
   });
+
+  it("prints the blocks duplicated between files, with both locations, and counts them", () => {
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
+    const block = "export function NAME(items: number[]): number {\n  let sum = 0;\n  for (const item of items) {\n    sum += item * 2;\n    sum -= 1;\n  }\n  const average = sum / items.length;\n  return Math.round(average);\n}\n";
+    writeFileSync(join(dir, "src/orders.ts"), block.replace("NAME", "orderTotal"));
+    writeFileSync(join(dir, "src/invoices.ts"), block.replace("NAME", "invoiceTotal"));
+    let stdout = "";
+    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe("duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9\nduplication 1\n");
+  });
 });

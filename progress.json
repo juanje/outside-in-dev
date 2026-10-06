@@ -909,7 +909,41 @@
     {
       "id": "FR-MET-02",
       "title": "Detect duplication",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A block duplicated in two source files is reported with both locations",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block duplicated within one file is reported with both locations",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block copied from a source file into a test is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Files that share a name in different directories are told apart",
+          "bdd": "pass"
+        },
+        {
+          "name": "Code that is not duplicated is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A repeated block shorter than the minimum is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "The minimum number of lines comes from the configuration",
+          "bdd": "pass"
+        },
+        {
+          "name": "The summary counts duplication next to the other categories",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-MET-03",

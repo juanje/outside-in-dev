@@ -1,4 +1,4 @@
-type FindingCategory = "complexity";
+type FindingCategory = "complexity" | "duplication";
 
 export interface FindingDraft {
   category: FindingCategory;
@@ -6,14 +6,16 @@ export interface FindingDraft {
   range: { start: number; end: number };
   symbol?: string;
   detail: string;
+  related?: { file: string; range: { start: number; end: number } }[];
 }
 
 export interface Finding extends FindingDraft {
   id: string;
 }
 
-const ID_PREFIX: Record<FindingCategory, string> = { complexity: "cx" };
+const ID_PREFIX: Record<FindingCategory, string> = { complexity: "cx", duplication: "dup" };
 const ID_DIGITS = 4;
+const CATEGORIES = Object.keys(ID_PREFIX) as FindingCategory[];
 
 function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
@@ -33,18 +35,19 @@ export function numberFindings(drafts: FindingDraft[]): Finding[] {
   });
 }
 
-/** One output line: `<category> <file>:<start>-<end> [<symbol>] <detail>`, without the brackets when there is no symbol. */
-export function formatFinding({ category, file, range, symbol, detail }: Finding): string {
+/** One output line: `<category> <file>:<start>-<end> [<symbol>] <detail>`, without the brackets when there is no symbol, then `, also <file>:<start>-<end>` for each related location. */
+export function formatFinding({ category, file, range, symbol, detail, related = [] }: Finding): string {
   const symbolPart = symbol === undefined ? "" : ` [${symbol}]`;
-  return `${category} ${file}:${range.start}-${range.end}${symbolPart} ${detail}`;
+  const relatedPart = related.map((other) => `, also ${other.file}:${other.range.start}-${other.range.end}`).join("");
+  return `${category} ${file}:${range.start}-${range.end}${symbolPart} ${detail}${relatedPart}`;
 }
 
-/** The report: one line per finding, then the count per category (`complexity 3, duplication 0`); `no findings` when there are none. */
+/** The report: one line per finding, then the count of each category that has findings (`complexity 2, duplication 1`); `no findings` when there are none. */
 export function renderReport(findings: Finding[]): string {
   if (findings.length === 0) return "no findings\n";
   const lines = findings.map(formatFinding);
-  const counts = (Object.keys(ID_PREFIX) as FindingCategory[]).map(
-    (category) => `${category} ${findings.filter((finding) => finding.category === category).length}`,
-  );
+  const counts = CATEGORIES.map((category) => ({ category, count: findings.filter((finding) => finding.category === category).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ category, count }) => `${category} ${count}`);
   return `${[...lines, counts.join(", ")].join("\n")}\n`;
 }
