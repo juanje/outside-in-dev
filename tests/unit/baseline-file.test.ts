@@ -1,18 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { findingKey, readBaseline, writeBaseline } from "../../src/artifacts/baseline.js";
+import { dir, useTempDir } from "./temp-project.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 describe("the baseline file", () => {
   it("is missing until a baseline is written, creating .outside-in, and then gives the identity of each finding written", () => {

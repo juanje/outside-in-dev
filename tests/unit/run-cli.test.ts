@@ -1,33 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
+import { dir, useTempDir, writeProgressFile } from "./temp-project.js";
+import { runInProject as run } from "./run-capture.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-async function run(args: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(args, {
-    cwd: dir,
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
-
-function writeProgress(progress: unknown) {
-  writeFileSync(join(dir, "progress.json"), JSON.stringify(progress, null, 2) + "\n");
-}
+useTempDir();
 
 const SAMPLE = {
   current_focus: "FR-X-02",
@@ -55,7 +32,7 @@ describe("runCli progress", () => {
   });
 
   it("status lists every feature with its status and cycle step", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "status", "--all"]);
     expect(result.exitCode).toBe(0);
     const lines = result.stdout.trimEnd().split("\n");
@@ -66,7 +43,7 @@ describe("runCli progress", () => {
   });
 
   it("status marks the focused feature", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const lines = (await run(["progress", "status", "--all"])).stdout.trimEnd().split("\n");
     expect(lines[1]).toContain("(focused)");
     expect(lines[0]).not.toContain("(focused)");
@@ -74,7 +51,7 @@ describe("runCli progress", () => {
   });
 
   it("current prints the focused feature with its step and scenarios", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "current"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/FR-X-02.*Beta.*in_progress.*tdd_red/);
@@ -84,14 +61,14 @@ describe("runCli progress", () => {
   });
 
   it("current says so when no feature is focused", async () => {
-    writeProgress({ ...SAMPLE, current_focus: null });
+    writeProgressFile({ ...SAMPLE, current_focus: null });
     const result = await run(["progress", "current"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("No feature is focused");
   });
 
   it("show prints one feature with its scenarios", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "show", "FR-X-03"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/FR-X-03.*Gamma.*done/);
@@ -100,7 +77,7 @@ describe("runCli progress", () => {
   });
 
   it("show fails naming a feature that is not tracked", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "show", "FR-X-99"]);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("FR-X-99");
@@ -119,7 +96,7 @@ function readProgress() {
 describe("runCli progress add", () => {
   it("appends a pending feature at the end", async () => {
     writeSpec("FR-X-01", "FR-X-04");
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "add", "FR-X-04", "Delta"]);
     expect(result.exitCode).toBe(0);
     const features = readProgress().features;
@@ -129,7 +106,7 @@ describe("runCli progress add", () => {
 
   it("refuses an id that is already tracked and leaves the file unchanged", async () => {
     writeSpec("FR-X-01");
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const before = readFileSync(join(dir, "progress.json"), "utf8");
     const result = await run(["progress", "add", "FR-X-01", "Again"]);
     expect(result.exitCode).toBe(1);
@@ -139,7 +116,7 @@ describe("runCli progress add", () => {
 
   it("refuses an id that SPEC.md does not define and leaves the file unchanged", async () => {
     writeSpec("FR-X-01", "FR-X-02");
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const before = readFileSync(join(dir, "progress.json"), "utf8");
     const result = await run(["progress", "add", "FR-X-99", "Ghost"]);
     expect(result.exitCode).toBe(1);
@@ -151,7 +128,7 @@ describe("runCli progress add", () => {
 
 describe("runCli progress focus", () => {
   it("sets the focus without changing any status", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "focus", "FR-X-01"]);
     expect(result.exitCode).toBe(0);
     const progress = readProgress();
@@ -160,7 +137,7 @@ describe("runCli progress focus", () => {
   });
 
   it("refuses an untracked id and leaves the file unchanged", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const before = readFileSync(join(dir, "progress.json"), "utf8");
     const result = await run(["progress", "focus", "FR-X-99"]);
     expect(result.exitCode).toBe(1);
@@ -171,7 +148,7 @@ describe("runCli progress focus", () => {
 
 describe("runCli progress step", () => {
   it("moves the feature to the next step and saves it", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "step", "FR-X-02", "tdd_green"]);
     expect(result.exitCode).toBe(0);
     expect(readProgress().features[1].cycle_step).toBe("tdd_green");
@@ -180,7 +157,7 @@ describe("runCli progress step", () => {
 
 describe("runCli progress scenario", () => {
   it("records the scenario status and saves it", async () => {
-    writeProgress(SAMPLE);
+    writeProgressFile(SAMPLE);
     const result = await run(["progress", "scenario", "pass", "FR-X-02", "Beta works"]);
     expect(result.exitCode).toBe(0);
     expect(readProgress().features[1].scenarios[0]).toEqual({ name: "Beta works", bdd: "pass" });
@@ -197,7 +174,7 @@ describe("runCli progress done", () => {
   };
 
   it("marks the feature done and clears the focus when it was focused", async () => {
-    writeProgress({ current_focus: "FR-X-02", features: [FINISHED] });
+    writeProgressFile({ current_focus: "FR-X-02", features: [FINISHED] });
     const result = await run(["progress", "done", "FR-X-02"]);
     expect(result.exitCode).toBe(0);
     const progress = readProgress();
@@ -247,7 +224,7 @@ describe("runCli check", () => {
 
   it("labels progress.json violations as progress under --json", async () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
-    writeProgress({ current_focus: "FR-X-01", features: [] });
+    writeProgressFile({ current_focus: "FR-X-01", features: [] });
     const { violations } = JSON.parse((await run(["check", "--json"])).stdout);
     expect(violations).toHaveLength(1);
     expect(violations[0].check).toBe("progress");
@@ -284,7 +261,7 @@ describe("oid check progress consistency", () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
     mkdirSync(join(dir, "features"), { recursive: true });
     writeFileSync(join(dir, "features/alpha.feature"), "@FR-X-01\nFeature: Alpha\n\n  Scenario: Real alpha\n");
-    writeProgress({
+    writeProgressFile({
       current_focus: null,
       features: [
         {
@@ -304,7 +281,7 @@ describe("oid check progress consistency", () => {
 
   it("reports an invalid progress file with its schema message instead of crashing", async () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nDoes alpha.\n");
-    writeProgress({
+    writeProgressFile({
       current_focus: null,
       features: [{ id: "FR-X-01", title: "Alpha", status: "pending", notes: "x" }],
     });

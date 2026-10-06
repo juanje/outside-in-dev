@@ -1,30 +1,16 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { beforeEach, describe, expect, it } from "vitest";
+import { dir, useTempDir } from "./temp-project.js";
+import { runOid } from "./run-capture.js";
 
-let dir: string;
+useTempDir();
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-init-import-"));
   writeFileSync(join(dir, "tsconfig.json"), "{}");
 });
 
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-async function runImport() {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(["init", "--import-progress"], {
-    cwd: dir,
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
+const runImport = () => runOid(["init", "--import-progress"], dir);
 
 describe("oid init --import-progress", () => {
   it("fails without a progress file and writes nothing", async () => {

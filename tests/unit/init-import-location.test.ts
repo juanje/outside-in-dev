@@ -1,35 +1,16 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import { dir, useTempDir, write } from "./temp-project.js";
+import { runOid } from "./run-capture.js";
 
-let dir: string;
+useTempDir();
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-init-location-"));
   writeFileSync(join(dir, "tsconfig.json"), "{}");
 });
 
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-function put(path: string, text: string): void {
-  mkdirSync(dirname(join(dir, path)), { recursive: true });
-  writeFileSync(join(dir, path), text);
-}
-
-async function runImport(...extra: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(["init", "--import-progress", ...extra], {
-    cwd: dir,
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
+const runImport = (...extra: string[]) => runOid(["init", "--import-progress", ...extra], dir);
 
 const SPEC = "### FR-DEMO-01: Old thing\n\nDescription.\n";
 const OLD_PROGRESS = JSON.stringify({
@@ -43,8 +24,8 @@ function featureIds(path: string): string[] {
 
 describe("oid init --import-progress: where the progress file is", () => {
   it("finds specs/progress.json when there is none at the root and converts it in place", async () => {
-    put("specs/SPEC.md", SPEC);
-    put("specs/progress.json", OLD_PROGRESS);
+    write("specs/SPEC.md", SPEC);
+    write("specs/progress.json", OLD_PROGRESS);
     const { exitCode, stdout } = await runImport();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("FR-DEMO-01: status blocked converted to pending");
@@ -53,8 +34,8 @@ describe("oid init --import-progress: where the progress file is", () => {
   });
 
   it("moves a root progress.json beside a specification in specs/ and says so", async () => {
-    put("specs/SPEC.md", SPEC);
-    put("progress.json", OLD_PROGRESS);
+    write("specs/SPEC.md", SPEC);
+    write("progress.json", OLD_PROGRESS);
     const { exitCode, stdout } = await runImport();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("progress read from progress.json and written to specs/progress.json; progress.json was removed");
@@ -64,8 +45,8 @@ describe("oid init --import-progress: where the progress file is", () => {
 
   it("moves a progress file that is already current without changing its content", async () => {
     const current = `${JSON.stringify({ current_focus: null, features: [{ id: "FR-DEMO-01", title: "Old thing", status: "pending" }] })}\n`;
-    put("specs/SPEC.md", SPEC);
-    put("progress.json", current);
+    write("specs/SPEC.md", SPEC);
+    write("progress.json", current);
     const { exitCode, stdout } = await runImport();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("already in the current schema");
@@ -76,9 +57,9 @@ describe("oid init --import-progress: where the progress file is", () => {
 
   it("refuses when the destination exists and is not the source, and writes and removes nothing", async () => {
     const existing = '{ "current_focus": null, "features": [] }\n';
-    put("specs/SPEC.md", SPEC);
-    put("progress.json", OLD_PROGRESS);
-    put("specs/progress.json", existing);
+    write("specs/SPEC.md", SPEC);
+    write("progress.json", OLD_PROGRESS);
+    write("specs/progress.json", existing);
     const { exitCode, stderr } = await runImport();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("specs/progress.json already exists");
@@ -96,7 +77,7 @@ describe("oid init --import-progress: where the progress file is", () => {
   });
 
   it("reads the file given as an argument and moves it beside the specification", async () => {
-    put("old/progress.json", OLD_PROGRESS);
+    write("old/progress.json", OLD_PROGRESS);
     const { exitCode, stdout } = await runImport("old/progress.json");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("progress read from old/progress.json and written to progress.json; old/progress.json was removed");
@@ -105,7 +86,7 @@ describe("oid init --import-progress: where the progress file is", () => {
   });
 
   it("fails when the file given as an argument does not exist, naming it and writing nothing", async () => {
-    put("progress.json", OLD_PROGRESS);
+    write("progress.json", OLD_PROGRESS);
     const { exitCode, stdout, stderr } = await runImport("old/progress.json");
     expect({ exitCode, stdout, stderr }).toEqual({ exitCode: 1, stdout: "", stderr: "error: old/progress.json not found\n" });
     expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(OLD_PROGRESS);

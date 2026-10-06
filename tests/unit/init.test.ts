@@ -1,29 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
+import { dir, useTempDir } from "./temp-project.js";
+import { runOid } from "./run-capture.js";
 
-let dir: string;
+useTempDir();
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-init-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-async function runInit() {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(["init"], {
-    cwd: dir,
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
+const runInit = () => runOid(["init"], dir);
 
 function writeProject(file: string, content: string) {
   writeFileSync(join(dir, file), content);

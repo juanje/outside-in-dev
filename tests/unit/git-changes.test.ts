@@ -1,35 +1,12 @@
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
 import { readChangedLines } from "../../src/artifacts/git-changes.js";
+import { dir, useTempDir } from "./temp-project.js";
+import { git, commitAll } from "./git-fixture.js";
 
-let dir: string;
-
-/** Runs git in the temporary project, never in the repository under test. */
-function git(...args: string[]): void {
-  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
-  const run = spawnSync("git", args, { cwd: dir, env, encoding: "utf8" });
-  if (run.status !== 0) throw new Error(`git ${args.join(" ")}: ${run.stderr}`);
-}
-
-function commitAll(): void {
-  git("init", "--quiet");
-  git("config", "user.name", "Fixture");
-  git("config", "user.email", "fixture@example.com");
-  git("add", "-A");
-  git("commit", "--quiet", "--message", "fixture");
-}
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 describe("readChangedLines", () => {
   it("reads the lines changed in the working tree since HEAD, staged or not", () => {
