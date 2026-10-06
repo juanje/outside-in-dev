@@ -50,8 +50,8 @@ Given("no feature is focused", function (this: OidWorld) {
   this.saveProgress(progress);
 });
 
-When("I run {string}", function (this: OidWorld, commandLine: string) {
-  this.run(commandLine);
+When("I run {string}", async function (this: OidWorld, commandLine: string) {
+  await this.run(commandLine);
 });
 
 Then("the command succeeds", function (this: OidWorld) {

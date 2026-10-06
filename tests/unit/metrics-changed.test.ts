@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe("oid metrics --changed", () => {
-  it("prints only the findings on lines changed since HEAD and counts them", () => {
+  it("prints only the findings on lines changed since HEAD and counts them", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     writeFileSync(join(dir, "src/steady.ts"), "export const isSteady = (n: number) => n > 5;\n");
@@ -36,7 +36,7 @@ describe("oid metrics --changed", () => {
     git("commit", "--quiet", "--message", "fixture");
     writeFileSync(join(dir, "src/moving.ts"), "export const isMoving = (n: number) => n > 8;\n");
     let stdout = "";
-    runCli(["metrics", "--changed"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    await runCli(["metrics", "--changed"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(findingLines(stdout, "magic_value")).toEqual(["magic_value src/moving.ts:1-1 magic number 8"]);
     expect(summaryCount(stdout, "magic_value")).toBe(1);
   });

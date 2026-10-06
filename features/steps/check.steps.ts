@@ -38,10 +38,10 @@ Then(
   },
 );
 
-Then("every JSON violation message is a line printed by {string}", function (this: OidWorld, commandLine: string) {
+Then("every JSON violation message is a line printed by {string}", async function (this: OidWorld, commandLine: string) {
   const violations = parseReport(this).violations;
   const { stdout, stderr, exitCode } = this;
-  this.run(commandLine);
+  await this.run(commandLine);
   const lines = this.stdout.split("\n");
   Object.assign(this, { stdout, stderr, exitCode });
   assert.ok(violations.length > 0, "the JSON report has no violations");

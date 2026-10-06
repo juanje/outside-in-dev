@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("oid metrics", () => {
-  it("prints the findings of the project with the configured limits and exits 0", () => {
+  it("prints the findings of the project with the configured limits and exits 0", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     writeFileSync(join(dir, "src/busy.ts"), "export function busy(a: boolean): number {\n  return a ? 1 : 0;\n}\n");
@@ -29,26 +29,26 @@ describe("oid metrics", () => {
     };
     writeFileSync(join(dir, ".outside-in.json"), JSON.stringify(config));
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "complexity")).toEqual(["complexity src/busy.ts:1-3 [busy] cyclomatic complexity 2 > 1"]);
     expect(summaryCount(stdout, "complexity")).toBe(1);
   });
 
-  it("prints the blocks duplicated between files, with both locations, and counts them", () => {
+  it("prints the blocks duplicated between files, with both locations, and counts them", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     const block = "export function NAME(items: number[]): number {\n  let sum = 0;\n  for (const item of items) {\n    sum += item * 1;\n    sum -= 1;\n  }\n  const average = sum / items.length;\n  return Math.round(average);\n}\n";
     writeFileSync(join(dir, "src/orders.ts"), block.replace("NAME", "orderTotal"));
     writeFileSync(join(dir, "src/invoices.ts"), block.replace("NAME", "invoiceTotal"));
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "duplication")).toEqual(["duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9"]);
     expect(summaryCount(stdout, "duplication")).toBe(1);
   });
 
-  it("prints the unused files of the project, with the entry points of refactor.entry left out, and counts them", () => {
+  it("prints the unused files of the project, with the entry points of refactor.entry left out, and counts them", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "fixture", main: "src/main.ts" }));
@@ -64,24 +64,24 @@ describe("oid metrics", () => {
     };
     writeFileSync(join(dir, ".outside-in.json"), JSON.stringify(config));
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "dead_code")).toEqual(["dead_code src/orphan.ts:1-1 unused file"]);
     expect(summaryCount(stdout, "dead_code")).toBe(1);
   });
 
-  it("prints the unused locals of the project, also without a package.json", () => {
+  it("prints the unused locals of the project, also without a package.json", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     writeFileSync(join(dir, "src/total.ts"), "export function total(items: number[]): number {\n  const unusedCount = items.length;\n  return 0;\n}\n");
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "dead_code")).toEqual(["dead_code src/total.ts:2-2 [unusedCount] unused declaration"]);
     expect(summaryCount(stdout, "dead_code")).toBe(1);
   });
 
-  it("prints the numeric literals and repeated strings of the source files, not those of the test files", () => {
+  it("prints the numeric literals and repeated strings of the source files, not those of the test files", async () => {
     mkdirSync(join(dir, "src"));
     mkdirSync(join(dir, "tests/unit"), { recursive: true });
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts"] }));
@@ -89,7 +89,7 @@ describe("oid metrics", () => {
     writeFileSync(join(dir, "src/more.ts"), 'export const other = ["tag"];\n');
     writeFileSync(join(dir, "tests/unit/limits.test.ts"), "export const big = 4242;\n");
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "magic_value")).toEqual([
       "magic_value src/limits.ts:1-1 magic number 42",
@@ -99,12 +99,12 @@ describe("oid metrics", () => {
     expect(summaryCount(stdout, "magic_value")).toBe(3);
   });
 
-  it("prints the JSDoc of the source files that does not match the signature, and counts it", () => {
+  it("prints the JSDoc of the source files that does not match the signature, and counts it", async () => {
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
     writeFileSync(join(dir, "src/greet.ts"), "/**\n * Greets.\n * @param nmae who\n */\nexport function greet(name: string): string {\n  return name;\n}\n");
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "doc_drift")).toEqual([
       "doc_drift src/greet.ts:1-4 [greet] @param nmae matches no parameter",
@@ -113,7 +113,7 @@ describe("oid metrics", () => {
     expect(summaryCount(stdout, "doc_drift")).toBe(2);
   });
 
-  it("prints the code the Markdown files of the documentation paths name and the source does not declare", () => {
+  it("prints the code the Markdown files of the documentation paths name and the source does not declare", async () => {
     mkdirSync(join(dir, "src"));
     mkdirSync(join(dir, "docs/guide"), { recursive: true });
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
@@ -122,7 +122,7 @@ describe("oid metrics", () => {
     writeFileSync(join(dir, "docs/guide/api.md"), "See `OrderBook` and `src/old.ts`.\n");
     writeFileSync(join(dir, "docs/guide/notes.txt"), "See `lostFromText()`.\n");
     let stdout = "";
-    const exitCode = runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "doc_drift")).toEqual([
       "doc_drift README.md:3-3 `drawChart()` is not declared in source",
@@ -132,7 +132,7 @@ describe("oid metrics", () => {
     expect(summaryCount(stdout, "doc_drift")).toBe(3);
   });
 
-  it("finds a documented path from the base directory of a source root too", () => {
+  it("finds a documented path from the base directory of a source root too", async () => {
     mkdirSync(join(dir, "lib/util"), { recursive: true });
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["lib/**/*.ts"] }));
     writeFileSync(join(dir, "lib/util/text.ts"), "export const SEPARATOR = '-';\n");
@@ -145,7 +145,7 @@ describe("oid metrics", () => {
     };
     writeFileSync(join(dir, ".outside-in.json"), JSON.stringify(config));
     let stdout = "";
-    runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(findingLines(stdout, "doc_drift")).toEqual(["doc_drift README.md:1-1 `util/gone.ts` does not exist"]);
   });
 });
