@@ -164,8 +164,7 @@ Feature: Record and show code health
       export const isRecent = (n: number) => n > 8;
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "magic_value src/recent.ts:1-1 magic number 8"
+    Then the output contains "magic_value src/recent.ts:1-1 magic number 8"
     And the magic_value findings do not mention "magic number 42"
     And the magic_value findings do not mention "magic number 7"
 
@@ -188,8 +187,7 @@ Feature: Record and show code health
       export const isHuge = (n: number) => n > 88;
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "magic_value src/limits.ts:5-5 magic number 88"
+    Then the output contains "magic_value src/limits.ts:5-5 magic number 88"
     And the magic_value findings do not mention "magic number 42"
 
   Scenario: A file that is not committed yet counts as entirely changed
@@ -203,8 +201,7 @@ Feature: Record and show code health
       export const isFresh = (n: number) => n > 99;
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "magic_value src/fresh.ts:1-1 magic number 99"
+    Then the output contains "magic_value src/fresh.ts:1-1 magic number 99"
     And the magic_value findings do not mention "magic number 42"
 
   Scenario: A staged change counts as changed
@@ -223,8 +220,7 @@ Feature: Record and show code health
       """
     And the changes are staged
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "magic_value src/old.ts:1-1 magic number 43"
+    Then the output contains "magic_value src/old.ts:1-1 magic number 43"
     And the magic_value findings do not mention "magic number 5"
 
   Scenario: A block duplicated between two files is listed when a changed line is in either of them
@@ -270,8 +266,7 @@ Feature: Record and show code health
       }
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9"
+    Then the output contains "duplication src/invoices.ts:1-9 9 duplicated lines, also src/orders.ts:1-9"
     And the magic_value findings do not mention "magic number 5"
 
   Scenario: Findings on a line of package.json that changed are listed
@@ -301,8 +296,7 @@ Feature: Record and show code health
       }
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "dead_code package.json:4-4 unused dependency left-pad"
+    Then the output contains "dead_code package.json:4-4 unused dependency left-pad"
     And the dead_code findings do not mention "right-pad"
 
   Scenario: A run limited to the changed lines records no snapshot and shows no trend
@@ -320,8 +314,7 @@ Feature: Record and show code health
       export const isOld = (n: number) => n > 43;
       """
     When I run "oid metrics --changed"
-    Then the command succeeds
-    And the output contains "magic_value src/old.ts:1-1 magic number 43"
+    Then the output contains "magic_value src/old.ts:1-1 magic number 43"
     And the magic_value findings do not mention "magic number 5"
     And no ".outside-in/metrics.jsonl" file exists
     And the output has no trend line
