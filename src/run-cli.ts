@@ -27,8 +27,11 @@ const COMMANDS: Record<string, CommandHelp> = {
   },
   metrics: {
     summary: "Report the code-health findings of the project",
-    usage: "oid metrics [--changed]",
-    options: { "--changed": "Report only the findings on lines changed since the last commit" },
+    usage: "oid metrics [--changed]\n       oid metrics --baseline",
+    options: {
+      "--changed": "Report only the findings on lines changed since the last commit that the baseline does not hold; exit 1 when one remains",
+      "--baseline": "Record the current findings as the baseline of existing debt",
+    },
   },
 };
 const COMMAND_NAMES = Object.keys(COMMANDS);
@@ -64,7 +67,7 @@ export function runCli(args: string[], io: CliIo): number {
       return 0;
     }
     if (command === "check") return runCheck(io, rest.includes("--json"));
-    if (command === "metrics") return runMetrics(io, rest.includes("--changed"));
+    if (command === "metrics") return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
     if (command === "init") return runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
     runProgress(rest, io);
     return 0;
