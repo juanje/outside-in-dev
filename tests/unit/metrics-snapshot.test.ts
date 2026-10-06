@@ -1,24 +1,15 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
+import { dir, useTempDir } from "./temp-project.js";
+import { runOid } from "./run-capture.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 const BLOCK = "export function NAME(items: number[]): number {\n  let sum = 0;\n  for (const item of items) {\n    sum += item * 1;\n    sum -= 1;\n  }\n  const average = sum / items.length;\n  return Math.round(average);\n}\n";
 
 async function runMetrics(): Promise<string> {
-  let stdout = "";
-  await runCli(["metrics"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+  const { stdout } = await runOid(["metrics"], dir);
   return stdout;
 }
 

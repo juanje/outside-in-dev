@@ -1,19 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { appendSnapshot, readLastSnapshot } from "../../src/artifacts/metrics-history.js";
 import type { Snapshot } from "../../src/artifacts/snapshot.js";
+import { dir, useTempDir } from "./temp-project.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 const snapshot = (date: string, complexity: number): Snapshot => ({
   date,

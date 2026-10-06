@@ -1,29 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
+import { dir, useTempDir } from "./temp-project.js";
+import { runOid, summariseCheckJson } from "./run-capture.js";
 
-let dir: string;
+useTempDir();
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-check-json-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-async function runCheck(...args: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(["check", ...args], {
-    cwd: dir,
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
+const runCheck = (...args: string[]) => runOid(["check", ...args], dir);
 
 const SPEC = "### FR-X-01: Alpha\n\nDoes alpha.\n";
 
@@ -40,15 +23,14 @@ describe("oid check --json with inputs that are missing or broken", () => {
     writeFileSync(join(dir, "SPEC.md"), SPEC);
     mkdirSync(join(dir, "features"));
     writeFileSync(join(dir, "features", "broken.feature"), "Feature x\n");
-    const { exitCode, stdout, stderr } = await runCheck("--json");
-    const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
-    expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
+    const { summary, messages } = summariseCheckJson(await runCheck("--json"));
+    expect(summary).toEqual({
       exitCode: 1,
       stderr: "",
       ok: false,
       checks: ["traceability"],
     });
-    expect(report.violations[0]!.message).toMatch(/^features\/broken\.feature: /);
+    expect(messages[0]).toMatch(/^features\/broken\.feature: /);
   });
 
   it.each([
@@ -57,15 +39,14 @@ describe("oid check --json with inputs that are missing or broken", () => {
   ])("reports a progress file that %s as a progress violation", async (_label, content, expected) => {
     writeFileSync(join(dir, "SPEC.md"), SPEC);
     writeFileSync(join(dir, "progress.json"), content);
-    const { exitCode, stdout, stderr } = await runCheck("--json");
-    const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
-    expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
+    const { summary, messages } = summariseCheckJson(await runCheck("--json"));
+    expect(summary).toEqual({
       exitCode: 1,
       stderr: "",
       ok: false,
       checks: ["progress"],
     });
-    expect(report.violations[0]!.message).toContain(expected);
-    expect(report.violations[0]!.message).toContain("progress.json");
+    expect(messages[0]).toContain(expected);
+    expect(messages[0]).toContain("progress.json");
   });
 });

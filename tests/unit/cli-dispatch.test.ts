@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
-
-async function run(args: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(args, {
-    cwd: "/nonexistent-oid-test-dir",
-    stdout: (text) => (stdout += text),
-    stderr: (text) => (stderr += text),
-  });
-  return { exitCode, stdout, stderr };
-}
+import { runWithoutProject as run } from "./run-capture.js";
 
 describe("top-level dispatch", () => {
   it("rejects an unknown command, naming it and listing the valid commands", async () => {

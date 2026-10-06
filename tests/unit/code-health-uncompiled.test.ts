@@ -1,8 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { detectCommentedOutCode, detectDuplication } from "../../src/artifacts/code-health.js";
+import { dir, useTempDir, write } from "./temp-project.js";
 
 const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], tests: ["tests/unit/**"] };
 const LIMITS = { min_lines: 6, min_tokens: 50 };
@@ -20,20 +18,7 @@ const CLONE = [
   "",
 ].join("\n");
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-function write(path: string, text: string): void {
-  mkdirSync(dirname(join(dir, path)), { recursive: true });
-  writeFileSync(join(dir, path), text);
-}
+useTempDir();
 
 describe("detectDuplication outside the files tsconfig.json compiles", () => {
   it("scans the test files that match the test globs even when tsconfig.json does not include them", () => {

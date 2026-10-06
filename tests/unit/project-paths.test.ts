@@ -1,19 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
 import { loadProjectPaths } from "../../src/artifacts/project-paths.js";
+import { dir, useTempDir } from "./temp-project.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 function writeConfig(paths: { spec: string; progress: string; bdd_features: string[]; source?: string[]; unit_tests?: string[]; bdd_steps?: string[]; docs?: string[] }): void {
   const config = {

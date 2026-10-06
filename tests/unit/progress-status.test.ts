@@ -1,28 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
+import { useTempDir, writeProgressFile } from "./temp-project.js";
+import { runInProject as run } from "./run-capture.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-async function run(args: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(args, { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
-  return { exitCode, stdout, stderr };
-}
+useTempDir();
 
 function writeProgress(features: unknown[], focus: string | null = null) {
-  writeFileSync(join(dir, "progress.json"), JSON.stringify({ current_focus: focus, features }, null, 2) + "\n");
+  writeProgressFile({ current_focus: focus, features });
 }
 
 const DONE = (id: string) => ({ id, title: `Title of ${id}`, status: "done", scenarios: [{ name: "Works", bdd: "pass" }] });

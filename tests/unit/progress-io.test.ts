@@ -1,18 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { loadProgress, ProgressError, saveProgress, type Progress } from "../../src/artifacts/progress.js";
+import { dir, useTempDir } from "./temp-project.js";
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+useTempDir();
 
 describe("loadProgress", () => {
   it("rejects a file that violates the schema and names the violation", () => {

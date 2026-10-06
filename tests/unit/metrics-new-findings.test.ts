@@ -1,38 +1,22 @@
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { describe, expect, it } from "vitest";
 import { findingLines } from "./metrics-output.js";
+import { dir, useTempDir } from "./temp-project.js";
+import { runOid } from "./run-capture.js";
+import { commitAll } from "./git-fixture.js";
 
-let dir: string;
-
-/** Runs git in the temporary project, never in the repository under test. */
-function git(...args: string[]): void {
-  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
-  const run = spawnSync("git", args, { cwd: dir, env, encoding: "utf8" });
-  if (run.status !== 0) throw new Error(`git ${args.join(" ")}: ${run.stderr}`);
-}
+useTempDir();
 
 /** Runs `oid metrics` with `args` in the temporary project. */
-async function metrics(...args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(["metrics", ...args], { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
-  return { exitCode, stdout, stderr };
-}
+const metrics = (...args: string[]) => runOid(["metrics", ...args], dir);
 
 /** A committed project with one magic number. */
 function committedProject(): void {
   mkdirSync(join(dir, "src"));
   writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
   writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number) => n > 42;\n");
-  git("init", "--quiet");
-  git("config", "user.name", "Fixture");
-  git("config", "user.email", "fixture@example.com");
-  git("add", "-A");
-  git("commit", "--quiet", "--message", "fixture");
+  commitAll();
 }
 
 /** A committed project with one magic number, whose finding is recorded as the baseline. */
@@ -40,14 +24,6 @@ async function baselinedProject(): Promise<void> {
   committedProject();
   await metrics("--baseline");
 }
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
 
 describe("oid metrics --changed with a baseline", () => {
   it("leaves out the findings of the baseline, and says how many", async () => {

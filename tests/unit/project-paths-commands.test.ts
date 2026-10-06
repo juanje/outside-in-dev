@@ -1,24 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli } from "../../src/run-cli.js";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import { dir, useTempDir, write } from "./temp-project.js";
+import { runInProject as run, summariseCheckJson } from "./run-capture.js";
 
-let dir: string;
+useTempDir();
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
   writeConfig(["specs/features/**/*.feature"]);
 });
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-function write(name: string, content: string): void {
-  mkdirSync(dirname(join(dir, name)), { recursive: true });
-  writeFileSync(join(dir, name), content);
-}
 
 function writeConfig(bddFeatures: string[]): void {
   const config = {
@@ -38,13 +28,6 @@ function writeConfig(bddFeatures: string[]): void {
     commands: { bdd: "b", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] },
   };
   write(".outside-in.json", JSON.stringify(config));
-}
-
-async function run(args: string[]) {
-  let stdout = "";
-  let stderr = "";
-  const exitCode = await runCli(args, { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
-  return { exitCode, stdout, stderr };
 }
 
 const ALPHA_PROGRESS = { current_focus: null, features: [{ id: "FR-X-01", title: "Alpha", status: "pending" }] };
@@ -211,14 +194,13 @@ describe("oid check with .outside-in.json", () => {
 
   it("reports an invalid configuration as a config violation in the JSON document", async () => {
     write(".outside-in.json", JSON.stringify({ version: 2 }));
-    const { exitCode, stdout, stderr } = await run(["check", "--json"]);
-    const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
-    expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
+    const { summary, messages } = summariseCheckJson(await run(["check", "--json"]));
+    expect(summary).toEqual({
       exitCode: 1,
       stderr: "",
       ok: false,
       checks: ["config"],
     });
-    expect(report.violations[0]!.message).toMatch(/^\.outside-in\.json is invalid:\n.*version/);
+    expect(messages[0]).toMatch(/^\.outside-in\.json is invalid:\n.*version/);
   });
 });

@@ -1,29 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
 import { detectComplexity, detectDuplication, detectCommentedOutCode, detectUnusedCode, detectUnusedDeclarations } from "../../src/artifacts/code-health.js";
+import { dir, useTempDir, write } from "./temp-project.js";
 
 const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], tests: ["tests/unit/**"] };
 const LIMITS = { max_cyclomatic: 1, max_depth: 4 };
 const BUSY = "export function busy(a: boolean): number {\n  return a ? 1 : 2;\n}\n";
 const TSCONFIG = JSON.stringify({ compilerOptions: { strict: true, module: "NodeNext", target: "ES2022" }, include: ["src/**/*.ts"] });
 
-let dir: string;
-
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
-});
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
-
-function write(path: string, text: string): void {
-  mkdirSync(dirname(join(dir, path)), { recursive: true });
-  writeFileSync(join(dir, path), text);
-}
+useTempDir();
 
 describe("detectComplexity", () => {
   it("reports the complex functions of the source files with their path relative to the project", () => {
