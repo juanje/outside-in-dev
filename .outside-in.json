@@ -30,9 +30,9 @@
     "progress": "progress.json"
   },
   "commands": {
-    "bdd": "npm run test:bdd",
-    "unit": "npm run test:unit",
-    "typecheck": "npm run typecheck",
+    "bdd": "npm run build && NODE_OPTIONS=\"--import tsx\" npx cucumber-js",
+    "unit": "npx vitest run",
+    "typecheck": "npx tsc --noEmit",
     "format": null,
     "lint": null,
     "coverage": null,
