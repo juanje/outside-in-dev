@@ -1277,6 +1277,18 @@
         {
           "name": "The baseline record of a duplication finding lists its two files and no lines",
           "bdd": "pass"
+        },
+        {
+          "name": "A baseline in the old format of escaped text is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A baseline that is not JSON is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A baseline of JSON of another shape is refused",
+          "bdd": "pass"
         }
       ]
     },
