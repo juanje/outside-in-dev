@@ -4,7 +4,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 
 export const PROGRESS_FILE = "progress.json";
 
-export interface ScenarioProgress {
+interface ScenarioProgress {
   name: string;
   bdd: string;
 }
