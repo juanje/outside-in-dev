@@ -61,18 +61,30 @@ function doneFeature(progress: Progress, io: Context, id: string): void {
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
-function showStatus(progress: Progress, io: Context): void {
-  for (const feature of progress.features) {
+function showStatus(progress: Progress, io: Context, all: boolean): void {
+  const listed = all ? progress.features : progress.features.filter((f) => f.status !== "done");
+  for (const feature of listed) {
     const focus = feature.id === progress.current_focus ? " (focused)" : "";
     io.stdout(`${summary(feature)}${focus}\n`);
   }
+  if (!all) io.stdout(`${progress.features.length - listed.length} done\n`);
 }
 
 const ID = "FR-xxx";
-type SubcommandHelp = { summary: string; operands: string[]; allowed?: { label: string; values: string[] } };
+const ALL_FLAG = "--all";
+type SubcommandHelp = {
+  summary: string;
+  operands: string[];
+  options?: Record<string, string>;
+  allowed?: { label: string; values: string[] };
+};
 const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
   current: { summary: "Show the focused feature", operands: [] },
-  status: { summary: "List every tracked feature", operands: [] },
+  status: {
+    summary: "List the features that are not done and count the done ones",
+    operands: [],
+    options: { [ALL_FLAG]: "List every tracked feature" },
+  },
   show: { summary: "Show one feature with its scenarios", operands: [ID] },
   add: { summary: "Track a feature defined in the specification", operands: [ID, '"<title>"'] },
   focus: { summary: "Focus a tracked feature", operands: [ID] },
@@ -91,13 +103,16 @@ const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
 const SUBCOMMANDS = Object.keys(SUBCOMMAND_HELP);
 
 function subcommandUsage(subcommand: string): string {
-  return ["oid progress", subcommand, ...SUBCOMMAND_HELP[subcommand]!.operands].join(" ");
+  const { operands, options = {} } = SUBCOMMAND_HELP[subcommand]!;
+  return ["oid progress", subcommand, ...operands, ...Object.keys(options).map((name) => `[${name}]`)].join(" ");
 }
 
 function subcommandHelp(subcommand: string): string {
-  const { summary, allowed } = SUBCOMMAND_HELP[subcommand]!;
+  const { summary, allowed, options = {} } = SUBCOMMAND_HELP[subcommand]!;
+  const optionLines = Object.entries(options).map(([name, text]) => row(name, text));
+  const flags = optionLines.length > 0 ? `\nOptions:\n${optionLines.join("")}` : "";
   const values = allowed ? `\n${allowed.label}: ${allowed.values.join(", ")}\n` : "";
-  return `${summary}\n\nusage: ${subcommandUsage(subcommand)}\n${values}`;
+  return `${summary}\n\nusage: ${subcommandUsage(subcommand)}\n${flags}${values}`;
 }
 
 /** The subcommands of `oid progress`, each with its summary and usage, for `oid progress --help`. */
@@ -129,5 +144,5 @@ export function runProgress(args: string[], cli: CliIo): void {
   else if (command === "scenario") {
     const [status, id, name] = operands;
     recordFeatureScenario(progress, io, status!, id!, name!);
-  } else showStatus(progress, io);
+  } else showStatus(progress, io, operands.includes(ALL_FLAG));
 }
