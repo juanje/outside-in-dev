@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATEGORY } from "./findings.js";
 import { ProgressError } from "./progress.js";
 import { readJson } from "./project-json.js";
 
@@ -70,12 +71,12 @@ const DEFAULT_DUPLICATION = { min_lines: 6, min_tokens: 50 };
 
 /** The complexity limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadComplexityLimits(cwd: string): { max_cyclomatic: number; max_depth: number } {
-  return loadLimits(cwd, "complexity", DEFAULT_COMPLEXITY);
+  return loadLimits(cwd, CATEGORY.complexity, DEFAULT_COMPLEXITY);
 }
 
 /** The duplication limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadDuplicationLimits(cwd: string): DuplicationLimits {
-  return loadLimits(cwd, "duplication", DEFAULT_DUPLICATION);
+  return loadLimits(cwd, CATEGORY.duplication, DEFAULT_DUPLICATION);
 }
 
 export type MagicValueLimits = { ignore: number[]; min_string_repeats: number };
@@ -84,7 +85,7 @@ const DEFAULT_MAGIC_VALUE = { ignore: [0, 1, -1], min_string_repeats: 3 };
 
 /** The magic value limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadMagicValueLimits(cwd: string): MagicValueLimits {
-  return loadLimits(cwd, "magic_value", DEFAULT_MAGIC_VALUE);
+  return loadLimits(cwd, CATEGORY.magicValue, DEFAULT_MAGIC_VALUE);
 }
 
 /** The extra entry points of the project for the dead-code detector: `refactor.entry` of the configuration file. */

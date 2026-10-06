@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import type { FindingDraft } from "./findings.js";
+import { CATEGORY, type FindingDraft } from "./findings.js";
 
 interface ClonePart {
   name: string;
@@ -28,6 +28,6 @@ export function duplicationFindings(report: unknown, root: string): FindingDraft
   const { duplicates } = report as { duplicates: Clone[] };
   return duplicates.map(({ firstFile, secondFile, lines }) => {
     const [own, other] = [locate(root, firstFile), locate(root, secondFile)].sort(compareLocations);
-    return { category: "duplication" as const, ...own!, detail: `${lines} duplicated lines`, related: [other!] };
+    return { category: CATEGORY.duplication, ...own!, detail: `${lines} duplicated lines`, related: [other!] };
   });
 }

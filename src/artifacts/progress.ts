@@ -59,27 +59,41 @@ export function requireFeature(progress: Progress, id: string | undefined, file:
   return feature;
 }
 
-const PASSING = "pass";
-export const SCENARIO_STATUSES = [PASSING, "fail", "pending"];
+/** The values of a feature's `status`. */
+export const FEATURE_STATUS = { pending: "pending", inProgress: "in_progress", done: "done" } as const;
+/** The values of a feature's `cycle_step`, in cycle order. */
+export const CYCLE_STEP = {
+  select: "select",
+  bddRed: "bdd_red",
+  tddRed: "tdd_red",
+  tddGreen: "tdd_green",
+  refactor: "refactor",
+  qualityGate: "quality_gate",
+} as const;
+/** The values of a scenario's `bdd`. */
+export const SCENARIO_STATUS = { pass: "pass", fail: "fail", pending: "pending" } as const;
 
-const START_STEP = "select";
+const PASSING = SCENARIO_STATUS.pass;
+export const SCENARIO_STATUSES: string[] = Object.values(SCENARIO_STATUS);
+
+const START_STEP = CYCLE_STEP.select;
 
 const NEXT_STEPS: Record<string, string[]> = {
-  select: ["bdd_red"],
-  bdd_red: ["tdd_red"],
-  tdd_red: ["tdd_green"],
-  tdd_green: ["refactor", "tdd_red", "bdd_red", "quality_gate"],
-  refactor: ["tdd_red", "bdd_red", "quality_gate"],
+  [CYCLE_STEP.select]: [CYCLE_STEP.bddRed],
+  [CYCLE_STEP.bddRed]: [CYCLE_STEP.tddRed],
+  [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen],
+  [CYCLE_STEP.tddGreen]: [CYCLE_STEP.refactor, CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
+  [CYCLE_STEP.refactor]: [CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
 };
 
 /** Returns the feature moved to `step`; the input is not modified. */
 export function advanceStep(feature: FeatureProgress, step: string): FeatureProgress {
   const from = feature.cycle_step ?? feature.status;
-  const allowed = feature.status === "pending" ? [START_STEP] : (NEXT_STEPS[from] ?? []);
+  const allowed = feature.status === FEATURE_STATUS.pending ? [START_STEP] : (NEXT_STEPS[from] ?? []);
   if (!allowed.includes(step)) {
     throw new ProgressError(`cannot move ${feature.id} from ${from} to ${step}`);
   }
-  return { ...feature, status: "in_progress", cycle_step: step, scenarios: feature.scenarios ?? [] };
+  return { ...feature, status: FEATURE_STATUS.inProgress, cycle_step: step, scenarios: feature.scenarios ?? [] };
 }
 
 /** Returns the feature with the scenario's status set, appending the scenario if needed; the input is not modified. */
@@ -87,7 +101,7 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
   if (!SCENARIO_STATUSES.includes(bdd)) {
     throw new ProgressError(`invalid scenario status "${bdd}": use pass, fail or pending`);
   }
-  if (feature.status === "pending") {
+  if (feature.status === FEATURE_STATUS.pending) {
     throw new ProgressError(`${feature.id} has not started and cannot hold scenarios`);
   }
   const existing = feature.scenarios ?? [];
@@ -107,15 +121,15 @@ export function completeFeature(feature: FeatureProgress): FeatureProgress {
     throw new ProgressError(`${feature.id} cannot be marked done: scenarios not passing: ${failing.join(", ")}`);
   }
   const { cycle_step: _step, ...rest } = feature;
-  return { ...rest, status: "done" };
+  return { ...rest, status: FEATURE_STATUS.done };
 }
 
 const TOP_LEVEL_FIELDS = ["current_focus", "features"];
-export const CYCLE_STEPS = ["select", "bdd_red", "tdd_red", "tdd_green", "refactor", "quality_gate"];
+export const CYCLE_STEPS: string[] = Object.values(CYCLE_STEP);
 /** The FR id pattern (ADR-026), shared with the SPEC.md parser. */
 export const FR_ID_SOURCE = "FR-[A-Z][A-Z0-9]*-\\d{2,3}[a-z]?";
 const FEATURE_ID_PATTERN = new RegExp(`^${FR_ID_SOURCE}$`);
-const FEATURE_STATUSES = ["pending", "in_progress", "done"];
+const FEATURE_STATUSES: string[] = Object.values(FEATURE_STATUS);
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 export const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
 export const SCENARIO_FIELDS = ["name", "bdd"];
@@ -154,10 +168,10 @@ function validateFeature(feature: FeatureProgress, path: string): string[] {
   for (const field of REQUIRED_FEATURE_FIELDS) {
     if (!(field in feature)) violations.push(`${path}.${field}: missing required field`);
   }
-  if ((feature.status === "pending" || feature.status === "done") && "cycle_step" in feature) {
+  if ((feature.status === FEATURE_STATUS.pending || feature.status === FEATURE_STATUS.done) && "cycle_step" in feature) {
     violations.push(`${path}.cycle_step: not allowed on a ${feature.status} feature`);
   }
-  if (feature.status === "in_progress" && !("cycle_step" in feature)) {
+  if (feature.status === FEATURE_STATUS.inProgress && !("cycle_step" in feature)) {
     violations.push(`${path}.cycle_step: missing required field on an in-progress feature`);
   }
   if ("id" in feature && !FEATURE_ID_PATTERN.test(feature.id)) {

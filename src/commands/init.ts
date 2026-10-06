@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import { join, posix } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
-import { ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
+import { FEATURE_STATUS, ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
 import { readJson, readText, TSCONFIG_FILE } from "../artifacts/project-json.js";
 import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
@@ -143,7 +143,7 @@ function initialiseProgress(io: CliIo, { spec: specFile, progress: progressFile 
     }
     const features = parseRequirements(spec)
       .filter((requirement) => requirement.id.startsWith("FR-"))
-      .map(({ id, title }) => ({ id, title, status: "pending" }));
+      .map(({ id, title }) => ({ id, title, status: FEATURE_STATUS.pending }));
     saveProgress(io.cwd, { current_focus: null, features }, progressFile);
   } else {
     io.stdout(`${specFile} not found: no ${progressFile} was created.\n`);

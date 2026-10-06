@@ -1,4 +1,4 @@
-import type { FindingDraft } from "./findings.js";
+import { CATEGORY, type FindingDraft } from "./findings.js";
 
 interface UnusedDiagnostic {
   code: number;
@@ -18,8 +18,8 @@ function lineAt(text: string, offset: number): number {
 export function unusedDeclarationFindings(file: string, text: string, diagnostics: UnusedDiagnostic[]): FindingDraft[] {
   return diagnostics.flatMap(({ code, start, length, message }): FindingDraft[] => {
     const range = { start: lineAt(text, start), end: lineAt(text, start + length) };
-    if (code === ALL_IMPORTS_UNUSED) return [{ category: "dead_code", file, range, detail: "unused imports" }];
+    if (code === ALL_IMPORTS_UNUSED) return [{ category: CATEGORY.deadCode, file, range, detail: "unused imports" }];
     if (!NEVER_READ.has(code)) return [];
-    return [{ category: "dead_code", file, range, symbol: /'([^']+)'/.exec(message)?.[1], detail: "unused declaration" }];
+    return [{ category: CATEGORY.deadCode, file, range, symbol: /'([^']+)'/.exec(message)?.[1], detail: "unused declaration" }];
   });
 }

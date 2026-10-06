@@ -1,4 +1,6 @@
-export type FindingCategory = "complexity" | "dead_code" | "doc_drift" | "duplication" | "magic_value";
+/** The finding categories, each named once. */
+export const CATEGORY = { complexity: "complexity", deadCode: "dead_code", docDrift: "doc_drift", duplication: "duplication", magicValue: "magic_value" } as const;
+export type FindingCategory = (typeof CATEGORY)[keyof typeof CATEGORY];
 
 export interface FindingDraft {
   category: FindingCategory;
@@ -13,7 +15,13 @@ export interface Finding extends FindingDraft {
   id: string;
 }
 
-const ID_PREFIX: Record<FindingCategory, string> = { complexity: "cx", dead_code: "dead", doc_drift: "doc", duplication: "dup", magic_value: "magic" };
+const ID_PREFIX: Record<FindingCategory, string> = {
+  [CATEGORY.complexity]: "cx",
+  [CATEGORY.deadCode]: "dead",
+  [CATEGORY.docDrift]: "doc",
+  [CATEGORY.duplication]: "dup",
+  [CATEGORY.magicValue]: "magic",
+};
 const ID_DIGITS = 4;
 export const CATEGORIES = Object.keys(ID_PREFIX) as FindingCategory[];
 

@@ -2,17 +2,17 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { z } from "zod";
-import { CATEGORIES, compareText, type FindingDraft } from "./findings.js";
+import { CATEGORIES, CATEGORY, compareText, type FindingDraft } from "./findings.js";
 import { HISTORY_DIR } from "./metrics-history.js";
 import { ProgressError } from "./progress.js";
 
 const NUMBER = /\d+/g;
-const DUPLICATION = "duplication";
+const DUPLICATION = CATEGORY.duplication;
 
 /** What the baseline file holds for a finding: its category, file, symbol and detail, never its lines. */
 export function findingRecord({ category, file, symbol, detail: measured, related = [] }: FindingDraft): Record<string, unknown> {
   if (category === DUPLICATION) return { category, files: [file, ...related.map((other) => other.file)].sort(compareText), detail: measured };
-  const detail = category === "complexity" ? measured.replace(NUMBER, "N") : measured;
+  const detail = category === CATEGORY.complexity ? measured.replace(NUMBER, "N") : measured;
   return symbol === undefined ? { category, file, detail } : { category, file, symbol, detail };
 }
 

@@ -1,4 +1,4 @@
-import type { FeatureProgress, Progress } from "./progress.js";
+import { CYCLE_STEP, FEATURE_STATUS, SCENARIO_STATUS, type FeatureProgress, type Progress } from "./progress.js";
 
 export interface TaggedScenario {
   name: string;
@@ -16,19 +16,19 @@ function checkFocus(progress: Progress): ProgressViolation[] {
   if (focus === null) return [];
   const focused = progress.features.find((f) => f.id === focus);
   if (!focused) return [{ feature: focus, kind: "focused but not tracked" }];
-  return focused.status === "in_progress" ? [] : [{ feature: focus, kind: `focused but status is ${focused.status}` }];
+  return focused.status === FEATURE_STATUS.inProgress ? [] : [{ feature: focus, kind: `focused but status is ${focused.status}` }];
 }
 
 function checkFeature(feature: FeatureProgress, scenarios: TaggedScenario[]): ProgressViolation[] {
   const violations: ProgressViolation[] = [];
   const tag = `@${feature.id}`;
   const recorded = feature.scenarios ?? [];
-  if (feature.status === "done") {
-    for (const { name, bdd } of recorded.filter((s) => s.bdd !== "pass")) {
+  if (feature.status === FEATURE_STATUS.done) {
+    for (const { name, bdd } of recorded.filter((s) => s.bdd !== SCENARIO_STATUS.pass)) {
       violations.push({ feature: feature.id, scenario: name, kind: `done but scenario is ${bdd}` });
     }
   }
-  const started = feature.status !== "pending" && feature.cycle_step !== "select";
+  const started = feature.status !== FEATURE_STATUS.pending && feature.cycle_step !== CYCLE_STEP.select;
   if (started && !scenarios.some(({ tags }) => tags.includes(tag))) {
     violations.push({ feature: feature.id, kind: "started but no feature file tags it" });
   }

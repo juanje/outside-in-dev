@@ -12,7 +12,7 @@ import { duplicationFindings } from "./duplication.js";
 import { unusedDeclarationFindings } from "./unused-declarations.js";
 import { declaredNames, findJsdocDrift, findStaleReferences } from "./doc-drift.js";
 import { findComplexFunctions, type ComplexityLimits } from "./complexity.js";
-import type { FindingDraft } from "./findings.js";
+import { CATEGORY, type FindingDraft } from "./findings.js";
 import { findMagicNumbers, findRepeatedStrings } from "./magic-values.js";
 import { ProgressError } from "./progress.js";
 import { readJson, readText, TSCONFIG_FILE } from "./project-json.js";
@@ -65,7 +65,7 @@ export function scannedCode(cwd: string, paths: ProjectPaths): ScannedCode {
 export function detectComplexity(cwd: string, paths: ProjectPaths, limits: ComplexityLimits): FindingDraft[] {
   return compiledMatching(cwd, paths.source, paths.tests).flatMap((file) =>
     findComplexFunctions(readFileSync(join(cwd, file), "utf8"), limits).map(({ symbol, start, end, detail }) => ({
-      category: "complexity" as const,
+      category: CATEGORY.complexity,
       file,
       range: { start, end },
       symbol,
@@ -135,7 +135,7 @@ export function detectUnusedDeclarations(cwd: string, paths: ProjectPaths): Find
 /** The commented-out code of the project's source and test files. */
 export function detectCommentedOutCode(cwd: string, paths: ProjectPaths): FindingDraft[] {
   return globbedSourceAndTestFiles(cwd, paths).flatMap((file) =>
-    findCommentedOutCode(readFileSync(join(cwd, file), "utf8")).map((range) => ({ category: "dead_code" as const, file, range, detail: "commented-out code" })),
+    findCommentedOutCode(readFileSync(join(cwd, file), "utf8")).map((range) => ({ category: CATEGORY.deadCode, file, range, detail: "commented-out code" })),
   );
 }
 
@@ -143,7 +143,7 @@ export function detectCommentedOutCode(cwd: string, paths: ProjectPaths): Findin
 export function detectMagicValues(cwd: string, paths: ProjectPaths, limits: MagicValueLimits): FindingDraft[] {
   const sources = compiledMatching(cwd, paths.source, paths.tests).map((file) => ({ file, text: readFileSync(join(cwd, file), "utf8") }));
   const numbers = sources.flatMap(({ file, text }) =>
-    findMagicNumbers(text, limits.ignore).map(({ start, end, detail }) => ({ category: "magic_value" as const, file, range: { start, end }, detail })),
+    findMagicNumbers(text, limits.ignore).map(({ start, end, detail }) => ({ category: CATEGORY.magicValue, file, range: { start, end }, detail })),
   );
   return [...numbers, ...findRepeatedStrings(sources, limits.min_string_repeats)];
 }
@@ -159,7 +159,7 @@ function globBase(glob: string): string {
 export function detectDocDrift(cwd: string, paths: ProjectPaths): FindingDraft[] {
   const sources = compiledMatching(cwd, paths.source, paths.tests).map((file) => ({ file, text: readFileSync(join(cwd, file), "utf8") }));
   const jsdoc = sources.flatMap(({ file, text }) =>
-    findJsdocDrift(text).map(({ start, end, symbol, detail }) => ({ category: "doc_drift" as const, file, range: { start, end }, symbol, detail })),
+    findJsdocDrift(text).map(({ start, end, symbol, detail }) => ({ category: CATEGORY.docDrift, file, range: { start, end }, symbol, detail })),
   );
   const declared = new Set(sources.flatMap(({ text }) => [...declaredNames(text)]));
   const roots = ["", ...paths.source.map(globBase)];
@@ -168,7 +168,7 @@ export function detectDocDrift(cwd: string, paths: ProjectPaths): FindingDraft[]
     .filter((file) => file.endsWith(MARKDOWN_EXTENSION))
     .flatMap((file) =>
       findStaleReferences(readFileSync(join(cwd, file), "utf8"), declared, exists).map(({ line, detail }) => ({
-        category: "doc_drift" as const,
+        category: CATEGORY.docDrift,
         file,
         range: { start: line, end: line },
         detail,
