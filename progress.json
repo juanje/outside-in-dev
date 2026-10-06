@@ -1467,7 +1467,29 @@
     {
       "id": "FR-VERIFY-05",
       "title": "Check the integrity of a change",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "While writing tests, a change to source code and forbidden patterns in added lines are violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "While writing code, a change to tests, steps or features and forbidden patterns in added lines are violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only what changed since the last verification counts",
+          "bdd": "pass"
+        },
+        {
+          "name": "An approved feature file must not change, in any step",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature file being written is not approved yet, and the step can be given",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-GIT-01",
