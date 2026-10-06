@@ -74,4 +74,34 @@ describe("oid init --import-progress", () => {
     expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(original);
     expect(stdout).toContain("progress.json is already in the current schema");
   });
+
+  it.each([
+    ["a feature that is null", { current_focus: null, features: [null] }, "features[0]"],
+    [
+      "a scenario that is null",
+      {
+        current_focus: null,
+        features: [{ id: "FR-X-01", title: "A", status: "in_progress", cycle_step: "select", scenarios: [null] }],
+      },
+      "features[0].scenarios[0]",
+    ],
+    [
+      "scenarios that are not a list",
+      {
+        current_focus: null,
+        features: [{ id: "FR-X-01", title: "A", status: "in_progress", cycle_step: "select", scenarios: "none" }],
+      },
+      "features[0].scenarios",
+    ],
+  ])("reports %s as a schema violation with its path and writes nothing", (_label, document, path) => {
+    const original = JSON.stringify(document);
+    writeFileSync(join(dir, "progress.json"), original);
+    const { exitCode, stdout, stderr } = runImport();
+    expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
+    expect(stderr).toMatch(/^error: progress\.json is invalid:\n/);
+    expect(stderr).toContain(`${path}`);
+    expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(original);
+    expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
+    expect(existsSync(join(dir, ".gitignore"))).toBe(false);
+  });
 });
