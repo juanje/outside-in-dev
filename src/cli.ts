@@ -7,7 +7,7 @@ process.stdout.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code !== "EPIPE") throw error;
 });
 
-process.exitCode = runCli(process.argv.slice(2), {
+process.exitCode = await runCli(process.argv.slice(2), {
   cwd: process.cwd(),
   stdout: (text) => process.stdout.write(text),
   stderr: (text) => process.stderr.write(text),

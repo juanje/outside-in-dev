@@ -89,14 +89,14 @@ export class OidWorld extends World {
     return files;
   }
 
-  run(commandLine: string): void {
+  async run(commandLine: string): Promise<void> {
     const args = splitArgs(commandLine);
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
     let stdout = "";
     let stderr = "";
-    this.exitCode = runCli(args, {
+    this.exitCode = await runCli(args, {
       cwd: this.dir,
       stdout: (text) => (stdout += text),
       stderr: (text) => (stderr += text),

@@ -14,10 +14,10 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function runCheck(...args: string[]) {
+async function runCheck(...args: string[]) {
   let stdout = "";
   let stderr = "";
-  const exitCode = runCli(["check", ...args], {
+  const exitCode = await runCli(["check", ...args], {
     cwd: dir,
     stdout: (text) => (stdout += text),
     stderr: (text) => (stderr += text),
@@ -28,19 +28,19 @@ function runCheck(...args: string[]) {
 const SPEC = "### FR-X-01: Alpha\n\nDoes alpha.\n";
 
 describe("oid check --json with inputs that are missing or broken", () => {
-  it("reports a missing SPEC.md as a spec violation in one JSON document", () => {
-    expect(runCheck("--json")).toEqual({
+  it("reports a missing SPEC.md as a spec violation in one JSON document", async () => {
+    expect(await runCheck("--json")).toEqual({
       exitCode: 1,
       stdout: `${JSON.stringify({ ok: false, violations: [{ check: "spec", message: "SPEC.md not found" }] })}\n`,
       stderr: "",
     });
   });
 
-  it("reports a feature file with a Gherkin syntax error as a traceability violation naming the file", () => {
+  it("reports a feature file with a Gherkin syntax error as a traceability violation naming the file", async () => {
     writeFileSync(join(dir, "SPEC.md"), SPEC);
     mkdirSync(join(dir, "features"));
     writeFileSync(join(dir, "features", "broken.feature"), "Feature x\n");
-    const { exitCode, stdout, stderr } = runCheck("--json");
+    const { exitCode, stdout, stderr } = await runCheck("--json");
     const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
     expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
       exitCode: 1,
@@ -54,10 +54,10 @@ describe("oid check --json with inputs that are missing or broken", () => {
   it.each([
     ["does not follow the schema", JSON.stringify({ current_focus: null, features: [{ id: "FR-X-01", title: "Alpha", status: "pending", notes: "x" }] }), "features[0].notes"],
     ["is not valid JSON", "{ not json", "progress.json is not valid JSON"],
-  ])("reports a progress file that %s as a progress violation", (_label, content, expected) => {
+  ])("reports a progress file that %s as a progress violation", async (_label, content, expected) => {
     writeFileSync(join(dir, "SPEC.md"), SPEC);
     writeFileSync(join(dir, "progress.json"), content);
-    const { exitCode, stdout, stderr } = runCheck("--json");
+    const { exitCode, stdout, stderr } = await runCheck("--json");
     const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
     expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
       exitCode: 1,

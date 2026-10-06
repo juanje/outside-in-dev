@@ -16,10 +16,10 @@ function git(...args: string[]): void {
 }
 
 /** Runs `oid metrics` with `args` in the temporary project. */
-function metrics(...args: string[]): { exitCode: number; stdout: string; stderr: string } {
+async function metrics(...args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   let stdout = "";
   let stderr = "";
-  const exitCode = runCli(["metrics", ...args], { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
+  const exitCode = await runCli(["metrics", ...args], { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
   return { exitCode, stdout, stderr };
 }
 
@@ -36,9 +36,9 @@ function committedProject(): void {
 }
 
 /** A committed project with one magic number, whose finding is recorded as the baseline. */
-function baselinedProject(): void {
+async function baselinedProject(): Promise<void> {
   committedProject();
-  metrics("--baseline");
+  await metrics("--baseline");
 }
 
 beforeEach(() => {
@@ -50,26 +50,26 @@ afterEach(() => {
 });
 
 describe("oid metrics --changed with a baseline", () => {
-  it("leaves out the findings of the baseline, and says how many", () => {
-    baselinedProject();
+  it("leaves out the findings of the baseline, and says how many", async () => {
+    await baselinedProject();
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number): boolean => n > 42;\nexport const isHuge = (n: number) => n > 77;\n");
-    const { stdout } = metrics("--changed");
+    const { stdout } = await metrics("--changed");
     expect(findingLines(stdout, "magic_value")).toEqual(["magic_value src/limits.ts:2-2 magic number 77"]);
     expect(stdout).toMatch(/^1 existing finding left out$/m);
   });
 
-  it("fails when a finding that is not in the baseline remains, and succeeds when only findings of the baseline are left", () => {
-    baselinedProject();
+  it("fails when a finding that is not in the baseline remains, and succeeds when only findings of the baseline are left", async () => {
+    await baselinedProject();
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number): boolean => n > 42;\n");
-    expect(metrics("--changed").exitCode).toBe(0);
+    expect((await metrics("--changed")).exitCode).toBe(0);
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number): boolean => n > 42;\nexport const isHuge = (n: number) => n > 77;\n");
-    expect(metrics("--changed").exitCode).toBe(1);
+    expect((await metrics("--changed")).exitCode).toBe(1);
   });
 
-  it("says once on the error output that there is no baseline, and treats every finding as new", () => {
+  it("says once on the error output that there is no baseline, and treats every finding as new", async () => {
     committedProject();
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number): boolean => n > 42;\n");
-    const { stdout, stderr } = metrics("--changed");
+    const { stdout, stderr } = await metrics("--changed");
     expect(findingLines(stdout, "magic_value")).toEqual(["magic_value src/limits.ts:1-1 magic number 42"]);
     expect(stderr.match(/no baseline.*oid metrics --baseline/g)).toHaveLength(1);
   });

@@ -14,24 +14,24 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function run(args: string[]) {
+async function run(args: string[]) {
   let stdout = "";
-  const exitCode = runCli(args, { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+  const exitCode = await runCli(args, { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
   return { exitCode, stdout };
 }
 
 describe("oid check without SPEC.md", () => {
-  it("reports a spec violation and exits 1", () => {
-    expect(run(["check"])).toEqual({ exitCode: 1, stdout: "SPEC.md not found\n" });
+  it("reports a spec violation and exits 1", async () => {
+    expect(await run(["check"])).toEqual({ exitCode: 1, stdout: "SPEC.md not found\n" });
   });
 });
 
 describe("oid check with a feature file that has a Gherkin syntax error", () => {
-  it("prints one line naming the file, without an empty scenario name", () => {
+  it("prints one line naming the file, without an empty scenario name", async () => {
     writeFileSync(join(dir, "SPEC.md"), "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
     mkdirSync(join(dir, "features"));
     writeFileSync(join(dir, "features", "broken.feature"), "Feature x\n");
-    const { exitCode, stdout } = run(["check"]);
+    const { exitCode, stdout } = await run(["check"]);
     expect(exitCode).toBe(1);
     expect(stdout).toMatch(/^features\/broken\.feature: Gherkin syntax error: .+\n$/);
   });

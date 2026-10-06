@@ -1,19 +1,15 @@
 import { ProgressError } from "./artifacts/progress.js";
 import { commandError, HELP_FLAG, row } from "./cli-usage.js";
 import type { CliIo } from "./cli-io.js";
-import { runCheck } from "./commands/check.js";
-import { runInit } from "./commands/init.js";
-import { runMetrics } from "./commands/metrics.js";
-import { progressHelp, runProgress } from "./commands/progress.js";
 
-type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: string };
+type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: () => Promise<string> };
 
 const COMMANDS: Record<string, CommandHelp> = {
   progress: {
     summary: "Read and update the progress file",
     usage: "oid progress <subcommand>",
     options: {},
-    extra: progressHelp(),
+    extra: async () => (await import("./commands/progress.js")).progressHelp(),
   },
   check: {
     summary: "Check the specification, traceability and progress",
@@ -46,12 +42,13 @@ function overviewHelp(): string {
   ].join("");
 }
 
-function commandHelp({ summary, usage, options, extra = "" }: CommandHelp): string {
+async function commandHelp({ summary, usage, options, extra }: CommandHelp): Promise<string> {
+  const extraText = extra === undefined ? "" : await extra();
   const optionLines = Object.entries(options).map(([name, text]) => row(name, text));
-  return `${summary}\n\nusage: ${usage}\n${optionLines.length > 0 ? `\nOptions:\n${optionLines.join("")}` : ""}${extra}`;
+  return `${summary}\n\nusage: ${usage}\n${optionLines.length > 0 ? `\nOptions:\n${optionLines.join("")}` : ""}${extraText}`;
 }
 
-export function runCli(args: string[], io: CliIo): number {
+export async function runCli(args: string[], io: CliIo): Promise<number> {
   try {
     const [command, ...rest] = args;
     if (command === HELP_FLAG) {
@@ -63,13 +60,18 @@ export function runCli(args: string[], io: CliIo): number {
     }
     const helpRequested = command === "progress" ? rest[0] === HELP_FLAG : rest.includes(HELP_FLAG);
     if (helpRequested) {
-      io.stdout(commandHelp(COMMANDS[command!]!));
+      io.stdout(await commandHelp(COMMANDS[command!]!));
       return 0;
     }
-    if (command === "check") return runCheck(io, rest.includes("--json"));
-    if (command === "metrics") return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
-    if (command === "init") return runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
-    runProgress(rest, io);
+    if (command === "check") return (await import("./commands/check.js")).runCheck(io, rest.includes("--json"));
+    if (command === "metrics") {
+      const { runMetrics } = await import("./commands/metrics.js");
+      return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
+    }
+    if (command === "init") {
+      return (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
+    }
+    (await import("./commands/progress.js")).runProgress(rest, io);
     return 0;
   } catch (error) {
     if (error instanceof ProgressError) {

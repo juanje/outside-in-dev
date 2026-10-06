@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { runCli } from "../../src/run-cli.js";
 
-function run(args: string[]) {
+async function run(args: string[]) {
   let stdout = "";
   let stderr = "";
-  const exitCode = runCli(args, {
+  const exitCode = await runCli(args, {
     cwd: "/nonexistent-oid-test-dir",
     stdout: (text) => (stdout += text),
     stderr: (text) => (stderr += text),
@@ -13,8 +13,8 @@ function run(args: string[]) {
 }
 
 describe("oid --help", () => {
-  it("says what oid does and describes every command, exiting 0 with nothing on stderr", () => {
-    const { exitCode, stdout, stderr } = run(["--help"]);
+  it("says what oid does and describes every command, exiting 0 with nothing on stderr", async () => {
+    const { exitCode, stdout, stderr } = await run(["--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("Outside-In");
@@ -25,8 +25,8 @@ describe("oid --help", () => {
 });
 
 describe("oid check --help", () => {
-  it("shows what check does, its usage and its --json option", () => {
-    const { exitCode, stdout, stderr } = run(["check", "--help"]);
+  it("shows what check does, its usage and its --json option", async () => {
+    const { exitCode, stdout, stderr } = await run(["check", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("usage: oid check [--json]");
@@ -35,8 +35,8 @@ describe("oid check --help", () => {
 });
 
 describe("oid init --help", () => {
-  it("shows its usage and its --import-progress option", () => {
-    const { exitCode, stdout, stderr } = run(["init", "--help"]);
+  it("shows its usage and its --import-progress option", async () => {
+    const { exitCode, stdout, stderr } = await run(["init", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("usage: oid init [--import-progress [path]]");
@@ -45,8 +45,8 @@ describe("oid init --help", () => {
 });
 
 describe("oid metrics --help", () => {
-  it("shows what metrics does and its usage", () => {
-    const { exitCode, stdout, stderr } = run(["metrics", "--help"]);
+  it("shows what metrics does and its usage", async () => {
+    const { exitCode, stdout, stderr } = await run(["metrics", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("Report the code-health findings of the project");
@@ -55,8 +55,8 @@ describe("oid metrics --help", () => {
 });
 
 describe("oid progress --help", () => {
-  it("describes every subcommand and shows its usage", () => {
-    const { exitCode, stdout, stderr } = run(["progress", "--help"]);
+  it("describes every subcommand and shows its usage", async () => {
+    const { exitCode, stdout, stderr } = await run(["progress", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("usage: oid progress <subcommand>");
@@ -71,8 +71,8 @@ describe("oid progress --help", () => {
 });
 
 describe("oid progress step --help", () => {
-  it("shows what step does, its usage and the allowed cycle steps", () => {
-    const { exitCode, stdout, stderr } = run(["progress", "step", "--help"]);
+  it("shows what step does, its usage and the allowed cycle steps", async () => {
+    const { exitCode, stdout, stderr } = await run(["progress", "step", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain("Move a feature to its next cycle step");
@@ -84,8 +84,8 @@ describe("oid progress step --help", () => {
 });
 
 describe("oid progress scenario --help", () => {
-  it("shows its usage and the allowed statuses", () => {
-    const { exitCode, stdout, stderr } = run(["progress", "scenario", "--help"]);
+  it("shows its usage and the allowed statuses", async () => {
+    const { exitCode, stdout, stderr } = await run(["progress", "scenario", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     expect(stdout).toContain('usage: oid progress scenario <pass|fail|pending> FR-xxx "<scenario name>"');
@@ -94,8 +94,8 @@ describe("oid progress scenario --help", () => {
 });
 
 describe("oid --help usage", () => {
-  it("shows the usage line and how to get help for one command", () => {
-    const { stdout } = run(["--help"]);
+  it("shows the usage line and how to get help for one command", async () => {
+    const { stdout } = await run(["--help"]);
     expect(stdout).toContain("usage: oid <command> [<subcommand>] [arguments]");
     expect(stdout).toContain("oid <command> --help");
   });

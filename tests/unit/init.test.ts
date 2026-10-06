@@ -14,10 +14,10 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function runInit() {
+async function runInit() {
   let stdout = "";
   let stderr = "";
-  const exitCode = runCli(["init"], {
+  const exitCode = await runCli(["init"], {
     cwd: dir,
     stdout: (text) => (stdout += text),
     stderr: (text) => (stderr += text),
@@ -34,15 +34,15 @@ function readConfig() {
 }
 
 describe("oid init", () => {
-  it("refuses a project that is not TypeScript", () => {
-    const { exitCode, stderr } = runInit();
+  it("refuses a project that is not TypeScript", async () => {
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("only TypeScript projects are supported");
   });
 
-  it("writes the default configuration for a project with a tsconfig.json", () => {
+  it("writes the default configuration for a project with a tsconfig.json", async () => {
     writeProject("tsconfig.json", "{}");
-    const { exitCode } = runInit();
+    const { exitCode } = await runInit();
     expect(exitCode).toBe(0);
     expect(readConfig()).toEqual({
       version: 1,
@@ -70,80 +70,80 @@ describe("oid init", () => {
     });
   });
 
-  it.each(["dependencies", "devDependencies"])("recognises TypeScript from %s in package.json", (section) => {
+  it.each(["dependencies", "devDependencies"])("recognises TypeScript from %s in package.json", async (section) => {
     writeProject("package.json", JSON.stringify({ [section]: { typescript: "5.0.0" } }));
-    const { exitCode } = runInit();
+    const { exitCode } = await runInit();
     expect(exitCode).toBe(0);
     expect(readConfig().stack).toBe("typescript");
   });
 
-  it("takes a shared/ directory at the root as the shared paths", () => {
+  it("takes a shared/ directory at the root as the shared paths", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "shared"));
-    runInit();
+    await runInit();
     expect(readConfig().paths.shared).toEqual(["shared/**"]);
   });
 
-  it("leaves the include entries of a conventional test directory out of the source paths", () => {
+  it("leaves the include entries of a conventional test directory out of the source paths", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts"] }));
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
   });
 
-  it("falls back to src/** when every include entry points at tests", () => {
+  it("falls back to src/** when every include entry points at tests", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["tests/**/*.ts"] }));
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["src/**"]);
   });
 
-  it("leaves the include entries with a test file pattern out of the source paths", () => {
+  it("leaves the include entries with a test file pattern out of the source paths", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "src/**/*.test.ts", "lib/**/*.spec.tsx"] }));
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
   });
 
-  it("treats the directory of the detected test paths as a test directory", () => {
+  it("treats the directory of the detected test paths as a test directory", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["lib/**/*.ts", "checks/**/*.ts"] }));
     writeProject("vitest.config.ts", 'export default { test: { include: ["checks/**/*.test.ts"] } };');
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["lib/**/*.ts"]);
   });
 
-  it("never treats src as a test directory, even when the unit tests live in it", () => {
+  it("never treats src as a test directory, even when the unit tests live in it", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts"] }));
     writeProject("vitest.config.ts", 'export default { test: { include: ["src/**/*.test.ts"] } };');
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["src/**/*.ts"]);
   });
 
-  it("lists the include entries it left out of the source paths as tests", () => {
+  it("lists the include entries it left out of the source paths as tests", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["src/**/*.ts", "tests/**/*.ts", "lib/**/*.spec.ts"] }));
-    const { stdout } = runInit();
+    const { stdout } = await runInit();
     expect(stdout).toContain("left out of paths.source as tests: tests/**/*.ts, lib/**/*.spec.ts");
   });
 
-  it("takes the source paths from the include entries of tsconfig.json", () => {
+  it("takes the source paths from the include entries of tsconfig.json", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["lib/**/*.ts", "app/**/*.ts"] }));
-    runInit();
+    await runInit();
     expect(readConfig().paths.source).toEqual(["lib/**/*.ts", "app/**/*.ts"]);
   });
 
-  it("reads a tsconfig.json with comments and trailing commas", () => {
+  it("reads a tsconfig.json with comments and trailing commas", async () => {
     writeProject("tsconfig.json", '{\n // c\n "compilerOptions": {}, /* b */\n "include": ["lib/**/*.ts",],\n}');
-    const { exitCode } = runInit();
+    const { exitCode } = await runInit();
     expect(exitCode).toBe(0);
     expect(readConfig().paths.source).toEqual(["lib/**/*.ts"]);
   });
 
-  it("reports a tsconfig.json that is not plain JSON and writes nothing", () => {
+  it("reports a tsconfig.json that is not plain JSON and writes nothing", async () => {
     writeProject("tsconfig.json", '{ "include": ["src/**"]');
-    const { exitCode, stderr } = runInit();
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("tsconfig.json is not valid JSON");
     expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
   });
 
-  it("takes the unit test paths from the include array of the vitest configuration", () => {
+  it("takes the unit test paths from the include array of the vitest configuration", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(
       "vitest.config.ts",
@@ -156,18 +156,18 @@ export default defineConfig({
 });
 `,
     );
-    runInit();
+    await runInit();
     expect(readConfig().paths.unit_tests).toEqual(["spec/**/*.spec.ts", "more/**/*.test.ts"]);
   });
 
-  it.each(["vitest.config.mts", "vitest.config.js", "vitest.config.mjs"])("also reads %s", (file) => {
+  it.each(["vitest.config.mts", "vitest.config.js", "vitest.config.mjs"])("also reads %s", async (file) => {
     writeProject("tsconfig.json", "{}");
     writeProject(file, 'export default { test: { include: ["spec/**"] } };');
-    runInit();
+    await runInit();
     expect(readConfig().paths.unit_tests).toEqual(["spec/**"]);
   });
 
-  it("takes the feature and step paths from paths and import in the cucumber configuration", () => {
+  it("takes the feature and step paths from paths and import in the cucumber configuration", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(
       "cucumber.mjs",
@@ -177,37 +177,37 @@ export default defineConfig({
 };
 `,
     );
-    runInit();
+    await runInit();
     expect(readConfig().paths.bdd_features).toEqual(["specs/**/*.feature"]);
     expect(readConfig().paths.bdd_steps).toEqual(["specs/steps/**/*.ts", "specs/support/**/*.ts"]);
   });
 
-  it("reads the quoted keys of a cucumber.json", () => {
+  it("reads the quoted keys of a cucumber.json", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("cucumber.json", JSON.stringify({ paths: ["specs/**/*.feature"], import: ["specs/steps/**"] }));
-    runInit();
+    await runInit();
     expect(readConfig().paths.bdd_features).toEqual(["specs/**/*.feature"]);
     expect(readConfig().paths.bdd_steps).toEqual(["specs/steps/**"]);
   });
 
-  it.each(["cucumber.js", "cucumber.cjs"])("also reads %s", (file) => {
+  it.each(["cucumber.js", "cucumber.cjs"])("also reads %s", async (file) => {
     writeProject("tsconfig.json", "{}");
     writeProject(file, 'module.exports = { paths: ["specs/**/*.feature"] };');
-    runInit();
+    await runInit();
     expect(readConfig().paths.bdd_features).toEqual(["specs/**/*.feature"]);
   });
 
-  it("takes the step paths from require when the cucumber configuration has no import", () => {
+  it("takes the step paths from require when the cucumber configuration has no import", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("cucumber.cjs", 'module.exports = { require: ["specs/steps/**/*.ts"] };');
-    runInit();
+    await runInit();
     expect(readConfig().paths.bdd_steps).toEqual(["specs/steps/**/*.ts"]);
   });
 
-  it("takes the commands from the scripts of package.json", () => {
+  it("takes the commands from the scripts of package.json", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("package.json", JSON.stringify({ scripts: { unit: "vitest run", pretty: "prettier --check ." } }));
-    runInit();
+    await runInit();
     expect(readConfig().commands).toMatchObject({
       unit: "npm run unit",
       format: "npm run pretty",
@@ -217,58 +217,58 @@ export default defineConfig({
     });
   });
 
-  it("adds .outside-in/ to the .gitignore, creating it when needed", () => {
+  it("adds .outside-in/ to the .gitignore, creating it when needed", async () => {
     writeProject("tsconfig.json", "{}");
-    runInit();
+    await runInit();
     expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe(".outside-in/\n");
     rmSync(join(dir, ".outside-in.json"));
     writeProject(".gitignore", "dist/");
-    runInit();
+    await runInit();
     expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe("dist/\n.outside-in/\n");
   });
 
-  it("says the .gitignore already ignores .outside-in/ instead of claiming to add it, and leaves the file alone", () => {
+  it("says the .gitignore already ignores .outside-in/ instead of claiming to add it, and leaves the file alone", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(".gitignore", "dist/\n.outside-in\n");
-    const { stdout } = runInit();
+    const { stdout } = await runInit();
     expect(stdout).toContain(".gitignore already ignores .outside-in/");
     expect(stdout).not.toContain("added .outside-in/");
     expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe("dist/\n.outside-in\n");
   });
 
-  it("refuses when .outside-in.json already exists and changes nothing", () => {
+  it("refuses when .outside-in.json already exists and changes nothing", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(".outside-in.json", '{ "hand": "edited" }');
-    const { exitCode, stderr } = runInit();
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain(".outside-in.json already exists");
     expect(readFileSync(join(dir, ".outside-in.json"), "utf8")).toBe('{ "hand": "edited" }');
     expect(existsSync(join(dir, ".gitignore"))).toBe(false);
   });
 
-  it("writes the configuration as two-space JSON ending in one newline", () => {
+  it("writes the configuration as two-space JSON ending in one newline", async () => {
     writeProject("tsconfig.json", "{}");
-    runInit();
+    await runInit();
     const raw = readFileSync(join(dir, ".outside-in.json"), "utf8");
     expect(raw).toBe(`${JSON.stringify(JSON.parse(raw), null, 2)}\n`);
   });
 
-  it("prints what it detected and wrote", () => {
+  it("prints what it detected and wrote", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: ["lib/**"] }));
-    const { stdout } = runInit();
+    const { stdout } = await runInit();
     expect(stdout).toContain("typescript");
     expect(stdout).toContain("lib/**");
     expect(stdout).toContain(".outside-in.json");
     expect(stdout).toContain(".gitignore");
   });
 
-  it("creates progress.json with every FR of SPEC.md as a pending feature, in order", () => {
+  it("creates progress.json with every FR of SPEC.md as a pending feature, in order", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(
       "SPEC.md",
       "### NFR-01: Speed\n\nFast.\n\n### FR-A-02: Second\n\nText.\n\n### FR-A-01: First\n\nText.\n",
     );
-    const { exitCode } = runInit();
+    const { exitCode } = await runInit();
     expect(exitCode).toBe(0);
     expect(JSON.parse(readFileSync(join(dir, "progress.json"), "utf8"))).toEqual({
       current_focus: null,
@@ -279,29 +279,29 @@ export default defineConfig({
     });
   });
 
-  it("leaves an existing progress.json untouched and says so", () => {
+  it("leaves an existing progress.json untouched and says so", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n");
     const existing = '{ "current_focus": null, "features": [] }\n';
     writeProject("progress.json", existing);
-    const { exitCode, stdout } = runInit();
+    const { exitCode, stdout } = await runInit();
     expect(exitCode).toBe(0);
     expect(readFileSync(join(dir, "progress.json"), "utf8")).toBe(existing);
     expect(stdout).toContain("progress.json already exists");
   });
 
-  it("creates no progress.json and says so when there is no SPEC.md", () => {
+  it("creates no progress.json and says so when there is no SPEC.md", async () => {
     writeProject("tsconfig.json", "{}");
-    const { exitCode, stdout } = runInit();
+    const { exitCode, stdout } = await runInit();
     expect(exitCode).toBe(0);
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
     expect(stdout).toContain("SPEC.md not found");
   });
 
-  it("reports a duplicate FR id, creates no progress.json and keeps the configuration", () => {
+  it("reports a duplicate FR id, creates no progress.json and keeps the configuration", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n\n### FR-A-01: Again\n\nText.\n");
-    const { exitCode, stderr } = runInit();
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("FR-A-01");
     expect(stderr).toContain("duplicate ID");
@@ -310,48 +310,48 @@ export default defineConfig({
     expect(readConfig().stack).toBe("typescript");
   });
 
-  it("reports an empty FR title and creates no progress.json", () => {
+  it("reports an empty FR title and creates no progress.json", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject("SPEC.md", "### FR-A-01:\n\nText.\n");
-    const { exitCode, stderr } = runInit();
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toContain("FR-A-01: empty title");
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
 
-  it("detects a specification kept in specs/ and puts the progress file and design documents beside it", () => {
+  it("detects a specification kept in specs/ and puts the progress file and design documents beside it", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "specs"));
     writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
-    runInit();
+    await runInit();
     const { paths } = readConfig();
     expect(paths.spec).toBe("specs/SPEC.md");
     expect(paths.progress).toBe("specs/progress.json");
     expect(paths.design).toEqual(["specs/SPEC.md", "specs/DOMAIN.md", "specs/DECISIONS.md"]);
   });
 
-  it("creates the progress file beside a specification kept in specs/", () => {
+  it("creates the progress file beside a specification kept in specs/", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "specs"));
     writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
-    runInit();
+    await runInit();
     expect(JSON.parse(readFileSync(join(dir, "specs/progress.json"), "utf8")).features[0].id).toBe("FR-A-01");
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
 
-  it("adds .outside-in/ to an empty .gitignore without a leading blank line", () => {
+  it("adds .outside-in/ to an empty .gitignore without a leading blank line", async () => {
     writeProject("tsconfig.json", "{}");
     writeProject(".gitignore", "");
-    const { exitCode, stdout } = runInit();
+    const { exitCode, stdout } = await runInit();
     expect(exitCode).toBe(0);
     expect(readFileSync(join(dir, ".gitignore"), "utf8")).toBe(".outside-in/\n");
     expect(stdout).toContain("added .outside-in/ to .gitignore");
   });
 
-  it("validates what it detected before writing: an invalid value is reported by its field and nothing is written", () => {
+  it("validates what it detected before writing: an invalid value is reported by its field and nothing is written", async () => {
     writeProject("tsconfig.json", JSON.stringify({ include: "src/**" }));
     writeProject("SPEC.md", "### FR-A-01: First\n\nText.\n");
-    const { exitCode, stdout, stderr } = runInit();
+    const { exitCode, stdout, stderr } = await runInit();
     expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
     expect(stderr).toMatch(/^error: \.outside-in\.json is invalid:\n.*paths\.source/);
     expect(existsSync(join(dir, ".outside-in.json"))).toBe(false);
@@ -359,12 +359,12 @@ export default defineConfig({
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
 
-  it("keeps the root paths when SPEC.md exists at the root and in specs/", () => {
+  it("keeps the root paths when SPEC.md exists at the root and in specs/", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "specs"));
     writeProject("SPEC.md", "### FR-A-01: Root\n\nText.\n");
     writeProject("specs/SPEC.md", "### FR-A-02: Specs\n\nText.\n");
-    runInit();
+    await runInit();
     const { paths } = readConfig();
     expect(paths.spec).toBe("SPEC.md");
     expect(paths.progress).toBe("progress.json");
@@ -373,22 +373,22 @@ export default defineConfig({
     expect(existsSync(join(dir, "specs/progress.json"))).toBe(false);
   });
 
-  it("names the actual progress file when it already exists beside a specification kept in specs/", () => {
+  it("names the actual progress file when it already exists beside a specification kept in specs/", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "specs"));
     writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n");
     writeProject("specs/progress.json", '{ "current_focus": null, "features": [] }\n');
-    const { exitCode, stdout } = runInit();
+    const { exitCode, stdout } = await runInit();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("specs/progress.json already exists and was left untouched.\n");
     expect(readFileSync(join(dir, "specs/progress.json"), "utf8")).toBe('{ "current_focus": null, "features": [] }\n');
   });
 
-  it("names the actual spec and progress files when a specification kept in specs/ cannot become a progress file", () => {
+  it("names the actual spec and progress files when a specification kept in specs/ cannot become a progress file", async () => {
     writeProject("tsconfig.json", "{}");
     mkdirSync(join(dir, "specs"));
     writeProject("specs/SPEC.md", "### FR-A-01: First\n\nText.\n\n### FR-A-01: Again\n\nText.\n");
-    const { exitCode, stderr } = runInit();
+    const { exitCode, stderr } = await runInit();
     expect(exitCode).toBe(1);
     expect(stderr).toBe(
       "error: specs/SPEC.md cannot be turned into specs/progress.json:\n  FR-A-01: duplicate ID\n.outside-in.json was written; no specs/progress.json was created\n",
@@ -397,9 +397,9 @@ export default defineConfig({
     expect(existsSync(join(dir, "progress.json"))).toBe(false);
   });
 
-  it("says which specification was not found and which progress file was therefore not created", () => {
+  it("says which specification was not found and which progress file was therefore not created", async () => {
     writeProject("tsconfig.json", "{}");
-    const { exitCode, stdout } = runInit();
+    const { exitCode, stdout } = await runInit();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("SPEC.md not found: no progress.json was created.\n");
   });

@@ -19,26 +19,26 @@ afterEach(() => {
 });
 
 describe("oid metrics --baseline", () => {
-  it("records the current findings in the baseline and says how many", () => {
+  it("records the current findings in the baseline and says how many", async () => {
     let stdout = "";
-    const exitCode = runCli(["metrics", "--baseline"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    const exitCode = await runCli(["metrics", "--baseline"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(exitCode).toBe(0);
     expect(stdout).toMatch(/^baseline: 2 findings recorded in \.outside-in\/baseline\.json$/m);
     expect(readBaseline(dir)?.size).toBe(2);
   });
 
-  it("is a usage error together with --changed, and records no baseline", () => {
+  it("is a usage error together with --changed, and records no baseline", async () => {
     let stderr = "";
-    const exitCode = runCli(["metrics", "--changed", "--baseline"], { cwd: dir, stdout: () => undefined, stderr: (text) => (stderr += text) });
+    const exitCode = await runCli(["metrics", "--changed", "--baseline"], { cwd: dir, stdout: () => undefined, stderr: (text) => (stderr += text) });
     expect(exitCode).toBe(1);
     expect(stderr).toContain("--changed and --baseline cannot be used together");
     expect(readBaseline(dir)).toBeUndefined();
   });
 
-  it("says finding, not findings, for a baseline of one", () => {
+  it("says finding, not findings, for a baseline of one", async () => {
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number) => n > 42;\n");
     let stdout = "";
-    runCli(["metrics", "--baseline"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
+    await runCli(["metrics", "--baseline"], { cwd: dir, stdout: (text) => (stdout += text), stderr: () => undefined });
     expect(stdout).toMatch(/^baseline: 1 finding recorded in /m);
   });
 });
