@@ -1,4 +1,4 @@
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { isRelativeSpecifier } from "./source-roots.js";
 
 /** The classes of a failing test. The first two make a valid Red. */
@@ -15,7 +15,7 @@ export type RedClass = (typeof RED_CLASS)[keyof typeof RED_CLASS];
 export const OUTCOME = { valid: "valid", invalid: "invalid", decision: "decision" } as const;
 
 /** The kinds of observation a run of the test can give. */
-export const FAILURE = { passed: "passed", load: "load", error: "error", noTest: "no_test", noReport: "no_report", notRun: "not_run" } as const;
+export const FAILURE = { passed: "passed", load: "load", error: "error", noTest: "no_test", noScenario: "no_scenario", noReport: "no_report", notRun: "not_run" } as const;
 
 /** What a run of the test showed, from the runner's report. */
 export type Failure =
@@ -23,7 +23,8 @@ export type Failure =
   | { kind: typeof FAILURE.load; message: string }
   | { kind: typeof FAILURE.error; message: string }
   | { kind: typeof FAILURE.noTest; name: string; file: string }
-  | { kind: typeof FAILURE.noReport; exitCode: number | null }
+  | { kind: typeof FAILURE.noScenario; file: string; line: number }
+  | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string }
   | { kind: typeof FAILURE.notRun; status: string };
 
 /** What the classification needs to know about the project. */
@@ -45,16 +46,19 @@ function oneLine(text: string): string {
   return text.split(/\n/).map((line) => line.trim()).join(" ");
 }
 
-const MISSING_MODULE = /^Cannot find (?:module|package) '([^']+)' imported from '([^']+)'/;
+/** A module or package the runner could not find: vitest quotes the importer, Node does not. */
+const MISSING_MODULE = /Cannot find (?:module|package) '([^']+)' imported from (?:'([^']+)'|(\S+))/;
 const NOT_CALLABLE = /^TypeError: (?:\(0 , (\w+)\)|(\w+)) is not a (?:function|constructor)/;
 
 /** A file that failed to load: a syntax error, a module that does not exist yet, a package that is not installed. */
 function classifyLoad(message: string, context: ClassifyContext): Verdict {
   const missing = MISSING_MODULE.exec(message);
   if (missing !== null) {
-    const [, specifier, importer] = missing;
-    if (isRelativeSpecifier(specifier!) && context.isSource(relative(context.cwd, resolve(dirname(importer!), specifier!)))) {
-      return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `the module ${specifier} does not exist yet` };
+    const [, specifier, quotedImporter, bareImporter] = missing;
+    const absolute = isAbsolute(specifier!);
+    const path = absolute ? specifier! : resolve(dirname(quotedImporter ?? bareImporter!), specifier!);
+    if ((absolute || isRelativeSpecifier(specifier!)) && context.isSource(relative(context.cwd, path))) {
+      return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `the module ${absolute ? relative(context.cwd, path) : specifier} does not exist yet` };
     }
     return { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `${specifier} cannot be found and is not a source module of the project` };
   }
@@ -66,6 +70,7 @@ function classifyLoad(message: string, context: ClassifyContext): Verdict {
 
 /** A test that ran and failed. */
 function classifyError(message: string, context: ClassifyContext): Verdict {
+  if (MISSING_MODULE.test(message)) return classifyLoad(message, context);
   if (message.startsWith("AssertionError")) return { outcome: OUTCOME.decision, reason: "an assertion failed", candidate: RED_CLASS.businessAssertion };
   const notCallable = NOT_CALLABLE.exec(message);
   if (notCallable === null) return { outcome: OUTCOME.decision, reason: "the test failed with an error that is not an assertion" };
@@ -88,8 +93,12 @@ export function classifyFailure(failure: Failure, context: ClassifyContext): Ver
       return classifyError(failure.message, context);
     case FAILURE.notRun:
       return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test did not run (status ${failure.status})` };
+    case FAILURE.noScenario:
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `no scenario starts at line ${failure.line} of ${failure.file}` };
     case FAILURE.noReport:
-      return { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `the unit runner wrote no report (exit code ${failure.exitCode})` };
+      return failure.changedFile === undefined
+        ? { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `the ${failure.runner} runner wrote no report (exit code ${failure.exitCode})` }
+        : { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the ${failure.runner} runner did not start and names ${failure.changedFile}, which changed since the last checkpoint` };
     case FAILURE.noTest:
       return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `no test named "${failure.name}" ran in ${failure.file}` };
   }

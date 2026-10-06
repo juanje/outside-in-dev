@@ -94,4 +94,37 @@ describe("classifyFailure", () => {
       reason: "padLeft is not imported from a project module",
     });
   });
+
+  it("rejects a line where no scenario starts: there is nothing to run", () => {
+    expect(classifyFailure({ kind: "no_scenario", file: "features/a.feature", line: 3 }, context)).toEqual({
+      outcome: "invalid",
+      class: "test_bug",
+      reason: "no scenario starts at line 3 of features/a.feature",
+    });
+  });
+
+  it("accepts a step that imports a source module that does not exist yet, given by its absolute path", () => {
+    const message = "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/p/src/nope.js' imported from /p/features/steps/a.steps.ts\n    at finalizeResolution (node:internal/modules/esm/resolve:274:11)";
+    expect(classifyFailure({ kind: "error", message }, context)).toEqual({
+      outcome: "valid",
+      class: "missing_implementation",
+      reason: "the module src/nope.js does not exist yet",
+    });
+  });
+
+  it("rejects a run that never started when it names a step file that changed: the broken file is the test's", () => {
+    expect(classifyFailure({ kind: "no_report", runner: "BDD", exitCode: 1, changedFile: "features/steps/a.steps.ts" }, context)).toEqual({
+      outcome: "invalid",
+      class: "test_bug",
+      reason: "the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint",
+    });
+  });
+
+  it("treats a run that never started without a changed file to blame as the environment, naming the runner", () => {
+    expect(classifyFailure({ kind: "no_report", runner: "BDD", exitCode: 1 }, context)).toEqual({
+      outcome: "invalid",
+      class: "environment",
+      reason: "the BDD runner wrote no report (exit code 1)",
+    });
+  });
 });

@@ -2,8 +2,10 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 import { writeFileAtomic } from "./atomic-write.js";
 import { ProgressError } from "./progress.js";
+import { readJson } from "./project-json.js";
 
 const GIT = "git";
 const HEAD = "HEAD";
@@ -26,6 +28,14 @@ export interface CheckpointDetails {
   date: Date;
 }
 
+/** The SHA-256 of a file of the project, as hex. */
+function hashFile(cwd: string, name: string): string {
+  return createHash("sha256").update(readFileSync(join(cwd, name))).digest("hex");
+}
+
+/** The part of a checkpoint file that comparing with it needs. */
+const checkpointSchema = z.object({ snapshot: z.record(z.string(), z.string()) });
+
 /** The NUL-separated names `git` prints for `args` in the project. */
 function gitNames(cwd: string, args: string[]): string[] {
   return spawnSync(GIT, args, { cwd }).stdout.toString().split(NUL).filter((name) => name !== "");
@@ -46,7 +56,21 @@ export function recordCheckpoint(cwd: string, { date, ...details }: CheckpointDe
     throw new ProgressError("a checkpoint compares with HEAD: this directory is not a git repository with a commit");
   }
   const { present, deleted } = changesFromHead(cwd);
-  const snapshot = Object.fromEntries(present.map((name) => [name, createHash("sha256").update(readFileSync(join(cwd, name))).digest("hex")]));
+  const snapshot = Object.fromEntries(present.map((name) => [name, hashFile(cwd, name)]));
   mkdirSync(join(cwd, OID_DIR), { recursive: true });
   writeFileAtomic(join(cwd, CHECKPOINT_FILE), `${JSON.stringify({ ...details, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
+}
+
+/** The snapshot of the last checkpoint: the hash of each file that differed from HEAD then. Empty when there is no checkpoint. */
+function lastSnapshot(cwd: string): Record<string, string> {
+  const parsed = checkpointSchema.safeParse(readJson(cwd, CHECKPOINT_FILE) ?? { snapshot: {} });
+  if (!parsed.success) throw new ProgressError(`${CHECKPOINT_FILE} is not a checkpoint oid wrote: verify again to record a new one`);
+  return parsed.data.snapshot;
+}
+
+/** The files that changed since the last checkpoint, or since HEAD when there is none: those whose content is not the one the checkpoint recorded, and the deleted ones. */
+export function changedSinceCheckpoint(cwd: string): string[] {
+  const { present, deleted } = changesFromHead(cwd);
+  const snapshot = lastSnapshot(cwd);
+  return [...present.filter((name) => snapshot[name] !== hashFile(cwd, name)), ...deleted];
 }

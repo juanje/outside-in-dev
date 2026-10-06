@@ -22,8 +22,8 @@ const COMMANDS: Record<string, CommandHelp> = {
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
   },
   verify: {
-    summary: "Verify that a test is a valid Red",
-    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]',
+    summary: "Verify that a test or a scenario is a valid Red",
+    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]',
     options: {
       "--decide": "Answer a failure that needs a decision: business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
     },

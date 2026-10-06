@@ -20,20 +20,37 @@ function exportedNames(moduleFile: string): string[] {
   return symbol === undefined ? [] : checker.getExportsOfModule(symbol).map((exported) => exported.getName());
 }
 
-/** The module specifier a test file imports `name` from, if it imports it by name. */
-function importedFrom(testSource: ts.SourceFile, name: string): string | undefined {
-  for (const statement of testSource.statements) {
-    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    const bindings = statement.importClause?.namedBindings;
-    if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
-    if (bindings.elements.some((element) => (element.propertyName ?? element.name).text === name)) return statement.moduleSpecifier.text;
-  }
-  return undefined;
+/** The module specifier of a static import that binds `name`. */
+function staticImportOf(node: ts.Node, name: string): string | undefined {
+  if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) return undefined;
+  const bindings = node.importClause?.namedBindings;
+  const binds = bindings !== undefined && ts.isNamedImports(bindings) && bindings.elements.some((element) => (element.propertyName ?? element.name).text === name);
+  return binds ? node.moduleSpecifier.text : undefined;
+}
+
+/** The specifier of `await import("<specifier>")`. */
+function awaitedImportSpecifier(expression: ts.Expression): string | undefined {
+  const call = ts.isAwaitExpression(expression) ? expression.expression : undefined;
+  if (call === undefined || !ts.isCallExpression(call) || call.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
+  const [argument] = call.arguments;
+  return argument !== undefined && ts.isStringLiteral(argument) ? argument.text : undefined;
+}
+
+/** The module specifier of `const { name } = await import("<specifier>")`. */
+function dynamicImportOf(node: ts.Node, name: string): string | undefined {
+  if (!ts.isVariableDeclaration(node) || !ts.isObjectBindingPattern(node.name) || node.initializer === undefined) return undefined;
+  const binds = node.name.elements.some((element) => (element.propertyName ?? element.name).getText() === name);
+  return binds ? awaitedImportSpecifier(node.initializer) : undefined;
+}
+
+/** The module specifier a file imports `name` from, by a static import or by destructuring an awaited dynamic one. */
+function importedFrom(node: ts.Node, name: string): string | undefined {
+  return staticImportOf(node, name) ?? dynamicImportOf(node, name) ?? ts.forEachChild(node, (child) => importedFrom(child, name));
 }
 
 /** Whether `name`, imported by the test file from a project module, exists in that module: the project's real exports decide. */
 export function resolveImportedSymbol(cwd: string, testFile: string, name: string): "exists" | "missing" | "external" {
-  const testSource = ts.createSourceFile(testFile, readText(cwd, testFile)!, ts.ScriptTarget.ES2022);
+  const testSource = ts.createSourceFile(testFile, readText(cwd, testFile)!, ts.ScriptTarget.ES2022, true);
   const specifier = importedFrom(testSource, name);
   if (specifier === undefined || !isRelativeSpecifier(specifier)) return "external";
   const moduleFile = join(cwd, dirname(testFile), specifier.replace(/\.js$/, ".ts"));

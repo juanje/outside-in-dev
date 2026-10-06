@@ -24,4 +24,10 @@ describe("resolveImportedSymbol", () => {
     write(TEST_FILE, 'import { shout as loud } from "../../src/index.js";\nloud();\n');
     expect(resolveImportedSymbol(dir, TEST_FILE, "shout")).toBe("exists");
   });
+
+  it("follows a name that a step takes from a dynamic import of a project module", () => {
+    write("src/greeting.ts", "export const greeting = 'hi';\n");
+    write("features/steps/a.steps.ts", 'Then("it", async function () {\n  const { greeting, shout } = await import("../../src/greeting.js");\n  shout(greeting);\n});\n');
+    expect([resolveImportedSymbol(dir, "features/steps/a.steps.ts", "shout"), resolveImportedSymbol(dir, "features/steps/a.steps.ts", "greeting")]).toEqual(["missing", "exists"]);
+  });
 });

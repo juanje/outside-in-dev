@@ -1354,7 +1354,69 @@
     {
       "id": "FR-VERIFY-02",
       "title": "Verify a BDD Red",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A scenario that passes without new code is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario with an undefined step is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario with a pending step is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step that imports a module that does not exist yet is a valid Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step that calls a function that does not exist yet is a valid Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step that imports a package that is not installed is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A call to something that exists but is not a function needs a decision",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failing assertion needs a decision",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision that the failure is a business assertion makes it a valid Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision that the failure is a test bug is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision is refused when the run does not need one",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only the scenario at the given line runs",
+          "bdd": "pass"
+        },
+        {
+          "name": "A line where no scenario starts is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step file changed since the last commit that stops cucumber from starting is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step file unchanged since the last commit that stops cucumber from starting is an environment problem",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-VERIFY-03",
