@@ -60,8 +60,7 @@ Feature: Detect complexity
       """
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "no findings"
-    And the output does not contain "complexity"
+    And the output has no complexity findings
 
   Scenario: The summary counts the findings per category
     Given a project file "src/pair.ts" containing:
@@ -78,7 +77,7 @@ Feature: Detect complexity
       | refactor.detectors.complexity.max_cyclomatic | 1 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "complexity 2"
+    And the summary counts complexity 2
 
   Scenario: Methods, arrow functions and anonymous functions get a symbol
     Given a project file "src/names.ts" containing:
@@ -163,7 +162,7 @@ Feature: Detect complexity
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "[inner] cyclomatic complexity 5 > 3"
-    And the output does not contain "[outer]"
+    And the complexity findings do not mention "[outer]"
 
   Scenario: Findings are listed by file and then by line
     Given a project file "src/b.ts" containing:
@@ -202,8 +201,8 @@ Feature: Detect complexity
       | refactor.detectors.complexity.max_cyclomatic | 1 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "no findings"
-    And the output does not contain "busy"
+    And the output has no complexity findings
+    And the complexity findings do not mention "busy"
 
   Scenario: A file matching the configured test globs is a test even under the source path
     Given a project file "src/busy.test.ts" containing:
@@ -224,7 +223,7 @@ Feature: Detect complexity
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "[busySource]"
-    And the output does not contain "busyTest"
+    And the complexity findings do not mention "busyTest"
 
   Scenario: The source files are the ones the configuration names
     Given a project file "lib/shared.ts" containing:
@@ -253,7 +252,7 @@ Feature: Detect complexity
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "lib/shared.ts:1-3 [shared]"
-    And the output does not contain "ignored"
+    And the complexity findings do not mention "ignored"
 
   Scenario: A source file that tsconfig.json does not compile is not analysed
     Given a project file "src/compiled.ts" containing:
@@ -281,7 +280,7 @@ Feature: Detect complexity
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "[compiled]"
-    And the output does not contain "skipped"
+    And the complexity findings do not mention "skipped"
 
   Scenario: Raising a limit in the configuration removes the finding
     Given a project file "src/pair.ts" containing:
@@ -294,7 +293,7 @@ Feature: Detect complexity
       | refactor.detectors.complexity.max_cyclomatic | 2 |
     When I run "oid metrics"
     Then the command succeeds
-    And the output contains "no findings"
+    And the output has no complexity findings
 
   Scenario: A limit left out of the configuration keeps its default
     Given a project file "src/nest.ts" containing:

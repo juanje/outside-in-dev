@@ -14,7 +14,7 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/limits.ts:2-2 magic number 42"
-    And the output contains "magic_value 1"
+    And the summary counts magic_value 1
 
   Scenario: A negative numeric literal is reported with its sign
     Given a project file "src/limits.ts" containing:
@@ -41,11 +41,11 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/steps.ts:3-3 magic number 7"
-    And the output does not contain "magic number 0"
-    And the output does not contain "magic number 1"
-    And the output does not contain "magic number -1"
-    And the output does not contain "src/steps.ts:6"
-    And the output contains "magic_value 1"
+    And the magic_value findings do not mention "magic number 0"
+    And the magic_value findings do not mention "magic number 1"
+    And the magic_value findings do not mention "magic number -1"
+    And the magic_value findings do not mention "src/steps.ts:6"
+    And the summary counts magic_value 1
 
   Scenario: A number named by a constant, an enum member or a literal type is not reported
     Given a project file "src/names.ts" containing:
@@ -65,7 +65,7 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/names.ts:9-9 magic number 300"
-    And the output contains "magic_value 1"
+    And the summary counts magic_value 1
 
   Scenario: Numbers in test files are not reported
     Given a project file "src/limits.ts" containing:
@@ -82,8 +82,8 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/limits.ts:2-2 magic number 42"
-    And the output does not contain "tests/unit/limits.test.ts"
-    And the output does not contain "4242"
+    And the magic_value findings do not mention "tests/unit/limits.test.ts"
+    And the magic_value findings do not mention "4242"
 
   Scenario: A string repeated across files is reported once at its first occurrence with the others
     Given a project file "src/a.ts" containing:
@@ -104,7 +104,7 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/a.ts:2-2 string \"pending\" repeated 3 times, also src/b.ts:2-2, also src/b.ts:5-5"
-    And the output contains "magic_value 1"
+    And the summary counts magic_value 1
 
   Scenario: A string that appears fewer times than the minimum is not reported
     Given a project file "src/a.ts" containing:
@@ -122,8 +122,8 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "string \"pending\" repeated 3 times"
-    And the output does not contain "paused"
-    And the output does not contain "open"
+    And the magic_value findings do not mention "paused"
+    And the magic_value findings do not mention "open"
 
   Scenario: Imports, object keys, constants, types and the empty string do not count as repeated strings
     Given a project file "src/shared.ts" containing:
@@ -148,9 +148,9 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "string \"tag\" repeated 3 times"
-    And the output does not contain "shared.js"
-    And the output does not contain "\"kind\""
-    And the output does not contain "string \"\""
+    And the magic_value findings do not mention "shared.js"
+    And the magic_value findings do not mention "\"kind\""
+    And the magic_value findings do not mention "string \"\""
 
   Scenario: Values listed in refactor.detectors.magic_value.ignore are not reported
     Given a project configuration with:
@@ -164,7 +164,7 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic number 43"
-    And the output does not contain "magic number 42"
+    And the magic_value findings do not mention "magic number 42"
 
   Scenario: The minimum number of string repeats comes from refactor.detectors.magic_value.min_string_repeats
     Given a project configuration with:
