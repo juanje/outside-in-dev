@@ -44,6 +44,20 @@ describe("formatFinding", () => {
   });
 });
 
+describe("formatFinding with a related location", () => {
+  it("appends the related location after the detail", () => {
+    const finding = {
+      id: "dup-0001",
+      category: "duplication" as const,
+      file: "src/a.ts",
+      range: { start: 1, end: 9 },
+      detail: "9 duplicated lines",
+      related: [{ file: "src/b.ts", range: { start: 3, end: 11 } }],
+    };
+    expect(formatFinding(finding)).toBe("duplication src/a.ts:1-9 9 duplicated lines, also src/b.ts:3-11");
+  });
+});
+
 describe("renderReport", () => {
   const finding = (id: string, start: number) => ({
     id,
@@ -62,5 +76,10 @@ describe("renderReport", () => {
 
   it("says there are no findings instead of printing counts", () => {
     expect(renderReport([])).toBe("no findings\n");
+  });
+
+  it("counts the categories that have findings, in category order", () => {
+    const duplicate = { ...finding("dup-0001", 7), category: "duplication" as const };
+    expect(renderReport([finding("cx-0001", 1), duplicate]).split("\n").at(-2)).toBe("complexity 1, duplication 1");
   });
 });
