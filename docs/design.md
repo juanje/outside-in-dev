@@ -460,7 +460,7 @@ These criteria also address the opposite problem, over-engineering: an abstracti
 
 #### Health metrics
 
-Every finished FR (and every `oid tidy`) appends a line to `.outside-in/metrics.jsonl` with: percentage of duplicated lines, maximum and mean complexity, number of unused exports and files, magic values, stale documentation, and the FR's findings (detected, resolved, discarded). The TUI shows the trend in the header of the progress view and the final report includes it (§12). Drift stops being noticed by eye every few sprints and becomes visible in every FR. The same metrics decide when to propose an `oid tidy` (§14.1).
+Every finished FR (and every `oid tidy`) appends a line to `.outside-in/metrics.jsonl` with: percentage of duplicated lines (for source code and for tests separately, so that duplication in tests does not hide the one in the code; ADR-027), maximum and mean complexity, number of unused exports and files, magic values, stale documentation, and the FR's findings (detected, resolved, discarded). The TUI shows the trend in the header of the progress view and the final report includes it (§12). Drift stops being noticed by eye every few sprints and becomes visible in every FR. The same metrics decide when to propose an `oid tidy` (§14.1).
 
 Can be disabled per scale: `refactor.micro`, `refactor.meso` (§16).
 
@@ -902,7 +902,7 @@ Default tools, those of the closest reference project, Buddy *(Buddy)*:
 
 ### 9.3. Analysis with the TypeScript compiler API
 
-`oid` is written in TypeScript, so analysis of the project's code happens in-process, with the `typescript` package (a `Program` over the project's `tsconfig.json`) and its language service. No external script is needed. It provides:
+`oid` is written in TypeScript, so analysis of the project's code happens in-process, with the classic compiler API (a `Program` over the project's `tsconfig.json`) and its language service. No external script is needed. The analysis engine is `typescript@6.0.3`, a runtime dependency under an npm alias, separate from the TypeScript 7 that compiles `oid` itself: TypeScript 7 only offers an API marked unstable (ADR-027). It provides:
 
 - **Signatures** of exported symbols, with their types and the first line of the JSDoc. Never bodies.
 - **Reuse catalogue** (§7.8).
@@ -1514,8 +1514,8 @@ Technical verifications before implementing:
 - [x] vitest 3 JSON report: shape of load errors and per-test failures (§6.4).
 - [x] A static import of a missing module in a step file prevents cucumber-js from starting, with no report (§9.2).
 - [ ] `vitest list`: id format, to verify the `report`'s `test`.
-- [ ] `knip` and `jscpd` on Buddy: entry configuration (worker, Svelte frontend, scripts) and false-positive rate.
-- [ ] Cost of `tsc --noEmit` in `CODE_GREEN` on a project the size of Buddy; if high, incremental mode or `tsc --build`.
+- [x] `knip` and `jscpd` on Buddy: entry configuration (worker, Svelte frontend, scripts) and false-positive rate. Spike S4, ADR-027.
+- [x] Cost of `tsc --noEmit` in `CODE_GREEN` on a project the size of Buddy; if high, incremental mode or `tsc --build`. About 7 s on Buddy: acceptable without incremental mode (S4, ADR-027).
 - [ ] Gherkin with `# language: es` in cucumber-js, if `artifact_language` is `es`.
 
 ---
