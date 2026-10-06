@@ -1045,6 +1045,10 @@
         {
           "name": "Commented-out code in a source file that tsconfig.json does not compile is reported",
           "bdd": "pass"
+        },
+        {
+          "name": "A JSDoc block whose prose reads like broken code does not stop the command",
+          "bdd": "pass"
         }
       ]
     },
