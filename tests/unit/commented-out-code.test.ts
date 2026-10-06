@@ -32,4 +32,9 @@ describe("findCommentedOutCode", () => {
     const text = "/*\nconst legacy = compute();\nlegacy.run();\n*/\nexport const value = 1;\n";
     expect(findCommentedOutCode(text)).toEqual([{ start: 1, end: 4 }]);
   });
+
+  it("never reports a JSDoc block, whatever its prose looks like", () => {
+    const text = "/**\n * Registers a package. Doing so is unsafe, and offering it\n * for import produces a permanently broken install.\n */\nexport const value = 1;\n";
+    expect(findCommentedOutCode(text)).toEqual([]);
+  });
 });

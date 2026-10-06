@@ -3,6 +3,7 @@ import ts from "typescript-api";
 const MIN_LINES = 2;
 const DIRECTIVE = /^\s*(@ts-|eslint-)/m;
 const MARKER_LENGTH = 2;
+const JSDOC_MARK = "*";
 
 interface Comment {
   start: number;
@@ -11,7 +12,7 @@ interface Comment {
   block: boolean;
 }
 
-/** The comments of the file, in order, each with its 1-based first and last line and its text without the markers. */
+/** The comments of the file other than JSDoc blocks, in order, each with its 1-based first and last line and its text without the markers. */
 function comments(sourceFile: ts.SourceFile): Comment[] {
   const found = new Map<number, Comment>();
   const collect = (ranges: ts.CommentRange[] | undefined): void => {
@@ -19,6 +20,7 @@ function comments(sourceFile: ts.SourceFile): Comment[] {
       const block = kind === ts.SyntaxKind.MultiLineCommentTrivia;
       const text = sourceFile.text.slice(pos + MARKER_LENGTH, block ? end - MARKER_LENGTH : end);
       const line = (offset: number): number => sourceFile.getLineAndCharacterOfPosition(offset).line + 1;
+      if (block && text.startsWith(JSDOC_MARK)) continue;
       found.set(pos, { start: line(pos), end: line(end), text, block });
     }
   };
