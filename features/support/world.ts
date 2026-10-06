@@ -1,10 +1,11 @@
 import { After, Before, BeforeAll, setWorldConstructor, World } from "@cucumber/cucumber";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProblem } from "./build-freshness.js";
+import { projectFiles } from "./project-files.js";
 import { runCli } from "../../src/run-cli.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -80,13 +81,7 @@ export class OidWorld extends World {
 
   /** Every file under the project directory, by relative path, with its content. */
   snapshotFiles(): Map<string, string> {
-    const files = new Map<string, string>();
-    for (const entry of readdirSync(this.dir, { recursive: true, withFileTypes: true })) {
-      if (!entry.isFile()) continue;
-      const rel = join(entry.parentPath, entry.name).slice(this.dir.length + 1);
-      files.set(rel, readFileSync(join(this.dir, rel), "utf8"));
-    }
-    return files;
+    return projectFiles(this.dir);
   }
 
   async run(commandLine: string): Promise<void> {
