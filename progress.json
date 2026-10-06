@@ -1096,6 +1096,11 @@
       "id": "FR-TIDY-04",
       "title": "Propose a cleanup",
       "status": "pending"
+    },
+    {
+      "id": "FR-CLI-01",
+      "title": "Command help",
+      "status": "pending"
     }
   ]
 }

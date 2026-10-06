@@ -1194,6 +1194,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 | `oid doctor` | Tools, credentials, connectivity with Pi and Jev. |
 | `oid clean [--run ID]` | Removes worktrees and data of finished runs. |
 | `oid progress <subcommand>` | Reads and writes `progress.json` with the rules of §4.4 (below). |
+| `oid --help`, `oid <command> [<subcommand>] --help` | Prints what the command does, its subcommands, arguments and options, and exits 0 (FR-CLI-01). |
 | `oid check` | Consistency checks of `progress.json` and traceability (§4.3), without running anything else. Useful in CI and in projects that do not use `oid run`. |
 
 `oid progress` reads and writes `progress.json` with the schema and transitions of §4.4:

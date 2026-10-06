@@ -98,6 +98,14 @@ Every command validates `progress.json` against its schema before and after writ
 
 `oid check` exits non-zero on any violation and offers JSON output, so it can run in the test suite, in a pre-commit hook and in agent hooks.
 
+## Functional Requirements — Command line
+
+
+
+### FR-CLI-01: Command help
+
+`oid --help`, `oid <command> --help` and `oid <command> <subcommand> --help` print what the command does, its subcommands, arguments and options, and exit 0. Anyone running oid, human or agent, can learn how to use it without triggering an error.
+
 ## Functional Requirements — Project setup
 
 
