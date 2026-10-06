@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runUnitTest, unitRunCommand } from "../../src/artifacts/verify-runner.js";
+import { bddRunCommand, runBddScenario, runUnitTest, unitRunCommand } from "../../src/artifacts/verify-runner.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
@@ -29,5 +29,34 @@ describe("runUnitTest", () => {
   it("returns no report when the command writes none, whatever an earlier run left", () => {
     write(".outside-in/verify/unit.json", '{"stale":true}');
     expect(runUnitTest(dir, "node -e 0", { file: "a.test.ts", name: "x" })).toEqual({ exitCode: 0, report: undefined });
+  });
+});
+
+describe("bddRunCommand", () => {
+  it("appends the feature location and the message report option to the configured command", () => {
+    expect(bddRunCommand("npx cucumber-js", { file: "features/a.feature", line: 12 }, ".outside-in/verify/bdd.ndjson")).toBe(
+      "npx cucumber-js 'features/a.feature:12' --format message:'.outside-in/verify/bdd.ndjson'",
+    );
+  });
+});
+
+describe("runBddScenario", () => {
+  const SCENARIO = { file: "features/a.feature", line: 12 };
+
+  it("runs the command through the shell in the project and returns its exit code, the text of the report and what it printed on stderr", () => {
+    write(
+      "runner.mjs",
+      'import { writeFileSync } from "node:fs";\nconst out = process.argv.find((a) => a.startsWith("message:")).slice(8);\nwriteFileSync(out, process.argv.slice(2).join(" "));\nconsole.error("it broke");\nprocess.exit(3);\n',
+    );
+    expect(runBddScenario(dir, "node runner.mjs", SCENARIO)).toEqual({
+      exitCode: 3,
+      report: "features/a.feature:12 --format message:.outside-in/verify/bdd.ndjson",
+      stderr: "it broke\n",
+    });
+  });
+
+  it("returns no report when the command writes none, whatever an earlier run left", () => {
+    write(".outside-in/verify/bdd.ndjson", "stale");
+    expect(runBddScenario(dir, "node -e 0", SCENARIO)).toEqual({ exitCode: 0, report: undefined, stderr: "" });
   });
 });

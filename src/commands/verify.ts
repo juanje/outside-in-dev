@@ -1,14 +1,15 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { recordCheckpoint } from "../artifacts/checkpoint.js";
+import { failingFile, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
+import { changedSinceCheckpoint, recordCheckpoint } from "../artifacts/checkpoint.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { readJson } from "../artifacts/project-json.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
-import { runUnitTest } from "../artifacts/verify-runner.js";
-import { parseUnitTarget } from "../artifacts/verify-target.js";
+import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
+import { parseBddTarget, parseUnitTarget } from "../artifacts/verify-target.js";
 import { normalizeVitestReport, selectTest, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import type { CliIo } from "../cli-io.js";
@@ -97,33 +98,69 @@ function decided(decision: RedClass): Verdict {
 }
 
 /** Records the checkpoint of a Red that was verified, with the feature in focus. */
-function recordRed(cwd: string, config: ProjectConfig, target: string, external: boolean): void {
+function recordRed(cwd: string, config: ProjectConfig, { step, target, external }: { step: string; target: string; external: boolean }): void {
   const feature = existsSync(join(cwd, config.paths.progress)) ? loadProgress(cwd, config.paths.progress).current_focus : null;
-  recordCheckpoint(cwd, { step: "tdd_red", feature, verify: { kind: RED, target }, external, date: new Date() });
+  recordCheckpoint(cwd, { step, feature, verify: { kind: RED, target }, external, date: new Date() });
 }
 
-/** Runs one unit test and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
+/** What the run of the test or of the scenario showed, with the file the failure's names are imported in and the checkpoint step it verifies. */
+interface Observation {
+  failure: Failure;
+  importer: string | undefined;
+  step: string;
+}
+
+/** The unit test or the scenario to verify. */
+const TARGET = { test: "unit_test", scenario: "scenario" } as const;
+type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
+
+/** Reads the target as a scenario location when it is one, and as a unit test otherwise. */
+function parseTarget(target: string): Target {
+  const scenario = parseBddTarget(target);
+  return scenario === undefined ? { kind: TARGET.test, test: parseUnitTarget(target) } : { kind: TARGET.scenario, scenario };
+}
+
+/** Runs one unit test and observes it. */
+function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; name: string }): Observation {
+  const { exitCode, report } = runUnitTest(cwd, config.commands.unit, test);
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "unit", exitCode } : observe(normalizeVitestReport(report), test);
+  return { failure, importer: test.file, step: "tdd_red" };
+}
+
+/** Runs one scenario and observes it. */
+function observeBdd(cwd: string, config: ProjectConfig, scenario: { file: string; line: number }): Observation {
+  const { exitCode, report, stderr } = runBddScenario(cwd, config.commands.bdd, scenario);
+  const changedFile = changedSinceCheckpoint(cwd).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report), scenario);
+  return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined, step: "bdd_red" };
+}
+
+/** The class of what the run showed, by the deterministic rules of the Red Gate. */
+function classifyObservation(cwd: string, config: ProjectConfig, { failure, importer }: Observation): Verdict {
+  return classifyFailure(failure, {
+    cwd,
+    isSource: (path) => isInsideSource(config.paths.source, path),
+    resolveSymbol: (name) => (importer === undefined ? "external" : resolveImportedSymbol(cwd, importer, name)),
+  });
+}
+
+/** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
 export function runVerify(io: CliIo, args: string[]): number {
   const { target, decision } = parseArgs(args);
-  const test = parseUnitTarget(target);
+  const parsed = parseTarget(target);
   const config = loadConfig(io.cwd);
-  const { exitCode, report } = runUnitTest(io.cwd, config.commands.unit, test);
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, exitCode } : observe(normalizeVitestReport(report), test);
-  const classified = classifyFailure(failure, {
-    cwd: io.cwd,
-    isSource: (path) => isInsideSource(config.paths.source, path),
-    resolveSymbol: (name) => resolveImportedSymbol(io.cwd, test.file, name),
-  });
+  const observation = parsed.kind === TARGET.test ? observeUnit(io.cwd, config, parsed.test) : observeBdd(io.cwd, config, parsed.scenario);
+  const classified = classifyObservation(io.cwd, config, observation);
   if (decision !== undefined && classified.outcome !== OUTCOME.decision) {
     throw new ProgressError(`${DECIDE_FLAG} is refused: this run does not need a decision (${classified.reason})`);
   }
   const verdict = decision === undefined ? classified : decided(decision);
   if (verdict.outcome === OUTCOME.decision) {
-    io.stdout(renderDecision(target, "message" in failure ? failure.message : "", verdict));
+    io.stdout(renderDecision(target, "message" in observation.failure ? observation.failure.message : "", verdict));
     return NEEDS_A_DECISION;
   }
   const valid = verdict.outcome === OUTCOME.valid;
-  if (valid) recordRed(io.cwd, config, target, decision !== undefined);
+  if (valid) recordRed(io.cwd, config, { step: observation.step, target, external: decision !== undefined });
   io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
   return valid ? 0 : 1;
 }

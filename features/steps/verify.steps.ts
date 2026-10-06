@@ -23,7 +23,7 @@ const FIXTURE_CONFIG = {
     design: [],
     progress: "progress.json",
   },
-  commands: { bdd: "npx cucumber-js", unit: "npx vitest run", typecheck: "npx tsc --noEmit", format: null, lint: null, coverage: null, extra_checks: [] },
+  commands: { bdd: 'NODE_OPTIONS="--import tsx" npx cucumber-js', unit: "npx vitest run", typecheck: "npx tsc --noEmit", format: null, lint: null, coverage: null, extra_checks: [] },
 };
 
 const FIXTURE_TSCONFIG = {
@@ -37,21 +37,29 @@ function readCheckpoint(world: OidWorld): { step: string; external: boolean; sna
   return JSON.parse(readFileSync(world.path(CHECKPOINT_FILE), "utf8"));
 }
 
+/** Writes a minimal TypeScript project with oid's configuration and oid's own dependencies linked in. */
+function writeProject(world: OidWorld): void {
+  world.write("package.json", `${JSON.stringify({ name: "fixture", private: true, type: "module" }, null, 2)}\n`);
+  world.write("tsconfig.json", `${JSON.stringify(FIXTURE_TSCONFIG, null, 2)}\n`);
+  world.write(".outside-in.json", `${JSON.stringify(FIXTURE_CONFIG, null, 2)}\n`);
+  world.write(".gitignore", "node_modules\n.outside-in\n");
+  symlinkSync(resolve(REPO_ROOT, "node_modules"), world.path("node_modules"), "dir");
+}
+
 Given("a TypeScript project with unit tests", function (this: OidWorld) {
-  this.write("package.json", `${JSON.stringify({ name: "fixture", private: true, type: "module" }, null, 2)}\n`);
-  this.write("tsconfig.json", `${JSON.stringify(FIXTURE_TSCONFIG, null, 2)}\n`);
-  this.write(".outside-in.json", `${JSON.stringify(FIXTURE_CONFIG, null, 2)}\n`);
-  this.write(".gitignore", "node_modules\n.outside-in\n");
-  symlinkSync(resolve(REPO_ROOT, "node_modules"), this.path("node_modules"), "dir");
+  writeProject(this);
 });
 
-Given("the source file {string} containing:", function (this: OidWorld, path: string, content: string) {
-  this.write(path, `${content}\n`);
+Given("a TypeScript project with BDD scenarios", function (this: OidWorld) {
+  writeProject(this);
+  this.write("cucumber.mjs", `export default { import: ["features/steps/**/*.ts"] };\n`);
 });
 
-Given("the unit test file {string} containing:", function (this: OidWorld, path: string, content: string) {
-  this.write(path, `${content}\n`);
-});
+for (const kind of ["source", "unit test", "feature", "step definitions"]) {
+  Given(`the ${kind} file {string} containing:`, function (this: OidWorld, path: string, content: string) {
+    this.write(path, `${content}\n`);
+  });
+}
 
 Then("the command needs a decision", function (this: OidWorld) {
   assert.equal(this.exitCode, NEEDS_A_DECISION, `expected exit code ${NEEDS_A_DECISION}, got ${this.exitCode}; stdout: ${this.stdout}; stderr: ${this.stderr}`);

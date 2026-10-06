@@ -10,4 +10,9 @@ describe("oid verify --help", () => {
     expect(stdout).toMatch(/^\s*--decide\s{2,}\S/m);
     expect(stdout).toContain("2  needs a decision");
   });
+
+  it("shows the usage of red for a scenario by the line where it starts", async () => {
+    const { stdout } = await run(["verify", "--help"]);
+    expect(stdout).toContain("oid verify red <feature file>:<line> [--decide <class>]");
+  });
 });

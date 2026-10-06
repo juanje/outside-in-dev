@@ -3,7 +3,7 @@ import { readFileSync, symlinkSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
-import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
+import { changedSinceCheckpoint, recordCheckpoint } from "../../src/artifacts/checkpoint.js";
 import { commitAll } from "./git-fixture.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
@@ -57,5 +57,30 @@ describe("recordCheckpoint", () => {
   it("refuses a project that is not a git repository with a commit, recording nothing", () => {
     write("src/a.ts", "export const a = 1;\n");
     expect(() => recordCheckpoint(dir, DETAILS)).toThrow(new ProgressError("a checkpoint compares with HEAD: this directory is not a git repository with a commit"));
+  });
+});
+
+describe("changedSinceCheckpoint", () => {
+  it("lists the files that differ from HEAD when there is no checkpoint: modified, untracked and deleted", () => {
+    write("src/a.ts", "export const a = 1;\n");
+    write("src/b.ts", "export const b = 1;\n");
+    write("src/c.ts", "export const c = 1;\n");
+    commitAll();
+    write("src/a.ts", "export const a = 2;\n");
+    write("src/new.ts", "export const n = 1;\n");
+    unlinkSync(join(dir, "src/b.ts"));
+    expect(changedSinceCheckpoint(dir).sort()).toEqual(["src/a.ts", "src/b.ts", "src/new.ts"]);
+  });
+
+  it("leaves out what the checkpoint holds unchanged, and lists what changed or appeared after it", () => {
+    write("src/a.ts", "export const a = 1;\n");
+    commitAll();
+    write("src/a.ts", "export const a = 2;\n");
+    write("tests/kept.test.ts", "// kept\n");
+    write("tests/edited.test.ts", "// first\n");
+    recordCheckpoint(dir, DETAILS);
+    write("tests/edited.test.ts", "// second\n");
+    write("tests/later.test.ts", "// later\n");
+    expect(changedSinceCheckpoint(dir).sort()).toEqual(["tests/edited.test.ts", "tests/later.test.ts"]);
   });
 });
