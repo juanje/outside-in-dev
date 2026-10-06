@@ -1049,6 +1049,14 @@
         {
           "name": "A JSDoc block whose prose reads like broken code does not stop the command",
           "bdd": "pass"
+        },
+        {
+          "name": "A run of line comments that reads like broken code does not stop the command",
+          "bdd": "pass"
+        },
+        {
+          "name": "The findings of the other detectors are still printed when a comment reads like broken code",
+          "bdd": "pass"
         }
       ]
     },

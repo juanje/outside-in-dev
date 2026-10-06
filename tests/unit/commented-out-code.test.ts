@@ -37,4 +37,9 @@ describe("findCommentedOutCode", () => {
     const text = "/**\n * Registers a package. Doing so is unsafe, and offering it\n * for import produces a permanently broken install.\n */\nexport const value = 1;\n";
     expect(findCommentedOutCode(text)).toEqual([]);
   });
+
+  it("takes prose that TypeScript parses as a broken statement for plain text, not for code", () => {
+    const text = "// Offering it\n// for import x\nexport const value = 1;\n";
+    expect(findCommentedOutCode(text)).toEqual([]);
+  });
 });
