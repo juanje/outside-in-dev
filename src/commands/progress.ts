@@ -121,6 +121,19 @@ export function progressHelp(): string {
   return `\nSubcommands:\n${entries.join("")}`;
 }
 
+type Action = (progress: Progress, io: Context, operands: string[]) => void;
+/** What each subcommand does once its operands are known to be complete; has the same keys as SUBCOMMAND_HELP. */
+const ACTIONS: Record<string, Action> = {
+  current: (progress, io) => showCurrent(progress, io),
+  status: (progress, io, operands) => showStatus(progress, io, operands.includes(ALL_FLAG)),
+  show: (progress, io, [id]) => showFeature(progress, io, id),
+  add: (progress, io, [id, title]) => addFeature(progress, io, id!, title!),
+  focus: (progress, io, [id]) => focusFeature(progress, io, id!),
+  step: (progress, io, [id, step]) => stepFeature(progress, io, id!, step!),
+  scenario: (progress, io, [status, id, name]) => recordFeatureScenario(progress, io, status!, id!, name!),
+  done: (progress, io, [id]) => doneFeature(progress, io, id!),
+};
+
 export function runProgress(args: string[], cli: CliIo): void {
   const [command, ...operands] = args;
   if (!SUBCOMMANDS.includes(command!)) {
@@ -135,14 +148,5 @@ export function runProgress(args: string[], cli: CliIo): void {
   }
   const io: Context = { ...cli, paths: loadProjectPaths(cli.cwd) };
   const progress = loadProgress(io.cwd, io.paths.progress);
-  if (command === "current") showCurrent(progress, io);
-  else if (command === "show") showFeature(progress, io, operands[0]);
-  else if (command === "add") addFeature(progress, io, operands[0]!, operands[1]!);
-  else if (command === "focus") focusFeature(progress, io, operands[0]!);
-  else if (command === "step") stepFeature(progress, io, operands[0]!, operands[1]!);
-  else if (command === "done") doneFeature(progress, io, operands[0]!);
-  else if (command === "scenario") {
-    const [status, id, name] = operands;
-    recordFeatureScenario(progress, io, status!, id!, name!);
-  } else showStatus(progress, io, operands.includes(ALL_FLAG));
+  ACTIONS[command]!(progress, io, operands);
 }
