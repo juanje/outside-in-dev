@@ -1,15 +1,14 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join, posix } from "node:path";
-import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
 import { ProgressError, PROGRESS_FILE, requireValid, saveProgress, validateProgress } from "../artifacts/progress.js";
+import { readJson, readText, TSCONFIG_FILE } from "../artifacts/project-json.js";
 import { convertProgress, type Conversion } from "../artifacts/progress-import.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { detectCommands, isOutsideInIgnored, withOutsideInIgnored } from "../artifacts/project-setup.js";
 import { parseRequirements, SPEC_FILE, validateSpec } from "../artifacts/spec.js";
 import type { CliIo } from "../cli-io.js";
 
-const TSCONFIG_FILE = "tsconfig.json";
 const PACKAGE_FILE = "package.json";
 const GITIGNORE_FILE = ".gitignore";
 const VITEST_CONFIGS = ["vitest.config.ts", "vitest.config.mts", "vitest.config.js", "vitest.config.mjs"];
@@ -35,36 +34,6 @@ type JsonObject = Record<string, unknown>;
 /** The value as a JSON object; undefined for anything else (arrays, strings, numbers, null). */
 function asObject(value: unknown): JsonObject | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonObject) : undefined;
-}
-
-/** Parses the text of a project file: tsconfig.json as JSON with comments and trailing commas, the rest as strict JSON. */
-function parseProjectJson(name: string, text: string): unknown {
-  if (name !== TSCONFIG_FILE) {
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) throw error;
-      throw new ProgressError(`${name} is not valid JSON: ${error.message}`);
-    }
-  }
-  const errors: ParseError[] = [];
-  const document: unknown = parseJsonc(text, errors, { allowTrailingComma: true });
-  if (errors.length > 0) {
-    const { error, offset } = errors[0]!;
-    throw new ProgressError(`${name} is not valid JSON: ${printParseErrorCode(error)} at offset ${offset}`);
-  }
-  return document;
-}
-
-/** Reads a JSON file of the project; undefined when it does not exist. The content is not trusted. */
-function readJson(cwd: string, name: string): unknown {
-  const text = readText(cwd, name);
-  return text === undefined ? undefined : parseProjectJson(name, text);
-}
-
-function readText(cwd: string, name: string): string | undefined {
-  const path = join(cwd, name);
-  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
 /** The text of the first of `names` that exists in the project; empty when none does. */

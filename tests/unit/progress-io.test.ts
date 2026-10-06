@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -20,6 +20,15 @@ describe("loadProgress", () => {
     writeFileSync(join(dir, "progress.json"), JSON.stringify(invalid));
     expect(() => loadProgress(dir)).toThrow(ProgressError);
     expect(() => loadProgress(dir)).toThrow(/features\[0\]\.notes: unknown field/);
+  });
+});
+
+describe("loadProgress with a progress file path", () => {
+  it("reads that file and names it in a violation", () => {
+    mkdirSync(join(dir, "specs"));
+    const invalid = { current_focus: null, features: [{ id: "FR-X-01", title: "", status: "pending" }] };
+    writeFileSync(join(dir, "specs", "progress.json"), JSON.stringify(invalid));
+    expect(() => loadProgress(dir, "specs/progress.json")).toThrow(/^specs\/progress\.json is invalid:\n.*features\[0\]\.title/);
   });
 });
 

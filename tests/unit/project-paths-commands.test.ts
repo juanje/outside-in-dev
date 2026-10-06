@@ -1,0 +1,137 @@
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { runCli } from "../../src/run-cli.js";
+
+let dir: string;
+
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "oid-unit-"));
+  writeConfig(["specs/features/**/*.feature"]);
+});
+
+afterEach(() => {
+  rmSync(dir, { recursive: true, force: true });
+});
+
+function write(name: string, content: string): void {
+  mkdirSync(dirname(join(dir, name)), { recursive: true });
+  writeFileSync(join(dir, name), content);
+}
+
+function writeConfig(bddFeatures: string[]): void {
+  const config = {
+    version: 1,
+    stack: "typescript",
+    paths: {
+      source: ["src/**"],
+      shared: [],
+      unit_tests: ["tests/**"],
+      bdd_features: bddFeatures,
+      bdd_steps: [],
+      docs: [],
+      spec: "specs/SPEC.md",
+      design: [],
+      progress: "specs/progress.json",
+    },
+    commands: { bdd: "b", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] },
+  };
+  write(".outside-in.json", JSON.stringify(config));
+}
+
+function run(args: string[]) {
+  let stdout = "";
+  let stderr = "";
+  const exitCode = runCli(args, { cwd: dir, stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) });
+  return { exitCode, stdout, stderr };
+}
+
+const ALPHA_PROGRESS = { current_focus: null, features: [{ id: "FR-X-01", title: "Alpha", status: "pending" }] };
+
+describe("oid progress with .outside-in.json", () => {
+  it("reads the progress file named by paths.progress", () => {
+    write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
+    const { exitCode, stdout } = run(["progress", "status"]);
+    expect({ exitCode, stdout }).toEqual({ exitCode: 0, stdout: "FR-X-01  Alpha  pending\n" });
+  });
+
+  it("writes changes to the progress file named by paths.progress", () => {
+    write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
+    expect(run(["progress", "focus", "FR-X-01"]).exitCode).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "specs/progress.json"), "utf8")).current_focus).toBe("FR-X-01");
+    expect(existsSync(join(dir, "progress.json"))).toBe(false);
+  });
+
+  it("checks added features against the spec named by paths.spec", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    write("specs/progress.json", JSON.stringify({ current_focus: null, features: [] }));
+    expect(run(["progress", "add", "FR-X-01", "Alpha"]).exitCode).toBe(0);
+  });
+
+  it("names the configured spec in the message for a requirement it does not define", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    write("specs/progress.json", JSON.stringify({ current_focus: null, features: [] }));
+    expect(run(["progress", "add", "FR-X-02", "Beta"]).stderr).toBe("error: FR-X-02 is not defined in specs/SPEC.md\n");
+  });
+
+  it("names the configured progress file in the messages about tracked features", () => {
+    write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
+    expect(run(["progress", "show", "FR-X-09"]).stderr).toBe("error: FR-X-09 is not tracked in specs/progress.json\n");
+  });
+
+  it("names the configured progress file when a feature is already tracked", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    write("specs/progress.json", JSON.stringify(ALPHA_PROGRESS));
+    expect(run(["progress", "add", "FR-X-01", "Alpha"]).stderr).toBe("error: FR-X-01 is already tracked in specs/progress.json\n");
+  });
+
+  it("names the configured progress file when a change would make it invalid", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    write("specs/progress.json", JSON.stringify({ current_focus: null, features: [] }));
+    expect(run(["progress", "add", "FR-X-01", ""]).stderr).toMatch(/^error: specs\/progress\.json is invalid:\n/);
+  });
+});
+
+describe("oid check with .outside-in.json", () => {
+  it("reads the spec named by paths.spec and names it in the violations", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n\n### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    expect(run(["check"])).toEqual({ exitCode: 1, stdout: "specs/SPEC.md: FR-X-01: duplicate ID\n", stderr: "" });
+  });
+
+  it("reports a missing spec by the path configured in paths.spec", () => {
+    expect(run(["check"])).toEqual({ exitCode: 1, stdout: "specs/SPEC.md not found\n", stderr: "" });
+  });
+
+  it("reads the feature files matching every glob of paths.bdd_features and no others", () => {
+    writeConfig(["specs/features/**/*.feature", "extra/*.feature"]);
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    const untagged = "Feature: F\n\n  Scenario: S\n    Given g\n";
+    write("specs/features/chat/a.feature", untagged);
+    write("extra/b.feature", untagged);
+    write("extra/deeper/c.feature", untagged);
+    write("features/stray.feature", untagged);
+    expect(run(["check"]).stdout).toBe(
+      "extra/b.feature: S: no @FR tag\nspecs/features/chat/a.feature: S: no @FR tag\n",
+    );
+  });
+
+  it("checks the progress file named by paths.progress and names it in the violations", () => {
+    write("specs/SPEC.md", "### FR-X-01: Alpha\n\nThe tool does alpha.\n");
+    write("specs/progress.json", JSON.stringify({ current_focus: "FR-X-09", features: [] }));
+    expect(run(["check"]).stdout).toBe("specs/progress.json: FR-X-09: focused but not tracked\n");
+  });
+
+  it("reports an invalid configuration as a config violation in the JSON document", () => {
+    write(".outside-in.json", JSON.stringify({ version: 2 }));
+    const { exitCode, stdout, stderr } = run(["check", "--json"]);
+    const report = JSON.parse(stdout) as { ok: boolean; violations: { check: string; message: string }[] };
+    expect({ exitCode, stderr, ok: report.ok, checks: report.violations.map((v) => v.check) }).toEqual({
+      exitCode: 1,
+      stderr: "",
+      ok: false,
+      checks: ["config"],
+    });
+    expect(report.violations[0]!.message).toMatch(/^\.outside-in\.json is invalid:\n.*version/);
+  });
+});
