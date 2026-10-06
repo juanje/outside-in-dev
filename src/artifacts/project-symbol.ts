@@ -12,8 +12,13 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   types: [],
 };
 
+/** The project-relative path of the TypeScript file that a relative import specifier of `importer` names. */
+export function moduleFileOf(importer: string, specifier: string): string {
+  return join(dirname(importer), specifier.replace(/\.js$/, ".ts"));
+}
+
 /** The names the module file exports, re-exports included. */
-function exportedNames(moduleFile: string): string[] {
+export function exportedNames(moduleFile: string): string[] {
   const program = ts.createProgram([moduleFile], COMPILER_OPTIONS);
   const checker = program.getTypeChecker();
   const symbol = checker.getSymbolAtLocation(program.getSourceFile(moduleFile)!);
@@ -53,6 +58,5 @@ export function resolveImportedSymbol(cwd: string, testFile: string, name: strin
   const testSource = ts.createSourceFile(testFile, readText(cwd, testFile)!, ts.ScriptTarget.ES2022, true);
   const specifier = importedFrom(testSource, name);
   if (specifier === undefined || !isRelativeSpecifier(specifier)) return "external";
-  const moduleFile = join(cwd, dirname(testFile), specifier.replace(/\.js$/, ".ts"));
-  return exportedNames(moduleFile).includes(name) ? "exists" : "missing";
+  return exportedNames(join(cwd, moduleFileOf(testFile, specifier))).includes(name) ? "exists" : "missing";
 }

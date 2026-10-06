@@ -1421,7 +1421,17 @@
     {
       "id": "FR-VERIFY-03",
       "title": "Check that steps load",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A step file that statically imports a module that does not exist yet is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step file that statically imports a name its module does not export yet is not a Red",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-VERIFY-04",

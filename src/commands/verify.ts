@@ -5,6 +5,7 @@ import { changedSinceCheckpoint, recordCheckpoint } from "../artifacts/checkpoin
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { readJson } from "../artifacts/project-json.js";
+import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
@@ -144,17 +145,34 @@ function classifyObservation(cwd: string, config: ProjectConfig, { failure, impo
   });
 }
 
+/** The verdict once a decision, if one was given, is applied; a decision is refused when the run needs none. */
+function settle(classified: Verdict, decision: RedClass | undefined): Verdict {
+  if (decision !== undefined && classified.outcome !== OUTCOME.decision) {
+    throw new ProgressError(`${DECIDE_FLAG} is refused: this run does not need a decision (${classified.reason})`);
+  }
+  return decision === undefined ? classified : decided(decision);
+}
+
+/** The answer for a scenario whose step files cucumber could not load, and nothing when they load or the target is a unit test. */
+function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): string | undefined {
+  const problems = parsed.kind === TARGET.scenario ? loadableStepsProblems(cwd, config) : [];
+  if (problems.length === 0) return undefined;
+  return `red: not valid (${RED_CLASS.testBug}): cucumber would not start, because of a static import of something that does not exist yet\n${problems.join(NEWLINE)}\n`;
+}
+
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
 export function runVerify(io: CliIo, args: string[]): number {
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(target);
   const config = loadConfig(io.cwd);
+  const unloadable = unloadableAnswer(io.cwd, config, parsed);
+  if (unloadable !== undefined) {
+    io.stdout(unloadable);
+    return 1;
+  }
   const observation = parsed.kind === TARGET.test ? observeUnit(io.cwd, config, parsed.test) : observeBdd(io.cwd, config, parsed.scenario);
   const classified = classifyObservation(io.cwd, config, observation);
-  if (decision !== undefined && classified.outcome !== OUTCOME.decision) {
-    throw new ProgressError(`${DECIDE_FLAG} is refused: this run does not need a decision (${classified.reason})`);
-  }
-  const verdict = decision === undefined ? classified : decided(decision);
+  const verdict = settle(classified, decision);
   if (verdict.outcome === OUTCOME.decision) {
     io.stdout(renderDecision(target, "message" in observation.failure ? observation.failure.message : "", verdict));
     return NEEDS_A_DECISION;
