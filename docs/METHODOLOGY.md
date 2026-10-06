@@ -52,8 +52,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 Refactor is not optional, but it is bounded:
 
-- Before FR-MET exists, check the code you just changed for: duplication with other code (including other modules), functions that grew too complex, literals that should be named constants, unused exports or locals, JSDoc that no longer matches.
-- From FR-MET on: `oid metrics --changed` lists the findings. Fix **exactly** those, nothing else.
+- Run `oid metrics --changed`: it lists the new findings on the lines changed since the last commit (duplication, complexity, dead code, magic values, documentation drift). Fix **exactly** those, nothing else. Findings that were already in the baseline are left out (`oid metrics --baseline` records it; `.outside-in/` is local).
 - Behaviour must not change: the whole suite stays green, and source and tests are never refactored in the same change.
 - Do not extract a helper with a single use unless it reduces complexity; a new exported symbol needs at least two references.
 
@@ -61,7 +60,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 ### 6. Feature refactor and quality gate [`quality_gate`]
 
-- Review the whole diff of the feature (tests, steps and docs included) for the same findings as step 5, and fix them as separate refactor commits or changes.
+- Run `oid metrics --changed` over the whole diff of the feature (tests, steps and docs included) and fix its findings as separate refactor commits or changes.
 - Run the full quality gate (`AGENTS.md`). Every check passes, or go back to the step that owns the failure.
 
 ### 7. Done

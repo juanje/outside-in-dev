@@ -35,11 +35,10 @@ npx tsc --noEmit
 npm run test:unit
 npm run test:bdd
 oid check
+oid metrics --changed
 ```
 
-`oid check` is the installed build. It also runs as a git pre-commit hook: install it with `cp scripts/pre-commit .git/hooks/pre-commit`.
-
-Plus, once it exists, `oid metrics --changed` (FR-MET). `docs/BOOTSTRAP.md` says when it joins the gate.
+`oid check` and `oid metrics` are the installed build. Both run as a git pre-commit hook: install it with `cp scripts/pre-commit .git/hooks/pre-commit`. `oid metrics --changed` fails only on new findings on the lines changed since the last commit; existing ones are in the local baseline (`oid metrics --baseline`, once per clone). CI runs `oid check` only: after the commit there are no changed lines to judge.
 
 ## Rules
 
