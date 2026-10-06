@@ -18,7 +18,8 @@
     ],
     "docs": [
       "README.md",
-      "docs/**"
+      "docs/METHODOLOGY.md",
+      "docs/bootstrap-log.md"
     ],
     "spec": "SPEC.md",
     "design": [
