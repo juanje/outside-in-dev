@@ -37,5 +37,10 @@
     "lint": null,
     "coverage": null,
     "extra_checks": []
+  },
+  "refactor": {
+    "entry": [
+      "src/cli.ts"
+    ]
   }
 }

@@ -11,7 +11,7 @@
     "oid": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
     "test:bdd": "npm run build && NODE_OPTIONS=\"--import tsx\" cucumber-js",
