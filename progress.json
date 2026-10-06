@@ -942,6 +942,18 @@
         {
           "name": "The summary counts duplication next to the other categories",
           "bdd": "pass"
+        },
+        {
+          "name": "A block duplicated between two test files that tsconfig.json does not compile is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block duplicated between a source file and an uncompiled test file is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A block duplicated between two source files that tsconfig.json does not compile is reported",
+          "bdd": "pass"
         }
       ]
     },
@@ -1024,6 +1036,14 @@
         },
         {
           "name": "The summary counts dead code next to the other categories",
+          "bdd": "pass"
+        },
+        {
+          "name": "Commented-out code in a test file that tsconfig.json does not compile is reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "Commented-out code in a source file that tsconfig.json does not compile is reported",
           "bdd": "pass"
         }
       ]
