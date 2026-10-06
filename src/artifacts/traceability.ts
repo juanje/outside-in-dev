@@ -1,11 +1,21 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { AstBuilder, GherkinClassicTokenMatcher, Parser } from "@cucumber/gherkin";
 import { IdGenerator } from "@cucumber/messages";
+import { globSync } from "tinyglobby";
 
 const REQUIREMENT_TAG = /^@(?:FR|NFR)-/;
 
 export interface FeatureSource {
   path: string;
   text: string;
+}
+
+/** The feature files that match the globs, sorted, with their text. */
+export function readFeatureSources(cwd: string, globs: string[]): FeatureSource[] {
+  return globSync(globs, { cwd })
+    .sort()
+    .map((path) => ({ path, text: readFileSync(join(cwd, path), "utf8") }));
 }
 
 export interface TraceabilityViolation {
@@ -18,6 +28,11 @@ export interface ListedScenario {
   file: string;
   name: string;
   tags: string[];
+}
+
+export interface LocatedScenario extends ListedScenario {
+  /** The line where the scenario starts. */
+  line: number;
 }
 
 const PARSER_ERRORS_HEADING = "Parser errors:";
@@ -37,7 +52,12 @@ function parseFeature(text: string) {
 
 /** Lists every scenario of the feature files with its effective tags (Feature, Rule, own). */
 export function listScenarios(sources: FeatureSource[]): ListedScenario[] {
-  const listed: ListedScenario[] = [];
+  return listLocatedScenarios(sources).map(({ line: _line, ...scenario }) => scenario);
+}
+
+/** Lists every scenario of the feature files with its effective tags and the line where it starts. */
+export function listLocatedScenarios(sources: FeatureSource[]): LocatedScenario[] {
+  const listed: LocatedScenario[] = [];
   for (const { path, text } of sources) {
     const { feature } = parseFeature(text);
     if (!feature) continue;
@@ -49,7 +69,7 @@ export function listScenarios(sources: FeatureSource[]): ListedScenario[] {
         ),
       ];
       for (const { scenario: item, inherited } of found) {
-        listed.push({ file: path, name: item.name, tags: [...inherited, ...item.tags].map(({ name }) => name) });
+        listed.push({ file: path, name: item.name, line: item.location.line, tags: [...inherited, ...item.tags].map(({ name }) => name) });
       }
     }
   }

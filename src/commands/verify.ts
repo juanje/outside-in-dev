@@ -1,10 +1,8 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { failingFile, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
-import { changedSinceCheckpoint, recordCheckpoint } from "../artifacts/checkpoint.js";
-import { loadProgress, ProgressError } from "../artifacts/progress.js";
-import { CONFIG_FILE, parseProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
-import { readJson } from "../artifacts/project-json.js";
+import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
+import { ProgressError } from "../artifacts/progress.js";
+import { type ProjectConfig } from "../artifacts/project-config.js";
+import { loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
@@ -13,10 +11,11 @@ import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { parseBddTarget, parseUnitTarget } from "../artifacts/verify-target.js";
 import { normalizeVitestReport, selectTest, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
+import { GREEN, runGreen } from "./verify-green.js";
 import type { CliIo } from "../cli-io.js";
 
 const RED = "red";
-const SUBCOMMANDS = [RED];
+const SUBCOMMANDS = [RED, GREEN];
 const DECIDE_FLAG = "--decide";
 const DECISIONS: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation, RED_CLASS.testBug, RED_CLASS.environment];
 const VALID_RED_CLASSES: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation];
@@ -85,23 +84,10 @@ function parseArgs(args: string[]): { target: string; decision: RedClass | undef
   return { target, decision: decision as RedClass | undefined };
 }
 
-/** The project configuration; verification runs the commands it holds. */
-function loadConfig(cwd: string): ProjectConfig {
-  const document = readJson(cwd, CONFIG_FILE);
-  if (document === undefined) throw new ProgressError(`${CONFIG_FILE} not found: oid verify runs the commands it holds; run oid init first`);
-  return parseProjectConfig(document);
-}
-
 /** The class a person or an agent gave to a failure that needed a decision. */
 function decided(decision: RedClass): Verdict {
   const outcome = VALID_RED_CLASSES.includes(decision) ? OUTCOME.valid : OUTCOME.invalid;
   return { outcome, class: decision, reason: DECIDED_OUTSIDE_OID };
-}
-
-/** Records the checkpoint of a Red that was verified, with the feature in focus. */
-function recordRed(cwd: string, config: ProjectConfig, { step, target, external }: { step: string; target: string; external: boolean }): void {
-  const feature = existsSync(join(cwd, config.paths.progress)) ? loadProgress(cwd, config.paths.progress).current_focus : null;
-  recordCheckpoint(cwd, { step, feature, verify: { kind: RED, target }, external, date: new Date() });
 }
 
 /** What the run of the test or of the scenario showed, with the file the failure's names are imported in and the checkpoint step it verifies. */
@@ -162,9 +148,10 @@ function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): s
 
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
 export function runVerify(io: CliIo, args: string[]): number {
+  if (args[0] === GREEN) return runGreen(io);
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(target);
-  const config = loadConfig(io.cwd);
+  const config = loadVerifyConfig(io.cwd);
   const unloadable = unloadableAnswer(io.cwd, config, parsed);
   if (unloadable !== undefined) {
     io.stdout(unloadable);
@@ -178,7 +165,7 @@ export function runVerify(io: CliIo, args: string[]): number {
     return NEEDS_A_DECISION;
   }
   const valid = verdict.outcome === OUTCOME.valid;
-  if (valid) recordRed(io.cwd, config, { step: observation.step, target, external: decision !== undefined });
+  if (valid) recordVerified(io.cwd, config, { step: observation.step, verify: { kind: RED, target }, external: decision !== undefined });
   io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
   return valid ? 0 : 1;
 }
