@@ -2296,6 +2296,21 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-AGENT-09",
+      "title": "A test task receives public signatures",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A test task lists the name, the types and the first documentation line of the exported symbols",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test task receives the signatures of every module, imported or not",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

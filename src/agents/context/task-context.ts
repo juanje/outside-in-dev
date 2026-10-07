@@ -19,10 +19,13 @@ function scenarioText(cwd: string, { file, line }: ScenarioLocation): string {
     .trimEnd();
 }
 
-/** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure; nothing of the source or of other scenarios. */
+/** The reuse catalogue as a section of a prompt: the public signatures of the project's exported symbols, without bodies. */
+const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the project, without bodies):";
+
+/** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure, and the public signatures of the project; no body of the source and no other scenario. */
 export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
   const { file, line } = task.scenario;
-  return [`Scenario (${file}:${line}):`, scenarioText(cwd, task.scenario), "Failure:", task.failure].join(NEWLINE + NEWLINE);
+  return [`Scenario (${file}:${line}):`, scenarioText(cwd, task.scenario), "Failure:", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd)].join(NEWLINE + NEWLINE);
 }
 
 /** A file of the project as a section of a prompt: its path and its whole text. */
@@ -37,7 +40,7 @@ export function implementationContext(cwd: string, task: { tests: string[]; fail
     ["Failing tests:", ...task.tests.map((test) => fileSection(cwd, test))],
     ["Failure:", task.failure],
     ["Source the tests import:", ...imported.map((file) => fileSection(cwd, file))],
-    ["Reuse catalogue (exported symbols of the project, without bodies):", reuseCatalogue(cwd)],
+    [CATALOGUE_HEADING, reuseCatalogue(cwd)],
   ];
   return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
 }

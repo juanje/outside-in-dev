@@ -19,6 +19,15 @@ describe("task context", () => {
     expect(task).not.toContain("BODY-A");
   });
 
+  it("gives a test task the public signatures of the project's exported symbols, with the first documentation line and no body", () => {
+    writeMinimalConfig();
+    write("features/checkout.feature", FEATURE);
+    write("src/unrelated.ts", "/** Does something else.\n * Second line. */\nexport function other(id: string): void {\n  // BODY-OTHER\n}\n");
+    const task = testTaskContext(dir, { scenario: { file: "features/checkout.feature", line: 2 }, failure: "expected paid" });
+    for (const included of ["Reuse catalogue", "## src/unrelated.ts", "other(id: string): void", "Does something else."]) expect(task).toContain(included);
+    for (const left of ["BODY-OTHER", "Second line.", "voucher"]) expect(task).not.toContain(left);
+  });
+
   it("gives an implementation task the failing test, the failure, the code it imports and the catalogue, and no other source body or scenario", () => {
     writeMinimalConfig();
     write("features/checkout.feature", FEATURE);
