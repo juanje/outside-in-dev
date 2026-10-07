@@ -70,15 +70,15 @@ Feature: A scenario can be named by its name as well as by its location
     And the output starts with "red: valid (missing_implementation)"
     And the checkpoint records the step "bdd_red"
 
-  @FR-VERIFY-04 @process
+  @FR-VERIFY-04
   Scenario: A green takes several scenarios at once, by name and by location
-    When I run the built "oid verify green \"Greet Ann\" features/greeting.feature:8"
+    When I run "oid verify green \"Greet Ann\" features/greeting.feature:8"
     Then the command succeeds
     And the checkpoint of "FR-GREETING-01" lists the scenarios "Greet Ann" and "Greet Bob"
 
-  @FR-VERIFY-04 @process
+  @FR-VERIFY-04
   Scenario: A green refuses a name that no scenario has
-    When I run the built "oid verify green \"Greet Carol\""
+    When I run "oid verify green \"Greet Carol\""
     Then the command fails
     And the output contains "Greet Carol"
     And no checkpoint is recorded

@@ -49,7 +49,7 @@ Feature: Each feature keeps its own checkpoint
     Then the command fails
     And the output contains "tests/unit/greeting.test.ts changed a test while writing code"
 
-  @FR-VERIFY-04 @process
+  @FR-VERIFY-04
   Scenario: A green with a target writes the checkpoint of the target's feature
     Given a TypeScript project with BDD scenarios
     And the source file "src/greeting.ts" containing:
@@ -91,6 +91,6 @@ Feature: Each feature keeps its own checkpoint
       });
       """
     And the project is a git repository with its files committed
-    When I run the built "oid verify green features/greeting.feature:4"
+    When I run "oid verify green features/greeting.feature:4"
     Then the command succeeds
     And the checkpoint of "FR-GREETING-01" lists the scenario "Greet Ann"

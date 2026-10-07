@@ -58,31 +58,28 @@ Feature: A feature is done only with current evidence for every scenario
       """
     And the project is a git repository with its files committed
 
-  @process
   Scenario: Marking a feature done without any verification is refused
-    When I run the built "oid progress done FR-GREETING-01"
+    When I run "oid progress done FR-GREETING-01"
     Then the command fails
     And the error output contains "Greet Ann"
     And the error output contains "oid verify green"
     And the progress file is unchanged
 
-  @process
   Scenario: Marking a feature done after editing a verified file is refused
-    When I run the built "oid verify green"
+    When I run "oid verify green"
     And the source file "src/greeting.ts" containing:
       """
       export function greet(name: string): string {
         return `Hello, ${name}!`;
       }
       """
-    And I run the built "oid progress done FR-GREETING-01"
+    And I run "oid progress done FR-GREETING-01"
     Then the command fails
     And the error output contains "src/greeting.ts"
     And the progress file is unchanged
 
-  @process
   Scenario: A feature is marked done after a green that ran every scenario
-    When I run the built "oid verify green"
-    And I run the built "oid progress done FR-GREETING-01"
+    When I run "oid verify green"
+    And I run "oid progress done FR-GREETING-01"
     Then the command succeeds
     And the feature "FR-GREETING-01" has the status "done"
