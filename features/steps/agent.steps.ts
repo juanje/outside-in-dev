@@ -742,3 +742,45 @@ Then("the main copy's node_modules is untouched", function (this: OidWorld) {
 Then("the session offers the request_dependency tool: {word}", function (this: OidWorld, offered: string) {
   assert.equal(sandboxSession(this).getActiveToolNames().includes("request_dependency"), offered === "yes");
 });
+
+Given("the file {string} holds:", function (this: OidWorld, file: string, text: string) {
+  put(join(sandboxOf(this).project, file), `${text}\n`);
+});
+
+const tasks = new WeakMap<OidWorld, string>();
+
+function taskOf(world: OidWorld): string {
+  const task = tasks.get(world);
+  assert.ok(task !== undefined, "no task was built");
+  return task;
+}
+
+When("oid builds the test task from the scenario {string} and the failure {string}", async function (this: OidWorld, location: string, failure: string) {
+  const { testTaskContext } = await import("../../src/agents/context/task-context.js");
+  const [file, line] = location.split(":");
+  tasks.set(this, testTaskContext(sandboxOf(this).project, { scenario: { file: file!, line: Number(line) }, failure }));
+});
+
+When("oid builds the implementation task from the test {string} and the failure {string}", async function (this: OidWorld, test: string, failure: string) {
+  const { implementationContext } = await import("../../src/agents/context/task-context.js");
+  tasks.set(this, implementationContext(sandboxOf(this).project, { tests: [test], failure }));
+});
+
+Then("the task says {string}", function (this: OidWorld, text: string) {
+  assert.ok(taskOf(this).includes(text), `the task does not say ${text}: ${taskOf(this)}`);
+});
+
+Then("the task does not say {string}", function (this: OidWorld, text: string) {
+  assert.ok(!taskOf(this).includes(text), `the task says ${text}: ${taskOf(this)}`);
+});
+
+Then("the task lists the module {string} in its catalogue with the symbol {string} and the description {string}", function (this: OidWorld, module: string, symbol: string, description: string) {
+  const [, catalogue = ""] = taskOf(this).split("Reuse catalogue");
+  const section = catalogue.split(/^## /m).find((part) => part.startsWith(module));
+  assert.ok(section !== undefined, `the catalogue has no module ${module}: ${catalogue}`);
+  assert.ok(section.split("\n").some((line) => line.includes(symbol) && line.includes(description)), `no entry with ${symbol} and ${description}: ${section}`);
+});
+
+Then("the system prompt says {string}", function (this: OidWorld, text: string) {
+  assert.ok(sandboxSession(this).systemPrompt.includes(text), sandboxSession(this).systemPrompt);
+});

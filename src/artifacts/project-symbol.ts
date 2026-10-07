@@ -3,7 +3,7 @@ import ts from "typescript-api";
 import { readText } from "./project-json.js";
 import { isRelativeSpecifier } from "./source-roots.js";
 
-const COMPILER_OPTIONS: ts.CompilerOptions = {
+export const COMPILER_OPTIONS: ts.CompilerOptions = {
   module: ts.ModuleKind.NodeNext,
   moduleResolution: ts.ModuleResolutionKind.NodeNext,
   target: ts.ScriptTarget.ES2022,

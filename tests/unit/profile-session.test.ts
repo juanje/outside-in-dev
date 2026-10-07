@@ -55,3 +55,17 @@ describe("openProfileSession dependencies", () => {
     });
   });
 });
+
+describe("openProfileSession reuse", () => {
+  it("tells only the step that implements to search the reuse catalogue before writing new code", async () => {
+    writeMinimalConfig();
+    const request = { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions` };
+    const { sdk, calls } = fakePiSdk(() => ({ agent: {}, abort: async () => {} }));
+
+    await openProfileSession({ ...request, state: "CODE_GREEN" }, sdk);
+    await openProfileSession({ ...request, state: "TDD_RED" }, sdk);
+
+    expect(promptOf(calls[0])).toContain("search the reuse catalogue in your task before you write a new function or constant, and reuse what exists");
+    expect(promptOf(calls[1])).not.toContain("reuse catalogue");
+  });
+});
