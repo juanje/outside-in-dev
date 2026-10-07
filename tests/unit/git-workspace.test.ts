@@ -1,33 +1,18 @@
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { removeWorktree, startRun } from "../../src/artifacts/git-workspace.js";
+import { committedRepo, gitIn } from "./git-fixture.js";
 import { dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
 useTempDir();
 
 const noInstall = () => undefined;
 
-/** Runs git in a directory of the temporary project and returns its trimmed standard output. */
-function git(cwd: string, ...args: string[]): string {
-  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
-  const run = spawnSync("git", args, { cwd, env, encoding: "utf8" });
-  if (run.status !== 0) throw new Error(`git ${args.join(" ")}: ${run.stderr}`);
-  return run.stdout.trim();
-}
+const git = gitIn;
 
 /** A committed repository named "project" inside the temporary project; returns its path. */
-function projectRepo(): string {
-  const repo = join(dir, "project");
-  write("project/README.md", "# Project\n");
-  git(repo, "init", "--quiet");
-  git(repo, "config", "user.name", "Fixture");
-  git(repo, "config", "user.email", "fixture@example.com");
-  git(repo, "add", "-A");
-  git(repo, "commit", "--quiet", "--message", "fixture");
-  return repo;
-}
+const projectRepo = (): string => committedRepo("project", { "README.md": "# Project\n" });
 
 describe("startRun", () => {
   it("creates the worktree beside the repository on a new branch from HEAD and reports it", () => {
