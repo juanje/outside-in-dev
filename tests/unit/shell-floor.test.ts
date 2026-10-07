@@ -129,3 +129,18 @@ describe("checkShell", () => {
     }
   });
 });
+
+describe("checkShell and secrets", () => {
+  it("blocks every way of naming or reaching a secret and allows the other files", () => {
+    write(".env", "A=1");
+    write("config/server.pem", "x");
+    write("secrets/t.txt", "x");
+    symlinkSync("../.env", join(dir, "src/notes.txt"));
+    for (const command of ["cat .env", "cat ./src/../.env", "grep K .env.production", "grep --file=.env src/a.ts", "bash -c 'cat .env'", "head -n 1 < .env", "cp .env src/c.txt", "cat secrets/t.txt", "cat src/notes.txt", "grep -r K .", "grep -rn K config", "cat .*", "cat secrets/*", "cp -r . src/backup", "diff -r config src"]) {
+      expect(reasonFor(command), command).toContain("secret");
+    }
+    for (const command of ["grep -r a src", "cat src/a.ts", "ls .", "ls -l", "echo hi", "cat src/*.ts"]) {
+      expect(reasonFor(command), command).toBeUndefined();
+    }
+  });
+});

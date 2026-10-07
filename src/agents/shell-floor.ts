@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import { names } from "./names.js";
 import { isDenied, locate, matchesGlob } from "./containment.js";
+import { isSecret, reachesSecret } from "./secrets.js";
 import { parseShell, type SimpleCommand } from "./shell-parse.js";
 
 /** What the shell floor needs to know: the worktree, the project's quality-gate commands and the globs nobody writes and the orchestrator state no argument may name. */
@@ -16,6 +17,13 @@ const UNCHECKABLE = new Set(names("eval source . exec xargs env sudo nohup time 
 const WRITERS = new Set(names("rm rmdir mv cp touch mkdir tee ln chmod chown truncate install unlink shred rsync patch"));
 const IN_PLACE_EDITORS = new Set(names("sed perl"));
 const PROBES = names("ls cat head tail wc pwd echo grep diff sort uniq mkdir touch rm mv cp");
+const NAMES_ONLY = new Set(names("ls echo pwd mkdir touch rm"));
+const GREPS = new Set(names("grep egrep fgrep"));
+const RECURSIVE_FLAG = /^(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive|--dereference-recursive)$/;
+const FOLLOWING_FLAG = /^(-[a-zA-Z]*R[a-zA-Z]*|--dereference-recursive)$/;
+const HERE = ".";
+const INPUT = "<";
+const PATTERN_AND_PATH = 2;
 const SHELL_FLAGS = /^-[a-zA-Z]*c[a-zA-Z]*$/;
 const IN_PLACE_FLAG = /^(-[a-zA-Z]*i|--in-place)/;
 const FLAG_VALUE = /^(?:--?[\w-]+|[A-Za-z_]\w*)=(.*)$/;
@@ -64,9 +72,35 @@ function containmentVerdict(texts: string[], rules: ShellRules): Blocked | undef
   return undefined;
 }
 
+function secretReason(text: string): Blocked {
+  return blocked(`"${text}" is, or leads to, a secret file: no agent may read it, and nothing overrides that.`);
+}
+
+/** Every argument, `--option=value` value and input redirect that is a secret. */
+function namedSecretVerdict(simple: SimpleCommand, rules: ShellRules): Blocked | undefined {
+  const texts = [...simple.words.map((word) => word.text), ...simple.redirects.filter((redirect) => redirect.op === INPUT).map((redirect) => redirect.target)];
+  const named = texts.find((text) => {
+    const value = argumentValue(text);
+    return value !== undefined && isSecret(rules.worktree, value);
+  });
+  return named === undefined ? undefined : secretReason(named);
+}
+
+/** The directories and wildcards a command may read through: a recursive search of the worktree and every file a wildcard expands to must not reach a secret, and what the floor cannot walk is blocked. */
+function reachVerdict(name: string, simple: SimpleCommand, rules: ShellRules): Blocked | undefined {
+  if (NAMES_ONLY.has(name)) return undefined;
+  const flags = simple.words.slice(1).filter((word) => word.text.startsWith(DASH));
+  const operands = simple.words.slice(1).filter((word) => !word.text.startsWith(DASH));
+  const searches = GREPS.has(name) && flags.some((flag) => RECURSIVE_FLAG.test(flag.text));
+  const links = !GREPS.has(name) || flags.some((flag) => FOLLOWING_FLAG.test(flag.text));
+  const reached = searches && operands.length < PATTERN_AND_PATH ? [...operands, { text: HERE, glob: false }] : operands;
+  const found = reached.find((operand) => reachesSecret(rules.worktree, operand.text, { glob: operand.glob, links }));
+  return found === undefined ? undefined : blocked(`"${found.text}" reaches a secret file: no agent may read it, and nothing overrides that. Name the files you need.`);
+}
+
 function writtenTargets(name: string, simple: SimpleCommand): { text: string; glob: boolean }[] {
   const args = simple.words.slice(1);
-  const redirected = simple.redirects.filter((redirect) => redirect.op !== "<").map((redirect) => ({ text: redirect.target, glob: redirect.glob }));
+  const redirected = simple.redirects.filter((redirect) => redirect.op !== INPUT).map((redirect) => ({ text: redirect.target, glob: redirect.glob }));
   const edits = WRITERS.has(name) || (IN_PLACE_EDITORS.has(name) && args.some((word) => IN_PLACE_FLAG.test(word.text)));
   const named = edits ? args.filter((word) => !word.text.startsWith(DASH)) : [];
   const outputs = name === "dd" ? args.filter((word) => word.text.startsWith(OUTPUT_PREFIX)).map((word) => ({ text: word.text.slice(OUTPUT_PREFIX.length), glob: word.glob })) : [];
@@ -113,8 +147,8 @@ function simpleVerdict(simple: SimpleCommand, rules: ShellRules, depth: number):
   const early = wrapperVerdict(name, words);
   if (early) return early;
   if (SHELLS.has(name)) return shellVerdict(simple, rules, depth);
-  const reads = simple.redirects.filter((redirect) => redirect.op === "<").map((redirect) => redirect.target);
-  const found = writesVerdict(simple, name, rules) ?? containmentVerdict([...words, ...reads], rules) ?? (words.length > 0 ? policyVerdict(words, rules) : undefined);
+  const reads = simple.redirects.filter((redirect) => redirect.op === INPUT).map((redirect) => redirect.target);
+  const found = namedSecretVerdict(simple, rules) ?? reachVerdict(name, simple, rules) ?? writesVerdict(simple, name, rules) ?? containmentVerdict([...words, ...reads], rules) ?? (words.length > 0 ? policyVerdict(words, rules) : undefined);
   return found ?? ALLOWED;
 }
 

@@ -1829,7 +1829,57 @@
     {
       "id": "FR-AGENT-03",
       "title": "Secrets are never readable",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A secret file cannot be read in any step, the coder's whole-repository read included",
+          "bdd": "pass"
+        },
+        {
+          "name": "Searching, finding or listing a secret is blocked too",
+          "bdd": "pass"
+        },
+        {
+          "name": "A symbolic link to a secret is a secret",
+          "bdd": "pass"
+        },
+        {
+          "name": "The user's SSH, AWS and GnuPG directories are secrets",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project cannot make a secret readable",
+          "bdd": "pass"
+        },
+        {
+          "name": "Blocked reads of secrets count as denials",
+          "bdd": "pass"
+        },
+        {
+          "name": "A search of the whole project never returns the lines of a secret",
+          "bdd": "pass"
+        },
+        {
+          "name": "A search of the whole project never lists a secret file",
+          "bdd": "pass"
+        },
+        {
+          "name": "A directory listing never shows a secret file",
+          "bdd": "pass"
+        },
+        {
+          "name": "The shell cannot read a secret",
+          "bdd": "pass"
+        },
+        {
+          "name": "The shell cannot reach a secret through a directory or a wildcard",
+          "bdd": "pass"
+        },
+        {
+          "name": "The shell still reads and searches files that are not secrets",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-04",
