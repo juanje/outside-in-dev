@@ -68,6 +68,17 @@ Given(
   },
 );
 
+Given(
+  "a saved session of the run {string} with the state {string}, the worktree {string} and the target {string}",
+  function (this: OidWorld, runId: string, state: string, worktree: string, target: string) {
+    this.write(".outside-in/session.json", JSON.stringify({ runId, state, worktree, targetFrs: [target], pendingInput: null }));
+  },
+);
+
+Given("the session file {string} contains {string}", function (this: OidWorld, path: string, content: string) {
+  this.write(path, content);
+});
+
 When(
   "oid emits a state change from {string} to {string} because {string} for {string}",
   async function (this: OidWorld, from: string, to: string, reason: string, fr: string) {
@@ -83,6 +94,34 @@ When(
   "oid emits the error {string} with a detail of two lines, {string} and {string}",
   async function (this: OidWorld, message: string, first: string, second: string) {
     await emit(this, { type: "error", message, detail: `${first}\n${second}` });
+  },
+);
+
+When(
+  "oid emits a state change from {string} to {string} for {string} because of a reason of two lines, {string} and {string}",
+  async function (this: OidWorld, from: string, to: string, fr: string, first: string, second: string) {
+    await emit(this, { type: "state_change", from, to, reason: `${first}\n${second}`, fr });
+  },
+);
+
+When(
+  "oid emits a question of two lines, {string} and {string}, with the actions {string} and {string}",
+  async function (this: OidWorld, first: string, second: string, approve: string, reject: string) {
+    await emit(this, question(`${first}\n${second}`, approve, reject));
+  },
+);
+
+When(
+  "oid emits an error message of two lines, {string} and {string}",
+  async function (this: OidWorld, first: string, second: string) {
+    await emit(this, { type: "error", message: `${first}\n${second}` });
+  },
+);
+
+When(
+  "oid emits the error {string} with a detail of two lines, {string} and {string}, separated by a Windows line ending",
+  async function (this: OidWorld, message: string, first: string, second: string) {
+    await emit(this, { type: "error", message, detail: `${first}\r\n${second}` });
   },
 );
 
@@ -183,4 +222,32 @@ Then("the session still has the state {string}", function (this: OidWorld, state
 Then("no temporary session file is left in {string}", function (this: OidWorld, directory: string) {
   assert.ok(existsSync(this.path(directory)));
   assert.deepEqual(readdirSync(this.path(directory)).filter((name) => name.endsWith(".tmp")), []);
+});
+
+Then("the printed line contains no line break of any kind", function (this: OidWorld) {
+  assert.doesNotMatch(runOf(this).printed.replace(/\n$/, ""), /[\r\n]/);
+});
+
+Then("the first line is the question {string}", function (this: OidWorld, prompt: string) {
+  const line = printedLines(this)[0];
+  assert.ok(line !== undefined && line.includes(prompt), `"${line}" is not the question`);
+});
+
+Then("the second line mentions {string} and {string}", function (this: OidWorld, a: string, b: string) {
+  mentions(printedLines(this)[1], [a, b]);
+});
+
+Then("the output shows no stack trace", function (this: OidWorld) {
+  assert.doesNotMatch(runOf(this).printed, /^\s*at .*:\d+:\d+/m);
+});
+
+Then("{string} still contains {string}", function (this: OidWorld, path: string, content: string) {
+  assert.equal(readFileSync(this.path(path), "utf8"), content);
+});
+
+Then("the session has no state, no worktree and no target features", function (this: OidWorld) {
+  const session: Record<string, unknown> = savedSession(this);
+  assert.equal(session.state, undefined);
+  assert.equal(session.worktree, undefined);
+  assert.equal(session.targetFrs, undefined);
 });

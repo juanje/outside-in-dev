@@ -27,4 +27,18 @@ describe("savePendingInput", () => {
     savePendingInput(cwd, "run-1", request);
     expect(JSON.parse(readFileSync(sessionPath(), "utf8"))).toEqual({ runId: "run-1", state: "CODE_GREEN", pendingInput: request });
   });
+
+  it("does not carry the fields of the session of another run", () => {
+    mkdirSync(join(cwd, ".outside-in"));
+    writeFileSync(sessionPath(), JSON.stringify({ runId: "run-1", state: "CODE_GREEN", worktree: "/work/run-1", targetFrs: ["FR-CART-01"], pendingInput: null }));
+    savePendingInput(cwd, "run-2", request);
+    expect(JSON.parse(readFileSync(sessionPath(), "utf8"))).toEqual({ runId: "run-2", pendingInput: request });
+  });
+
+  it("refuses a session file that is not an object, naming the file and leaving it as it was", () => {
+    mkdirSync(join(cwd, ".outside-in"));
+    writeFileSync(sessionPath(), "[1, 2]");
+    expect(() => savePendingInput(cwd, "run-1", request)).toThrow(/\.outside-in\/session\.json is not an object/);
+    expect(readFileSync(sessionPath(), "utf8")).toBe("[1, 2]");
+  });
 });

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -32,5 +32,21 @@ describe("event bus", () => {
     const exitCode = bus().emit({ type: "waiting_input", request });
     expect(exitCode).toBe(3);
     expect(JSON.parse(readFileSync(join(cwd, ".outside-in/session.json"), "utf8"))).toEqual({ runId: "run-1", pendingInput: request });
+  });
+
+  it("reports an error that names the session file, and leaves the file alone, when the session is not valid JSON", () => {
+    mkdirSync(join(cwd, ".outside-in"));
+    writeFileSync(join(cwd, ".outside-in/session.json"), "{not json");
+    const request = { id: "request-1", prompt: "Accept the ambiguous Red?", actions: [{ key: "approve", label: "Approve" }] };
+    let exitCode: number | undefined;
+    expect(() => (exitCode = bus().emit({ type: "waiting_input", request }))).not.toThrow();
+    const [question, failure, ...rest] = printed.trimEnd().split("\n");
+    expect(question).toBe("waiting for input: Accept the ambiguous Red? [approve]");
+    expect(failure).toMatch(/^error: .*\.outside-in\/session\.json/);
+    expect(rest).toEqual([]);
+    expect(exitCode).toBe(1);
+    expect(readFileSync(join(cwd, ".outside-in/session.json"), "utf8")).toBe("{not json");
+    const logged = readFileSync(join(cwd, ".outside-in/runs/run-1/events.jsonl"), "utf8").trimEnd().split("\n");
+    expect(logged.map((line) => JSON.parse(line).type)).toEqual(["waiting_input", "error"]);
   });
 });

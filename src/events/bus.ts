@@ -1,11 +1,15 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { ProgressError } from "../artifacts/progress.js";
 import { runDirectory, savePendingInput } from "../orchestrator/session.js";
 import { plainLine } from "../ui/plain.js";
-import { WAITING_INPUT, type OIEvent, type OIEventBody } from "./types.js";
+import { ERROR_EVENT, WAITING_INPUT, type OIEvent, type OIEventBody } from "./types.js";
 
 /** The exit code of a process that waits for an answer and has no channel to receive it. */
 const WAITING_INPUT_EXIT_CODE = 3;
+
+/** The exit code of a process that cannot save the question it waits on. */
+const FAILURE_EXIT_CODE = 1;
 
 export type EventBusOptions = {
   cwd: string;
@@ -17,7 +21,7 @@ export type EventBusOptions = {
 /** Publishes the events of one run: each is logged, then printed as one plain line. */
 export function createEventBus(options: EventBusOptions) {
   const runDir = runDirectory(options.cwd, options.runId);
-  return {
+  const bus = {
     /** Logs and prints the event; returns the exit code the process must end with, if the event ends it. */
     emit(body: OIEventBody): number | undefined {
       const event: OIEvent = { ts: options.now(), runId: options.runId, ...body };
@@ -25,8 +29,15 @@ export function createEventBus(options: EventBusOptions) {
       appendFileSync(join(runDir, "events.jsonl"), `${JSON.stringify(event)}\n`);
       options.write(`${plainLine(event)}\n`);
       if (event.type !== WAITING_INPUT) return undefined;
-      savePendingInput(options.cwd, options.runId, event.request);
+      try {
+        savePendingInput(options.cwd, options.runId, event.request);
+      } catch (error) {
+        if (!(error instanceof ProgressError)) throw error;
+        bus.emit({ type: ERROR_EVENT, message: error.message });
+        return FAILURE_EXIT_CODE;
+      }
       return WAITING_INPUT_EXIT_CODE;
     },
   };
+  return bus;
 }

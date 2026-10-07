@@ -143,7 +143,8 @@ const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 export const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
 export const SCENARIO_FIELDS = ["name", "bdd"];
 
-function isObject(value: unknown): value is object {
+/** Whether the value is a JSON object: not null, not a list. */
+export function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

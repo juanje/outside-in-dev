@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
+import { isObject, ProgressError } from "../artifacts/progress.js";
 import { readJson } from "../artifacts/project-json.js";
 import type { InputRequest } from "../events/types.js";
 
@@ -31,8 +32,10 @@ export function updateSession(cwd: string, changes: Partial<RunSession>): void {
   writeSession(cwd, { ...(readJson(cwd, SESSION_FILE) as object), ...changes });
 }
 
-/** Saves the session of the run with the request that waits for an answer, keeping what an earlier session held. */
+/** Saves the session of the run with the request that waits for an answer, keeping what an earlier session of the same run held. */
 export function savePendingInput(cwd: string, runId: string, request: InputRequest): void {
-  const saved = (readJson(cwd, SESSION_FILE) ?? {}) as object;
-  writeSession(cwd, { ...saved, runId, pendingInput: request });
+  const saved = readJson(cwd, SESSION_FILE);
+  if (saved !== undefined && !isObject(saved)) throw new ProgressError(`${SESSION_FILE} is not an object`);
+  const sameRun = saved !== undefined && "runId" in saved && saved.runId === runId;
+  writeSession(cwd, { ...(sameRun ? saved : {}), runId, pendingInput: request });
 }

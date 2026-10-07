@@ -2254,6 +2254,30 @@
         {
           "name": "A question is also written to the event log",
           "bdd": "pass"
+        },
+        {
+          "name": "A reason that spans several lines is still printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question that spans several lines is still printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "An error message that spans several lines is still printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "Windows line endings are printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question while the session file is unusable is an error, and the file is left alone",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question of another run does not inherit the session of an earlier run",
+          "bdd": "pass"
         }
       ]
     },
