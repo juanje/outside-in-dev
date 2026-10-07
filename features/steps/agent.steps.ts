@@ -1,7 +1,7 @@
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { OidWorld } from "../support/world.js";
 
@@ -289,7 +289,9 @@ Then("the session offers a shell: {word}", function (this: OidWorld, shell: stri
 });
 
 Then("the session offers the tools: {}", function (this: OidWorld, tools: string) {
-  assert.deepEqual([...sandboxSession(this).getActiveToolNames()].sort(), tools.split(", ").sort());
+  // The built-in tools only: oid's own `report` tool is offered to every step and checked by agent-04.
+  const builtins = sandboxSession(this).getActiveToolNames().filter((name) => name !== "report");
+  assert.deepEqual([...builtins].sort(), tools.split(", ").sort());
 });
 
 Then("the session was not aborted", function (this: OidWorld) {
@@ -380,4 +382,106 @@ Then("the result the agent sees is", function (this: OidWorld, expected: string)
 
 Then("the reason says the file is a secret", function (this: OidWorld) {
   assertReasonMentions(this, "secret");
+});
+
+type ReportScenario = { edits: Array<(project: string) => void>; report?: Record<string, unknown>; outcome?: Awaited<ReturnType<typeof import("../../src/agents/runner.js").runAgent>> };
+
+const reportScenarios = new WeakMap<OidWorld, ReportScenario>();
+
+function reportScenarioOf(world: OidWorld): ReportScenario {
+  const found = reportScenarios.get(world) ?? { edits: [] };
+  reportScenarios.set(world, found);
+  return found;
+}
+
+Given("the agent changes {string}", function (this: OidWorld, file: string) {
+  reportScenarioOf(this).edits.push((project) => appendFileSync(join(project, file), "// changed by the agent\n"));
+});
+
+Given("the agent adds {string}", function (this: OidWorld, file: string) {
+  reportScenarioOf(this).edits.push((project) => put(join(project, file), "export const added = 1;\n"));
+});
+
+Given("the agent deletes {string}", function (this: OidWorld, file: string) {
+  reportScenarioOf(this).edits.push((project) => rmSync(join(project, file)));
+});
+
+Given(/^the agent ends by reporting done with the files (.*)$/, function (this: OidWorld, list: string) {
+  reportScenarioOf(this).report = { status: "done", files: quoted(list), summary: "Done." };
+});
+
+Given("the agent ends by reporting it is blocked by a {string} with the detail {string}", function (this: OidWorld, reason: string, detail: string) {
+  reportScenarioOf(this).report = { status: "blocked", reason, detail };
+});
+
+/** A Pi session whose prompt makes the scripted edits and then, when the script says so, calls the report tool, with the events Pi emits. */
+function scriptedSession(project: string, scenario: ReportScenario) {
+  const listeners: Array<(event: unknown) => void> = [];
+  const emit = (event: unknown) => listeners.forEach((listener) => listener(event));
+  return {
+    subscribe: (listener: (event: unknown) => void) => {
+      listeners.push(listener);
+      return () => listeners.splice(listeners.indexOf(listener), 1);
+    },
+    prompt: async () => {
+      for (const edit of scenario.edits) edit(project);
+      if (scenario.report !== undefined) {
+        emit({ type: "tool_execution_start", toolCallId: "call-1", toolName: "report", args: scenario.report });
+        emit({ type: "tool_execution_end", toolCallId: "call-1", toolName: "report", result: { content: [{ type: "text", text: "Report received." }] }, isError: false });
+      }
+      emit({ type: "message_end", message: { role: "assistant", stopReason: "stop", content: [] } });
+      emit({ type: "agent_end", messages: [] });
+    },
+    dispose: () => {},
+  };
+}
+
+When("oid runs the agent for the step {word}", async function (this: OidWorld, step: string) {
+  const { runAgent } = await import("../../src/agents/runner.js");
+  const { project, home } = sandboxOf(this);
+  const scenario = reportScenarioOf(this);
+  scenario.outcome = await runAgent(
+    { state: step as CycleState, prompt: "Do the task." },
+    { worktree: project, agentDir: join(home, "agent"), sessionsDir: this.path("report-runs/sessions"), openSession: async () => scriptedSession(project, scenario) },
+  );
+});
+
+function outcomeOf(world: OidWorld) {
+  const { outcome } = reportScenarioOf(world);
+  assert.ok(outcome, "the agent was not run");
+  return outcome;
+}
+
+Then("the attempt succeeds", function (this: OidWorld) {
+  assert.equal(outcomeOf(this).status, "done", JSON.stringify(outcomeOf(this)));
+});
+
+Then("the attempt fails", function (this: OidWorld) {
+  assert.equal(outcomeOf(this).status, "failed", JSON.stringify(outcomeOf(this)));
+});
+
+function failureOf(world: OidWorld): string {
+  const outcome = outcomeOf(world);
+  assert.equal(outcome.status, "failed");
+  return outcome.status === "failed" ? outcome.reason : "";
+}
+
+Then("the failure says the agent made no report", function (this: OidWorld) {
+  assert.match(failureOf(this), /no report/);
+});
+
+Then("the failure names the missing file {string}", function (this: OidWorld, file: string) {
+  assert.match(failureOf(this), new RegExp(`missing.*${file}`));
+});
+
+Then("the failure names the extra file {string}", function (this: OidWorld, file: string) {
+  assert.match(failureOf(this), new RegExp(`extra.*${file}`));
+});
+
+Then("the attempt is blocked with the reason {string} and the detail {string}", function (this: OidWorld, reason: string, detail: string) {
+  assert.deepEqual(outcomeOf(this), { status: "blocked", reason, detail });
+});
+
+Then("the session offers the tool {string}", function (this: OidWorld, tool: string) {
+  assert.ok(sandboxSession(this).getActiveToolNames().includes(tool), `${tool} is not offered`);
 });

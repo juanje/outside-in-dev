@@ -20,8 +20,11 @@ describe("openProfileSession", () => {
     await openProfileSession({ ...request, state: "CODE_GREEN" }, sdk);
     await openProfileSession({ ...request, state: "TDD_RED" }, sdk);
 
-    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash"], excludeTools: [], customTools: [], agentDir: "/oid/agent" });
-    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit"], excludeTools: ["bash"], customTools: [] });
+    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report"], excludeTools: [], agentDir: "/oid/agent" });
+    expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }]);
+    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report"], excludeTools: ["bash"] });
+    for (const call of calls) expect(promptOf(call)).toContain("call the report tool");
+    for (const call of calls) expect(promptOf(call)).toContain("orchestrator runs git and the tests");
 
     expect(promptOf(calls[0])).toContain("quality gate");
     expect(promptOf(calls[0])).toContain("read its output");
