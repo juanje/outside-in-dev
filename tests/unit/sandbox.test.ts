@@ -97,3 +97,21 @@ describe("installSandbox", () => {
     expect(aborts).toHaveLength(1);
   });
 });
+
+describe("installSandbox and secrets", () => {
+  it("blocks every tool that names a secret, in every profile, and counts it as a denial", async () => {
+    write(".env", "A=1");
+    write("secrets/t.txt", "x");
+    symlinkSync(".env", join(dir, "src/notes.txt"));
+    for (const profile of [tester, coder]) {
+      const { session, aborts } = fakeSession();
+      installSandbox(session, profile, { worktree: dir, tools: profile.builtins });
+      for (const [tool, path] of [["read", ".env"], ["grep", "secrets"], ["find", "secrets/t.txt"], ["ls", "secrets"], ["edit", "src/notes.txt"], ["write", "a/.env.local"]] as const) {
+        const verdict = await call(session, tool, { path, pattern: "x" });
+        expect(verdict, `${profile.state} ${tool} ${path}`).toMatchObject({ block: true });
+        expect(verdict?.reason, `${profile.state} ${tool} ${path}`).toContain("secret");
+      }
+      expect(aborts).toHaveLength(1);
+    }
+  });
+});

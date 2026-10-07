@@ -44,9 +44,15 @@ function resolveReal(path: string): string {
   return current;
 }
 
+/** The user's home: `HOME` when it is set, which is what a shell expands `~` to, else the operating system's answer. */
+export function userHome(): string {
+  const home = process.env.HOME;
+  return home === undefined || home === "" ? homedir() : home;
+}
+
 function expand(requested: string): string {
   const unprefixed = requested.startsWith("@") ? requested.slice(1) : requested;
-  return unprefixed === "~" || unprefixed.startsWith(`~${ROOT}`) ? join(homedir(), unprefixed.slice(1)) : unprefixed;
+  return unprefixed === "~" || unprefixed.startsWith(`~${ROOT}`) ? join(userHome(), unprefixed.slice(1)) : unprefixed;
 }
 
 /** The single path authority of the sandbox: resolves `requested` (relative to `worktree`) with symlinks followed on both sides and tells whether it ends up inside the worktree. */

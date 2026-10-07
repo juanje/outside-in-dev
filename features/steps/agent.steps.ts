@@ -312,3 +312,72 @@ Then("a forbidden call made through that hook is blocked", async function (this:
 Then("the reason names {string}", function (this: OidWorld, text: string) {
   assertReasonMentions(this, text);
 });
+
+function quoted(list: string): string[] {
+  return [...list.matchAll(/"([^"]*)"/g)].map((found) => found[1] ?? "");
+}
+
+Given(/^the project holds the secret files (.*)$/, function (this: OidWorld, list: string) {
+  for (const file of quoted(list)) put(join(sandboxOf(this).project, file), `SECRET=hunter2\n`);
+});
+
+function setHome(world: OidWorld): string {
+  const scenario = sandboxOf(world);
+  if (!homes.has(world)) homes.set(world, process.env.HOME);
+  process.env.HOME = scenario.home;
+  return scenario.home;
+}
+
+const homes = new Map<OidWorld, string | undefined>();
+
+After(function (this: OidWorld) {
+  if (!homes.has(this)) return;
+  const original = homes.get(this);
+  homes.delete(this);
+  if (original === undefined) delete process.env.HOME;
+  else process.env.HOME = original;
+});
+
+Given(/^the user's home holds the files (.*)$/, function (this: OidWorld, list: string) {
+  const home = setHome(this);
+  for (const file of quoted(list)) put(join(home, file), "SECRET=hunter2\n");
+});
+
+Given("the user's home holds the SSH key {string}", function (this: OidWorld, _name: string) {
+  put(join(setHome(this), ".ssh", "id_rsa"), "PRIVATE KEY hunter2\n");
+});
+
+Given("the project holds the symlink {string} to the user's SSH key", function (this: OidWorld, link: string) {
+  symlinkSync(join(sandboxOf(this).home, ".ssh", "id_rsa"), join(sandboxOf(this).project, link));
+});
+
+Given("the project's configuration lists {string} and {string} among its documentation paths", function (this: OidWorld, first: string, second: string) {
+  const paths = { ...PROJECT_CONFIG.paths, docs: [first, second] };
+  put(join(sandboxOf(this).project, ".outside-in.json"), JSON.stringify({ ...PROJECT_CONFIG, paths }));
+});
+
+When("the agent calls {string} on {string} {int} times", async function (this: OidWorld, tool: string, path: string, count: number) {
+  for (let i = 0; i < count; i++) await callTool(this, tool, { path });
+});
+
+const results = new WeakMap<OidWorld, string>();
+
+When("the agent calls {string} without a path and Pi returns", async function (this: OidWorld, tool: string, output: string) {
+  const args = { pattern: "x" };
+  await callTool(this, tool, args);
+  const after = sandboxSession(this).agent.afterToolCall;
+  assert.ok(after, "the session has no after-tool-call hook");
+  const call = { type: "toolCall" as const, id: "call-1", name: tool, arguments: args };
+  const result = { content: [{ type: "text" as const, text: output }], details: undefined };
+  const changed = await after({ assistantMessage: {} as never, toolCall: call, args, result, isError: false, context: {} as never });
+  const text = (changed?.content ?? result.content).map((part) => (part.type === "text" ? part.text : "")).join("");
+  results.set(this, text);
+});
+
+Then("the result the agent sees is", function (this: OidWorld, expected: string) {
+  assert.equal(results.get(this), expected);
+});
+
+Then("the reason says the file is a secret", function (this: OidWorld) {
+  assertReasonMentions(this, "secret");
+});
