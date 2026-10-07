@@ -19,9 +19,9 @@ npm install -g ./outside-in-dev-*.tgz
 | `oid check` | Check the specification, scenario traceability and progress. `--json` prints one JSON document. Exit 1 when something is wrong. |
 | `oid init` | Detect a TypeScript project's paths and commands, write `.outside-in.json`, and ignore `.outside-in/`. Creates `progress.json` from `SPEC.md` when none exists. |
 | `oid init --import-progress [path]` | Convert a progress file from an earlier schema and list what could not be carried over. |
-| `oid verify red` | Decide whether a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>`) is a valid Red. Exit 2 when it needs a decision; answer with `--decide <class>`. |
-| `oid verify green` | Run the unit suite and the scenarios that were passing, and report regressions and new type errors in source. |
-| `oid verify integrity` | Report changes outside the paths of the current step, and forbidden patterns. `--step` checks another step. |
+| `oid verify red` | Decide whether a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or `"<scenario name>"`) is a valid Red. A failing assertion on a line added since the last checkpoint is a valid Red. Exit 2 when it needs a decision; answer with `--decide <class>`, which answers the failure that run recorded without running the test again (run `oid verify red` again if anything changed since). |
+| `oid verify green` | Run the unit suite, the scenarios that were passing and the scenarios given as targets (`<file>:<line>` or `"<scenario name>"`, several at once), and report regressions and new type errors in source. A green records the checkpoint of the feature in focus and of each target's feature: it is the evidence `oid progress scenario pass` and `oid progress done` require. |
+| `oid verify integrity` | Report changes since the checkpoint of the focused feature outside the paths of the current step, and forbidden patterns. `--step` checks another step. |
 | `oid metrics` | Report code-health findings. `--changed` keeps only findings on lines changed since the last commit that the baseline does not already hold, and exits 1 when one remains. `--baseline` records the current findings as existing debt. |
 
 ## Documentation
