@@ -42,7 +42,7 @@ function kindOf(config: ProjectConfig, name: string): FileKind | undefined {
 
 /** Whether a feature file, as it was at the last checkpoint, belongs to a feature whose scenarios are approved. */
 function isApproved(cwd: string, name: string, progress: Progress | undefined): boolean {
-  const text = baseContent(cwd, name);
+  const text = baseContent(cwd, name, progress?.current_focus ?? null);
   if (text === undefined || progress === undefined) return false;
   const tagged = new Set(listScenarios([{ path: name, text }]).flatMap(({ tags }) => tags.map((tag) => FEATURE_TAG.exec(tag)?.[1] ?? "")));
   return progress.features.some(({ id, status, cycle_step }) => tagged.has(id) && (status === FEATURE_STATUS.done || APPROVED_STEPS.includes(cycle_step ?? "")));
@@ -56,18 +56,18 @@ function describeChange(cwd: string, config: ProjectConfig, progress: Progress |
   return {
     file,
     kind,
-    added: exists ? addedLines(cwd, file) : [],
+    added: exists ? addedLines(cwd, file, progress?.current_focus ?? null) : [],
     approvedFeature: kind === FILE_KIND.feature && isApproved(cwd, file, progress),
     sourceReads: exists && (kind === FILE_KIND.unitTest || kind === FILE_KIND.step) ? sourceReadLines(readText(cwd, file)!, file, isSource) : [],
   };
 }
 
-/** Checks the changes since the last checkpoint against the rules of a step: exit 0 when none breaks one, 1 when one does. */
+/** Checks the changes since the checkpoint of the feature in focus against the rules of a step: exit 0 when none breaks one, 1 when one does. */
 export function runIntegrity(io: CliIo, args: string[]): number {
   const config = loadVerifyConfig(io.cwd);
   const progress = existsSync(join(io.cwd, config.paths.progress)) ? loadProgress(io.cwd, config.paths.progress) : undefined;
   const step = stepToCheck(progress, args);
-  const files = changedSinceCheckpoint(io.cwd).map((file) => describeChange(io.cwd, config, progress, file));
+  const files = changedSinceCheckpoint(io.cwd, progress?.current_focus ?? null).map((file) => describeChange(io.cwd, config, progress, file));
   const violations = integrityViolations(step, files, forbiddenPatterns(config));
   io.stdout(violations.length === 0 ? `${INTEGRITY}: ok${NEWLINE}` : `${violations.join(NEWLINE)}${NEWLINE}`);
   return violations.length === 0 ? 0 : 1;

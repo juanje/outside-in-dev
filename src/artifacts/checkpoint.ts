@@ -21,6 +21,8 @@ export const OID_DIR = ".outside-in";
 const CHECKPOINT_FILE = `${OID_DIR}/checkpoint.json`;
 /** The content of the files of the snapshot, kept to tell later which lines were added since. */
 const CHECKPOINT_FILES = `${OID_DIR}/checkpoint-files`;
+/** The checkpoint of each feature, and the copies of its files, apart from the single checkpoint of a verification with no feature. */
+const CHECKPOINTS_DIR = `${OID_DIR}/checkpoints`;
 
 /** A scenario that a Green ran and that passed: the feature it is tagged with and its name. */
 export interface EvidenceScenario {
@@ -51,6 +53,26 @@ const checkpointSchema = z.object({
   verify: z.object({ kind: z.string() }).optional(),
   scenarios: z.array(z.object({ feature: z.string(), name: z.string() })).default([]),
 });
+
+/** A checkpoint file and the directory with the copies of the files of its snapshot. */
+interface CheckpointLocation {
+  file: string;
+  files: string;
+}
+
+/** Where the checkpoint of `feature` is written: its own file, or the single checkpoint for a verification with no feature. */
+function checkpointLocation(feature: string | null): CheckpointLocation {
+  return feature === null ? { file: CHECKPOINT_FILE, files: CHECKPOINT_FILES } : { file: `${CHECKPOINTS_DIR}/${feature}.json`, files: `${CHECKPOINTS_DIR}/${feature}.files` };
+}
+
+/** The checkpoint that judges `feature`: its own; without one, the single checkpoint when that names the feature (as oid wrote it before keeping one per feature); none otherwise. With no feature, the single checkpoint. */
+function locateCheckpoint(cwd: string, feature: string | null): CheckpointLocation | undefined {
+  const own = checkpointLocation(feature);
+  if (feature === null || existsSync(join(cwd, own.file))) return own;
+  const single = checkpointLocation(null);
+  const named = z.object({ feature: z.string() }).safeParse(readJson(cwd, single.file));
+  return named.success && named.data.feature === feature ? single : undefined;
+}
 
 /** Runs `git` with `args` in the project, giving it `input` to read: whether it succeeded and what it printed. */
 export function runGit(cwd: string, args: string[], input?: string): { ok: boolean; text: string } {
@@ -92,28 +114,30 @@ export function treeState(cwd: string): TreeState & { present: string[] } {
   return { present, deleted, snapshot: Object.fromEntries(present.map((name) => [name, hashFile(cwd, name)])) };
 }
 
-/** Records the verification that just passed in `.outside-in/checkpoint.json`, with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them. */
+/** Records the verification that just passed in the checkpoint of its feature (`.outside-in/checkpoints/<id>.json`, or `.outside-in/checkpoint.json` with no feature), with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them; the checkpoints of other features are left as they are. */
 export function recordCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): void {
   const { present, deleted, snapshot } = treeState(cwd);
-  rmSync(join(cwd, CHECKPOINT_FILES), { recursive: true, force: true });
+  const { file, files } = checkpointLocation(details.feature);
+  rmSync(join(cwd, files), { recursive: true, force: true });
   for (const name of present) {
-    mkdirSync(dirname(join(cwd, CHECKPOINT_FILES, name)), { recursive: true });
-    copyFileSync(join(cwd, name), join(cwd, CHECKPOINT_FILES, name));
+    mkdirSync(dirname(join(cwd, files, name)), { recursive: true });
+    copyFileSync(join(cwd, name), join(cwd, files, name));
   }
-  mkdirSync(join(cwd, OID_DIR), { recursive: true });
-  writeFileAtomic(join(cwd, CHECKPOINT_FILE), `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
+  mkdirSync(dirname(join(cwd, file)), { recursive: true });
+  writeFileAtomic(join(cwd, file), `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
 }
 
-/** What the last checkpoint recorded: the hash of each file that differed from HEAD then, and the files deleted then. Nothing when there is no checkpoint. */
-function lastCheckpoint(cwd: string): z.infer<typeof checkpointSchema> {
-  const parsed = checkpointSchema.safeParse(readJson(cwd, CHECKPOINT_FILE) ?? { snapshot: {} });
-  if (!parsed.success) throw new ProgressError(`${CHECKPOINT_FILE} is not a checkpoint oid wrote: verify again to record a new one`);
-  return parsed.data;
+/** What the checkpoint that judges `feature` recorded: the hash of each file that differed from HEAD then, the files deleted then, and where the copies of its files are. Nothing when there is no checkpoint. */
+function lastCheckpoint(cwd: string, feature: string | null): z.infer<typeof checkpointSchema> & { files: string | undefined } {
+  const location = locateCheckpoint(cwd, feature);
+  const parsed = checkpointSchema.safeParse((location && readJson(cwd, location.file)) ?? { snapshot: {} });
+  if (!parsed.success) throw new ProgressError(`${location?.file} is not a checkpoint oid wrote: verify again to record a new one`);
+  return { ...parsed.data, files: location?.files };
 }
 
-/** The kind of verification the last checkpoint records (undefined when there is none) and the scenarios it ran and that passed. */
-export function checkpointEvidence(cwd: string): { kind: string | undefined; scenarios: EvidenceScenario[] } {
-  const { verify, scenarios } = lastCheckpoint(cwd);
+/** The kind of verification the checkpoint of `feature` records (undefined when there is none) and the scenarios it ran and that passed. */
+export function checkpointEvidence(cwd: string, feature: string | null): { kind: string | undefined; scenarios: EvidenceScenario[] } {
+  const { verify, scenarios } = lastCheckpoint(cwd, feature);
   return { kind: verify?.kind, scenarios };
 }
 
@@ -123,9 +147,9 @@ function currentHash(cwd: string, name: string): string | undefined {
   return existsSync(path) && lstatSync(path).isFile() ? hashFile(cwd, name) : undefined;
 }
 
-/** The files that changed since the last checkpoint, or since HEAD when there is none: every file whose state is not the one the checkpoint recorded — its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file — including files that went back to HEAD's content and deleted files that came back. */
-export function changedSinceCheckpoint(cwd: string): string[] {
-  return changedSince(cwd, lastCheckpoint(cwd));
+/** The files that changed since the checkpoint of `feature` (the single checkpoint with no feature), or since HEAD when there is none: every file whose state is not the one the checkpoint recorded — its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file — including files that went back to HEAD's content and deleted files that came back. */
+export function changedSinceCheckpoint(cwd: string, feature: string | null): string[] {
+  return changedSince(cwd, lastCheckpoint(cwd, feature));
 }
 
 /** The files whose state is not the one `last` recorded: its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file. */
@@ -140,10 +164,11 @@ export function changedSince(cwd: string, last: TreeState): string[] {
   });
 }
 
-/** The content of `name` as it was at the last checkpoint, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
-export function baseContent(cwd: string, name: string): string | undefined {
-  const kept = join(cwd, CHECKPOINT_FILES, name);
-  if (name in lastCheckpoint(cwd).snapshot && existsSync(kept)) return readFileSync(kept).toString();
+/** The content of `name` as it was at the checkpoint of `feature`, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
+export function baseContent(cwd: string, name: string, feature: string | null): string | undefined {
+  const { snapshot, files } = lastCheckpoint(cwd, feature);
+  const kept = files === undefined ? undefined : join(cwd, files, name);
+  if (name in snapshot && kept !== undefined && existsSync(kept)) return readFileSync(kept).toString();
   const shown = runGit(cwd, ["show", `${HEAD}:${name}`]);
   return shown.ok ? shown.text : undefined;
 }

@@ -14,7 +14,7 @@ describe("changedSinceCheckpoint after going back to HEAD", () => {
     write("src/a.ts", "export const a = 2;\n");
     recordCheckpoint(dir, DETAILS);
     git("checkout", "--", "src/a.ts");
-    expect(changedSinceCheckpoint(dir)).toEqual(["src/a.ts"]);
+    expect(changedSinceCheckpoint(dir, DETAILS.feature)).toEqual(["src/a.ts"]);
   });
 
   it("reports a file the checkpoint recorded as deleted that is back, and an untracked file of the snapshot that is gone", () => {
@@ -25,6 +25,6 @@ describe("changedSinceCheckpoint after going back to HEAD", () => {
     recordCheckpoint(dir, DETAILS);
     git("checkout", "HEAD", "--", "src/a.ts");
     git("clean", "--quiet", "-f", "--", "src/new.ts");
-    expect(changedSinceCheckpoint(dir).sort()).toEqual(["src/a.ts", "src/new.ts"]);
+    expect(changedSinceCheckpoint(dir, DETAILS.feature).sort()).toEqual(["src/a.ts", "src/new.ts"]);
   });
 });

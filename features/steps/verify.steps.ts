@@ -7,6 +7,7 @@ import type { OidWorld } from "../support/world.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CHECKPOINT_FILE = ".outside-in/checkpoint.json";
+const CHECKPOINTS_DIR = ".outside-in/checkpoints";
 const NEEDS_A_DECISION = 2;
 
 const FIXTURE_CONFIG = {
@@ -31,10 +32,17 @@ const FIXTURE_TSCONFIG = {
   include: ["src/**/*.ts", "tests/**/*.ts"],
 };
 
-/** The checkpoint file of the project, parsed. */
+/** The checkpoint of the feature in focus, or the single checkpoint when no feature is focused. */
+function checkpointFile(world: OidWorld): string {
+  const focus = world.loadProgress().current_focus;
+  return focus === null ? CHECKPOINT_FILE : `${CHECKPOINTS_DIR}/${focus}.json`;
+}
+
+/** The checkpoint of the feature in focus (the single checkpoint with no focus), parsed. */
 function readCheckpoint(world: OidWorld): { step: string; external: boolean; snapshot: Record<string, string>; scenarios: { feature: string; name: string }[] } {
-  assert.ok(existsSync(world.path(CHECKPOINT_FILE)), `no checkpoint was recorded; stdout: ${world.stdout}; stderr: ${world.stderr}`);
-  return JSON.parse(readFileSync(world.path(CHECKPOINT_FILE), "utf8"));
+  const file = checkpointFile(world);
+  assert.ok(existsSync(world.path(file)), `no checkpoint was recorded in ${file}; stdout: ${world.stdout}; stderr: ${world.stderr}`);
+  return JSON.parse(readFileSync(world.path(file), "utf8"));
 }
 
 /** Writes a minimal TypeScript project with oid's configuration and oid's own dependencies linked in. */
@@ -77,7 +85,7 @@ Then("the output starts with {string}", function (this: OidWorld, text: string) 
 });
 
 Then("no checkpoint is recorded", function (this: OidWorld) {
-  assert.ok(!existsSync(this.path(CHECKPOINT_FILE)), "a checkpoint was recorded");
+  assert.ok(!existsSync(this.path(CHECKPOINT_FILE)) && !existsSync(this.path(CHECKPOINTS_DIR)), "a checkpoint was recorded");
 });
 
 Then("the checkpoint records the step {string}", function (this: OidWorld, step: string) {
@@ -102,4 +110,30 @@ Then("the checkpoint lists the scenario {string} of {string}", function (this: O
 
 Then("the checkpoint lists no scenario", function (this: OidWorld) {
   assert.deepEqual(readCheckpoint(this).scenarios, []);
+});
+
+/** Records a checkpoint of `id` on the files of the project as they are now, as a verification of `id` would. */
+async function recordCheckpointOf(world: OidWorld, id: string | null, step: string, scenarios: { feature: string; name: string }[] = []): Promise<void> {
+  const { recordCheckpoint } = await import("../../src/artifacts/checkpoint.js");
+  const verify = { kind: step === "tdd_green" ? "green" : "red", target: "all" };
+  recordCheckpoint(world.dir, { step, feature: id, verify, external: false, date: new Date(), scenarios });
+}
+
+Given("a later green ran the scenario {string} of {string}", async function (this: OidWorld, name: string, id: string) {
+  await recordCheckpointOf(this, id, "tdd_green", [{ feature: id, name }]);
+});
+
+Given("a verification of {string} at step {string} is recorded", async function (this: OidWorld, id: string, step: string) {
+  await recordCheckpointOf(this, id, step);
+});
+
+Given("a single checkpoint of {string} at step {string} is recorded", async function (this: OidWorld, id: string, step: string) {
+  await recordCheckpointOf(this, null, step);
+  this.write(CHECKPOINT_FILE, JSON.stringify({ ...JSON.parse(readFileSync(this.path(CHECKPOINT_FILE), "utf8")), feature: id }));
+});
+
+Then("the checkpoint of {string} lists the scenario {string}", function (this: OidWorld, id: string, name: string) {
+  const path = this.path(`${CHECKPOINTS_DIR}/${id}.json`);
+  assert.ok(existsSync(path), `${id} has no checkpoint; stdout: ${this.stdout}; stderr: ${this.stderr}`);
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).scenarios, [{ feature: id, name }]);
 });

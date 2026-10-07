@@ -75,8 +75,8 @@ function distinctLocations(scenarios: FeatureScenarioLocation[]): FeatureScenari
   return scenarios.filter((scenario, at) => scenarios.findIndex(({ file, line }) => file === scenario.file && line === scenario.line) === at);
 }
 
-/** What the BDD run of the scenarios that progress records as passing and of the targets showed: its problems, and the scenarios that ran and passed. */
-function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): { problems: string[]; ran: EvidenceScenario[] } {
+/** What the BDD run of the scenarios that progress records as passing and of the targets showed: its problems, the scenarios that ran and passed, and the features the targets are tagged with. */
+function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): { problems: string[]; ran: EvidenceScenario[]; targeted: string[] } {
   const located = listLocatedScenarios(readFeatureSources(cwd, config.paths.bdd_features));
   const hasProgress = existsSync(join(cwd, config.paths.progress));
   const passing = hasProgress ? locatePassingScenarios(loadProgress(cwd, config.paths.progress), located) : { found: [], missing: [] };
@@ -84,19 +84,20 @@ function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): 
   const named = locateTargets(targets, located);
   const problems = [...named.problems, ...gone];
   const found = [...passing.found, ...named.found];
-  if (found.length === 0) return { problems, ran: [] };
+  const targeted = named.found.map(({ feature }) => feature);
+  if (found.length === 0) return { problems, ran: [], targeted };
   const unloadable = loadableStepsProblems(cwd, config);
-  if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [] };
+  if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [], targeted };
   const toRun = distinctLocations(found);
   const { exitCode, report } = runBddScenarios(cwd, config.commands.bdd, toRun);
-  if (report === undefined) return { problems: [noReport(SUITE.bdd, exitCode), ...problems], ran: [] };
+  if (report === undefined) return { problems: [noReport(SUITE.bdd, exitCode), ...problems], ran: [], targeted };
   const failing = bddProblems(report, toRun);
   const unexplained = failing.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, "failing scenario")] : [];
   const ran = [...new Map(found.map(({ feature, name }) => [`${feature}\0${name}`, { feature, name }])).values()];
-  return { problems: [...failing, ...unexplained, ...problems], ran };
+  return { problems: [...failing, ...unexplained, ...problems], ran, targeted };
 }
 
-/** Runs the unit suite, the scenarios that were passing, the scenarios named by `targets` and the type check, and says whether the Green has regressions: exit 0 when it has none, 1 when it has. A Green records the scenarios it ran as evidence. */
+/** Runs the unit suite, the scenarios that were passing, the scenarios named by `targets` and the type check, and says whether the Green has regressions: exit 0 when it has none, 1 when it has. A Green records the scenarios it ran as evidence, in the checkpoint of the feature in focus and of the feature of each target. */
 export function runGreen(io: CliIo, targets: string[] = []): number {
   const config = loadVerifyConfig(io.cwd);
   const scenarios = scenarioResult(io.cwd, config, targets);
@@ -105,7 +106,7 @@ export function runGreen(io: CliIo, targets: string[] = []): number {
     io.stdout(`green: ${problems.length} problem(s)${NEWLINE}${problems.join(NEWLINE)}${NEWLINE}`);
     return 1;
   }
-  recordVerified(io.cwd, config, { step: "tdd_green", verify: { kind: GREEN, target: "all" }, external: false, scenarios: scenarios.ran });
+  recordVerified(io.cwd, config, { step: "tdd_green", verify: { kind: GREEN, target: "all" }, external: false, scenarios: scenarios.ran }, scenarios.targeted);
   io.stdout(`green: ok${NEWLINE}`);
   return 0;
 }

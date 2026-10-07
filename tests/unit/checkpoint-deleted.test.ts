@@ -13,7 +13,7 @@ it("counts a file deleted since the checkpoint as changed, and one the checkpoin
   commitAll();
   rmSync(join(dir, "a.ts"));
   recordCheckpoint(dir, { step: "tdd_red", feature: null, verify: { kind: "red", target: "t" }, external: false, date: new Date() });
-  expect(changedSinceCheckpoint(dir)).toEqual([]);
+  expect(changedSinceCheckpoint(dir, null)).toEqual([]);
   rmSync(join(dir, "b.ts"));
-  expect(changedSinceCheckpoint(dir)).toEqual(["b.ts"]);
+  expect(changedSinceCheckpoint(dir, null)).toEqual(["b.ts"]);
 });

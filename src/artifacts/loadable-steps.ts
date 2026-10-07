@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript-api";
 import { changedSinceCheckpoint } from "./checkpoint.js";
+import { focusedFeature } from "./verified-checkpoint.js";
 import type { ProjectConfig } from "./project-config.js";
 import { readText } from "./project-json.js";
 import { exportedNames, moduleFileOf } from "./project-symbol.js";
@@ -53,10 +54,10 @@ export function missingStaticImports(cwd: string, file: string, isSource: (path:
 /** What to do about an import that cannot load: it must be a dynamic import inside the step. */
 const DYNAMIC_ADVICE = "which does not exist yet: import it dynamically inside the step";
 
-/** One line for each static import, in the step and support files that changed since the last checkpoint, of something under `paths.source` that does not exist yet; cucumber could not start with it. */
+/** One line for each static import, in the step and support files that changed since the checkpoint of the feature in focus, of something under `paths.source` that does not exist yet; cucumber could not start with it. */
 export function loadableStepsProblems(cwd: string, config: ProjectConfig): string[] {
   const isSource = (path: string): boolean => isInsideSource(config.paths.source, path);
-  return changedSinceCheckpoint(cwd)
+  return changedSinceCheckpoint(cwd, focusedFeature(cwd, config))
     .filter((file) => file.endsWith(TYPESCRIPT_EXTENSION) && isInsideSource(config.paths.bdd_steps, file) && existsSync(join(cwd, file)))
     .flatMap((file) => missingStaticImports(cwd, file, isSource))
     .map(({ file, line, name, specifier }) => `${file}:${line} imports ${name === undefined ? "" : `${name} from `}"${specifier}", ${DYNAMIC_ADVICE}`);

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
@@ -18,13 +19,15 @@ function runHook(mode: string, input: unknown): { status: number | null; stderr:
   return { status: run.status, stderr: run.stderr };
 }
 
-/** A project whose feature FR-X-01 is in tdd_green, with a Green verified on a change to its source. */
+/** A project whose feature FR-X-01 is in tdd_green, with a Green verified on a change to its source, recorded in the single checkpoint that names the feature, as oid v0.6 writes it. */
 function verifiedGreen(): void {
   write("src/a.ts", "export const a = 1;\n");
   write("progress.json", JSON.stringify({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "X", status: "in_progress", cycle_step: "tdd_green", scenarios: [] }] }));
   commitAll();
   write("src/a.ts", "export const a = 2;\n");
-  recordCheckpoint(dir, GREEN);
+  recordCheckpoint(dir, { ...GREEN, feature: null });
+  const single = join(dir, ".outside-in", "checkpoint.json");
+  writeFileSync(single, JSON.stringify({ ...JSON.parse(readFileSync(single, "utf8")), feature: GREEN.feature }));
 }
 
 describe("the before-step hook", () => {

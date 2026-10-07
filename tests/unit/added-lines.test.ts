@@ -12,11 +12,11 @@ describe("addedLines", () => {
     commitAll();
     write("a.ts", "one\nTWO\nthree\nfour\n");
     write("new.ts", "x\ny\n");
-    expect(addedLines(dir, "a.ts")).toEqual([
+    expect(addedLines(dir, "a.ts", null)).toEqual([
       { line: 2, text: "TWO" },
       { line: 4, text: "four" },
     ]);
-    expect(addedLines(dir, "new.ts")).toEqual([
+    expect(addedLines(dir, "new.ts", null)).toEqual([
       { line: 1, text: "x" },
       { line: 2, text: "y" },
     ]);
@@ -30,7 +30,7 @@ describe("addedLines", () => {
     recordCheckpoint(dir, { step: "tdd_red", feature: null, verify: { kind: "red", target: "t" }, external: false, date: new Date() });
     write("a.ts", "one\nTWO\nthree\nfour\n");
     write("b.ts", "b1\nB2\n");
-    expect(addedLines(dir, "a.ts")).toEqual([{ line: 4, text: "four" }]);
-    expect(addedLines(dir, "b.ts")).toEqual([{ line: 2, text: "B2" }]);
+    expect(addedLines(dir, "a.ts", null)).toEqual([{ line: 4, text: "four" }]);
+    expect(addedLines(dir, "b.ts", null)).toEqual([{ line: 2, text: "B2" }]);
   });
 });
