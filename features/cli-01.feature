@@ -25,7 +25,7 @@ Feature: Command help
     And the output contains "oid progress show FR-xxx"
     And the output contains "oid progress add FR-xxx"
     And the output contains "oid progress step FR-xxx <cycle_step>"
-    And the output contains "oid progress scenario <pass|fail|pending> FR-xxx"
+    And the output contains "oid progress scenario <pass|fail|pending|drop> FR-xxx"
     And the output contains "oid progress done FR-xxx"
     And the error output is empty
 
@@ -58,7 +58,7 @@ Feature: Command help
   Scenario: oid progress scenario --help names the allowed statuses
     When I run "oid progress scenario --help"
     Then the command succeeds
-    And the output contains "usage: oid progress scenario <pass|fail|pending> FR-xxx"
+    And the output contains "usage: oid progress scenario <pass|fail|pending|drop> FR-xxx"
     And the output contains "pass"
     And the output contains "fail"
     And the output contains "pending"

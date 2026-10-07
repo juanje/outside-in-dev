@@ -51,7 +51,7 @@ describe("progress subcommand arguments", () => {
     const { exitCode, stdout, stderr } = await run(["progress", "scenario", "pass", "FR-X-01"]);
     expect(exitCode).toBe(1);
     expect(stdout).toBe("");
-    expect(stderr).toContain('usage: oid progress scenario <pass|fail|pending> FR-xxx "<scenario name>"');
+    expect(stderr).toContain('usage: oid progress scenario <pass|fail|pending|drop> FR-xxx "<scenario name>"');
   });
 
   it.each([

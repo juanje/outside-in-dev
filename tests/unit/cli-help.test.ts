@@ -55,7 +55,7 @@ describe("oid progress --help", () => {
     expect(stdout).toContain("oid progress show FR-xxx");
     expect(stdout).toContain('oid progress add FR-xxx "<title>"');
     expect(stdout).toContain("oid progress step FR-xxx <cycle_step>");
-    expect(stdout).toContain('oid progress scenario <pass|fail|pending> FR-xxx "<scenario name>"');
+    expect(stdout).toContain('oid progress scenario <pass|fail|pending|drop> FR-xxx "<scenario name>"');
   });
 });
 
@@ -77,7 +77,7 @@ describe("oid progress scenario --help", () => {
     const { exitCode, stdout, stderr } = await run(["progress", "scenario", "--help"]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(stdout).toContain('usage: oid progress scenario <pass|fail|pending> FR-xxx "<scenario name>"');
+    expect(stdout).toContain('usage: oid progress scenario <pass|fail|pending|drop> FR-xxx "<scenario name>"');
     expect(stdout).toContain("Statuses: pass, fail, pending");
   });
 });
