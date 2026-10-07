@@ -1,14 +1,25 @@
 import * as pi from "@earendil-works/pi-coding-agent";
+import { type Installer, runInstall } from "../artifacts/git-dependencies.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { installEditHints } from "./edit-hints.js";
-import { type CycleState, type Profile, profileFor } from "./profiles.js";
+import { type CycleState, FEATURE_WRITE, type Profile, profileFor } from "./profiles.js";
 import { openAgentSession, type PiSdk } from "./runner.js";
 import { installSandbox } from "./sandbox.js";
 import { buildToolset } from "./toolset.js";
 import { reportTool } from "./tools/report.js";
+import { type DependencyDecision, type DependencyRequest, requestDependencyTool } from "./tools/request-dependency.js";
 
 /** What a step's session needs: the step, where it works, oid's agent directory and where its transcript goes. */
-export type ProfileSessionRequest = { state: CycleState; worktree: string; agentDir: string; sessionsDir: string };
+export type ProfileSessionRequest = {
+  state: CycleState;
+  worktree: string;
+  agentDir: string;
+  sessionsDir: string;
+  /** Who approves a requested package; without one no request is approved. */
+  approveDependency?: (request: DependencyRequest) => Promise<DependencyDecision>;
+  /** How a package manager command runs; by default the real one. */
+  installDependency?: Installer;
+};
 
 function systemPromptFor(profile: Profile): string {
   const lines = [`You are an oid agent working on the ${profile.state} step of a feature, in the project's worktree. Do only the task you are given.`];
@@ -22,7 +33,8 @@ function systemPromptFor(profile: Profile): string {
 /** Opens the session of a step: its tools and system prompt, with the sandbox of its profile installed on the session. */
 export async function openProfileSession(request: ProfileSessionRequest, sdk: PiSdk = pi) {
   const profile = profileFor(request.state, loadProjectConfig(request.worktree));
-  const toolset = buildToolset(profile, [reportTool]);
+  const dependencyTools = request.state !== FEATURE_WRITE ? [requestDependencyTool({ worktree: request.worktree, approve: request.approveDependency, install: request.installDependency ?? runInstall })] : [];
+  const toolset = buildToolset(profile, [reportTool, ...dependencyTools]);
   const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset }, sdk);
   installSandbox(session, profile, { worktree: request.worktree, tools: toolset.names });
   if (toolset.names.includes("edit")) installEditHints(session);

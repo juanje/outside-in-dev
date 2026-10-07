@@ -60,3 +60,11 @@ describe("profileFor", () => {
     }
   });
 });
+
+describe("profileFor deny list", () => {
+  it("denies every package manager's manifest and lockfile to every step", () => {
+    for (const state of CYCLE_STATES) {
+      expect(profileFor(state, config).deny).toEqual(expect.arrayContaining(["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"]));
+    }
+  });
+});
