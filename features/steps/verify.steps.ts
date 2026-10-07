@@ -56,13 +56,16 @@ Given("a TypeScript project with BDD scenarios", function (this: OidWorld) {
 });
 
 for (const kind of ["source", "unit test", "feature", "step definitions"]) {
-  Given(`the ${kind} file {string} containing:`, function (this: OidWorld, path: string, content: string) {
-    this.write(path, `${content}\n`);
-  });
+  for (const wording of ["containing:", "is changed to:"]) {
+    Given(`the ${kind} file {string} ${wording}`, function (this: OidWorld, path: string, content: string) {
+      this.write(path, `${content}\n`);
+    });
+  }
 }
 
-Given("the source file {string} is changed to:", function (this: OidWorld, path: string, content: string) {
-  this.write(path, `${content}\n`);
+Given("the changes are committed", function (this: OidWorld) {
+  this.git("add", "-A");
+  this.git("commit", "--quiet", "--message", "changes");
 });
 
 Then("the command needs a decision", function (this: OidWorld) {

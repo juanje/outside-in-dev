@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyFailure, type ClassifyContext } from "../../src/artifacts/red-classification.js";
 
-const context: ClassifyContext = { cwd: "/p", isSource: (path) => path.startsWith("src/"), resolveSymbol: () => "missing" };
+const context: ClassifyContext = { cwd: "/p", isSource: (path) => path.startsWith("src/"), resolveSymbol: () => "missing", isOnAddedTestLine: () => false };
 
 describe("classifyFailure", () => {
   it("rejects a test that passes: it verifies nothing new", () => {
@@ -76,6 +76,16 @@ describe("classifyFailure", () => {
       outcome: "decision",
       reason: "an assertion failed",
       candidate: "business_assertion",
+    });
+  });
+
+  it("accepts a failing assertion whose first frame is a test line added since the last checkpoint as a business assertion, without a decision", () => {
+    const message = "AssertionError: expected 3 to be 4 // Object.is equality\n    at /p/tests/unit/a.test.ts:3:5";
+    const onAddedLine = { ...context, isOnAddedTestLine: (failure: string) => failure === message };
+    expect(classifyFailure({ kind: "error", message }, onAddedLine)).toEqual({
+      outcome: "valid",
+      class: "business_assertion",
+      reason: "an assertion added since the last checkpoint failed",
     });
   });
 

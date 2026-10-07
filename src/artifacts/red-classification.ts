@@ -34,6 +34,8 @@ export interface ClassifyContext {
   isSource: (path: string) => boolean;
   /** Whether a name imported by the test exists in the project module it comes from. */
   resolveSymbol: (name: string) => "exists" | "missing" | "external";
+  /** Whether the first stack frame of a failure is a line of a test file added since the last checkpoint. */
+  isOnAddedTestLine: (message: string) => boolean;
 }
 
 /** The class of a failure: a valid Red, one that is not, or one a person has to decide. */
@@ -71,7 +73,11 @@ function classifyLoad(message: string, context: ClassifyContext): Verdict {
 /** A test that ran and failed. */
 function classifyError(message: string, context: ClassifyContext): Verdict {
   if (MISSING_MODULE.test(message)) return classifyLoad(message, context);
-  if (message.startsWith("AssertionError")) return { outcome: OUTCOME.decision, reason: "an assertion failed", candidate: RED_CLASS.businessAssertion };
+  if (message.startsWith("AssertionError")) {
+    return context.isOnAddedTestLine(message)
+      ? { outcome: OUTCOME.valid, class: RED_CLASS.businessAssertion, reason: "an assertion added since the last checkpoint failed" }
+      : { outcome: OUTCOME.decision, reason: "an assertion failed", candidate: RED_CLASS.businessAssertion };
+  }
   const notCallable = NOT_CALLABLE.exec(message);
   if (notCallable === null) return { outcome: OUTCOME.decision, reason: "the test failed with an error that is not an assertion" };
   const [, wrapped, bare] = notCallable;

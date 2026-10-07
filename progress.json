@@ -1392,6 +1392,14 @@
         {
           "name": "A decision answers the recorded failure of a unit test",
           "bdd": "pass"
+        },
+        {
+          "name": "A failing assertion in a new test is a valid Red without a decision",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failing assertion added to a committed test file is a valid Red, one that was committed still needs a decision",
+          "bdd": "pass"
         }
       ]
     },
@@ -1462,6 +1470,10 @@
         },
         {
           "name": "A decision answers the recorded failure of a scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failing assertion in a new step is a valid Red without a decision",
           "bdd": "pass"
         }
       ]

@@ -8,6 +8,7 @@ import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from ".
 useTempDir();
 
 const TARGET = "tests/unit/a.test.ts > adds";
+const PATHS = { source: ["src/**"], shared: [], unit_tests: [], bdd_features: [], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
 const COMMANDS = { bdd: "b", unit: "node runner.mjs", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] };
 
 /** A project whose unit runner is a script that writes `report` where oid asks for it. */
@@ -76,6 +77,29 @@ describe("oid verify red", () => {
       ].join("\n"),
     });
     expect(existsSync(join(dir, ".outside-in/checkpoint.json"))).toBe(false);
+  });
+
+  it("accepts a failing assertion on a line of the test added since the last checkpoint as a valid Red, with no decision", async () => {
+    const failing = { ...assertionFailure, failureMessages: [`AssertionError: expected 3 to be 4\n    at ${dir}/tests/unit/a.test.ts:2:5`] };
+    projectWithRunner({ testResults: [testFile("", [failing])] });
+    writeMinimalConfig({ commands: COMMANDS, paths: { ...PATHS, unit_tests: ["tests/unit/**"] } });
+    commitAll();
+    write("tests/unit/a.test.ts", "// the test\n// its assertion\n");
+    expect(await runInProject(["verify", "red", TARGET])).toEqual({
+      exitCode: 0,
+      stdout: "red: valid (business_assertion): an assertion added since the last checkpoint failed\n",
+      stderr: "",
+    });
+  });
+
+  it("still asks for a decision on a failing assertion on a line of the test that already existed at the last checkpoint", async () => {
+    const failing = { ...assertionFailure, failureMessages: [`AssertionError: expected 3 to be 4\n    at ${dir}/tests/unit/a.test.ts:1:5`] };
+    projectWithRunner({ testResults: [testFile("", [failing])] });
+    writeMinimalConfig({ commands: COMMANDS, paths: { ...PATHS, unit_tests: ["tests/unit/**"] } });
+    write("tests/unit/a.test.ts", "// its assertion\n");
+    commitAll();
+    write("tests/unit/a.test.ts", "// its assertion\n// a line added after it\n");
+    expect((await runInProject(["verify", "red", TARGET])).exitCode).toBe(2);
   });
 
   it("asks only the question that fits an ambiguous failure that is not an assertion", async () => {

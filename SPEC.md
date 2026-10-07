@@ -164,7 +164,7 @@ Findings present when a run starts are recorded as a baseline; checks then judge
 
 ### FR-VERIFY-01: Verify a unit Red
 
-`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A failure oid cannot classify alone is recorded with the content of the working tree it ran on; `--decide <class>` answers that recorded failure without running the test again, and is refused when no recorded run of the target needs a decision or when a file other than the progress file changed since it.
+`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A failing assertion on a line of a test added since the last checkpoint is a valid Red; one on a line that already existed needs a decision (ADR-033). A failure oid cannot classify alone is recorded with the content of the working tree it ran on; `--decide <class>` answers that recorded failure without running the test again, and is refused when no recorded run of the target needs a decision or when a file other than the progress file changed since it.
 
 ### FR-VERIFY-02: Verify a BDD Red
 
