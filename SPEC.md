@@ -60,7 +60,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-03: Focus a feature
 
-`oid progress focus FR-xxx` sets the current focus. The focus is what an agent works on when no feature is named, so it must always point to a tracked feature.
+`oid progress focus FR-xxx` sets the current focus, and `oid progress unfocus` clears it, also when it points to a feature that is already done. The focus is what an agent works on when no feature is named, so it must always point to a tracked feature.
 
 ### FR-PROG-04: Advance the cycle step
 
@@ -68,7 +68,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-05: Record scenario status
 
-`oid progress scenario pass|fail|pending FR-xxx "Scenario name"` records the BDD status of a scenario, creating it if needed. Scenario state is what makes "done" checkable.
+`oid progress scenario pass|fail|pending FR-xxx "Scenario name"` records the BDD status of a scenario, creating it if needed. `oid progress scenario drop FR-xxx "Scenario name"` removes a scenario that is pending; one in pass or fail is never dropped, and the file is left unchanged. Scenario state is what makes "done" checkable.
 
 ### FR-PROG-06: Mark a feature done
 

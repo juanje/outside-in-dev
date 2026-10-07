@@ -15,7 +15,7 @@ npm install -g ./outside-in-dev-*.tgz
 
 | Command | What it does |
 |---------|----------------|
-| `oid progress` | Read and update `progress.json`: `current`, `status`, `show`, `add`, `focus`, `step`, `scenario`, `done`. `status` lists features that are not done and counts the done ones; `status --all` lists every feature. |
+| `oid progress` | Read and update `progress.json`: `current`, `status`, `show`, `add`, `focus`, `unfocus`, `step`, `scenario` (and `scenario drop` for a pending one), `done`. `status` lists features that are not done and counts the done ones; `status --all` lists every feature. |
 | `oid check` | Check the specification, scenario traceability and progress. `--json` prints one JSON document. Exit 1 when something is wrong. |
 | `oid init` | Detect a TypeScript project's paths and commands, write `.outside-in.json`, and ignore `.outside-in/`. Creates `progress.json` from `SPEC.md` when none exists. |
 | `oid init --import-progress [path]` | Convert a progress file from an earlier schema and list what could not be carried over. |

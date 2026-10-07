@@ -123,6 +123,14 @@
         {
           "name": "Focus without a feature ID prints its usage",
           "bdd": "pass"
+        },
+        {
+          "name": "Unfocusing clears the focus",
+          "bdd": "pass"
+        },
+        {
+          "name": "Unfocusing clears a focus on a feature that is already done",
+          "bdd": "pass"
         }
       ]
     },
@@ -236,6 +244,18 @@
         },
         {
           "name": "A green of another feature keeps the evidence of a scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "A pending scenario is dropped",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is not pending is not dropped",
+          "bdd": "pass"
+        },
+        {
+          "name": "Dropping a scenario the feature does not have is refused",
           "bdd": "pass"
         }
       ]
