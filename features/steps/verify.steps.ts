@@ -24,7 +24,7 @@ const FIXTURE_CONFIG = {
     design: [],
     progress: "progress.json",
   },
-  commands: { bdd: 'NODE_OPTIONS="--import tsx" npx cucumber-js', unit: "npx vitest run", typecheck: "npx tsc --noEmit", format: null, lint: null, coverage: null, extra_checks: [] },
+  commands: { bdd: 'NODE_OPTIONS="--import tsx" node_modules/.bin/cucumber-js', unit: "node_modules/.bin/vitest run", typecheck: "node_modules/.bin/tsc --noEmit", format: null, lint: null, coverage: null, extra_checks: [] },
 };
 
 const FIXTURE_TSCONFIG = {
