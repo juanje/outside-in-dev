@@ -36,6 +36,11 @@ export function git(cwd: string, command: string, ...extra: string[]): string {
   return result.stdout.toString().trimEnd();
 }
 
+/** The commit checked out in `cwd`. */
+export function headCommit(cwd: string): string {
+  return git(cwd, "rev-parse HEAD");
+}
+
 /** The directory of the repository's main working copy, whichever of its worktrees `cwd` is in. */
 function mainWorktree(cwd: string): string {
   return firstLine(git(cwd, "worktree list --porcelain")).replace(/^worktree /, "");

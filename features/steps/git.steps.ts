@@ -16,6 +16,7 @@ type GitScenario = {
   workspace?: Workspace;
   refusal?: string;
   checkpoint?: string;
+  squash?: string;
 };
 
 const REPO_NAME = "project";
@@ -318,4 +319,37 @@ Then("the file {string} of the run's worktree still exists", function (this: Oid
 
 Then("the run's branch is at the checkpoint", function (this: OidWorld) {
   assert.equal(git(workspaceOf(this).path, "rev-parse", "HEAD"), scenarioOf(this).checkpoint);
+});
+
+Given("the project configuration sets the commit template {string}", function (this: OidWorld, template: string) {
+  writeConfig(this, { commit_template: template });
+});
+
+When("the feature {string} titled {string} is squashed with the scenarios {string}", async function (this: OidWorld, id: string, title: string, names: string) {
+  const { squashFeature } = await import("../../src/artifacts/git-squash.js");
+  await attempt(this, (state) => {
+    state.squash = squashFeature(workspaceOf(this), { startCommit: workspaceOf(this).startCommit, id, title, scenarios: names.split(", ") });
+  });
+});
+
+Then("the run's branch has one commit since the start, named {string} and holding {string}", function (this: OidWorld, subject: string, file: string) {
+  const { path, startCommit } = workspaceOf(this);
+  assert.equal(git(path, "rev-list", "--count", `${startCommit}..HEAD`), "1");
+  assert.equal(git(path, "log", "-1", "--format=%s"), subject);
+  assert.deepEqual(git(path, "diff", "--name-only", startCommit, "HEAD").split("\n"), [file]);
+  assert.equal(scenarioOf(this).squash, git(path, "rev-parse", "HEAD"));
+});
+
+Then("the commit lists the scenarios {string}, one per line", function (this: OidWorld, names: string) {
+  const body = git(workspaceOf(this).path, "log", "-1", "--format=%b").split("\n");
+  assert.deepEqual(body, names.split(", ").map((name) => `- ${name}`));
+});
+
+Then("the file {string} of the run's worktree has its changed content", function (this: OidWorld, name: string) {
+  assert.equal(readFileSync(join(workspaceOf(this).path, name), "utf8"), "changed\n");
+});
+
+Given("a checkpoint was made for {string} at the state {string} for the scenario {string}", async function (this: OidWorld, fr: string, step: string, scenario: string) {
+  await makeCheckpoint(this, fr, step, scenario);
+  assert.ok(scenarioOf(this).checkpoint, `no checkpoint: ${scenarioOf(this).refusal}`);
 });
