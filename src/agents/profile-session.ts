@@ -26,6 +26,7 @@ function systemPromptFor(profile: Profile): string {
   lines.push("End the task: call the report tool, once, to say whether you finished or are blocked, and list every file you changed. The orchestrator runs git and the tests when you finish; you do not.");
   if (profile.shell) {
     lines.push(`Before you report the task done, run the project's quality gate and read its output: ${profile.commands.join(" and ")}. Fix what it reports.`);
+    lines.push("Reuse first: search the reuse catalogue in your task before you write a new function or constant, and reuse what exists.");
   }
   return lines.join("\n\n");
 }

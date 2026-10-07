@@ -2032,7 +2032,25 @@
     {
       "id": "FR-AGENT-08",
       "title": "Context per task",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A test task gets the scenario and the failure, and nothing of the source or of other scenarios",
+          "bdd": "pass"
+        },
+        {
+          "name": "An implementation task gets the failing test, the failure, the code it imports and the catalogue",
+          "bdd": "pass"
+        },
+        {
+          "name": "A source file the test does not import is in the catalogue but its body is not in the task",
+          "bdd": "pass"
+        },
+        {
+          "name": "The coder is told to search the catalogue before writing new code",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-01",
