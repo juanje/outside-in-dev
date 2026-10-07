@@ -2115,7 +2115,45 @@
     {
       "id": "FR-TUI-03",
       "title": "Plain output without a terminal",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A state change is printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "An error is printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "A message that spans several lines is still printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "Events are printed in the order they happen",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every event is also written to the run's event log",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question with no terminal to answer it ends the process waiting for input",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question with no terminal saves the session so it can be resumed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question replaces the pending input of an earlier session",
+          "bdd": "pass"
+        },
+        {
+          "name": "A question is also written to the event log",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-TUI-04",

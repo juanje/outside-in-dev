@@ -1,0 +1,15 @@
+/** A question that needs a person's answer, with the actions the person can choose. */
+export type InputRequest = {
+  id: string;
+  prompt: string;
+  actions: { key: string; label: string }[];
+};
+
+/** What happens in a run, before it is stamped with a time and a run id. */
+export type OIEventBody =
+  | { type: "state_change"; from: string; to: string; reason: string; fr?: string }
+  | { type: "error"; message: string; detail?: string }
+  | { type: "waiting_input"; request: InputRequest };
+
+/** An event as it is logged and shown: the body plus when and in which run it happened. */
+export type OIEvent = { ts: number; runId: string } & OIEventBody;
