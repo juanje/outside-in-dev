@@ -65,6 +65,12 @@ export function runBddScenarios(cwd: string, command: string, scenarios: { file:
   return { exitCode, report: readText(cwd, BDD_REPORT), stderr };
 }
 
+/** Runs the configured BDD command for every scenario of the project and returns its exit code and the Cucumber Messages report it wrote, if any. */
+export function runBddSuite(cwd: string, command: string): { exitCode: number | null; report: string | undefined } {
+  const { exitCode, report } = runBddScenarios(cwd, command, []);
+  return { exitCode, report };
+}
+
 /** Runs the configured BDD command for one scenario in the project and returns its exit code, the Cucumber Messages report it wrote, if any, and its stderr. */
 export function runBddScenario(cwd: string, command: string, scenario: { file: string; line: number }): { exitCode: number | null; report: string | undefined; stderr: string } {
   return runBddScenarios(cwd, command, [scenario]);

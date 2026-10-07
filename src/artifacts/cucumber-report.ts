@@ -110,3 +110,11 @@ export function bddProblems(ndjson: string, scenarios: ScenarioLocation[]): stri
     return found.map((detail) => `bdd ${scenario.file}:${scenario.line} ${scenario.name}: ${detail}`);
   });
 }
+
+/** One line for each scenario of a run that did not pass: its file, its name and the first step that did not. */
+export function failedScenarios(ndjson: string): string[] {
+  const messages = parseMessages(ndjson);
+  return messages.flatMap(({ pickle }) =>
+    pickle === undefined ? [] : stepsThatDidNotPass(messages, { file: pickle.uri, name: pickle.name }).map((detail) => `bdd ${pickle.uri}: ${pickle.name}: ${detail}`),
+  );
+}

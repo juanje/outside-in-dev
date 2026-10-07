@@ -1,3 +1,9 @@
+/** The type of the event that reports a failure. */
+export const ERROR_EVENT = "error";
+
+/** The type of the event that waits for an answer. */
+export const WAITING_INPUT = "waiting_input";
+
 /** A question that needs a person's answer, with the actions the person can choose. */
 export type InputRequest = {
   id: string;
@@ -8,8 +14,8 @@ export type InputRequest = {
 /** What happens in a run, before it is stamped with a time and a run id. */
 export type OIEventBody =
   | { type: "state_change"; from: string; to: string; reason: string; fr?: string }
-  | { type: "error"; message: string; detail?: string }
-  | { type: "waiting_input"; request: InputRequest };
+  | { type: typeof ERROR_EVENT; message: string; detail?: string }
+  | { type: typeof WAITING_INPUT; request: InputRequest };
 
 /** An event as it is logged and shown: the body plus when and in which run it happened. */
 export type OIEvent = { ts: number; runId: string } & OIEventBody;

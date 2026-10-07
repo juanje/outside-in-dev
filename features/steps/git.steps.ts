@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { runWorktree } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 
 type Workspace = { path: string; branch: string; startCommit: string };
@@ -176,7 +177,8 @@ Then("the work happens in a worktree under {string}, on the branch {string}", fu
 });
 
 Then("the worktree holds the committed files", function (this: OidWorld) {
-  assert.equal(readFileSync(join(workspaceOf(this).path, "README.md"), "utf8"), "# Project\n");
+  const path = this.projectDir === "" ? workspaceOf(this).path : runWorktree(this).path;
+  assert.equal(readFileSync(join(path, "README.md"), "utf8"), "# Project\n");
 });
 
 Then("the run reports the commit the user's copy was at", function (this: OidWorld) {

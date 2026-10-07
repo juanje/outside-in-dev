@@ -51,6 +51,10 @@ export function splitArgs(line: string): string[] {
 
 export class OidWorld extends World {
   dir = "";
+  /** The directory the built CLI runs in when it is not `dir` itself (a project inside it, with its worktrees beside it). */
+  projectDir = "";
+  /** Whether `run` starts the built CLI in a child process instead of calling it in this one. */
+  built = false;
   stdout = "";
   stderr = "";
   exitCode: number | null = null;
@@ -85,6 +89,10 @@ export class OidWorld extends World {
   }
 
   async run(commandLine: string): Promise<void> {
+    if (this.built) {
+      this.runBuilt(commandLine);
+      return;
+    }
     const args = splitArgs(commandLine);
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
@@ -106,7 +114,7 @@ export class OidWorld extends World {
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
-    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
+    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.projectDir || this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
     this.exitCode = result.status;
     this.stdout = result.stdout;
     this.stderr = result.stderr;

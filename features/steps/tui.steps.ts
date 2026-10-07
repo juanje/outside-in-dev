@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import type { OidWorld } from "../support/world.js";
 import type { OIEventBody } from "../../src/events/types.js";
 
-type PlainRun = { runId: string; printed: string; exitCode: number | undefined };
+type PlainRun = { runId: string; printed: string };
 type SavedSession = { runId: string; state?: string; pendingInput: { prompt: string; actions: { key: string }[] } | null };
 type LoggedEvent = { ts: number; runId: string; type: string };
 
@@ -41,7 +41,7 @@ async function emit(world: OidWorld, event: OIEventBody): Promise<void> {
     now: () => CLOCK,
   });
   const exitCode = bus.emit(event);
-  if (exitCode !== undefined) run.exitCode = exitCode;
+  if (exitCode !== undefined) world.exitCode = exitCode;
 }
 
 function actionsOf(first: string, second: string): { key: string; label: string }[] {
@@ -58,7 +58,7 @@ Given("a git project with {string}", function (this: OidWorld, directory: string
 });
 
 Given("a run {string} whose output is not a terminal", function (this: OidWorld, runId: string) {
-  runs.set(this, { runId, printed: "", exitCode: undefined });
+  runs.set(this, { runId, printed: "" });
 });
 
 Given(
@@ -155,7 +155,7 @@ Then("the line mentions the actions {string} and {string}", function (this: OidW
 });
 
 Then("the process exits with code {int}", function (this: OidWorld, code: number) {
-  assert.equal(runOf(this).exitCode, code);
+  assert.equal(this.exitCode, code);
 });
 
 Then("{string} is valid JSON", function (this: OidWorld, path: string) {

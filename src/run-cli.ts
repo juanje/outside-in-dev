@@ -21,6 +21,16 @@ const COMMANDS: Record<string, CommandHelp> = {
     usage: "oid init [--import-progress [path]]",
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
   },
+  run: {
+    summary: "Start a run: lock, worktree, baseline of the suite and selection of the features",
+    usage: "oid run [--fr ID...] [--max-frs N] [--branch NAME]",
+    options: {
+      "--fr": "Work on these features instead of the pending ones, in the order given",
+      "--max-frs": "Work on at most this many features",
+      "--branch": "Name the run's branch after the configured prefix, instead of the start time",
+    },
+    extra: async () => "\nExit codes:\n  0  the start finished (or there is nothing to do)\n  1  error\n  3  waiting for an answer with no terminal: the session is saved\n",
+  },
   verify: {
     summary: "Verify that a test or a scenario is a valid Red, that a Green has no regression, or the integrity of a change",
     usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify red "<scenario name>" [--decide <class>]\n       oid verify green [<feature file>:<line> | "<scenario name>"]...\n       oid verify integrity [--step <step>]',
@@ -51,6 +61,7 @@ const RUNNERS: Record<string, Runner> = {
   },
   check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
   init: async (rest, io) => (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--"))),
+  run: async (rest, io) => (await import("./commands/run.js")).runRun(io, rest),
   verify: async (rest, io) => (await import("./commands/verify.js")).runVerify(io, rest),
   metrics: async (rest, io) => {
     const { runMetrics } = await import("./commands/metrics.js");

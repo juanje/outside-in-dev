@@ -2055,7 +2055,109 @@
     {
       "id": "FR-RUN-01",
       "title": "Start a run",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A run goes through the start states and selects the pending features",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every event is printed as one line",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run works in its own worktree on a branch named after the date",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run uses the branch it is given",
+          "bdd": "pass"
+        },
+        {
+          "name": "The user's copy is left as it was",
+          "bdd": "pass"
+        },
+        {
+          "name": "The existing suite runs in the worktree and its result is recorded",
+          "bdd": "pass"
+        },
+        {
+          "name": "A red unit test at the start stops the run and asks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A red scenario at the start stops the run and asks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A red suite saves the session so the run can be resumed",
+          "bdd": "pass"
+        },
+        {
+          "name": "What the runners print is never read",
+          "bdd": "pass"
+        },
+        {
+          "name": "The saved session of a started run holds what the next state needs",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run can be limited to a number of features",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run can be given the features to work on",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that SPEC.md does not define is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that progress.json does not track is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is done is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is in progress is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run with no pending feature has nothing to do",
+          "bdd": "pass"
+        },
+        {
+          "name": "A new run starts a session of its own",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run refuses to start while another one holds the lock",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run refuses to start over the lock of a process that is gone",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run holds the lock with its own process while it works",
+          "bdd": "pass"
+        },
+        {
+          "name": "The lock is released when a run ends",
+          "bdd": "pass"
+        },
+        {
+          "name": "The lock is released when a run stops to ask",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project without a configuration file is refused",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-02",
