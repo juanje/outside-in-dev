@@ -71,13 +71,17 @@ export function failingFile(message: string, cwd: string): string | undefined {
 
 const DID_NOT_RUN = "the scenario did not run";
 
-/** The first step of the run of a scenario that did not pass, as `step text (what it showed)`; nothing when every step passed. */
+/** How a step that is not one of the scenario's own is named: a hook (Before, After) the run went through. */
+const HOOK = "a hook";
+
+/** The first step of the run of a scenario that did not pass, its hooks included, as `step text (what it showed)`; nothing when every step and hook passed. */
 function firstStepThatDidNotPass(messages: Message[], pickle: Pickle, testCase: TestCase, run: string): string | undefined {
-  const pickleStepOf = new Map(testCase.testSteps.flatMap(({ id, pickleStepId }) => (pickleStepId === undefined ? [] : [[id, pickleStepId] as const])));
+  const pickleStepOf = new Map(testCase.testSteps.map(({ id, pickleStepId }) => [id, pickleStepId] as const));
   const finished = messages.flatMap(({ testStepFinished }) => (testStepFinished?.testCaseStartedId === run && pickleStepOf.has(testStepFinished.testStepId) ? [testStepFinished] : []));
   const failed = finished.find(({ testStepResult }) => testStepResult.status !== PASSED);
   if (failed === undefined) return undefined;
-  const text = pickle.steps.find(({ id }) => id === pickleStepOf.get(failed.testStepId))?.text ?? "";
+  const pickleStepId = pickleStepOf.get(failed.testStepId);
+  const text = pickleStepId === undefined ? HOOK : (pickle.steps.find(({ id }) => id === pickleStepId)?.text ?? "");
   return `${text} (${firstLine(failed.testStepResult.message ?? failed.testStepResult.status)})`;
 }
 

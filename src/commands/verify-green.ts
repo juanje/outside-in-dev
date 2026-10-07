@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { bddProblems } from "../artifacts/cucumber-report.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { FAILURE } from "../artifacts/red-classification.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { locatePassingScenarios } from "../artifacts/passing-scenarios.js";
 import { loadProgress } from "../artifacts/progress.js";
@@ -16,15 +17,30 @@ import type { CliIo } from "../cli-io.js";
 
 export const GREEN = "green";
 
+/** The names of the two suites in the problems a Green lists. */
+const SUITE = { unit: "unit", bdd: "bdd" } as const;
+/** The vitest status of a test that ran and passed. */
+const TEST_PASSED = FAILURE.passed;
+
 /** The problem of a runner that did not write the report oid reads. */
 function noReport(kind: string, exitCode: number | null): string {
   return `${kind}: the runner wrote no report (exit ${exitCode})`;
 }
 
-/** The problems of the unit suite: each test that failed, each file that did not load, or the report that is missing. */
+/** The problem of a runner whose exit says it failed while its report names no failure: the report cannot be trusted as a Green. */
+function incoherentExit(kind: string, exitCode: number | null, what: string): string {
+  return `${kind}: the runner exited ${exitCode} but its report names no ${what}`;
+}
+
+/** The problems of the unit suite: each test that failed, each file that did not load, the report that is missing, a run in which no test ran, and an exit that the report does not explain. */
 function suiteProblems(cwd: string, config: ProjectConfig): string[] {
   const { exitCode, report } = runUnitSuite(cwd, config.commands.unit);
-  return report === undefined ? [noReport("unit", exitCode)] : unitProblems(normalizeVitestReport(report), cwd);
+  if (report === undefined) return [noReport(SUITE.unit, exitCode)];
+  const files = normalizeVitestReport(report);
+  const problems = unitProblems(files, cwd);
+  if (problems.length > 0) return problems;
+  if (!files.some(({ tests }) => tests.some(({ status }) => status === TEST_PASSED))) return [`${SUITE.unit}: no test ran (exit ${exitCode})`];
+  return exitCode === 0 ? [] : [incoherentExit(SUITE.unit, exitCode, "failing test")];
 }
 
 /** The problems of the type check: each error located in a source file or in no file, or a failure that printed no error. */
@@ -44,7 +60,10 @@ function scenarioProblems(cwd: string, config: ProjectConfig): string[] {
   const unloadable = loadableStepsProblems(cwd, config);
   if (unloadable.length > 0) return [...unloadable, ...gone];
   const { exitCode, report } = runBddScenarios(cwd, config.commands.bdd, found);
-  return [...(report === undefined ? [noReport("bdd", exitCode)] : bddProblems(report, found)), ...gone];
+  if (report === undefined) return [noReport(SUITE.bdd, exitCode), ...gone];
+  const failing = bddProblems(report, found);
+  const unexplained = failing.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, "failing scenario")] : [];
+  return [...failing, ...unexplained, ...gone];
 }
 
 /** Runs the unit suite, the scenarios that were passing and the type check, and says whether the Green has regressions: exit 0 when it has none, 1 when it has. */
