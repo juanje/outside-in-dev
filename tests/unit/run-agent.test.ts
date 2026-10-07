@@ -7,10 +7,12 @@ import { dir, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
 
+const USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+
 type Listener = (event: unknown) => void;
 
 /** A Pi session that runs `act` on prompt, with the events Pi emits around it. */
-function fakeSession(act: (emit: Listener) => void) {
+function fakeSession(act: (emit: Listener) => void, ending: Record<string, unknown> = {}) {
   const listeners: Listener[] = [];
   const emit: Listener = (event) => listeners.forEach((listener) => listener(event));
   const state = { prompts: [] as string[], disposed: false, subscribers: () => listeners.length };
@@ -22,7 +24,7 @@ function fakeSession(act: (emit: Listener) => void) {
     prompt: async (text: string) => {
       state.prompts.push(text);
       act(emit);
-      emit({ type: "message_end", message: { role: "assistant", stopReason: "stop", content: [] } });
+      emit({ type: "message_end", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Working on it." }], usage: USAGE, ...ending } });
       emit({ type: "agent_end", messages: [] });
     },
     dispose: () => {
@@ -81,5 +83,61 @@ describe("runAgent", () => {
     const reason = outcome.status === "failed" ? outcome.reason : "";
     expect(reason).toContain("missing files: src/new.ts");
     expect(reason).toContain("extra files: src/invented.ts");
+  });
+
+  it("stops and asks, without a retry, when the provider rejected the key but the prompt resolved", async () => {
+    const errorMessage = '401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}';
+    write("src/a.ts", "a\n");
+    commitAll();
+    let opened = 0;
+    const { session } = fakeSession(() => {}, { stopReason: "error", content: [], errorMessage });
+    const outcome = await runAgent({ state: "CODE_GREEN", prompt: "Do the task." }, { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, openSession: async () => (opened += 1, session) });
+    expect(outcome).toMatchObject({ status: "ask", detail: errorMessage });
+    expect(opened).toBe(1);
+  });
+
+  it("retries a transient provider error in a new session after a pause of 5 seconds", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const report = { status: "done", files: ["src/a.ts"], summary: "Done." };
+    const sessions = [
+      fakeSession(() => {}, { stopReason: "error", content: [], errorMessage: "429 rate limit exceeded" }),
+      fakeSession((emit) => {
+        write("src/a.ts", "changed\n");
+        callReport(emit, report);
+      }),
+    ];
+    const pauses: number[] = [];
+    const outcome = await runAgent(
+      { state: "CODE_GREEN", prompt: "Do the task." },
+      { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, openSession: async () => sessions.shift()!.session, backoff: { sleep: async (ms) => void pauses.push(ms) } },
+    );
+    expect(outcome).toEqual({ status: "done", report });
+    expect(pauses).toEqual([5000]);
+    expect(sessions).toHaveLength(0);
+  });
+
+  it("fails the attempt, saying the agent produced nothing, when the response is empty even if a report was called", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const { session } = fakeSession(
+      (emit) => {
+        write("src/a.ts", "changed\n");
+        callReport(emit, { status: "done", files: ["src/a.ts"], summary: "Done." });
+      },
+      { content: [] },
+    );
+    const outcome = await run(session);
+    expect(outcome).toMatchObject({ status: "failed" });
+    expect(outcome.status === "failed" && outcome.reason).toMatch(/produced nothing/);
+  });
+
+  it("fails the attempt, saying the turn was aborted, when the response ended aborted", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const { session } = fakeSession(() => {}, { stopReason: "aborted", content: [], errorMessage: "Request was aborted" });
+    const outcome = await run(session);
+    expect(outcome).toMatchObject({ status: "failed" });
+    expect(outcome.status === "failed" && outcome.reason).toMatch(/aborted/);
   });
 });
