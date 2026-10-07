@@ -4,6 +4,7 @@ Feature: Mark a feature done
   Scenario: A feature whose scenarios all pass is marked done
     Given a tracked feature "FR-X-01" with a scenario "Alpha works" marked "pass"
     And the started feature "FR-X-01" also has a scenario "Beta works" marked "pass"
+    And the last green ran every scenario of "FR-X-01" that is marked "pass"
     When I run "oid progress done FR-X-01"
     Then the command succeeds
     And the feature "FR-X-01" has the status "done"
@@ -13,6 +14,7 @@ Feature: Mark a feature done
   Scenario: Marking the focused feature done clears the focus
     Given a tracked feature "FR-X-01" with a scenario "Alpha works" marked "pass"
     And the focus is on "FR-X-01"
+    And the last green ran every scenario of "FR-X-01" that is marked "pass"
     When I run "oid progress done FR-X-01"
     Then the command succeeds
     And no feature is focused in the progress file
@@ -21,6 +23,7 @@ Feature: Mark a feature done
     Given a tracked feature "FR-X-01" with a scenario "Alpha works" marked "pass"
     And a tracked feature "FR-X-02" titled "Beta"
     And the focus is on "FR-X-02"
+    And the last green ran every scenario of "FR-X-01" that is marked "pass"
     When I run "oid progress done FR-X-01"
     Then the command succeeds
     And the feature "FR-X-01" has the status "done"

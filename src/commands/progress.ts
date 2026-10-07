@@ -1,4 +1,4 @@
-import { requirePassEvidence } from "../artifacts/scenario-evidence.js";
+import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { advanceStep, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
@@ -58,7 +58,9 @@ function recordFeatureScenario(progress: Progress, io: Context, status: string, 
 
 function doneFeature(progress: Progress, io: Context, id: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
-  progress.features[progress.features.indexOf(feature)] = completeFeature(feature);
+  const done = completeFeature(feature);
+  requireDoneEvidence(io.cwd, id, (feature.scenarios ?? []).map(({ name }) => name));
+  progress.features[progress.features.indexOf(feature)] = done;
   if (progress.current_focus === id) progress.current_focus = null;
   saveProgress(io.cwd, progress, io.paths.progress);
 }

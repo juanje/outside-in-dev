@@ -179,6 +179,8 @@ describe("runCli progress done", () => {
 
   it("marks the feature done and clears the focus when it was focused", async () => {
     writeProgressFile({ current_focus: "FR-X-02", features: [FINISHED] });
+    commitAll();
+    recordCheckpoint(dir, { step: "tdd_green", feature: "FR-X-02", verify: { kind: "green", target: "all" }, external: false, date: new Date(0), scenarios: [{ feature: "FR-X-02", name: "Beta works" }] });
     const result = await run(["progress", "done", "FR-X-02"]);
     expect(result.exitCode).toBe(0);
     const progress = readProgress();

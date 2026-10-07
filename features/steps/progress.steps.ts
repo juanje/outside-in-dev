@@ -8,6 +8,15 @@ function feature(progress: Progress, id: string): Feature {
   return found;
 }
 
+/** Makes the project a git repository with everything committed. */
+function commitFixture(world: OidWorld): void {
+  world.git("init", "--quiet");
+  world.git("config", "user.name", "Fixture");
+  world.git("config", "user.email", "fixture@example.com");
+  world.git("add", "-A");
+  world.git("commit", "--quiet", "--message", "fixture");
+}
+
 Given("a tracked feature {string} titled {string}", function (this: OidWorld, id: string, title: string) {
   const progress = this.loadProgress();
   progress.features.push({ id, title, status: "pending" });
@@ -183,10 +192,13 @@ When(
 
 Given("the last green ran the scenario {string} of {string}", async function (this: OidWorld, name: string, id: string) {
   const { recordCheckpoint } = await import("../../src/artifacts/checkpoint.js");
-  this.git("init", "--quiet");
-  this.git("config", "user.name", "Fixture");
-  this.git("config", "user.email", "fixture@example.com");
-  this.git("add", "-A");
-  this.git("commit", "--quiet", "--message", "fixture");
+  commitFixture(this);
   recordCheckpoint(this.dir, { step: "tdd_green", feature: id, verify: { kind: "green", target: "all" }, external: false, date: new Date(), scenarios: [{ feature: id, name }] });
+});
+
+Given("the last green ran every scenario of {string} that is marked {string}", async function (this: OidWorld, id: string, status: string) {
+  const { recordCheckpoint } = await import("../../src/artifacts/checkpoint.js");
+  commitFixture(this);
+  const scenarios = (feature(this.loadProgress(), id).scenarios ?? []).filter((scenario) => scenario.bdd === status).map(({ name }) => ({ feature: id, name }));
+  recordCheckpoint(this.dir, { step: "tdd_green", feature: id, verify: { kind: "green", target: "all" }, external: false, date: new Date(), scenarios });
 });

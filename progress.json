@@ -264,6 +264,18 @@
         {
           "name": "Done without a feature ID prints its usage",
           "bdd": "pass"
+        },
+        {
+          "name": "Marking a feature done without any verification is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Marking a feature done after editing a verified file is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature is marked done after a green that ran every scenario",
+          "bdd": "pass"
         }
       ]
     },

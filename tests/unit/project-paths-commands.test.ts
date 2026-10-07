@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
+import { commitAll } from "./git-fixture.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 import { runInProject as run, summariseCheckJson } from "./run-capture.js";
 
@@ -133,6 +135,8 @@ describe("oid progress subcommands with paths.progress", () => {
 
   it("done writes the finished feature to the progress file named by paths.progress and not to the root", async () => {
     write("specs/progress.json", JSON.stringify(STARTED_PROGRESS));
+    commitAll();
+    recordCheckpoint(dir, { step: "tdd_green", feature: "FR-X-01", verify: { kind: "green", target: "all" }, external: false, date: new Date(0), scenarios: [{ feature: "FR-X-01", name: "Alpha works" }] });
     expect((await run(["progress", "done", "FR-X-01"])).exitCode).toBe(0);
     const { current_focus, features } = readSpecsProgress();
     expect(current_focus).toBeNull();
