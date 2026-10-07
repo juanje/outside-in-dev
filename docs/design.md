@@ -49,7 +49,7 @@ Buddy's experience sums it up in one rule: **a rule only governs what it can rea
 1. **Inversion of control.** The FSM leads; models execute atomic tasks and hand control back.
 2. **Deterministic first, Jev second, LLM last.** If a parser, an exit code, a `git diff`, the compiler or a stack tool (the formatter, a dead-code detector) can resolve it, no model is consulted.
 3. **Ephemeral, caged subagents.** Each task creates a new Pi SDK session (clean context; the transcript is kept only for auditing), with limited tools and read/write access restricted by globs that depend on the **state**, not only on the role. Buddy already separates each consolidation depth into its own session to avoid context fatigue *(Buddy)*.
-4. **Subagents do not run commands.** No subagent has `bash`. Tests, linters, git and dependency management are run by the orchestrator. This closes the main escape route from the sandbox and makes every verification empirical, never self-reported.
+4. **Only the orchestrator verifies.** Only the profiles that implement or debug get a shell (ADR-029), contained in the run's worktree, behind a deny-by-default command policy and the classifier; every other profile has none. What an agent runs is feedback for its attempt: Red, Green and moving the cycle on are decided by the orchestrator from its own runs of the tests, linters and type check, so every verification is empirical, never self-reported. Git and dependency management stay with the orchestrator.
 5. **Empirical confirmation of the Red.** A test only counts as Red if the runner executes it and it fails because the behaviour does not exist yet or is not correct. "Undefined", "pending" or a broken test are not Red.
 6. **Git as the rollback mechanism.** After a failed attempt, the orchestrator returns to the last checkpoint. Reverting costs no tokens.
 7. **Execution isolated from the user's working directory.** By default `oid` works in its own `git worktree`. The user can keep working in their copy without a rollback ever deleting anything.
@@ -567,7 +567,7 @@ async function openAgentSession(task: AgentTask, ctx: RunContext) {
     agentDir: ctx.oidAgentDir,
     resourceLoader,
     sessionManager: SessionManager.create(ctx.worktree, ctx.runSessionsDir), // transcript for auditing
-    excludeTools: ["bash"],
+    excludeTools: profile.shell ? [] : ["bash"],                  // only implement and debug profiles, §7.2
     tools: toolset.names,
     customTools: toolset.customTools,
     modelRuntime: ctx.modelRuntime,
@@ -601,7 +601,7 @@ Decisions, all learned in Buddy *(Buddy)*:
 - **Its own `agentDir`, always.** Without it, the SDK's `SettingsManager` reads the user's `~/.pi/agent/settings.json`: their provider, model, thinking level and theme (Buddy's NFR-SEC-19). `oid` uses `~/.config/oid/agent` (or `$OID_AGENT_DIR`) and a test checks that every call to `createAgentSession` passes it.
 - **`systemPromptOverride`.** The subagent does not inherit the user's global skills, prompts or `AGENTS.md`. If the project has an `AGENTS.md`, the orchestrator extracts the relevant style conventions and includes them explicitly.
 - **Clean context, saved transcript.** Each task is a new session, but `SessionManager.create` on `.outside-in/runs/<runId>/sessions/` is used instead of `inMemory()`: the agent sees nothing of earlier sessions, and the human can open the full transcript from the interface (key `d`, §12.2) when something goes wrong.
-- **`excludeTools: ["bash"]` plus an allowlist.** Double lock, as in Buddy.
+- **`excludeTools: ["bash"]` plus an allowlist** for every profile without a shell. Double lock, as in Buddy. The implement and debug profiles keep `bash`, checked by the sandbox (§7.3) before each call.
 - **SDK pinned at 1.0.3.** Exact version in `package.json` for `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui`. 1.0 is the version that includes the classifier API used by §8. The package has already changed scope once (`@mariozechner/*` → `@earendil-works/*`). All SDK usage stays in `agents/runner.ts` and `decisions/pi-classifier.ts`, and a compatibility test checks the shapes `oid` uses on every upgrade (§19).
 
 ### 7.2. Profiles per state
@@ -616,11 +616,11 @@ The globs come from `paths` (§16); default values in brackets.
 | `FEATURE_WRITE` | bdd-agent | read, grep, find, ls, write, edit | `bdd_features` (`features/**/*.feature`) | `SPEC.md`, `DOMAIN.md`, `bdd_features` |
 | `BDD_RED` | bdd-agent | read, grep, find, ls, write, edit | `bdd_steps` (`features/steps/**`, `features/support/**`) | `bdd_features`, `bdd_steps`, `DOMAIN.md` |
 | `TDD_RED` | tdd-agent | read, grep, find, ls, write, edit | `unit_tests` (`tests/unit/**`) | tests and steps |
-| `CODE_GREEN`, `REFACTOR` | coder-agent | read, grep, find, ls, write, edit | `source` (`src/**`) | the whole repo |
+| `CODE_GREEN`, `REFACTOR` | coder-agent | read, grep, find, ls, write, edit, bash | `source` (`src/**`) | the whole repo |
 | `FR_REFACTOR`, `QUALITY_FIX`, `oid tidy` items | the owner of the item's files | same as its profile | same as its profile; the coder-agent also `docs` (`README.md`, `docs/**`) | same as its profile |
 
 Common rules:
-- No profile has `bash`.
+- Only the profiles that implement or debug have `bash`: the coder-agent, including in `FR_REFACTOR`, `QUALITY_FIX` and the `oid tidy` items it owns. The others have none (ADR-029). A command the agent runs (the project's tests, linters, type check) is feedback for its attempt; it never decides Red or Green and never advances the cycle.
 - Nobody writes `progress.json`, `package.json`, lockfiles, `tsconfig*.json`, the vitest and cucumber configuration, `.outside-in*` or `.git/**`.
 - Nobody reads secrets: `settings.secret_globs` (by default `.env`, `.env.*`, `**/*.pem`, `**/*.key`, `**/secrets/**`, `**/auth.json`, plus `~/.ssh`, `~/.aws` and `~/.gnupg` always). It is a list with no exceptions and no confirmation, like Buddy's (FR-PERM-04). That content never reaches a model provider *(Buddy)*.
 - The public signatures of `src/` are injected into the prompt; test agents do not read `src/` directly.
@@ -665,6 +665,14 @@ Additional rules:
 
 - `grep`, `find` and `ls` without `path` operate on the worktree root. They are treated as if they asked for the root, which is in no read profile except the coder-agent's, so they are blocked with a reason that lists the allowed paths. Without this rule, Buddy's `pathArgsOf` would return an empty list and the call would not be checked.
 - Denials go back to the model as tool results. More than `limits.sandbox_denials_abort` (5) in a session aborts it with `session.abort()`.
+
+**The shell of the implement and debug profiles (ADR-029).** A `bash` call goes through three checks, in order, in the same `beforeToolCall`:
+
+1. **Containment.** Every path in the command, including those inside `bash -c`, `node -e` and similar wrappers, resolves (symlinks included, through `containment.ts`) inside the worktree. Nothing only the orchestrator writes can be modified: `progress.json`, `.outside-in/`, and the git state the step must not touch. The shared `node_modules` (§9.2) resolves to the main copy, so it stays out of reach.
+2. **Profile policy.** Deny-by-default, an allow list of commands per profile; a deny wins. The list includes the project's quality gate (tests, linters, type check), and the profile's prompt asks the agent to run it and read its output before it reports the task done.
+3. **Classifier.** Jev decides what the floor cannot settle (credentials, private data leaving the machine, paths that should not be read, commands dangerous in this step), with the patterns as evidence. Without the classifier the floor still holds: no credential is read and nothing is written outside the worktree.
+
+The shell needs its own tests: wrappers, symlinks, and writes to orchestrator state.
 
 ### 7.4. Hints after a failed `edit`
 
@@ -898,7 +906,7 @@ Default tools, those of the closest reference project, Buddy *(Buddy)*:
 
 **Skipped scenarios.** A skipped scenario (§10.1) would have undefined steps and would break the project's suite. The orchestrator adds the `@wip` tag to it (the only change it may make to an approved `.feature`, recorded in the log), and `oid init` proposes that `commands.bdd` exclude `@wip` (`--tags "not @wip"`).
 
-**Dependencies in the worktree.** Installing `node_modules` in every worktree can be slow and take a lot of space (Buddy includes Tauri and Svelte). If the worktree's lockfile is identical to the main checkout's, `node_modules` is a symbolic link to the main checkout's, read-only in practice because agents do not run commands. With the first new dependency, the worktree gets its own `node_modules` (`npm ci` or equivalent, using the package manager's cache) before installing it. With pnpm, the shared store makes this step cheap.
+**Dependencies in the worktree.** Installing `node_modules` in every worktree can be slow and take a lot of space (Buddy includes Tauri and Svelte). If the worktree's lockfile is identical to the main checkout's, `node_modules` is a symbolic link to the main checkout's, read-only in practice: the agents without a shell cannot write it, and the shell's containment resolves the link outside the worktree (§7.3). With the first new dependency, the worktree gets its own `node_modules` (`npm ci` or equivalent, using the package manager's cache) before installing it. With pnpm, the shared store makes this step cheap.
 
 ### 9.3. Analysis with the TypeScript compiler API
 
