@@ -1,5 +1,5 @@
 import { readdirSync, statSync } from "node:fs";
-import { homedir } from "node:os";
+import { userInfo } from "node:os";
 import { isAbsolute, join, normalize, relative } from "node:path";
 import { locate, matchesGlob, userHome } from "./containment.js";
 
@@ -35,7 +35,7 @@ function nameAsked(worktree: string, requested: string): string {
 }
 
 /** Whether `requested` (relative to `worktree`) is a secret by the name asked for or by where it leads through symbolic links: a file matching the secret patterns, a directory that holds some, or anything in the SSH, AWS and GnuPG directories of the home named by `HOME` and of the account's own home (`accountHome`, the passwd entry), whichever `HOME` says. */
-export function isSecret(worktree: string, requested: string, accountHome: string = homedir()): boolean {
+export function isSecret(worktree: string, requested: string, accountHome: string = userInfo().homedir): boolean {
   const place = locate(worktree, requested);
   const path = place.inside ? place.relative : place.real.slice(ROOT.length);
   return inHomeSecrets(place.real, accountHome) || matchesSecretGlob(path) || matchesSecretGlob(nameAsked(worktree, requested));

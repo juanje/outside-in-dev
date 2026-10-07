@@ -1,4 +1,5 @@
 import { mkdirSync, symlinkSync } from "node:fs";
+import { userInfo } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dir, useTempDir, write } from "./temp-project.js";
@@ -58,5 +59,15 @@ describe("isSecret", () => {
       expect(isSecret(worktree, join(realHome, name, "file"), realHome), name).toBe(true);
     }
     expect(isSecret(worktree, join(realHome, ".bashrc"), realHome)).toBe(false);
+  });
+
+  it("treats the account's real home as secret by default, whatever HOME says", async () => {
+    const { isSecret } = await import("../../src/agents/secrets.js");
+    const worktree = join(dir, "project");
+    const accountHome = userInfo().homedir;
+    for (const secret of [".ssh/id_rsa", ".aws/credentials", ".gnupg/x"]) {
+      expect(isSecret(worktree, join(accountHome, secret)), secret).toBe(true);
+    }
+    expect(isSecret(worktree, join(accountHome, ".bashrc"))).toBe(false);
   });
 });
