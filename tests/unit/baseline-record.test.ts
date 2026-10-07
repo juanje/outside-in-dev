@@ -10,7 +10,7 @@ describe("findingRecord", () => {
 
   it("replaces every number of a complexity detail by N and keeps the numbers of the other categories", () => {
     const complexity = { category: "complexity" as const, file: "src/a.ts", range: { start: 3, end: 12 }, symbol: "total", detail: "cyclomatic complexity 12 > 10; nesting depth 5 > 4" };
-    expect(findingRecord(complexity)).toStrictEqual({ category: "complexity", file: "src/a.ts", symbol: "total", detail: "cyclomatic complexity N > N; nesting depth N > N" });
+    expect(findingRecord(complexity)).toStrictEqual({ category: "complexity", file: "src/a.ts", symbol: "total", detail: "cyclomatic complexity N > N; nesting depth N > N", measured: complexity.detail });
     expect(findingRecord({ ...complexity, category: "magic_value" }).detail).toBe(complexity.detail);
   });
 
