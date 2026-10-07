@@ -1502,7 +1502,7 @@ Rules taken from what Buddy learned through defects that reached production *(Bu
 | Secrets leaking to the model provider | `secret_globs` blocked for reading for every agent. |
 | Cost of installing `node_modules` in every worktree | Link to the main checkout while dependencies do not change; one worktree per run, not per FR (§9.2). |
 | Projects with a different structure | Configurable via `paths`; `oid init` detects and proposes. |
-| The user's global Pi configuration leaks into sessions | Own `agentDir` and `systemPromptOverride`; isolation test. |
+| The user's global Pi configuration leaks into sessions | Own `agentDir`; `systemPromptOverride` replaces the preamble; `noSkills` and `noContextFiles` (also extensions, prompt templates and themes); isolation test. |
 | A provider error passes for success | `assertProductiveResponse` after every `prompt` (§7.5). |
 | A tool is registered but never offered | One array for `tools` and `customTools` (§7.3). |
 | Existing repositories with debt (types, lint, traceability, refactor findings) | Frozen baseline (§6.14); existing debt is `oid tidy`'s job. |
@@ -1659,7 +1659,7 @@ Buddy started before the methodology was settled, and part of what the article s
 | Sandbox blocking | `pi.on("tool_call")`, pending verification | Chained `session.agent.beforeToolCall` (verified) |
 | Tools | Two lists | One array for `tools` and `customTools` |
 | Paths | `normalizeInsideRoot` | `TOOL_PATH_ARGS` with a guard test + containment with symlinks on both sides; `grep`/`find`/`ls` without a path blocked |
-| Pi isolation | Implicit | Own `agentDir` + `systemPromptOverride`, with a test |
+| Pi isolation | Implicit | Own `agentDir`, a preamble override, and `noSkills` / `noContextFiles` (extensions, prompt templates, themes), with a test |
 | Provider errors | Not considered | `assertProductiveResponse`; infrastructure retries that do not consume methodology attempts |
 | Failed `edit` | Attempt lost | Deterministic hint in `afterToolCall` |
 | Transcripts | `SessionManager.inMemory()` | `SessionManager.create` in the run's folder, for auditing |
