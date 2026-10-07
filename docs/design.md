@@ -558,7 +558,12 @@ async function openAgentSession(task: AgentTask, ctx: RunContext) {
   const resourceLoader = new DefaultResourceLoader({
     cwd: ctx.worktree,
     agentDir: ctx.oidAgentDir,                                    // never ~/.pi/agent
-    systemPromptOverride: () => renderSystemPrompt(profile),      // no skill or AGENTS.md discovery
+    noSkills: true,                                               // skills are a section of their own
+    noContextFiles: true,                                         // so are AGENTS.md and the other context files
+    noExtensions: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    systemPromptOverride: () => renderSystemPrompt(profile),      // replaces only the preamble
   });
   await resourceLoader.reload();
 
@@ -599,7 +604,7 @@ async function runAgent(task: AgentTask, ctx: RunContext): Promise<AgentReport> 
 Decisions, all learned in Buddy *(Buddy)*:
 
 - **Its own `agentDir`, always.** Without it, the SDK's `SettingsManager` reads the user's `~/.pi/agent/settings.json`: their provider, model, thinking level and theme (Buddy's NFR-SEC-19). `oid` uses `~/.config/oid/agent` (or `$OID_AGENT_DIR`) and a test checks that every call to `createAgentSession` passes it.
-- **`systemPromptOverride`.** The subagent does not inherit the user's global skills, prompts or `AGENTS.md`. If the project has an `AGENTS.md`, the orchestrator extracts the relevant style conventions and includes them explicitly.
+- **oid's own system prompt, and nothing the user's Pi would add.** The session is opened with the SDK. `systemPromptOverride` replaces only the preamble of the system prompt: the skills and the `AGENTS.md` (global and project) are sections of their own, which Pi still appends. oid turns them off with `noSkills` and `noContextFiles`, and also sets `noExtensions`, `noPromptTemplates` and `noThemes` (FR-AGENT-01). If the project has an `AGENTS.md`, the orchestrator extracts the relevant style conventions and includes them explicitly.
 - **Clean context, saved transcript.** Each task is a new session, but `SessionManager.create` on `.outside-in/runs/<runId>/sessions/` is used instead of `inMemory()`: the agent sees nothing of earlier sessions, and the human can open the full transcript from the interface (key `d`, §12.2) when something goes wrong.
 - **`excludeTools: ["bash"]` plus an allowlist** for every profile without a shell. Double lock, as in Buddy. The implement and debug profiles keep `bash`, checked by the sandbox (§7.3) before each call.
 - **SDK pinned at 1.0.3.** Exact version in `package.json` for `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui`. 1.0 is the version that includes the classifier API used by §8. The package has already changed scope once (`@mariozechner/*` → `@earendil-works/*`). All SDK usage stays in `agents/runner.ts` and `decisions/pi-classifier.ts`, and a compatibility test checks the shapes `oid` uses on every upgrade (§19).
@@ -673,6 +678,8 @@ Additional rules:
 3. **Classifier.** Jev decides what the floor cannot settle (credentials, private data leaving the machine, paths that should not be read, commands dangerous in this step), with the patterns as evidence. Without the classifier the floor still holds: no credential is read and nothing is written outside the worktree.
 
 The shell needs its own tests: wrappers, symlinks, and writes to orchestrator state.
+
+Two needs are open and this section does not decide them: reading a dependency's `.d.ts` through the shared `node_modules` link, and an ignored scratch directory where `node` or `tsx` can run.
 
 ### 7.4. Hints after a failed `edit`
 
