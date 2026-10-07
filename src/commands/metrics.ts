@@ -1,5 +1,5 @@
 import { detectCommentedOutCode, detectComplexity, detectDocDrift, detectDuplication, detectMagicValues, detectUnusedCode, detectUnusedDeclarations, scannedCode } from "../artifacts/code-health.js";
-import { findingKey, readBaseline, writeBaseline } from "../artifacts/baseline.js";
+import { baselineHolds, writeBaseline } from "../artifacts/baseline.js";
 import { type LineRange, overlapsChangedLines } from "../artifacts/changed-lines.js";
 import { readChangedLines } from "../artifacts/git-changes.js";
 import { type FindingDraft, numberFindings, renderReport } from "../artifacts/findings.js";
@@ -30,9 +30,9 @@ function detectAll(cwd: string, paths: ProjectPaths): FindingDraft[] {
 /** Prints the findings on the changed lines that the baseline does not hold, then how many it holds and left out; the exit code is 1 when a new finding remains. */
 function reportNew(io: CliIo, drafts: FindingDraft[], changedLines: Map<string, LineRange[]>): number {
   const onChangedLines = drafts.filter((draft) => overlapsChangedLines(draft, changedLines));
-  const existing = readBaseline(io.cwd);
+  const existing = baselineHolds(io.cwd);
   if (existing === undefined) io.stderr("no baseline: every finding on the changed lines counts as new; run oid metrics --baseline to record the existing ones\n");
-  const added = onChangedLines.filter((draft) => !existing?.has(findingKey(draft)));
+  const added = onChangedLines.filter((draft) => !existing?.(draft));
   io.stdout(renderReport(numberFindings(added)));
   const left = onChangedLines.length - added.length;
   if (left > 0) io.stdout(`${countFindings(left, "existing ")} left out\n`);

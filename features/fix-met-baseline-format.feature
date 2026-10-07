@@ -41,7 +41,7 @@ Feature: The baseline file can be read by a person
     Then the command succeeds
     And the baseline holds the record:
       """
-      { "category": "complexity", "file": "src/total.ts", "symbol": "total", "detail": "cyclomatic complexity N > N" }
+      { "category": "complexity", "file": "src/total.ts", "symbol": "total", "detail": "cyclomatic complexity N > N", "measured": "cyclomatic complexity 12 > 10" }
       """
 
   @FR-MET-07
