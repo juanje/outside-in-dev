@@ -21,7 +21,7 @@ The MVP is usable on real TypeScript projects (oid itself and Buddy) for adding 
 - A modern terminal interface: a progress view that switches to a conversation when a human is needed.
 - The interactive design phase (`oid spec`) for adding requirements.
 
-Its behavioural constraints are part of the MVP, not extras: agents cannot run commands, cannot read secrets, cannot touch the user's working copy or main branch, and cannot report success without evidence.
+Its behavioural constraints are part of the MVP, not extras: only the agents that implement or debug have a shell, contained in the run's worktree; no agent can read secrets, touch the user's working copy or main branch, or report success without evidence; and only the orchestrator decides Red, Green and when the cycle moves on.
 
 ## Not in scope
 
@@ -208,7 +208,7 @@ Every task runs in a new Pi session with oid's own agent directory and system pr
 
 ### FR-AGENT-02: Tools and paths per step
 
-Each step grants a fixed set of tools and a set of readable and writable paths; any other access is blocked before it happens and reported to the agent. No agent can run shell commands. Repeated violations end the session.
+Each step grants a fixed set of tools and a set of readable and writable paths; any other access is blocked before it happens and reported to the agent. Only the steps that implement or debug include a shell, and its commands are contained in the run's worktree and cannot change the files only the orchestrator writes; every other step has none. Repeated violations end the session.
 
 ### FR-AGENT-03: Secrets are never readable
 
@@ -398,9 +398,9 @@ At the end of a run, oid proposes `oid tidy` when a configured number of feature
 
 Every decision is attempted first by deterministic means (parsers, exit codes, structured runner reports, the compiler, git), then by the decision model, and only then by a generative model.
 
-### NFR-02: Agents never run commands
+### NFR-02: Only the orchestrator verifies
 
-No agent has a shell. Tests, linters, git and package management are run by the orchestrator, so every verification is empirical and never self-reported.
+Only the agents that implement or debug have a shell, so they can run a command and read its output while they work. Their shell is contained: it runs inside the run's worktree and cannot change the files only the orchestrator writes (`progress.json`, `.outside-in/`, the git state of the run); every other agent has none. Whatever an agent runs is feedback for its attempt. Red, Green and moving the cycle on are decided by the orchestrator alone, from its own runs of the tests, linters and type check, so every verification is empirical and never self-reported. Git and package management stay with the orchestrator.
 
 ### NFR-03: Evidence over reports
 
