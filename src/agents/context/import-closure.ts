@@ -2,8 +2,9 @@ import ts from "typescript-api";
 import { readText } from "../../artifacts/project-json.js";
 import { moduleFileOf } from "../../artifacts/project-symbol.js";
 import { isInsideSource, isRelativeSpecifier } from "../../artifacts/source-roots.js";
+import { isSecret } from "../secrets.js";
 
-/** The project files that `file` imports by a relative path and that exist. */
+/** The project files that `file` imports by a relative path and that exist. A secret (by name or by where it leads) is left out unread, as the read tool refuses it. */
 function relativeImports(cwd: string, file: string): string[] {
   const text = readText(cwd, file) ?? "";
   return ts
@@ -11,10 +12,10 @@ function relativeImports(cwd: string, file: string): string[] {
     .importedFiles.map(({ fileName }) => fileName)
     .filter(isRelativeSpecifier)
     .map((specifier) => moduleFileOf(file, specifier))
-    .filter((imported) => readText(cwd, imported) !== undefined);
+    .filter((imported) => !isSecret(cwd, imported) && readText(cwd, imported) !== undefined);
 }
 
-/** The files of the source paths that `files` import, directly or through each other, following relative imports only. */
+/** The files of the source paths that `files` import, directly or through each other, following relative imports only. A secret file is never read, so what only it imports is not reached. */
 export function importClosure(cwd: string, files: string[], sourceGlobs: string[]): string[] {
   const found = new Set<string>();
   const pending = [...files];

@@ -1,3 +1,5 @@
+import { symlinkSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { importClosure } from "../../src/agents/context/import-closure.js";
 import { dir, useTempDir, write } from "./temp-project.js";
@@ -13,5 +15,17 @@ describe("import closure", () => {
     write("src/deep/c.ts", "export const c = 1;\n");
     write("src/unrelated.ts", "export const u = 1;\n");
     expect(importClosure(dir, ["tests/unit/a.test.ts"], ["src/**/*.ts"]).sort()).toEqual(["src/a.ts", "src/deep/b.ts", "src/deep/c.ts"]);
+  });
+
+  it("leaves out, unread, every imported file that is or leads to a secret", () => {
+    write("tests/unit/a.test.ts", 'import { a } from "../../src/a.js";\n');
+    write("src/a.ts", 'import { l } from "./leak.js";\nimport { b } from "./secrets/b.js";\nimport { c } from "./c.js";\n');
+    write(".env", 'import { d } from "./d.js";\n');
+    symlinkSync("../.env", join(dir, "src/leak.ts"));
+    write("src/secrets/b.ts", 'import { e } from "../e.js";\nexport const b = e;\n');
+    write("src/c.ts", "export const c = 1;\n");
+    write("src/d.ts", "export const d = 1;\n");
+    write("src/e.ts", "export const e = 1;\n");
+    expect(importClosure(dir, ["tests/unit/a.test.ts"], ["src/**/*.ts"]).sort()).toEqual(["src/a.ts", "src/c.ts"]);
   });
 });
