@@ -82,11 +82,23 @@ function lastCheckpoint(cwd: string): z.infer<typeof checkpointSchema> {
   return parsed.data;
 }
 
-/** The files that changed since the last checkpoint, or since HEAD when there is none: those whose content is not the one the checkpoint recorded, and those deleted since. */
+/** The state of a file for comparing with a checkpoint: the hash of its content, or `undefined` when it does not exist. */
+function currentHash(cwd: string, name: string): string | undefined {
+  const path = join(cwd, name);
+  return existsSync(path) && lstatSync(path).isFile() ? hashFile(cwd, name) : undefined;
+}
+
+/** The files that changed since the last checkpoint, or since HEAD when there is none: every file whose state is not the one the checkpoint recorded — its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file — including files that went back to HEAD's content and deleted files that came back. */
 export function changedSinceCheckpoint(cwd: string): string[] {
   const { present, deleted } = changesFromHead(cwd);
   const last = lastCheckpoint(cwd);
-  return [...present.filter((name) => last.snapshot[name] !== hashFile(cwd, name)), ...deleted.filter((name) => !last.deleted.includes(name))];
+  const differsFromHead = new Set([...present, ...deleted]);
+  const names = new Set([...present, ...deleted, ...Object.keys(last.snapshot), ...last.deleted]);
+  return [...names].filter((name) => {
+    if (name in last.snapshot) return currentHash(cwd, name) !== last.snapshot[name];
+    if (last.deleted.includes(name)) return currentHash(cwd, name) !== undefined;
+    return differsFromHead.has(name);
+  });
 }
 
 /** The content of `name` as it was at the last checkpoint, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
