@@ -1380,6 +1380,18 @@
         {
           "name": "A test name that several tests share asks for the full name",
           "bdd": "pass"
+        },
+        {
+          "name": "A decision with no recorded failure to answer is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision after the files changed since the recorded failure is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision answers the recorded failure of a unit test",
+          "bdd": "pass"
         }
       ]
     },
@@ -1446,6 +1458,10 @@
         },
         {
           "name": "A step file unchanged since the last commit that stops cucumber from starting is an environment problem",
+          "bdd": "pass"
+        },
+        {
+          "name": "A decision answers the recorded failure of a scenario",
           "bdd": "pass"
         }
       ]

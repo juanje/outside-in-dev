@@ -150,7 +150,8 @@ Feature: Verify a unit Red
         expect(greet("Ann")).toBe("Hi, Ann");
       });
       """
-    When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide business_assertion"
+    When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
+    And I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide business_assertion"
     Then the command succeeds
     And the output starts with "red: valid (business_assertion)"
     And the checkpoint records the step "tdd_red"
@@ -166,7 +167,8 @@ Feature: Verify a unit Red
         expect(greet("Ann")).toBe("Hi, Ann");
       });
       """
-    When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide test_bug"
+    When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
+    And I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide test_bug"
     Then the command fails
     And the output starts with "red: not valid (test_bug)"
     And no checkpoint is recorded
@@ -183,7 +185,7 @@ Feature: Verify a unit Red
       """
     When I run "oid verify red \"tests/unit/shout.test.ts > shouts a greeting\" --decide business_assertion"
     Then the command fails
-    And the error output contains "does not need a decision"
+    And the error output contains "no recorded run of this target needs a decision"
     And no checkpoint is recorded
 
   Scenario: A test name that no test has is not a Red

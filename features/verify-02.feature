@@ -241,7 +241,8 @@ Feature: Verify a BDD Red
         assert.equal(greet("Ann"), "Hi, Ann");
       });
       """
-    When I run "oid verify red features/greeting.feature:3 --decide business_assertion"
+    When I run "oid verify red features/greeting.feature:3"
+    And I run "oid verify red features/greeting.feature:3 --decide business_assertion"
     Then the command succeeds
     And the output starts with "red: valid (business_assertion)"
     And the checkpoint records the step "bdd_red"
@@ -268,7 +269,8 @@ Feature: Verify a BDD Red
         assert.equal(greet("Ann"), "Hi, Ann");
       });
       """
-    When I run "oid verify red features/greeting.feature:3 --decide test_bug"
+    When I run "oid verify red features/greeting.feature:3"
+    And I run "oid verify red features/greeting.feature:3 --decide test_bug"
     Then the command fails
     And the output starts with "red: not valid (test_bug)"
     And no checkpoint is recorded
@@ -296,7 +298,7 @@ Feature: Verify a BDD Red
       """
     When I run "oid verify red features/shout.feature:3 --decide business_assertion"
     Then the command fails
-    And the error output contains "does not need a decision"
+    And the error output contains "no recorded run of this target needs a decision"
     And no checkpoint is recorded
 
   Scenario: Only the scenario at the given line runs

@@ -16,8 +16,8 @@ const NUL = "\0";
 /** `git diff --name-status -z` prints a status and a path for each file. */
 const NAME_STATUS_FIELDS = 2;
 /** Spaces of indentation of the JSON files oid writes. */
-const JSON_INDENT = 2;
-const OID_DIR = ".outside-in";
+export const JSON_INDENT = 2;
+export const OID_DIR = ".outside-in";
 const CHECKPOINT_FILE = `${OID_DIR}/checkpoint.json`;
 /** The content of the files of the snapshot, kept to tell later which lines were added since. */
 const CHECKPOINT_FILES = `${OID_DIR}/checkpoint-files`;
@@ -72,13 +72,29 @@ function changesFromHead(cwd: string): { present: string[]; deleted: string[] } 
   return { present: present.filter((name) => !name.startsWith(`${OID_DIR}/`) && lstatSync(join(cwd, name)).isFile()), deleted };
 }
 
-/** Records the verification that just passed in `.outside-in/checkpoint.json`, with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them. */
-export function recordCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): void {
-  if (spawnSync(GIT, [REV_PARSE, "--verify", "--quiet", HEAD], { cwd }).status !== 0) {
+/** The content of the working tree, as far as comparing with it later needs: the hash of every file that differs from HEAD, and the files deleted since HEAD. */
+export interface TreeState {
+  snapshot: Record<string, string>;
+  deleted: string[];
+}
+
+/** Whether the project is a git repository with a commit, which comparing with the working tree needs. */
+export function hasHead(cwd: string): boolean {
+  return spawnSync(GIT, [REV_PARSE, "--verify", "--quiet", HEAD], { cwd }).status === 0;
+}
+
+/** The state of the working tree now, with the files that differ from HEAD and still exist; refused outside a git repository with a commit. */
+export function treeState(cwd: string): TreeState & { present: string[] } {
+  if (!hasHead(cwd)) {
     throw new ProgressError("a checkpoint compares with HEAD: this directory is not a git repository with a commit");
   }
   const { present, deleted } = changesFromHead(cwd);
-  const snapshot = Object.fromEntries(present.map((name) => [name, hashFile(cwd, name)]));
+  return { present, deleted, snapshot: Object.fromEntries(present.map((name) => [name, hashFile(cwd, name)])) };
+}
+
+/** Records the verification that just passed in `.outside-in/checkpoint.json`, with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them. */
+export function recordCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): void {
+  const { present, deleted, snapshot } = treeState(cwd);
   rmSync(join(cwd, CHECKPOINT_FILES), { recursive: true, force: true });
   for (const name of present) {
     mkdirSync(dirname(join(cwd, CHECKPOINT_FILES, name)), { recursive: true });
@@ -109,8 +125,12 @@ function currentHash(cwd: string, name: string): string | undefined {
 
 /** The files that changed since the last checkpoint, or since HEAD when there is none: every file whose state is not the one the checkpoint recorded — its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file — including files that went back to HEAD's content and deleted files that came back. */
 export function changedSinceCheckpoint(cwd: string): string[] {
+  return changedSince(cwd, lastCheckpoint(cwd));
+}
+
+/** The files whose state is not the one `last` recorded: its hash for a file of the snapshot, absent for a file it recorded as deleted, HEAD's for any other file. */
+export function changedSince(cwd: string, last: TreeState): string[] {
   const { present, deleted } = changesFromHead(cwd);
-  const last = lastCheckpoint(cwd);
   const differsFromHead = new Set([...present, ...deleted]);
   const names = new Set([...present, ...deleted, ...Object.keys(last.snapshot), ...last.deleted]);
   return [...names].filter((name) => {
