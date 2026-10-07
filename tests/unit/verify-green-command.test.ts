@@ -3,13 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runMessages } from "./cucumber-run-messages.js";
 import { commitAll } from "./git-fixture.js";
+import { RUNNER_COMMANDS, RUNNER_PATHS } from "./green-runners.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
 
 useTempDir();
 
-const COMMANDS = { bdd: "node bdd-runner.mjs", unit: "node unit-runner.mjs", typecheck: "node tsc-runner.mjs", format: null, lint: null, coverage: null, extra_checks: [] };
-const PATHS = { source: ["src/**"], shared: [], unit_tests: [], bdd_features: ["features/**/*.feature"], bdd_steps: ["features/steps/**"], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
+const COMMANDS = RUNNER_COMMANDS;
+const PATHS = RUNNER_PATHS;
 const BDD_RAN = "bdd-ran.txt";
 
 /** The report of a unit run in which every test passed. */
