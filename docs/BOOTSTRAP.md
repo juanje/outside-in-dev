@@ -6,17 +6,21 @@ Each phase lists its goal, the work, the exit criteria, and **what changes after
 
 ## Status
 
-| Phase | Milestone | Status |
-|:--|:--|:--|
-| 0. Repository and design | — | ☑ |
-| 1. Spikes | — | ☐ |
-| 2. Deterministic core, dogfooded by replacement | M0 | ☐ |
-| 3. Agents and the feature cycle | M1 | ☐ |
-| 4. Decisions and feature refactor | M2 | ☐ |
-| 5. Design phase and periodic cleanup | M3 (closes the MVP) | ☐ |
-| After the MVP | M4–M7 | ☐ |
+
+| Phase                                           | Milestone           | Status |
+| ----------------------------------------------- | ------------------- | ------ |
+| 0. Repository and design                        | —                   | ☑      |
+| 1. Spikes                                       | —                   | ☐      |
+| 2. Deterministic core, dogfooded by replacement | M0                  | ☑      |
+| 3. Agents and the feature cycle                 | M1                  | ☐      |
+| 4. Decisions and feature refactor               | M2                  | ☐      |
+| 5. Design phase and periodic cleanup            | M3 (closes the MVP) | ☐      |
+| After the MVP                                   | M4–M7               | ☐      |
+
 
 ---
+
+
 
 ## Phase 0. Repository and design
 
@@ -46,6 +50,8 @@ Each phase lists its goal, the work, the exit criteria, and **what changes after
 
 ---
 
+
+
 ## Phase 1. Spikes
 
 **Goal.** Answer the technical unknowns before writing code that depends on them. If a spike fails, the design changes now, not halfway through M1.
@@ -61,12 +67,14 @@ S1 is only the delta. The rest was already answered in Buddy, whose lockfile is 
 
 `pi-permission-gate` (Pi 0.79.10) returns the same `{ block: true, reason }` from the extension `tool_call` event. That is the path oid uses in the design phase, where `InteractiveMode` can replace the session and drop a hook installed by hand. It does not isolate `~/.pi/agent`: an extension runs inside the user's Pi.
 
-| Spike | Question | Done when | Time box |
-|:--|:--|:--|:--|
-| **S1. Pi 1.0.3 delta** | Do `prompt()` and `classify()` report a bad API key as `stopReason: "error"`, and do `SessionManager.create(cwd, dir)` and `session.abort()` still match Buddy's 1.0.1 usage? | A short script on 1.0.3 shows the bad-key `stopReason` for both calls, a transcript written by `SessionManager.create(cwd, dir)`, and `session.abort()` stopping a turn. | ½ day |
-| **S2. Jev on real traces** | Does Jev classify Red failures and refactor findings well enough to be useful, and at what latency and cost? | 20–30 hand-labelled cases (the vitest and cucumber failures in `DOMAIN.md` plus real ones from Buddy's history, and a dozen detector findings) run through `classify()` via OpenRouter `typesafe/jev-1.13`. Agreement with the labels, latency, cost per call, and the scale of `score` answers recorded. | 1 day |
-| **S3. Terminal interface** | Can `pi-tui` give the progress view and the switch to conversation described in §12.2? | A script with fake events: a progress view updating in place, a decision card with a `SelectList`, a switch to a chat using Pi's exported message components, and back. Main screen vs alternate screen tried with scrollback. | 1 day |
-| **S4. Detectors and timing** (done: ADR-027) | Do `knip`, `jscpd` and `tsc` work on real projects with acceptable noise and time? | Run on oid's scaffold and on a copy of Buddy: entry configuration needed for `knip` (worker, Svelte frontend, scripts), false-positive rate on a sample, run times, and `tsc --noEmit` time on Buddy (for the `CODE_GREEN` type check). | ½ day |
+
+| Spike                                        | Question                                                                                                                                                                      | Done when                                                                                                                                                                                                                                                                                                 | Time box |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **S1. Pi 1.0.3 delta**                       | Do `prompt()` and `classify()` report a bad API key as `stopReason: "error"`, and do `SessionManager.create(cwd, dir)` and `session.abort()` still match Buddy's 1.0.1 usage? | A short script on 1.0.3 shows the bad-key `stopReason` for both calls, a transcript written by `SessionManager.create(cwd, dir)`, and `session.abort()` stopping a turn.                                                                                                                                  | ½ day    |
+| **S2. Jev on real traces**                   | Does Jev classify Red failures and refactor findings well enough to be useful, and at what latency and cost?                                                                  | 20–30 hand-labelled cases (the vitest and cucumber failures in `DOMAIN.md` plus real ones from Buddy's history, and a dozen detector findings) run through `classify()` via OpenRouter `typesafe/jev-1.13`. Agreement with the labels, latency, cost per call, and the scale of `score` answers recorded. | 1 day    |
+| **S3. Terminal interface**                   | Can `pi-tui` give the progress view and the switch to conversation described in §12.2?                                                                                        | A script with fake events: a progress view updating in place, a decision card with a `SelectList`, a switch to a chat using Pi's exported message components, and back. Main screen vs alternate screen tried with scrollback.                                                                            | 1 day    |
+| **S4. Detectors and timing** (done: ADR-027) | Do `knip`, `jscpd` and `tsc` work on real projects with acceptable noise and time?                                                                                            | Run on oid's scaffold and on a copy of Buddy: entry configuration needed for `knip` (worker, Svelte frontend, scripts), false-positive rate on a sample, run times, and `tsc --noEmit` time on Buddy (for the `CODE_GREEN` type check).                                                                   | ½ day    |
+
 
 **Exit criteria.**
 
@@ -77,6 +85,8 @@ S1 is only the delta. The rest was already answered in Buddy, whose lockfile is 
 **What changes afterwards.** The pending verifications in `docs/design.md` §20 are closed. If S2 shows Jev is not useful enough for a decision point, that point's deterministic default becomes the behaviour and the FR is adjusted.
 
 ---
+
+
 
 ## Phase 2. Deterministic core, dogfooded by replacement (M0)
 
@@ -102,6 +112,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 - [x] Tag and install `v0.1.0`.
 - [x] `docs/METHODOLOGY.md`: remove the "before FR-PROG exists" instructions; progress is updated only through `oid progress`.
 
+
+
 ### 2.2 Consistency checks — FR-CHECK-01 … FR-CHECK-04
 
 **Why now.** Specification, feature files and progress drift apart without anyone disobeying anything.
@@ -112,13 +124,17 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 - [x] Add `oid check` to the quality gate in `AGENTS.md`.
 - [x] Add a git pre-commit hook that runs `oid check` (`scripts/pre-commit`, installed into `.git/hooks/`).
 
+
+
 ### 2.3 Project setup — FR-INIT-01 … FR-INIT-03
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.3.0`.
+- [x] Tag and install `v0.3.0`.
 - [x] Run `oid init` on oid itself and review the generated `.outside-in.json`; commit it.
 - [x] Rehearse `oid init --import-progress` on a **throwaway copy** of Buddy. Note what fails or is lost in the bootstrap log (below); do not commit anything in Buddy.
+
+
 
 ### 2.4 Code health — FR-MET-01 … FR-MET-07
 
@@ -126,11 +142,13 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.4.0`.
+- [x] Tag and install `v0.4.0`.
 - [x] Record the baseline on oid: `oid metrics`.
 - [x] `docs/METHODOLOGY.md`, steps 5 and 6: use `oid metrics --changed` instead of the manual checklist.
 - [x] Add `oid metrics --changed` to the quality gate in `AGENTS.md` (blocking only on new findings).
-- [ ] Run `oid metrics` read-only on Buddy and keep the report: it is the "before" picture for its migration.
+- [x] Run `oid metrics` read-only on Buddy and keep the report: it is the "before" picture for its migration. Saved at `.outside-in/buddy-metrics-before.log` (that directory is gitignored, so the report stays on this machine).
+
+
 
 ### 2.5 Verification — FR-VERIFY-01 … FR-VERIFY-05
 
@@ -141,6 +159,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 - [x] Tag and install `v0.5.0`.
 - [x] `docs/METHODOLOGY.md`, steps 2–4: `oid verify red` / `oid verify green` decide; the agent may not advance `cycle_step` without them.
 - [x] Configure Claude Code hooks in `.claude/settings.json` so the rules are mechanical, not just written: after edits, run `oid verify integrity` for the current `cycle_step` (no source changes while writing tests, no test changes while writing code, no forbidden patterns); before `oid progress step`, require the matching `oid verify` to have passed.
+
+
 
 ### 2.6 Git isolation — FR-GIT-01 … FR-GIT-03
 
@@ -157,6 +177,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 **What changes afterwards.** The manual parts of the cycle are gone; only writing the tests and the code is still done by Claude Code.
 
 ---
+
+
 
 ## Phase 3. Agents and the feature cycle (M1)
 
@@ -175,7 +197,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.6.0` once FR-RUN-07 is done (the cycle can complete).
+- [ ] Tag and install `v0.7.0` once FR-RUN-07 is done (the cycle can complete). `v0.6.0` already shipped with the git block.
 - [ ] Run `oid run --fr <id>` on a **small, low-risk** FR of oid itself. Good candidates: FR-TUI-04 or FR-DEC-03, mostly deterministic and easy to review.
 - [ ] Compare with an FR of similar size done with Claude Code: retries, human interventions, cost, time, health delta. Write both in the bootstrap log.
 - [ ] Golden run: the URL shortener from the article, in TypeScript, as a fixture project.
@@ -191,6 +213,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 ---
 
+
+
 ## Phase 4. Decisions and feature refactor (M2)
 
 **Goal.** Jev in every decision point, feature-level refactor, and the remaining interaction features. Dogfooding becomes the default.
@@ -199,7 +223,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.7.0`.
+- [ ] Tag and install `v0.8.0`.
 - [ ] `oid run` is the default for oid's own FRs; Claude Code only as fallback, with the reason written in the bootstrap log.
 - [ ] Review thresholds with `oid decisions` after every few FRs; record changes in `DECISIONS.md`.
 - [ ] Buddy rehearsal: on a branch of Buddy, `oid init --import-progress`, then `oid run` on one small Buddy FR. Merge only if the result is good; either way, write the findings in the bootstrap log.
@@ -210,6 +234,8 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 - Agreement between Jev and human answers measured for each decision point.
 
 ---
+
+
 
 ## Phase 5. Design phase and periodic cleanup (M3, closes the MVP)
 
@@ -233,21 +259,30 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 ---
 
+
+
 ## After the MVP
 
-| Milestone | Start when |
-|:--|:--|
-| **M4. Web dashboard** | The terminal interface has been used enough to know which views matter. |
-| **M5. `fix-bug`** | A real bug in oid or Buddy is fixed by hand with the test-first procedure and its steps are clear. |
-| **M6. `new-project` and Python** | A new project is about to start, or a Python project needs oid. |
-| **M7. Local decision model** | `oid decisions` has enough labelled history to calibrate `llama-cpp-classify` against Jev. |
+
+| Milestone                            | Start when                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **M4. Web dashboard**                | The terminal interface has been used enough to know which views matter.                            |
+| **M5.** `fix-bug`                    | A real bug in oid or Buddy is fixed by hand with the test-first procedure and its steps are clear. |
+| **M6.** `new-project` **and Python** | A new project is about to start, or a Python project needs oid.                                    |
+| **M7. Local decision model**         | `oid decisions` has enough labelled history to calibrate `llama-cpp-classify` against Jev.         |
+
 
 ---
+
+
 
 ## Bootstrap log
 
 Kept in `docs/bootstrap-log.md`, one row per FR. It is what tells whether dogfooding is working and where oid is still weak.
 
-| FR | Built with | Retries | Human interventions | Cost | Time | Health delta | Notes |
-|:--|:--|:--|:--|:--|:--|:--|:--|
-| FR-PROG-01 | Claude Code | — | — | — | — | — | |
+
+| FR         | Built with  | Retries | Human interventions | Cost | Time | Health delta | Notes |
+| ---------- | ----------- | ------- | ------------------- | ---- | ---- | ------------ | ----- |
+| FR-PROG-01 | Claude Code | —       | —                   | —    | —    | —            |       |
+
+
