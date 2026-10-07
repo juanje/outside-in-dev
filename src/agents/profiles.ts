@@ -2,7 +2,9 @@ import { names } from "./names.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 
 /** The steps of the cycle that run an agent. */
-export const CYCLE_STATES = ["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
+/** The step that writes feature files, the only one whose agent writes neither tests nor code. */
+export const FEATURE_WRITE = "FEATURE_WRITE";
+export const CYCLE_STATES = [FEATURE_WRITE, "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
 export type CycleState = (typeof CYCLE_STATES)[number];
 
 /** What a step's agent may do: its tools, the globs it may write and read (relative to the worktree), the globs nobody writes, the orchestrator state no shell argument may name, and the commands its shell may run. */
@@ -21,7 +23,7 @@ function orchestratorState(config: ProjectConfig): string[] {
 
 /** The files only the orchestrator writes, whatever the step. */
 function orchestratorFiles(config: ProjectConfig): string[] {
-  return [...orchestratorState(config), "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "**/tsconfig*.json", "vitest.config.*", "cucumber.*"];
+  return [...orchestratorState(config), "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "**/tsconfig*.json", "vitest.config.*", "cucumber.*"];
 }
 
 function gateCommands(config: ProjectConfig): string[] {
@@ -34,7 +36,7 @@ type Grant = { write: string[]; read: string[]; shell: boolean };
 function grantFor(state: CycleState, config: ProjectConfig): Grant {
   const { paths } = config;
   switch (state) {
-    case "FEATURE_WRITE":
+    case FEATURE_WRITE:
       return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.bdd_features], shell: false };
     case "BDD_RED":
       return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN], shell: false };

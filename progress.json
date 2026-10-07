@@ -1977,7 +1977,57 @@
     {
       "id": "FR-AGENT-07",
       "title": "Request a dependency",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "No step lets an agent edit package.json or a lockfile",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell cannot run a package manager",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell cannot write package.json or a lockfile",
+          "bdd": "pass"
+        },
+        {
+          "name": "An approved request is installed with the project's package manager",
+          "bdd": "pass"
+        },
+        {
+          "name": "A request without a version installs the package by its name",
+          "bdd": "pass"
+        },
+        {
+          "name": "A rejected request installs nothing and tells the agent why",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without anyone to ask nothing is installed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A request that is not a plain package name, version and reason is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failed installation is reported to the agent",
+          "bdd": "pass"
+        },
+        {
+          "name": "A worktree that shares node_modules with the main copy gets its own before installing",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only the steps that write code or tests can request a dependency",
+          "bdd": "pass"
+        },
+        {
+          "name": "A project that makes a manifest or lockfile writable does not make it writable to an agent",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-08",

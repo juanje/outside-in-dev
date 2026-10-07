@@ -1,7 +1,7 @@
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createEditTool } from "@earendil-works/pi-coding-agent";
 import type { OidWorld } from "../support/world.js";
@@ -222,12 +222,14 @@ Given("oid opened an agent session for the step {word}", async function (this: O
   const { oidAgentDir } = await import("../../src/agents/runner.js");
   const { openProfileSession } = await import("../../src/agents/profile-session.js");
   const scenario = sandboxOf(this);
-  const session = await openProfileSession({
+  const request = {
     state: step as CycleState,
     worktree: scenario.project,
     agentDir: oidAgentDir({ HOME: scenario.home }),
     sessionsDir: this.path("sandbox-runs/sessions"),
-  });
+    ...dependencyOptions(this),
+  };
+  const session = await openProfileSession(request);
   session.abort = async () => {
     scenario.aborts += 1;
   };
@@ -290,8 +292,8 @@ Then("the session offers a shell: {word}", function (this: OidWorld, shell: stri
 });
 
 Then("the session offers the tools: {}", function (this: OidWorld, tools: string) {
-  // The built-in tools only: oid's own `report` tool is offered to every step and checked by agent-04.
-  const builtins = sandboxSession(this).getActiveToolNames().filter((name) => name !== "report");
+  // The built-in tools only: oid's own `report` tool is offered to every step (agent-04) and `request_dependency` to the steps that write tests or code (agent-07).
+  const builtins = sandboxSession(this).getActiveToolNames().filter((name) => name !== "report" && name !== "request_dependency");
   assert.deepEqual([...builtins].sort(), tools.split(", ").sort());
 });
 
@@ -597,4 +599,146 @@ Then("the error the agent sees says {string}", function (this: OidWorld, text: s
 Then("the result the agent sees has no hint", function (this: OidWorld) {
   const seen = edits.get(this)?.text ?? "";
   assert.ok(!/hint/i.test(seen), `the result has a hint: ${seen}`);
+});
+
+type DependencyRequestArgs = { name: string; version?: string; dev: boolean; reason: string };
+type DependencyScenario = {
+  asked: DependencyRequestArgs[];
+  installed: Array<{ command: string[]; cwd: string }>;
+  decision?: { approved: boolean; note?: string };
+  installFailure?: string;
+  answer?: { text: string; failed: boolean };
+};
+
+const dependencyScenarios = new WeakMap<OidWorld, DependencyScenario>();
+
+function dependenciesOf(world: OidWorld): DependencyScenario {
+  const found = dependencyScenarios.get(world) ?? { asked: [], installed: [] };
+  dependencyScenarios.set(world, found);
+  return found;
+}
+
+/** The approver and the installer the session is opened with: both are fakes, so no test reaches a registry. */
+function dependencyOptions(world: OidWorld) {
+  const scenario = dependenciesOf(world);
+  const decision = scenario.decision;
+  return {
+    approveDependency: decision && (async (request: DependencyRequestArgs) => (scenario.asked.push(request), decision)),
+    installDependency: (command: string[], cwd: string) => {
+      if (scenario.installFailure !== undefined) throw new Error(scenario.installFailure);
+      scenario.installed.push({ command, cwd });
+    },
+  };
+}
+
+const LOCKFILES: Record<string, string> = { npm: "package-lock.json", pnpm: "pnpm-lock.yaml", yarn: "yarn.lock" };
+
+Given("the project uses {word}", function (this: OidWorld, manager: string) {
+  put(join(sandboxOf(this).project, LOCKFILES[manager] ?? ""), "lock\n");
+});
+
+Given("the human approves dependency requests", function (this: OidWorld) {
+  dependenciesOf(this).decision = { approved: true };
+});
+
+Given("the human rejects dependency requests with the note {string}", function (this: OidWorld, note: string) {
+  dependenciesOf(this).decision = { approved: false, note };
+});
+
+Given("the installer fails with {string}", function (this: OidWorld, message: string) {
+  dependenciesOf(this).installFailure = message;
+});
+
+Given("the project's node_modules is shared with the main copy", function (this: OidWorld) {
+  put(this.path("main-copy/node_modules/marker.txt"), "main\n");
+  symlinkSync(this.path("main-copy/node_modules"), join(sandboxOf(this).project, "node_modules"), "dir");
+});
+
+async function requestDependency(world: OidWorld, args: Record<string, unknown>): Promise<void> {
+  await callTool(world, "request_dependency", args as Record<string, string>);
+  const scenario = dependenciesOf(world);
+  if (sandboxOf(world).verdict?.block === true) {
+    scenario.answer = { text: sandboxOf(world).verdict?.reason ?? "", failed: true };
+    return;
+  }
+  const tool = sandboxSession(world).getToolDefinition("request_dependency");
+  assert.ok(tool, "the session does not offer request_dependency");
+  try {
+    const result = await tool.execute("call-1", args as never, undefined, undefined, {} as never);
+    scenario.answer = { text: result.content.map((part) => (part.type === "text" ? part.text : "")).join(""), failed: false };
+  } catch (error) {
+    scenario.answer = { text: (error as Error).message, failed: true };
+  }
+}
+
+When("the agent requests the {word} package {string} with the version {string} because {string}", async function (this: OidWorld, kind: string, name: string, version: string, reason: string) {
+  await requestDependency(this, { name, version, dev: kind === "dev", reason });
+});
+
+When("the agent requests the {word} package {string} without a version because {string}", async function (this: OidWorld, kind: string, name: string, reason: string) {
+  await requestDependency(this, { name, dev: kind === "dev", reason });
+});
+
+Then("the human was asked about {string} because {string}", function (this: OidWorld, name: string, reason: string) {
+  const [asked] = dependenciesOf(this).asked;
+  assert.equal(asked?.name, name);
+  assert.equal(asked?.reason, reason);
+});
+
+Then("the human was not asked", function (this: OidWorld) {
+  assert.deepEqual(dependenciesOf(this).asked, []);
+});
+
+Then("the installer ran {string}", function (this: OidWorld, command: string) {
+  assert.deepEqual(dependenciesOf(this).installed.map((run) => run.command.join(" ")), [command]);
+  assert.equal(dependenciesOf(this).installed[0]?.cwd, sandboxOf(this).project);
+});
+
+Then("the installer ran {string} and then {string}", function (this: OidWorld, first: string, second: string) {
+  assert.deepEqual(dependenciesOf(this).installed.map((run) => run.command.join(" ")), [first, second]);
+});
+
+Then("nothing was installed", function (this: OidWorld) {
+  assert.deepEqual(dependenciesOf(this).installed, []);
+});
+
+function answerOf(world: OidWorld): { text: string; failed: boolean } {
+  const { answer } = dependenciesOf(world);
+  assert.ok(answer, "the agent made no request");
+  return answer;
+}
+
+Then("the agent is told the package was installed", function (this: OidWorld) {
+  assert.equal(answerOf(this).failed, false, answerOf(this).text);
+  assert.match(answerOf(this).text, /Installed /);
+});
+
+Then("the agent is told the request was not approved", function (this: OidWorld) {
+  assert.match(answerOf(this).text, /not approved/);
+});
+
+Then("the agent is told the installation failed", function (this: OidWorld) {
+  assert.equal(answerOf(this).failed, true);
+  assert.match(answerOf(this).text, /installation failed/);
+});
+
+Then("the agent is told {string}", function (this: OidWorld, text: string) {
+  assert.ok(answerOf(this).text.includes(text), answerOf(this).text);
+});
+
+Then("the request is refused", function (this: OidWorld) {
+  assert.equal(answerOf(this).failed, true);
+  assert.match(answerOf(this).text, /not valid/);
+});
+
+Then("the project's node_modules is no longer a link to the main copy", function (this: OidWorld) {
+  assert.equal(lstatSync(join(sandboxOf(this).project, "node_modules"), { throwIfNoEntry: false })?.isSymbolicLink() ?? false, false);
+});
+
+Then("the main copy's node_modules is untouched", function (this: OidWorld) {
+  assert.ok(existsSync(this.path("main-copy/node_modules/marker.txt")));
+});
+
+Then("the session offers the request_dependency tool: {word}", function (this: OidWorld, offered: string) {
+  assert.equal(sandboxSession(this).getActiveToolNames().includes("request_dependency"), offered === "yes");
 });

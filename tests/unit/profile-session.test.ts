@@ -20,9 +20,9 @@ describe("openProfileSession", () => {
     await openProfileSession({ ...request, state: "CODE_GREEN" }, sdk);
     await openProfileSession({ ...request, state: "TDD_RED" }, sdk);
 
-    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report"], excludeTools: [], agentDir: "/oid/agent" });
-    expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }]);
-    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report"], excludeTools: ["bash"] });
+    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report", "request_dependency"], excludeTools: [], agentDir: "/oid/agent" });
+    expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }, { name: "request_dependency" }]);
+    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report", "request_dependency"], excludeTools: ["bash"] });
     for (const call of calls) expect(promptOf(call)).toContain("call the report tool");
     for (const call of calls) expect(promptOf(call)).toContain("orchestrator runs git and the tests");
 
@@ -35,5 +35,23 @@ describe("openProfileSession", () => {
     const hook = (sessions[1] as Agented).agent.beforeToolCall as (context: unknown) => Promise<{ block?: boolean } | undefined>;
     const call = { toolCall: { name: "write" }, args: { path: "src/app.ts" } };
     expect(await hook(call)).toMatchObject({ block: true });
+  });
+});
+
+describe("openProfileSession dependencies", () => {
+  it("offers request_dependency, in the one toolset array, to the steps that write tests or code and not to the one that writes features", async () => {
+    writeMinimalConfig();
+    const request = { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions` };
+    const { sdk, calls } = fakePiSdk(() => ({ agent: {}, abort: async () => {} }));
+    const states = ["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
+
+    for (const state of states) await openProfileSession({ ...request, state }, sdk);
+
+    states.forEach((state, index) => {
+      const offered = state !== "FEATURE_WRITE";
+      const session = calls[index]?.session;
+      expect((session?.tools as string[]).includes("request_dependency"), `${state} allowlist`).toBe(offered);
+      expect((session?.customTools as Array<{ name: string }>).some((tool) => tool.name === "request_dependency"), `${state} custom tools`).toBe(offered);
+    });
   });
 });
