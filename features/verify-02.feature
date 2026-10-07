@@ -212,6 +212,7 @@ Feature: Verify a BDD Red
         assert.equal(greet("Ann"), "Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red features/greeting.feature:3"
     Then the command needs a decision
     And the output starts with "red: needs a decision"
@@ -241,6 +242,7 @@ Feature: Verify a BDD Red
         assert.equal(greet("Ann"), "Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red features/greeting.feature:3"
     And I run "oid verify red features/greeting.feature:3 --decide business_assertion"
     Then the command succeeds
@@ -269,6 +271,7 @@ Feature: Verify a BDD Red
         assert.equal(greet("Ann"), "Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red features/greeting.feature:3"
     And I run "oid verify red features/greeting.feature:3 --decide test_bug"
     Then the command fails

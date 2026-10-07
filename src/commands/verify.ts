@@ -1,4 +1,7 @@
-import { failingFile, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { addedLines } from "../artifacts/added-lines.js";
+import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { CYCLE_STEP, ProgressError } from "../artifacts/progress.js";
 import { type ProjectConfig } from "../artifacts/project-config.js";
@@ -129,12 +132,21 @@ function observeBdd(cwd: string, config: ProjectConfig, scenario: { file: string
   return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
 
+/** Whether the first stack frame of a failure is a line of a unit test or a step file added since the last checkpoint. */
+function isOnAddedTestLine(cwd: string, config: ProjectConfig, message: string): boolean {
+  const frame = failingFrame(message, cwd);
+  if (frame === undefined || !existsSync(join(cwd, frame.file))) return false;
+  const isTest = isInsideSource(config.paths.unit_tests, frame.file) || isInsideSource(config.paths.bdd_steps, frame.file);
+  return isTest && addedLines(cwd, frame.file).some(({ line }) => line === frame.line);
+}
+
 /** The class of what the run showed, by the deterministic rules of the Red Gate. */
 function classifyObservation(cwd: string, config: ProjectConfig, { failure, importer }: Observation): Verdict {
   return classifyFailure(failure, {
     cwd,
     isSource: (path) => isInsideSource(config.paths.source, path),
     resolveSymbol: (name) => (importer === undefined ? "external" : resolveImportedSymbol(cwd, importer, name)),
+    isOnAddedTestLine: (message) => isOnAddedTestLine(cwd, config, message),
   });
 }
 

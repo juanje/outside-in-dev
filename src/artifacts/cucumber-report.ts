@@ -60,13 +60,18 @@ export function observeScenario(steps: ScenarioStep[], target: { file: string; l
   return failed === undefined ? { kind: FAILURE.passed } : { kind: FAILURE.error, message: failed.message };
 }
 
-const STACK_FRAME_FILE = /^\s+at .*?\(?(\/[^():]+):\d+:\d+\)?$/m;
+const STACK_FRAME = /^\s+at .*?\(?(?<path>\/[^():]+):(?<line>\d+):\d+\)?$/m;
+
+/** The file, relative to the project, and the line of the first stack frame of a failure message; undefined when it has none or the file is outside the project. */
+export function failingFrame(message: string, cwd: string): { file: string; line: number } | undefined {
+  const { path, line } = STACK_FRAME.exec(message)?.groups ?? {};
+  const file = path === undefined ? undefined : relative(cwd, path);
+  return file === undefined || file.startsWith("..") ? undefined : { file, line: Number(line) };
+}
 
 /** The file of the first stack frame of a failure message, relative to the project; undefined when it has none or the file is outside the project. */
 export function failingFile(message: string, cwd: string): string | undefined {
-  const absolute = STACK_FRAME_FILE.exec(message)?.[1];
-  const path = absolute === undefined ? undefined : relative(cwd, absolute);
-  return path === undefined || path.startsWith("..") ? undefined : path;
+  return failingFrame(message, cwd)?.file;
 }
 
 const DID_NOT_RUN = "the scenario did not run";

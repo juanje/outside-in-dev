@@ -116,6 +116,7 @@ Feature: Verify a unit Red
         expect(greet("Ann")).toBe("Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
     Then the command needs a decision
     And the output starts with "red: needs a decision"
@@ -150,6 +151,7 @@ Feature: Verify a unit Red
         expect(greet("Ann")).toBe("Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
     And I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide business_assertion"
     Then the command succeeds
@@ -167,6 +169,7 @@ Feature: Verify a unit Red
         expect(greet("Ann")).toBe("Hi, Ann");
       });
       """
+    And the changes are committed
     When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
     And I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\" --decide test_bug"
     Then the command fails
