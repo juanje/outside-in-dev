@@ -36,6 +36,12 @@ export function git(cwd: string, command: string, ...extra: string[]): string {
   return result.stdout.toString().trimEnd();
 }
 
+/** Whether `ancestor` is `commit` or one of its ancestors in the repository of `cwd`. */
+export function isAncestor(cwd: string, ancestor: string, commit: string): boolean {
+  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
+  return spawnSync(GIT, ["merge-base", "--is-ancestor", ancestor, commit], { cwd, env }).status === 0;
+}
+
 /** The commit checked out in `cwd`. */
 export function headCommit(cwd: string): string {
   return git(cwd, "rev-parse HEAD");
