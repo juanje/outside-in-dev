@@ -1,4 +1,4 @@
-@FR-RUN-01 @process
+@FR-RUN-01
 Feature: Start a run
 
   Background:
@@ -8,10 +8,10 @@ Feature: Start a run
 
   Scenario: A run goes through the start states and selects the pending features
     When I run "oid run"
-    Then the process exits with code 0
-    And the event log of the run records the transitions to "PREFLIGHT", "BASELINE", "SPEC_CHECK", "SELECT_FR" and "FEATURE_WRITE", in that order
-    And the last transition says it selected "FR-CART-02" and "FR-CART-03", in that order
-    And the last line printed says the start finished and the selected features wait for feature writing
+    Then the process exits with code 3
+    And the event log of the run starts with the transitions to "PREFLIGHT", "BASELINE", "SPEC_CHECK", "SELECT_FR" and "FEATURE_WRITE", in that order
+    And the transition to "FEATURE_WRITE" says it selected "FR-CART-02" and "FR-CART-03", in that order
+    And a line printed says the start finished and the selected features wait for feature writing
 
   Scenario: Every event is printed as one line
     When I run "oid run"
@@ -30,7 +30,7 @@ Feature: Start a run
   Scenario: The user's copy is left as it was
     Given the user's copy has an uncommitted change to "README.md"
     When I run "oid run"
-    Then the process exits with code 0
+    Then the process exits with code 3
     And the user's copy is on its own branch, at its own commit, with only that uncommitted change
 
   Scenario: The existing suite runs in the worktree and its result is recorded
@@ -40,6 +40,7 @@ Feature: Start a run
     And the baseline of the run records no failing unit test and no failing scenario
     And the reports of the suite run are kept in the run directory
 
+  @process
   Scenario: A red unit test at the start stops the run and asks
     Given a unit test "totals > adds a line" fails in the suite
     When I run "oid run"
@@ -48,6 +49,7 @@ Feature: Start a run
     And the baseline of the run lists the failing unit test "totals > adds a line"
     And no feature is selected
 
+  @process
   Scenario: A red scenario at the start stops the run and asks
     Given a scenario "Pay with a card" fails in the suite
     When I run "oid run"
@@ -56,6 +58,7 @@ Feature: Start a run
     And the baseline of the run lists the failing scenario "Pay with a card"
     And no feature is selected
 
+  @process
   Scenario: A red suite saves the session so the run can be resumed
     Given a unit test "totals > adds a line" fails in the suite
     When I run "oid run"
@@ -65,23 +68,24 @@ Feature: Start a run
   Scenario: What the runners print is never read
     Given the unit runner prints "1 failed" and writes a report where every test passed
     When I run "oid run"
-    Then the process exits with code 0
+    Then the process exits with code 3
 
   Scenario: The saved session of a started run holds what the next state needs
     When I run "oid run"
-    Then the saved session names the run, its worktree and branch, the commit it started from and the state "FEATURE_WRITE"
+    Then the saved session names the run, its worktree and branch, the commit it started from and the state "FEATURE_REVIEW"
     And the saved session lists the target features "FR-CART-02" and "FR-CART-03"
 
   Scenario: A run can be limited to a number of features
     When I run "oid run --max-frs 1"
-    Then the last transition says it selected "FR-CART-02"
+    Then the transition to "FEATURE_WRITE" says it selected "FR-CART-02"
     And the saved session lists the target features "FR-CART-02"
 
   Scenario: A run can be given the features to work on
     When I run "oid run --fr FR-CART-03"
-    Then the last transition says it selected "FR-CART-03"
+    Then the transition to "FEATURE_WRITE" says it selected "FR-CART-03"
     And the saved session lists the target features "FR-CART-03"
 
+  @process
   Scenario: A feature that SPEC.md does not define is refused
     When I run "oid run --fr FR-CART-09"
     Then the process exits with code 1
@@ -89,6 +93,7 @@ Feature: Start a run
     And the event log of the run records an error mentioning "FR-CART-09"
     And no feature is selected
 
+  @process
   Scenario: A feature that progress.json does not track is refused
     When I run "oid run --fr FR-CART-04"
     Then the process exits with code 1
@@ -96,6 +101,7 @@ Feature: Start a run
     And the event log of the run records an error mentioning "FR-CART-04"
     And no feature is selected
 
+  @process
   Scenario: A feature that is done is refused
     When I run "oid run --fr FR-CART-01"
     Then the process exits with code 1
@@ -103,6 +109,7 @@ Feature: Start a run
     And the event log of the run records an error mentioning "FR-CART-01"
     And no feature is selected
 
+  @process
   Scenario: A feature that is in progress is refused
     When I run "oid run --fr FR-CART-05"
     Then the process exits with code 1
@@ -110,6 +117,7 @@ Feature: Start a run
     And the event log of the run records an error mentioning "FR-CART-05"
     And no feature is selected
 
+  @process
   Scenario: A run with no pending feature has nothing to do
     Given progress.json tracks no pending feature
     When I run "oid run"
@@ -121,8 +129,9 @@ Feature: Start a run
     Given a saved session of an earlier run with a pending question
     When I run "oid run"
     Then the saved session names the new run and not the earlier one
-    And the saved session holds no pending question
+    And the saved session holds no pending question of the earlier run
 
+  @process
   Scenario: A run refuses to start while another one holds the lock
     Given the lock of the project is held by a process that is running
     When I run "oid run"
@@ -131,6 +140,7 @@ Feature: Start a run
     And no worktree or branch was created
     And the lock is still held by that process
 
+  @process
   Scenario: A run refuses to start over the lock of a process that is gone
     Given the lock of the project is held by a process that is no longer running
     When I run "oid run"
@@ -148,12 +158,14 @@ Feature: Start a run
     When I run "oid run"
     Then the project has no lock
 
+  @process
   Scenario: The lock is released when a run stops to ask
     Given a unit test "totals > adds a line" fails in the suite
     When I run "oid run"
     Then the process exits with code 3
     And the project has no lock
 
+  @process
   Scenario: A project without a configuration file is refused
     Given the project has no ".outside-in.json"
     When I run "oid run"

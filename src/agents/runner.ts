@@ -52,10 +52,10 @@ type Backoff = { delaysMs?: number[]; sleep?: (ms: number) => Promise<void> };
 export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession>; backoff?: Backoff };
 
 /** How an attempt ended: done with its report, blocked with the agent's reason, failed with oid's reason, or stopped to ask the human (the provider failed in a way a retry cannot fix). */
-const FAILED = "failed";
-const DONE = "done";
-const BLOCKED = "blocked";
-const ASK = "ask";
+export const FAILED = "failed";
+export const DONE = "done";
+export const BLOCKED = "blocked";
+export const ASK = "ask";
 export type AttemptOutcome = { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
 
 const NOTHING_PRODUCED = "the agent produced nothing: its response had no content";

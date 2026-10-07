@@ -42,7 +42,7 @@ export interface CheckpointDetails {
 }
 
 /** The SHA-256 of a file of the project, as hex. */
-function hashFile(cwd: string, name: string): string {
+export function hashFile(cwd: string, name: string): string {
   return createHash("sha256").update(readFileSync(join(cwd, name))).digest("hex");
 }
 

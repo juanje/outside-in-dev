@@ -4,7 +4,9 @@ import type { ProjectConfig } from "../artifacts/project-config.js";
 /** The steps of the cycle that run an agent. */
 /** The step that writes feature files, the only one whose agent writes neither tests nor code. */
 export const FEATURE_WRITE = "FEATURE_WRITE";
-export const CYCLE_STATES = [FEATURE_WRITE, "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
+/** The step that writes step definitions. */
+export const BDD_RED = "BDD_RED";
+export const CYCLE_STATES = [FEATURE_WRITE, BDD_RED, "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
 export type CycleState = (typeof CYCLE_STATES)[number];
 
 /** What a step's agent may do: its tools, the globs it may write and read (relative to the worktree), the globs nobody writes, the orchestrator state no shell argument may name, and the commands its shell may run. */
@@ -38,7 +40,7 @@ function grantFor(state: CycleState, config: ProjectConfig): Grant {
   switch (state) {
     case FEATURE_WRITE:
       return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.bdd_features], shell: false };
-    case "BDD_RED":
+    case BDD_RED:
       return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN], shell: false };
     case "TDD_RED":
       return { write: paths.unit_tests, read: [...paths.unit_tests, ...paths.bdd_features, ...paths.bdd_steps], shell: false };

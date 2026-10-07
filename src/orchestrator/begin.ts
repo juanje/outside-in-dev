@@ -7,6 +7,7 @@ import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { createEventBus } from "../events/bus.js";
 import { ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
+import { BDD_RED } from "../agents/profiles.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { runDirectory, startSession, updateSession } from "./session.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
@@ -19,12 +20,15 @@ import { newRunId } from "./run-id.js";
 export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void };
 
 /** The states of the orchestrator that a start goes through (design section 6.1). */
-const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", done: "DONE" } as const;
+export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, done: "DONE" } as const;
 
 type Bus = ReturnType<typeof createEventBus>;
 
+/** What a start that selected features hands to the states after it. */
+export type Started = { cwd: string; runId: string; bus: Bus; workspace: Workspace; targets: string[] };
+
 /** Publishes the move of the run from one state to the next. */
-function transition(bus: Bus, from: string, to: string, reason: string): number | undefined {
+export function transition(bus: Bus, from: string, to: string, reason: string): number | undefined {
   return bus.emit({ type: "state_change", from, to, reason });
 }
 
@@ -49,8 +53,8 @@ function askAboutRedSuite(bus: Bus, suite: SuiteResult): number {
 /** What a run carries from one state of the start to the next. */
 type Start = { cwd: string; args: RunArgs; runId: string; bus: Bus; commands: ProjectConfig["commands"]; now: Date };
 
-/** Goes through the states of the start, from the worktree to the selection: returns the exit code of the process. */
-function goThroughStart({ cwd, args, runId, bus, commands, now }: Start): number {
+/** Goes through the states of the start, from the worktree to the selection: returns the exit code of the process when the start ends the run, else what the next states need. */
+function goThroughStart({ cwd, args, runId, bus, commands, now }: Start): number | Started {
   transition(bus, STATE.idle, STATE.preflight, "run started");
   const workspace = startRun(cwd, { runId, name: args.branch, now });
   startSession(cwd, { runId, worktree: workspace.path, branch: workspace.branch, baseCommit: workspace.startCommit, state: STATE.baseline });
@@ -67,22 +71,33 @@ function goThroughStart({ cwd, args, runId, bus, commands, now }: Start): number
   }
   transition(bus, STATE.selectFr, STATE.featureWrite, `start finished; selected ${targets.join(LIST_SEPARATOR)} wait for feature writing`);
   updateSession(cwd, { state: STATE.featureWrite, targetFrs: targets });
-  return 0;
+  return { cwd, runId, bus, workspace, targets };
 }
 
-/** Starts a run in the project `cwd`: returns the exit code of the process. A failure once the run has started is an event of the run. */
+/** Whether the value is the exit code of a process, as opposed to what the next states need. */
+export function isExitCode(value: unknown): value is number {
+  return typeof value === "number";
+}
+
+/** Starts the run with the lock held: returns the exit code of the process when the start ends the run, else what the next states need. A failure once the run has started is an event of the run. */
+export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"]): number | Started {
+  const runId = newRunId(environment.now, environment.suffix);
+  const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime() });
+  try {
+    return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now });
+  } catch (error) {
+    if (!(error instanceof ProgressError)) throw error;
+    return bus.emit({ type: ERROR_EVENT, message: error.message }) ?? 1;
+  }
+}
+
+/** Starts a run in the project `cwd`: returns the exit code of the process. */
 export function beginRun(cwd: string, args: RunArgs, environment: RunEnvironment): number {
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, environment.pid);
   try {
-    const runId = newRunId(environment.now, environment.suffix);
-    const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime() });
-    try {
-      return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now });
-    } catch (error) {
-      if (!(error instanceof ProgressError)) throw error;
-      return bus.emit({ type: ERROR_EVENT, message: error.message }) ?? 1;
-    }
+    const started = startOfRun(cwd, args, environment, commands);
+    return isExitCode(started) ? started : 0;
   } finally {
     releaseLock(cwd);
   }

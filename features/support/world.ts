@@ -7,9 +7,19 @@ import { fileURLToPath } from "node:url";
 import { buildProblem } from "./build-freshness.js";
 import { projectFiles } from "./project-files.js";
 import { runCli } from "../../src/run-cli.js";
+import type { PiSdk } from "../../src/agents/runner.js";
+import type { CliIo } from "../../src/cli-io.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
+
+/** The terminal an in-process run is given: none, or one that answers the review. */
+export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string> };
+/** What an in-process `oid run` is given in place of the real agent and the real terminal. */
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string };
+
+/** `runCli` as the scenarios call it: with the services of the run. */
+const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;
 
 export type Scenario = { name: string; bdd: string };
 export type Feature = {
@@ -55,6 +65,8 @@ export class OidWorld extends World {
   projectDir = "";
   /** Whether `run` starts the built CLI in a child process instead of calling it in this one. */
   built = false;
+  /** What an in-process `oid run` is given in place of the real agent and the real terminal. */
+  services: RunServices | undefined;
   stdout = "";
   stderr = "";
   exitCode: number | null = null;
@@ -99,11 +111,15 @@ export class OidWorld extends World {
     this.filesBefore = this.snapshotFiles();
     let stdout = "";
     let stderr = "";
-    this.exitCode = await runCli(args, {
-      cwd: this.dir,
-      stdout: (text) => (stdout += text),
-      stderr: (text) => (stderr += text),
-    });
+    this.exitCode = await runWithServices(
+      args,
+      {
+        cwd: this.projectDir || this.dir,
+        stdout: (text) => (stdout += text),
+        stderr: (text) => (stderr += text),
+      },
+      this.services,
+    );
     this.stdout = stdout;
     this.stderr = stderr;
   }

@@ -3,21 +3,22 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { FakeAgent } from "../support/fake-agent.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 
 type Status = "done" | "pending" | "in progress";
 type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null };
 type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean };
-type LoggedEvent = { type: string; to?: string; reason?: string; message?: string };
-type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; pendingInput?: { prompt: string; actions: { key: string }[] } | null };
+export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
+export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
 
 const fixtures = new WeakMap<OidWorld, Fixture>();
 const lockPaths = new WeakMap<OidWorld, string>();
 const LOCK = ".outside-in/lock";
-const SESSION = ".outside-in/session.json";
-const PROJECT = "project";
-const FIXTURE_PATHS = { source: ["src/**"], shared: [], unit_tests: [], bdd_features: [], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
+export const SESSION = ".outside-in/session.json";
+export const PROJECT = "project";
+const FIXTURE_PATHS = { source: ["src/**"], shared: [], unit_tests: [], bdd_features: ["features/**/*.feature"], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
 const FIXTURE_COMMANDS = { bdd: "node bdd.mjs", unit: "node unit.mjs", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] };
 const STATUS_FIELDS: Record<Status, object> = { done: { status: "done" }, pending: { status: "pending" }, "in progress": { status: "in_progress", cycle_step: "bdd_red" } };
 
@@ -60,19 +61,19 @@ mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
 `;
 
-function fixtureOf(world: OidWorld): Fixture {
+export function fixtureOf(world: OidWorld): Fixture {
   const found = fixtures.get(world);
   assert.ok(found, "no project was created");
   return found;
 }
 
-function writeIn(world: OidWorld, name: string, content: string): void {
+export function writeIn(world: OidWorld, name: string, content: string): void {
   mkdirSync(dirname(world.path(join(PROJECT, name))), { recursive: true });
   writeFileSync(world.path(join(PROJECT, name)), content);
 }
 
 /** Writes the whole fixture project from its description and commits it. */
-function commit(world: OidWorld): void {
+export function commit(world: OidWorld): void {
   const fixture = fixtureOf(world);
   const specs = fixture.requirements.map((id) => `### ${id}: Feature ${id}\n\nIt does what ${id} says.\n`);
   writeIn(world, "SPEC.md", `# Spec\n\n## Functional Requirements\n\n${specs.join("\n")}`);
@@ -88,13 +89,18 @@ function commit(world: OidWorld): void {
   git(world.projectDir, "commit", "--quiet", "--allow-empty", "--message", "fixture");
 }
 
-function change(world: OidWorld, update: (fixture: Fixture) => void): void {
+export function change(world: OidWorld, update: (fixture: Fixture) => void): void {
   update(fixtureOf(world));
   commit(world);
 }
 
-Before({ tags: "@FR-RUN-01" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {
   this.built = true;
+});
+
+/** The scenarios that reach feature writing run in this process, with the scripted agent and no terminal to answer the review. */
+Before({ tags: "@FR-RUN-01 and not @process" }, function (this: OidWorld) {
+  this.services = { sdk: new FakeAgent().sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent") };
 });
 
 Given("a git project with a green suite", function (this: OidWorld) {
@@ -105,6 +111,8 @@ Given("a git project with a green suite", function (this: OidWorld) {
   git(this.projectDir, "config", "user.email", "fixture@example.com");
   writeIn(this, ".gitignore", ".outside-in/\nran-*.txt\n");
   writeIn(this, "README.md", "# Project\n");
+  writeIn(this, "src/totals.ts", "export const cartSourceMarker = 1;\n");
+  writeIn(this, "tests/unit/cart.test.ts", "// cart-test-marker\n");
   fixtures.set(this, { requirements: [], tracked: new Map(), suite: { unitFailing: [], bddFailing: [], printFailed: false, reportLock: null }, config: true });
   commit(this);
 });
@@ -173,12 +181,12 @@ Given("the lock of the project is held by a process that is no longer running", 
   holdLock(this, finished.pid);
 });
 
-function eventLog(world: OidWorld): LoggedEvent[] {
+export function eventLog(world: OidWorld): LoggedEvent[] {
   const log = join(runDirectory(world), "events.jsonl");
   return readFileSync(log, "utf8").trimEnd().split("\n").map((line) => JSON.parse(line) as LoggedEvent);
 }
 
-function runDirectory(world: OidWorld): string {
+export function runDirectory(world: OidWorld): string {
   const runs = world.path(join(PROJECT, ".outside-in", "runs"));
   assert.ok(existsSync(runs), "the run left no run directory");
   const names = readdirSync(runs);
@@ -186,33 +194,37 @@ function runDirectory(world: OidWorld): string {
   return join(runs, names[0]!);
 }
 
-function transitions(world: OidWorld): LoggedEvent[] {
+export function transitions(world: OidWorld): LoggedEvent[] {
   return eventLog(world).filter((event) => event.type === "state_change");
 }
 
-function session(world: OidWorld): SavedSession {
+export function session(world: OidWorld): SavedSession {
   return JSON.parse(readFileSync(world.path(join(PROJECT, SESSION)), "utf8")) as SavedSession;
 }
 
-Then("the event log of the run records the transitions to {string}, {string}, {string}, {string} and {string}, in that order", function (this: OidWorld, a: string, b: string, c: string, d: string, e: string) {
-  assert.deepEqual(transitions(this).map((event) => event.to), [a, b, c, d, e]);
+Then("the event log of the run starts with the transitions to {string}, {string}, {string}, {string} and {string}, in that order", function (this: OidWorld, a: string, b: string, c: string, d: string, e: string) {
+  assert.deepEqual(transitions(this).map((event) => event.to).slice(0, 5), [a, b, c, d, e]);
 });
 
-Then("the last transition says it selected {string} and {string}, in that order", function (this: OidWorld, first: string, second: string) {
-  const reason = transitions(this).at(-1)?.reason ?? "";
+function transitionInto(world: OidWorld, state: string): LoggedEvent {
+  const found = transitions(world).find((event) => event.to === state);
+  assert.ok(found, `no transition to ${state}`);
+  return found;
+}
+
+Then("the transition to {string} says it selected {string} and {string}, in that order", function (this: OidWorld, state: string, first: string, second: string) {
+  const reason = transitionInto(this, state).reason ?? "";
   assert.ok(reason.includes(first) && reason.indexOf(first) < reason.indexOf(second), `the reason was: ${reason}`);
 });
 
-Then("the last transition says it selected {string}", function (this: OidWorld, id: string) {
-  const reason = transitions(this).at(-1)?.reason ?? "";
+Then("the transition to {string} says it selected {string}", function (this: OidWorld, state: string, id: string) {
+  const reason = transitionInto(this, state).reason ?? "";
   assert.ok(reason.includes(`selected ${id}`), `the reason was: ${reason}`);
   assert.equal(reason.match(/FR-CART-\d+/g)?.length, 1, `the reason was: ${reason}`);
 });
 
-Then("the last line printed says the start finished and the selected features wait for feature writing", function (this: OidWorld) {
-  const last = this.stdout.trimEnd().split("\n").at(-1) ?? "";
-  assert.match(last, /start finished/);
-  assert.match(last, /wait for feature writing/);
+Then("a line printed says the start finished and the selected features wait for feature writing", function (this: OidWorld) {
+  assert.ok(this.stdout.split("\n").some((line) => /start finished/.test(line) && /wait for feature writing/.test(line)), this.stdout);
 });
 
 Then("the output has as many lines as the event log of the run has events", function (this: OidWorld) {
@@ -325,6 +337,10 @@ Then("the saved session holds no pending question", function (this: OidWorld) {
   assert.equal(session(this).pendingInput ?? null, null);
 });
 
+Then("the saved session holds no pending question of the earlier run", function (this: OidWorld) {
+  assert.notEqual(session(this).pendingInput?.id, "old");
+});
+
 Then("the output says {string} is not in SPEC.md", function (this: OidWorld, id: string) {
   assert.ok(this.stdout.includes(`${id} is not in SPEC.md`), this.stdout);
 });
@@ -377,7 +393,7 @@ Then("the lock file is as it was", function (this: OidWorld) {
 Then("the lock held while the suite ran named the process of the run", function (this: OidWorld) {
   const seen = JSON.parse(readFileSync(this.path("lock-seen.json"), "utf8")) as { lock: string; chain: number[] };
   assert.ok(seen.chain.includes(Number(seen.lock)), JSON.stringify(seen));
-  assert.notEqual(Number(seen.lock), process.pid);
+  assert.equal(Number(seen.lock), process.pid);
 });
 
 Then("the project has no lock", function (this: OidWorld) {

@@ -2174,7 +2174,65 @@
     {
       "id": "FR-RUN-02",
       "title": "Write and review feature files",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A feature file is written for each target feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "The agent that writes a feature file gets the requirement and what it needs for style",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent that is blocked stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A report that does not match the changed files stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature file that fails a gate stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A requirement whose agent writes no feature file stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human is asked once for all the feature files",
+          "bdd": "pass"
+        },
+        {
+          "name": "Approving the feature files ends the review",
+          "bdd": "pass"
+        },
+        {
+          "name": "Approving moves each target feature to BDD Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Approving creates a checkpoint with the feature files",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human edits the feature files and approves them",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human rejects the feature files with a comment",
+          "bdd": "pass"
+        },
+        {
+          "name": "The agent works with the tools and the sandbox of feature writing",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a terminal the review waits for an answer",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-03",

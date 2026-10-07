@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createEditTool } from "@earendil-works/pi-coding-agent";
+import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
 
 import type { CycleState } from "../../src/agents/profiles.js";
@@ -687,6 +688,7 @@ Then("the human was asked about {string} because {string}", function (this: OidW
 
 Then("the human was not asked", function (this: OidWorld) {
   assert.deepEqual(dependenciesOf(this).asked, []);
+  assert.equal(terminalOf(this).choices.length, 0);
 });
 
 Then("the installer ran {string}", function (this: OidWorld, command: string) {

@@ -18,7 +18,11 @@ const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --me
 
 /** Commits everything the step changed on the run's branch and returns the commit; when nothing changed, returns the current one. */
 export function checkpoint(workspace: Workspace, options: CheckpointOptions): string {
-  const message = ["oid: checkpoint", options.fr, options.state, options.scenario].filter(Boolean).join(WORD_SEPARATOR);
+  return commitAll(workspace, ["oid: checkpoint", options.fr, options.state, options.scenario].filter(Boolean).join(WORD_SEPARATOR));
+}
+
+/** Commits everything that changed in the run's worktree with `message` and returns the commit; when nothing changed, returns the current one. */
+export function commitAll(workspace: Workspace, message: string): string {
   requireRunBranch(workspace);
   git(workspace.path, "add -A");
   if (git(workspace.path, "status --porcelain") !== "") git(workspace.path, QUIET_COMMIT, message);
