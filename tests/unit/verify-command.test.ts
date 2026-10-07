@@ -97,6 +97,7 @@ describe("oid verify red", () => {
   it("takes the class given with --decide for a failure that needs a decision: a valid Red is recorded as an external decision", async () => {
     projectWithRunner({ testResults: [testFile("", [assertionFailure])] });
     commitAll();
+    await runInProject(["verify", "red", TARGET]);
     expect(await runInProject(["verify", "red", TARGET, "--decide", "business_assertion"])).toEqual({
       exitCode: 0,
       stdout: "red: valid (business_assertion): decided outside oid\n",
@@ -105,13 +106,45 @@ describe("oid verify red", () => {
     expect(JSON.parse(readFileSync(join(dir, ".outside-in/checkpoint.json"), "utf8"))).toMatchObject({ step: "tdd_red", external: true });
   });
 
-  it("refuses --decide when the run does not need a decision, printing no verdict and recording nothing", async () => {
-    projectWithRunner({ testResults: [testFile("", [passed])] });
+  it("answers --decide from the failure the last run recorded, without running the test again", async () => {
+    writeMinimalConfig({ commands: COMMANDS });
+    write(".gitignore", "state/\n");
+    write(
+      "runner.mjs",
+      `import { copyFileSync } from "node:fs";\nconst out = process.argv.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);\ncopyFileSync("state/report.json", out);\n`,
+    );
+    write("state/report.json", JSON.stringify({ testResults: [testFile("", [assertionFailure])] }));
     commitAll();
+    const recorded = await runInProject(["verify", "red", TARGET]);
+    write("state/report.json", JSON.stringify({ testResults: [testFile("", [passed])] }));
+    expect({ recorded: recorded.exitCode, decided: await runInProject(["verify", "red", TARGET, "--decide", "business_assertion"]) }).toEqual({
+      recorded: 2,
+      decided: { exitCode: 0, stdout: "red: valid (business_assertion): decided outside oid\n", stderr: "" },
+    });
+  });
+
+  it("refuses --decide when a file other than the progress file changed since the recorded run, naming it and asking to run it again", async () => {
+    projectWithRunner({ testResults: [testFile("", [assertionFailure])] });
+    commitAll();
+    await runInProject(["verify", "red", TARGET]);
+    writeProgressFile({ current_focus: null, features: [] });
+    write("tests/unit/a.test.ts", "// the test, changed\n");
     expect(await runInProject(["verify", "red", TARGET, "--decide", "business_assertion"])).toEqual({
       exitCode: 1,
       stdout: "",
-      stderr: "error: --decide is refused: this run does not need a decision (the test passes without new implementation)\n",
+      stderr: `error: --decide is refused: tests/unit/a.test.ts changed since the run that needs the decision; run oid verify red "${TARGET}" again\n`,
+    });
+    expect(existsSync(join(dir, ".outside-in/checkpoint.json"))).toBe(false);
+  });
+
+  it("refuses --decide when the recorded run does not need a decision, printing no verdict and recording nothing", async () => {
+    projectWithRunner({ testResults: [testFile("", [passed])] });
+    commitAll();
+    await runInProject(["verify", "red", TARGET]);
+    expect(await runInProject(["verify", "red", TARGET, "--decide", "business_assertion"])).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: `error: --decide is refused: no recorded run of this target needs a decision; run oid verify red "${TARGET}" first\n`,
     });
     expect(existsSync(join(dir, ".outside-in/checkpoint.json"))).toBe(false);
   });

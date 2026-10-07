@@ -1,10 +1,11 @@
 import { failingFile, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
-import { ProgressError } from "../artifacts/progress.js";
+import { CYCLE_STEP, ProgressError } from "../artifacts/progress.js";
 import { type ProjectConfig } from "../artifacts/project-config.js";
 import { loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
+import { observationToDecide, recordObservation } from "../artifacts/red-observation.js";
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
@@ -24,6 +25,9 @@ const LIST_SEPARATOR = ", ";
 const NEWLINE = "\n";
 const STACK_FRAME = /^\s+at /;
 const DECIDED_OUTSIDE_OID = "decided outside oid";
+/** The checkpoint step a valid Red of a unit test, and of a scenario, verifies. */
+const TDD_RED = CYCLE_STEP.tddRed;
+const BDD_RED = CYCLE_STEP.bddRed;
 
 /** Exit code of a verification that needs a person or an agent to decide the class. */
 const NEEDS_A_DECISION = 2;
@@ -85,17 +89,19 @@ function parseArgs(args: string[]): { target: string; decision: RedClass | undef
   return { target, decision: decision as RedClass | undefined };
 }
 
+/** A verdict that says whether the failure is a valid Red. */
+type Decided = Exclude<Verdict, { outcome: typeof OUTCOME.decision }>;
+
 /** The class a person or an agent gave to a failure that needed a decision. */
-function decided(decision: RedClass): Verdict {
+function decided(decision: RedClass): Decided {
   const outcome = VALID_RED_CLASSES.includes(decision) ? OUTCOME.valid : OUTCOME.invalid;
   return { outcome, class: decision, reason: DECIDED_OUTSIDE_OID };
 }
 
-/** What the run of the test or of the scenario showed, with the file the failure's names are imported in and the checkpoint step it verifies. */
+/** What the run of the test or of the scenario showed, with the file the failure's names are imported in. */
 interface Observation {
   failure: Failure;
   importer: string | undefined;
-  step: string;
 }
 
 /** The unit test or the scenario to verify. */
@@ -112,7 +118,7 @@ function parseTarget(target: string): Target {
 function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; name: string }): Observation {
   const { exitCode, report } = runUnitTest(cwd, config.commands.unit, test);
   const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "unit", exitCode } : observe(normalizeVitestReport(report), test);
-  return { failure, importer: test.file, step: "tdd_red" };
+  return { failure, importer: test.file };
 }
 
 /** Runs one scenario and observes it. */
@@ -120,7 +126,7 @@ function observeBdd(cwd: string, config: ProjectConfig, scenario: { file: string
   const { exitCode, report, stderr } = runBddScenario(cwd, config.commands.bdd, scenario);
   const changedFile = changedSinceCheckpoint(cwd).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
   const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report), scenario);
-  return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined, step: "bdd_red" };
+  return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
 
 /** The class of what the run showed, by the deterministic rules of the Red Gate. */
@@ -132,14 +138,6 @@ function classifyObservation(cwd: string, config: ProjectConfig, { failure, impo
   });
 }
 
-/** The verdict once a decision, if one was given, is applied; a decision is refused when the run needs none. */
-function settle(classified: Verdict, decision: RedClass | undefined): Verdict {
-  if (decision !== undefined && classified.outcome !== OUTCOME.decision) {
-    throw new ProgressError(`${DECIDE_FLAG} is refused: this run does not need a decision (${classified.reason})`);
-  }
-  return decision === undefined ? classified : decided(decision);
-}
-
 /** The answer for a scenario whose step files cucumber could not load, and nothing when they load or the target is a unit test. */
 function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): string | undefined {
   const problems = parsed.kind === TARGET.scenario ? loadableStepsProblems(cwd, config) : [];
@@ -147,27 +145,42 @@ function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): s
   return `red: not valid (${RED_CLASS.testBug}): cucumber would not start, because of a static import of something that does not exist yet\n${problems.join(NEWLINE)}\n`;
 }
 
-/** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
+/** Prints the verdict, and records the checkpoint of the step when it is a valid Red: exit 0 when it is, 1 when it is not. */
+function answer(io: CliIo, config: ProjectConfig, { target, step, external }: { target: string; step: string; external: boolean }, verdict: Decided): number {
+  const valid = verdict.outcome === OUTCOME.valid;
+  if (valid) recordVerified(io.cwd, config, { step, verify: { kind: RED, target }, external });
+  io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
+  return valid ? 0 : 1;
+}
+
+/** Answers the failure the last run of `target` recorded with the class decided outside oid, without running the test again. */
+function answerRecorded(io: CliIo, config: ProjectConfig, target: string, decision: RedClass): number {
+  const { step } = observationToDecide(io.cwd, target, config.paths.progress);
+  return answer(io, config, { target, step, external: true }, decided(decision));
+}
+
+/** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. With `--decide`, answers the failure the last run recorded instead. */
 export function runVerify(io: CliIo, args: string[]): number {
   if (args[0] === GREEN) return runGreen(io, args.slice(1));
   if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(target);
   const config = loadVerifyConfig(io.cwd);
+  if (decision !== undefined) return answerRecorded(io, config, target, decision);
+  const step = parsed.kind === TARGET.test ? TDD_RED : BDD_RED;
   const unloadable = unloadableAnswer(io.cwd, config, parsed);
   if (unloadable !== undefined) {
+    recordObservation(io.cwd, { target, step, message: unloadable, needsDecision: false });
     io.stdout(unloadable);
     return 1;
   }
   const observation = parsed.kind === TARGET.test ? observeUnit(io.cwd, config, parsed.test) : observeBdd(io.cwd, config, parsed.scenario);
-  const classified = classifyObservation(io.cwd, config, observation);
-  const verdict = settle(classified, decision);
+  const verdict = classifyObservation(io.cwd, config, observation);
+  const message = "message" in observation.failure ? observation.failure.message : "";
+  recordObservation(io.cwd, { target, step, message, needsDecision: verdict.outcome === OUTCOME.decision });
   if (verdict.outcome === OUTCOME.decision) {
-    io.stdout(renderDecision(target, "message" in observation.failure ? observation.failure.message : "", verdict));
+    io.stdout(renderDecision(target, message, verdict));
     return NEEDS_A_DECISION;
   }
-  const valid = verdict.outcome === OUTCOME.valid;
-  if (valid) recordVerified(io.cwd, config, { step: observation.step, verify: { kind: RED, target }, external: decision !== undefined });
-  io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
-  return valid ? 0 : 1;
+  return answer(io, config, { target, step, external: false }, verdict);
 }

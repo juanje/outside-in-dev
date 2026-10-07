@@ -61,6 +61,10 @@ for (const kind of ["source", "unit test", "feature", "step definitions"]) {
   });
 }
 
+Given("the source file {string} is changed to:", function (this: OidWorld, path: string, content: string) {
+  this.write(path, `${content}\n`);
+});
+
 Then("the command needs a decision", function (this: OidWorld) {
   assert.equal(this.exitCode, NEEDS_A_DECISION, `expected exit code ${NEEDS_A_DECISION}, got ${this.exitCode}; stdout: ${this.stdout}; stderr: ${this.stderr}`);
 });

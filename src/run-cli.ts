@@ -25,7 +25,7 @@ const COMMANDS: Record<string, CommandHelp> = {
     summary: "Verify that a test or a scenario is a valid Red, that a Green has no regression, or the integrity of a change",
     usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify green\n       oid verify integrity [--step <step>]',
     options: {
-      "--decide": "Answer a failure that needs a decision: business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
+      "--decide": "Answer the failure the last run of the same target recorded, without running it again (refused if files changed since): business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
       "--step": "Check the rules of this cycle step instead of the step of the focused feature",
     },
     extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n\noid verify integrity prints one line for each rule that the changes break (exit 1), or `integrity: ok` (exit 0).\n",
