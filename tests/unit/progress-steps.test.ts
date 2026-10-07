@@ -44,6 +44,11 @@ describe("advanceStep", () => {
     expect(advanceStep(feature, to).cycle_step).toBe(to);
   });
 
+  it.each([["bdd_red"], ["tdd_red"]])("lets a gap seen at the quality gate go back to %s", (to) => {
+    const feature = { id: "FR-X-01", title: "Alpha", status: "in_progress", cycle_step: "quality_gate", scenarios: [] };
+    expect(advanceStep(feature, to).cycle_step).toBe(to);
+  });
+
   it("lets a pending feature start only with select", () => {
     const feature = { id: "FR-X-01", title: "Alpha", status: "pending" };
     expect(() => advanceStep(feature, "bdd_red")).toThrow(/pending.*bdd_red/);

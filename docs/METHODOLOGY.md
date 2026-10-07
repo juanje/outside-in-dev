@@ -60,7 +60,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 ### 6. Feature refactor and quality gate [`quality_gate`]
 
 - Run `oid metrics --changed` over the whole diff of the feature (tests, steps and docs included) and fix its findings as separate refactor commits or changes.
-- Run the full quality gate (`AGENTS.md`). Every check passes, or go back to the step that owns the failure.
+- Run the full quality gate (`AGENTS.md`). Every check passes, or go back to the step that owns the failure. A gap seen at the gate (a behaviour with no scenario or no test) is a new Red: `oid progress step FR-… bdd_red` or `tdd_red`; the feature file is not edited inside `quality_gate`.
 
 ### 7. Done
 

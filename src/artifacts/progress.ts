@@ -84,6 +84,7 @@ const NEXT_STEPS: Record<string, string[]> = {
   [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen],
   [CYCLE_STEP.tddGreen]: [CYCLE_STEP.refactor, CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
   [CYCLE_STEP.refactor]: [CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
+  [CYCLE_STEP.qualityGate]: [CYCLE_STEP.bddRed, CYCLE_STEP.tddRed],
 };
 
 /** Returns the feature moved to `step`; the input is not modified. */
