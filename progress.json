@@ -1428,6 +1428,18 @@
         {
           "name": "A failing assertion added to a committed test file is a valid Red, one that was committed still needs a decision",
           "bdd": "pass"
+        },
+        {
+          "name": "A test file given without its directory is the file that ran",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test file given without its directory that matches several files with that test is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test file that matches no file is refused",
+          "bdd": "pass"
         }
       ]
     },

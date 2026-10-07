@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
-import { normalizeVitestReport, selectTest } from "../../src/artifacts/vitest-report.js";
+import { filesWithTest, severalFilesRefusal, normalizeVitestReport, selectTest } from "../../src/artifacts/vitest-report.js";
 
 const REPORT = {
   numTotalTests: 2,
@@ -59,5 +59,23 @@ describe("selectTest", () => {
 
   it("finds no test when none has the given name or title", () => {
     expect(selectTest([{ file: "a", message: "", tests: [test("adds", "adds")] }], "greets")).toEqual({ kind: "none" });
+  });
+});
+
+describe("filesWithTest", () => {
+  it("lists the files that hold a test with the given full name", () => {
+    const files = [
+      { file: "/p/tests/unit/a.test.ts", message: "", tests: [test("adds", "adds")] },
+      { file: "/p/tests/unit/b.test.ts", message: "", tests: [test("subtracts", "subtracts")] },
+    ];
+    expect(filesWithTest(files, "subtracts")).toEqual(["/p/tests/unit/b.test.ts"]);
+  });
+});
+
+describe("severalFilesRefusal", () => {
+  it("names the test and every file that holds it", () => {
+    expect(severalFilesRefusal("greets", ["tests/unit/a.test.ts", "tests/unit/b.test.ts"])).toBe(
+      'the test "greets" is in several files; give the path of one of them: tests/unit/a.test.ts, tests/unit/b.test.ts',
+    );
   });
 });

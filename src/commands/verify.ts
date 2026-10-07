@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
 import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
@@ -14,7 +14,7 @@ import { isInsideSource } from "../artifacts/source-roots.js";
 import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { parseUnitTarget, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
-import { normalizeVitestReport, selectTest, type UnitFileResult } from "../artifacts/vitest-report.js";
+import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import { GREEN, runGreen } from "./verify-green.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
@@ -37,11 +37,13 @@ const BDD_RED = CYCLE_STEP.bddRed;
 const NEEDS_A_DECISION = 2;
 
 /** What the run of the test showed: a file that did not load, a test that passed, or a test that failed. */
-function observe(files: UnitFileResult[], { file, name }: { file: string; name: string }): Failure {
+function observe(files: UnitFileResult[], { file, name }: { file: string; name: string }, cwd: string): Failure {
   const unloaded = files.find((candidate) => candidate.message !== "");
   if (unloaded !== undefined) return { kind: FAILURE.load, message: unloaded.message };
   const selection = selectTest(files, name);
   if (selection.kind === "none") return { kind: FAILURE.noTest, name, file };
+  const holders = filesWithTest(files, name);
+  if (holders.length > 1) throw new ProgressError(severalFilesRefusal(name, holders.map((holder) => relative(cwd, holder))));
   if (selection.kind === "several") {
     throw new ProgressError(`several tests are named "${name}"; give the full name of one of them: ${selection.fullNames.join(LIST_SEPARATOR)}`);
   }
@@ -127,8 +129,11 @@ function parseTarget(cwd: string, target: string): Target {
 /** Runs one unit test and observes it. */
 function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; name: string }): Observation {
   const { exitCode, report } = runUnitTest(cwd, config.commands.unit, test);
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "unit", exitCode } : observe(normalizeVitestReport(report), test);
-  return { failure, importer: test.file };
+  if (report === undefined) return { failure: { kind: FAILURE.noReport, runner: "unit", exitCode }, importer: test.file };
+  const files = normalizeVitestReport(report);
+  const failure = observe(files, test, cwd);
+  const [ranIn] = filesWithTest(files, test.name);
+  return { failure, importer: ranIn === undefined ? test.file : relative(cwd, ranIn) };
 }
 
 /** Runs one scenario and observes it. */

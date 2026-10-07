@@ -143,3 +143,7 @@ Then("the checkpoint of {string} lists the scenarios {string} and {string}", fun
   assert.ok(existsSync(path), `${id} has no checkpoint; stdout: ${this.stdout}; stderr: ${this.stderr}`);
   assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).scenarios, [first, second].map((name) => ({ feature: id, name })));
 });
+
+Then("the command prints no stack trace", function (this: OidWorld) {
+  assert.doesNotMatch(`${this.stdout}\n${this.stderr}`, /^\s*at .*:\d+:\d+/m);
+});
