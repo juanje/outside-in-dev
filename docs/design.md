@@ -496,7 +496,7 @@ When retries run out, or if Jev detects a stuck loop (§8.2) → `WAITING_INPUT`
 
 ### 6.11. Git: worktree, checkpoints and squash
 
-**Isolation.** With `settings.isolation: "worktree"` (the default), `PREFLIGHT` creates a worktree in `settings.worktree_dir` (by default `../.oid-worktrees/<repo>/<runId>`) on a new branch `oid/<name>` (from `--branch` or, by default, `oid/run-<date>`) starting from `HEAD`. All work happens there. The user's copy is not touched, so they can keep working and a rollback never deletes anything of theirs. With `"in_place"` the work happens in the current copy, which must be clean, and the user must not modify it during the run.
+**Isolation.** With `settings.isolation: "worktree"` (the default), `PREFLIGHT` creates a worktree in `settings.worktree_dir` (by default `../.oid-worktrees/<repo>/<runId>`) on a new branch `oid/<name>` (from `--branch` or, by default, `oid/run-<date>`) starting from `HEAD`. All work happens there. The user's copy is not touched, so they can keep working and a rollback never deletes anything of theirs. With `"in_place"` the work happens in the current copy, which must be clean, and the user must not modify it during the run. The base of a run is the HEAD of the repository's main working copy, not that of the checkout `oid` is called from (another worktree, for instance); `"in_place"` also works on the main copy.
 
 **Checkpoints.** Each passed gate creates a commit on the work branch: `oid: checkpoint <FR> <state> <scenario>`. Rolling back a failed attempt is:
 
