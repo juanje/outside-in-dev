@@ -166,6 +166,10 @@
         {
           "name": "Step without a cycle step prints its usage",
           "bdd": "pass"
+        },
+        {
+          "name": "From the quality gate the cycle goes back to a Red",
+          "bdd": "pass"
         }
       ]
     },
