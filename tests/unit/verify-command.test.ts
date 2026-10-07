@@ -250,10 +250,10 @@ describe("oid verify red", () => {
     projectWithRunner({ testResults: [testFile(`Cannot find module '../../src/nope.js' imported from '${dir}/tests/unit/a.test.ts'`, [])] });
     commitAll();
     await runInProject(["verify", "red", TARGET]);
-    const feature = () => JSON.parse(readFileSync(join(dir, ".outside-in/checkpoint.json"), "utf8")).feature;
-    expect(feature()).toBeNull();
+    const feature = (file: string) => JSON.parse(readFileSync(join(dir, file), "utf8")).feature;
+    expect(feature(".outside-in/checkpoint.json")).toBeNull();
     writeProgressFile({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "Alpha", status: "in_progress", cycle_step: "tdd_red", scenarios: [] }] });
     await runInProject(["verify", "red", TARGET]);
-    expect(feature()).toBe("FR-X-01");
+    expect(feature(".outside-in/checkpoints/FR-X-01.json")).toBe("FR-X-01");
   });
 });

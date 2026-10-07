@@ -5,7 +5,7 @@ import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } f
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { CYCLE_STEP, ProgressError } from "../artifacts/progress.js";
 import { type ProjectConfig } from "../artifacts/project-config.js";
-import { loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
+import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { observationToDecide, recordObservation } from "../artifacts/red-observation.js";
@@ -127,7 +127,7 @@ function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; n
 /** Runs one scenario and observes it. */
 function observeBdd(cwd: string, config: ProjectConfig, scenario: { file: string; line: number }): Observation {
   const { exitCode, report, stderr } = runBddScenario(cwd, config.commands.bdd, scenario);
-  const changedFile = changedSinceCheckpoint(cwd).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
+  const changedFile = changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
   const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report), scenario);
   return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
@@ -137,7 +137,7 @@ function isOnAddedTestLine(cwd: string, config: ProjectConfig, message: string):
   const frame = failingFrame(message, cwd);
   if (frame === undefined || !existsSync(join(cwd, frame.file))) return false;
   const isTest = isInsideSource(config.paths.unit_tests, frame.file) || isInsideSource(config.paths.bdd_steps, frame.file);
-  return isTest && addedLines(cwd, frame.file).some(({ line }) => line === frame.line);
+  return isTest && addedLines(cwd, frame.file, focusedFeature(cwd, config)).some(({ line }) => line === frame.line);
 }
 
 /** The class of what the run showed, by the deterministic rules of the Red Gate. */

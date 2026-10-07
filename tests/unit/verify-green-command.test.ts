@@ -32,7 +32,7 @@ describe("oid verify green", () => {
     commitAll();
     write("src/a.ts", "export const a = 1;\n");
     expect(await runInProject(["verify", "green"])).toEqual({ exitCode: 0, stdout: "green: ok\n", stderr: "" });
-    expect(JSON.parse(readFileSync(join(dir, ".outside-in/checkpoint.json"), "utf8"))).toMatchObject({
+    expect(JSON.parse(readFileSync(join(dir, ".outside-in/checkpoints/FR-A-01.json"), "utf8"))).toMatchObject({
       step: "tdd_green",
       feature: "FR-A-01",
       verify: { kind: "green" },
@@ -40,6 +40,17 @@ describe("oid verify green", () => {
       snapshot: { "src/a.ts": expect.any(String) },
     });
     expect(existsSync(join(dir, BDD_RAN))).toBe(false);
+  });
+
+  it("records the checkpoint of the feature of each target, as well as the one of the feature in focus", async () => {
+    const passed = { uri: "features/b.feature", name: "Bs", steps: [{ text: "it bs", status: "PASSED" }] };
+    projectWithRunners({ bddReport: runMessages([passed]) });
+    write("features/b.feature", "@FR-B-01\nFeature: B\n\n  Scenario: Bs\n    Given it bs\n");
+    writeProgressFile({ current_focus: "FR-A-01", features: [{ id: "FR-A-01", title: "A", status: "in_progress", cycle_step: "tdd_green", scenarios: [] }] });
+    commitAll();
+    expect((await runInProject(["verify", "green", "features/b.feature:4"])).exitCode).toBe(0);
+    const scenarios = (id: string) => JSON.parse(readFileSync(join(dir, `.outside-in/checkpoints/${id}.json`), "utf8")).scenarios;
+    expect({ a: scenarios("FR-A-01"), b: scenarios("FR-B-01") }).toEqual({ a: [{ feature: "FR-B-01", name: "Bs" }], b: [{ feature: "FR-B-01", name: "Bs" }] });
   });
 
   it("rejects a failing unit test: exit 1, the count of problems, the test and the first line of its failure, and no checkpoint", async () => {

@@ -13,10 +13,10 @@ function rangesDiffering(cwd: string, file: string, base: string): LineRange[] {
   return parseChangedLines(diff.text).get(file) ?? [];
 }
 
-/** The lines of `file` that differ from its content at the last checkpoint, or in HEAD when there is no checkpoint or the file is not in it; every line of a file that neither has. */
-export function addedLines(cwd: string, file: string): AddedLine[] {
+/** The lines of `file` that differ from its content at the checkpoint of `feature`, or in HEAD when there is no checkpoint or the file is not in it; every line of a file that neither has. */
+export function addedLines(cwd: string, file: string, feature: string | null): AddedLine[] {
   const text = readFileSync(join(cwd, file)).toString();
-  const base = baseContent(cwd, file);
+  const base = baseContent(cwd, file, feature);
   const ranges = base === undefined ? [{ start: 1, end: countLines(text) }] : rangesDiffering(cwd, file, base);
   const lines = text.split(NEWLINE);
   return ranges.flatMap(({ start, end }) => lines.slice(start - 1, end).map((line, at) => ({ line: start + at, text: line })));

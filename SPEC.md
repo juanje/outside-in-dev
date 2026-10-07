@@ -176,11 +176,11 @@ Reject step files that statically import modules or exports that do not exist ye
 
 ### FR-VERIFY-04: Verify a Green without regressions
 
-`oid verify green` runs the unit suite and every scenario that was passing, and reports any regression and any new type error in source code.
+`oid verify green` runs the unit suite and every scenario that was passing, and reports any regression and any new type error in source code. Every verification that passes records the checkpoint of the feature it verifies, one per feature (`.outside-in/checkpoints/<id>.json`): a green records it for the feature in focus and for the feature of each scenario it was asked to run, and never replaces the checkpoint of another feature; with no feature at all it records the single checkpoint `.outside-in/checkpoint.json`. Scenario evidence (`oid progress scenario pass`, `oid progress done`) is read from the checkpoint of the feature it is about.
 
 ### FR-VERIFY-05: Check the integrity of a change
 
-`oid verify integrity` reports changes outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test.
+`oid verify integrity` reports changes, since the checkpoint of the feature in focus, outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature with no checkpoint of its own is judged against the single checkpoint when that names it.
 
 ## Functional Requirements — Git isolation
 

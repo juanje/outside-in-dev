@@ -233,6 +233,10 @@
         {
           "name": "A green with a target that cannot be located fails and records no checkpoint",
           "bdd": "pass"
+        },
+        {
+          "name": "A green of another feature keeps the evidence of a scenario",
+          "bdd": "pass"
         }
       ]
     },
@@ -1525,6 +1529,10 @@
         {
           "name": "Step files that cucumber could not load are a problem, and no scenario is run",
           "bdd": "pass"
+        },
+        {
+          "name": "A green with a target writes the checkpoint of the target's feature",
+          "bdd": "pass"
         }
       ]
     },
@@ -1551,6 +1559,14 @@
         },
         {
           "name": "A feature file being written is not approved yet, and the step can be given",
+          "bdd": "pass"
+        },
+        {
+          "name": "Integrity compares the changes with the checkpoint of the focused feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature with no checkpoint of its own is judged against the single checkpoint that names it",
           "bdd": "pass"
         }
       ]

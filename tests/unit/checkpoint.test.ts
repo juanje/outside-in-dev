@@ -13,7 +13,7 @@ const sha256 = (text: string) => createHash("sha256").update(text).digest("hex")
 const DETAILS = { step: "tdd_red", feature: "FR-X-01", verify: { kind: "red", target: "tests/a.test.ts > adds" }, external: false, date: new Date("2026-10-06T12:00:00Z") };
 
 function readCheckpoint(): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(dir, ".outside-in/checkpoint.json"), "utf8"));
+  return JSON.parse(readFileSync(join(dir, `.outside-in/checkpoints/${DETAILS.feature}.json`), "utf8"));
 }
 
 describe("recordCheckpoint", () => {
@@ -70,7 +70,7 @@ describe("changedSinceCheckpoint", () => {
     write("src/a.ts", "export const a = 2;\n");
     write("src/new.ts", "export const n = 1;\n");
     unlinkSync(join(dir, "src/b.ts"));
-    expect(changedSinceCheckpoint(dir).sort()).toEqual(["src/a.ts", "src/b.ts", "src/new.ts"]);
+    expect(changedSinceCheckpoint(dir, DETAILS.feature).sort()).toEqual(["src/a.ts", "src/b.ts", "src/new.ts"]);
   });
 
   it("leaves out what the checkpoint holds unchanged, and lists what changed or appeared after it", () => {
@@ -82,6 +82,6 @@ describe("changedSinceCheckpoint", () => {
     recordCheckpoint(dir, DETAILS);
     write("tests/edited.test.ts", "// second\n");
     write("tests/later.test.ts", "// later\n");
-    expect(changedSinceCheckpoint(dir).sort()).toEqual(["tests/edited.test.ts", "tests/later.test.ts"]);
+    expect(changedSinceCheckpoint(dir, DETAILS.feature).sort()).toEqual(["tests/edited.test.ts", "tests/later.test.ts"]);
   });
 });
