@@ -5,6 +5,7 @@ import { readJson } from "./project-json.js";
 
 export const CONFIG_FILE = ".outside-in.json";
 
+const WORKTREE = "worktree";
 const globs = z.array(z.string());
 const command = z.string().nullable();
 
@@ -44,6 +45,14 @@ const projectConfigSchema = z.strictObject({
     })
     .optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
+  settings: z
+    .strictObject({
+      isolation: z.enum([WORKTREE, "in_place"]).optional(),
+      worktree_dir: z.string().optional(),
+      branch_prefix: z.string().optional(),
+      commit_template: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
@@ -93,4 +102,20 @@ export function loadMagicValueLimits(cwd: string): MagicValueLimits {
 export function loadRefactorEntry(cwd: string): string[] {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? [] : (parseProjectConfig(document).refactor?.entry ?? []);
+}
+
+export type GitSettings = { isolation: "worktree" | "in_place"; worktree_dir: string; branch_prefix: string; commit_template: string };
+
+const DEFAULT_GIT_SETTINGS: GitSettings = {
+  isolation: WORKTREE,
+  worktree_dir: "../.oid-worktrees",
+  branch_prefix: "oid/",
+  commit_template: "{type}({scope}): {id} {title}",
+};
+
+/** How a run uses git: the configured `settings`, the defaults for the rest and without a configuration file. */
+export function loadGitSettings(cwd: string): GitSettings {
+  const document = readJson(cwd, CONFIG_FILE);
+  if (document === undefined) return DEFAULT_GIT_SETTINGS;
+  return { ...DEFAULT_GIT_SETTINGS, ...parseProjectConfig(document).settings };
 }

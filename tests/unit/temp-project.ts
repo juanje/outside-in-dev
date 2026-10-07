@@ -22,8 +22,8 @@ export function write(path: string, text: string): void {
   writeFileSync(join(dir, path), text);
 }
 
-/** Writes `.outside-in.json` with the smallest valid configuration plus `extra` (for example a `refactor` section). */
-export function writeMinimalConfig(extra: Record<string, unknown> = {}): void {
+/** Writes `.outside-in.json` (in `folder` of the project, by default its root) with the smallest valid configuration plus `extra` (for example a `refactor` section). */
+export function writeMinimalConfig(extra: Record<string, unknown> = {}, folder = ""): void {
   const config = {
     version: 1,
     stack: "typescript",
@@ -31,7 +31,7 @@ export function writeMinimalConfig(extra: Record<string, unknown> = {}): void {
     commands: { bdd: "b", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] },
     ...extra,
   };
-  write(".outside-in.json", JSON.stringify(config));
+  write(join(folder, ".outside-in.json"), JSON.stringify(config));
 }
 
 /** Writes `progress.json` the way `oid progress` does: two-space JSON and a trailing newline. */
