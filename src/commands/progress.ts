@@ -107,7 +107,7 @@ const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
   },
   scenario: {
     summary: `Record the status of a scenario, or remove a pending one with ${DROP} instead of a status`,
-    operands: ["<pass|fail|pending>", ID, '"<scenario name>"'],
+    operands: ["<pass|fail|pending|drop>", ID, '"<scenario name>"'],
     allowed: { label: "Statuses", values: SCENARIO_STATUSES },
   },
   done: { summary: "Mark a feature done once every scenario passes", operands: [ID] },

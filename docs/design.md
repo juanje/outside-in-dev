@@ -1212,7 +1212,7 @@ oid progress current | status [--all] | show FR-xxx
 oid progress add FR-xxx "Title"             # the FR must exist in SPEC.md
 oid progress focus FR-xxx
 oid progress step FR-xxx <cycle_step>       # rejects invalid transitions
-oid progress scenario pass|fail|pending FR-xxx "Scenario name"
+oid progress scenario pass|fail|pending|drop FR-xxx "Scenario name"   # drop removes a pending scenario only
 oid progress done FR-xxx                    # rejects if any scenario is not in pass
 ```
 
