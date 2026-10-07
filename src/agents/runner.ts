@@ -86,13 +86,20 @@ const DEFAULT_RETRY_DELAYS_MS = [FIRST_RETRY_DELAY_SECONDS, SECOND_RETRY_DELAY_S
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Opens a session, runs the task in it and returns the events it emitted. The session is always ended. */
+/** The `message_end` of a provider error that a rejected prompt stands for, so that it is classified like one that resolved. */
+function rejectedPrompt(error: unknown): unknown {
+  return { type: "message_end", message: { role: "assistant", stopReason: PROVIDER_ERROR, errorMessage: error instanceof Error ? error.message : String(error) } };
+}
+
+/** Opens a session, runs the task in it and returns the events it emitted. The session is always ended; a prompt that rejects ends as a provider error. */
 async function promptOnce(task: AgentTask, context: RunContext): Promise<unknown[]> {
   const session = await context.openSession(task, context);
   const events: unknown[] = [];
   const unsubscribe = session.subscribe((event) => events.push(event));
   try {
     await session.prompt(task.prompt);
+  } catch (error) {
+    events.push(rejectedPrompt(error));
   } finally {
     unsubscribe();
     session.dispose();
