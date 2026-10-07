@@ -21,6 +21,7 @@ beforeEach(() => {
   mkdirSync(join(dir, "features"));
   rules = {
     worktree: dir,
+    write: ["src/**"],
     commands: ["npx vitest run", "npx tsc --noEmit", 'npm run build && NODE_OPTIONS="--import tsx" npx cucumber-js'],
     deny: ["progress.json", "package.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"],
     state: ["progress.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"],
@@ -127,6 +128,31 @@ describe("checkShell", () => {
     for (const command of ["npx vitest run --reporter=verbose --config package.json tests/unit/a.test.ts", "cat package.json", "ls .", "npx vitest run --outputFile=src/result.json"]) {
       expect(reasonFor(command), command).toBeUndefined();
     }
+  });
+});
+
+describe("checkShell and the writable paths", () => {
+  it("blocks every write outside the step's writable paths before it runs, as the write tool does", () => {
+    write("tests/a.test.ts", "");
+    for (const command of [
+      "echo changed > tests/a.test.ts",
+      "echo changed >> tests/a.test.ts",
+      "npx vitest run > tests/out.txt",
+      "rm tests/a.test.ts",
+      "rm -rf tests",
+      "mv src/a.ts tests/b.ts",
+      "mv tests/a.test.ts src/a.test.ts",
+      "cp src/a.ts tests/b.ts",
+      "touch features/x.feature",
+      "mkdir -p tests/new",
+      "sed -i s/a/b/ tests/a.test.ts",
+      "bash -c 'echo changed > tests/a.test.ts'",
+      "echo changed > README.md",
+    ]) {
+      expect(reasonFor(command), command).toBeDefined();
+    }
+    expect(reasonFor("echo changed > tests/a.test.ts")).toContain("not writable");
+    expect(reasonFor("echo changed > src/a.ts")).toBeUndefined();
   });
 });
 

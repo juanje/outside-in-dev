@@ -85,6 +85,14 @@ describe("installSandbox", () => {
     expect(await call(session, "bash", { command: 3 })).toMatchObject({ block: true });
   });
 
+  it("holds a shell write to the paths the step may write, as the write tool does", async () => {
+    const { session } = fakeSession();
+    installSandbox(session, coder, { worktree: dir, tools: coder.builtins });
+
+    expect(await call(session, "bash", { command: "echo changed > tests/unit/a.test.ts" })).toMatchObject({ block: true, reason: expect.stringContaining("not writable") });
+    expect(await call(session, "bash", { command: "echo changed > src/a.ts" })).toBeUndefined();
+  });
+
   it("aborts the session once the denials pass the limit", async () => {
     expect(SANDBOX_DENIALS_ABORT).toBe(5);
     const { session, aborts } = fakeSession();

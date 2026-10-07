@@ -1,11 +1,11 @@
 import { basename } from "node:path";
 import { names } from "./names.js";
-import { isDenied, locate, matchesGlob } from "./containment.js";
+import { isDenied, locate, matchesGlob, mayWrite } from "./containment.js";
 import { isSecret, reachesSecret } from "./secrets.js";
 import { parseShell, type SimpleCommand } from "./shell-parse.js";
 
-/** What the shell floor needs to know: the worktree, the project's quality-gate commands and the globs nobody writes and the orchestrator state no argument may name. */
-export type ShellRules = { worktree: string; commands: string[]; deny: string[]; state: string[] };
+/** What the shell floor needs to know: the worktree, the project's quality-gate commands and the globs the step may write, the globs nobody writes and the orchestrator state no argument may name. */
+export type ShellRules = { worktree: string; commands: string[]; write: string[]; deny: string[]; state: string[] };
 export type ShellVerdict = { block: false } | { block: true; reason: string };
 type Blocked = Extract<ShellVerdict, { block: true }>;
 
@@ -51,8 +51,9 @@ function writeVerdict(target: string, glob: boolean, rules: ShellRules): Blocked
   if (glob) return blocked(`A wildcard in "${target}", a path that is written, cannot be checked: name the files.`);
   const place = locate(rules.worktree, target);
   if (!place.inside) return blocked(`"${target}" is outside the worktree, which is the only place the shell may change.`);
+  if (mayWrite(place.relative, rules.write, rules.deny)) return undefined;
   if (isDenied(place.relative, rules.deny)) return blocked(`"${target}" is a file that only the orchestrator writes (${place.relative || "the worktree root"}).`);
-  return undefined;
+  return blocked(`"${target}" is not writable in this step. You may write: ${rules.write.join(LIST)}.`);
 }
 
 function argumentValue(text: string): string | undefined {

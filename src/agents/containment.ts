@@ -92,3 +92,8 @@ const WILDCARD = /[*?[]/;
 export function isDenied(path: string, denied: string[]): boolean {
   return path === "" || denied.some((glob) => matchesGlob(path, glob) || (!WILDCARD.test(glob) && glob.startsWith(`${path}${ROOT}`)));
 }
+
+/** Whether a path, relative to the worktree, is one the step may write: it matches a `write` glob and is not denied. */
+export function mayWrite(path: string, write: string[], deny: string[]): boolean {
+  return !isDenied(path, deny) && write.some((glob) => matchesGlob(path, glob));
+}

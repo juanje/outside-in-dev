@@ -1,5 +1,5 @@
 import type { Agent } from "@earendil-works/pi-agent-core";
-import { isDenied, locate, matchesGlob } from "./containment.js";
+import { locate, matchesGlob, mayWrite } from "./containment.js";
 import type { Profile } from "./profiles.js";
 import { textContent, textOf } from "./result-text.js";
 import { withoutSecrets } from "./secret-results.js";
@@ -39,7 +39,7 @@ function mayRead(profile: Profile, tool: string, path: string): boolean {
 function pathReason(profile: Profile, tool: string, requested: string, worktree: string): string | undefined {
   const place = locate(worktree, requested);
   const writing = WRITING_TOOLS.has(tool);
-  const allowed = place.inside && (writing ? !isDenied(place.relative, profile.deny) && profile.write.some((glob) => matchesGlob(place.relative, glob)) : mayRead(profile, tool, place.relative));
+  const allowed = place.inside && (writing ? mayWrite(place.relative, profile.write, profile.deny) : mayRead(profile, tool, place.relative));
   if (allowed) return undefined;
   const where = place.inside ? "" : " (it is outside the worktree)";
   return `"${requested}" is not ${writing ? "writable" : "readable"} in this step${where}. You may write: ${profile.write.join(LIST)}. You may read: ${profile.read.join(LIST)}.`;
@@ -61,7 +61,7 @@ function callReason(profile: Profile, options: SandboxOptions, tool: string, arg
   if (tool === SHELL) {
     const { command } = args as { command?: unknown };
     if (!isText(command)) return "The shell call has no command.";
-    const verdict = checkShell(command, { worktree: options.worktree, commands: profile.commands, deny: profile.deny, state: profile.orchestratorState });
+    const verdict = checkShell(command, { worktree: options.worktree, commands: profile.commands, write: profile.write, deny: profile.deny, state: profile.orchestratorState });
     return verdict.block ? verdict.reason : undefined;
   }
   return secretReason(paths, options.worktree) ?? paths.map((path) => pathReason(profile, tool, path, options.worktree)).find((reason) => reason !== undefined);
