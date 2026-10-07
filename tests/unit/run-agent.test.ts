@@ -34,6 +34,12 @@ function fakeSession(act: (emit: Listener) => void, ending: Record<string, unkno
   return { session, state };
 }
 
+/** A Pi session whose prompt call rejects, as it does when the request never reached the provider. */
+function rejectingSession(message: string) {
+  const { session } = fakeSession(() => {});
+  return { session: { ...session, prompt: async () => Promise.reject(new Error(message)) } };
+}
+
 function callReport(emit: Listener, args: unknown): void {
   emit({ type: "tool_execution_start", toolCallId: "call-1", toolName: "report", args });
   emit({ type: "tool_execution_end", toolCallId: "call-1", toolName: "report", result: {}, isError: false });
@@ -139,5 +145,27 @@ describe("runAgent", () => {
     const outcome = await run(session);
     expect(outcome).toMatchObject({ status: "failed" });
     expect(outcome.status === "failed" && outcome.reason).toMatch(/aborted/);
+  });
+
+  it("retries a prompt that rejects with a transient error in a new session after a pause of 5 seconds", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const report = { status: "done", files: ["src/a.ts"], summary: "Done." };
+    const sessions = [
+      rejectingSession("fetch failed"),
+      fakeSession((emit) => {
+        write("src/a.ts", "changed\n");
+        callReport(emit, report);
+      }),
+    ];
+    const pauses: number[] = [];
+    let opened = 0;
+    const outcome = await runAgent(
+      { state: "CODE_GREEN", prompt: "Do the task." },
+      { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, openSession: async () => (opened += 1, sessions.shift()!.session), backoff: { sleep: async (ms) => void pauses.push(ms) } },
+    );
+    expect(outcome).toEqual({ status: "done", report });
+    expect(pauses).toEqual([5000]);
+    expect(opened).toBe(2);
   });
 });
