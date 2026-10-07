@@ -1,9 +1,11 @@
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { OidWorld } from "../support/world.js";
 
+import type { CycleState } from "../../src/agents/profiles.js";
 type AgentSession = Awaited<ReturnType<typeof import("../../src/agents/runner.js").openAgentSession>>;
 type AgentScenario = {
   home: string;
@@ -143,3 +145,166 @@ Then("the session's transcript file is inside it", function (this: OidWorld) {
   assert.ok(file?.startsWith(`${scenarioOf(this).sessionsDir}/`), `transcript file ${file}`);
 });
 
+
+type Verdict = { block?: boolean; reason?: string } | undefined;
+type SandboxScenario = { project: string; session?: AgentSession; verdict: Verdict; aborts: number; home: string };
+
+const sandboxes = new WeakMap<OidWorld, SandboxScenario>();
+
+const PROJECT_CONFIG = {
+  version: 1,
+  stack: "typescript",
+  paths: {
+    source: ["src/**/*.ts"],
+    shared: [],
+    unit_tests: ["tests/unit/**/*.test.ts"],
+    bdd_features: ["features/**/*.feature"],
+    bdd_steps: ["features/steps/**/*.ts", "features/support/**/*.ts"],
+    docs: ["README.md", "docs/**/*.md"],
+    spec: "SPEC.md",
+    design: ["SPEC.md", "DOMAIN.md"],
+    progress: "progress.json",
+  },
+  commands: { bdd: "npx cucumber-js", unit: "npx vitest run", typecheck: "npx tsc --noEmit", format: null, lint: null, coverage: null, extra_checks: [] },
+};
+
+function sandboxOf(world: OidWorld): SandboxScenario {
+  const found = sandboxes.get(world);
+  assert.ok(found, "no sandbox project was set up");
+  return found;
+}
+
+function sandboxSession(world: OidWorld): AgentSession {
+  const { session } = sandboxOf(world);
+  assert.ok(session, "no agent session was opened");
+  return session;
+}
+
+function sandboxHook(world: OidWorld) {
+  const hook = sandboxSession(world).agent.beforeToolCall;
+  assert.ok(hook, "the session has no tool call hook");
+  return hook;
+}
+
+async function callTool(world: OidWorld, name: string, args: Record<string, string>): Promise<void> {
+  const call = { type: "toolCall" as const, id: "call-1", name, arguments: args };
+  sandboxOf(world).verdict = await sandboxHook(world)({ assistantMessage: {} as never, toolCall: call, args, context: {} as never });
+}
+
+Given("a git project with source, unit tests, features, {string} and {string}", function (this: OidWorld, progress: string, state: string) {
+  const project = this.path("sandbox-project");
+  put(join(project, ".outside-in.json"), JSON.stringify(PROJECT_CONFIG));
+  put(join(project, progress), "{}\n");
+  put(join(project, state, "state.json"), "{}\n");
+  put(join(project, "package.json"), "{}\n");
+  put(join(project, "src/cart.ts"), "export const cart = 1;\n");
+  put(join(project, "tests/unit/cart.test.ts"), "// test\n");
+  put(join(project, "features/cart.feature"), "Feature: Cart\n");
+  put(this.path("outside.txt"), "outside\n");
+  mkdirSync(this.path("outside-dir"), { recursive: true });
+  const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", ...args], { cwd: project });
+  git("init", "--quiet");
+  git("add", "-A");
+  git("commit", "--quiet", "--message", "fixture");
+  sandboxes.set(this, { project, verdict: undefined, aborts: 0, home: this.path("sandbox-home") });
+});
+
+Given("the project holds the symlink {string} to {string}", function (this: OidWorld, link: string, target: string) {
+  symlinkSync(target, join(sandboxOf(this).project, link));
+});
+
+Given("the project holds the symlink {string} to the directory outside the project", function (this: OidWorld, link: string) {
+  symlinkSync(this.path("outside-dir"), join(sandboxOf(this).project, link));
+});
+
+Given("oid opened an agent session for the step {word}", async function (this: OidWorld, step: string) {
+  const { oidAgentDir } = await import("../../src/agents/runner.js");
+  const { openProfileSession } = await import("../../src/agents/profile-session.js");
+  const scenario = sandboxOf(this);
+  const session = await openProfileSession({
+    state: step as CycleState,
+    worktree: scenario.project,
+    agentDir: oidAgentDir({ HOME: scenario.home }),
+    sessionsDir: this.path("sandbox-runs/sessions"),
+  });
+  session.abort = async () => {
+    scenario.aborts += 1;
+  };
+  scenario.session = session;
+});
+
+When("the agent calls {string} on {string}", async function (this: OidWorld, tool: string, path: string) {
+  await callTool(this, tool, { path });
+});
+
+When("the agent calls {string} without a path", async function (this: OidWorld, tool: string) {
+  await callTool(this, tool, { pattern: "x" });
+});
+
+When(/^the agent runs the shell command: (.*)$/, async function (this: OidWorld, command: string) {
+  await callTool(this, "bash", { command });
+});
+
+When("the agent makes {int} blocked calls", async function (this: OidWorld, count: number) {
+  for (let i = 0; i < count; i++) await callTool(this, "write", { path: "src/cart.ts" });
+});
+
+Then("the call is allowed", function (this: OidWorld) {
+  const { verdict } = sandboxOf(this);
+  assert.notEqual(verdict?.block, true, `blocked: ${verdict?.reason}`);
+});
+
+Then("the call is blocked", function (this: OidWorld) {
+  assert.equal(sandboxOf(this).verdict?.block, true, "the call was allowed");
+});
+
+function assertReasonMentions(world: OidWorld, text: string): void {
+  const reason = sandboxOf(world).verdict?.reason ?? "";
+  assert.ok(reason.includes(text), `the reason does not mention ${text}: ${reason}`);
+}
+
+Then("the reason names the writable paths {string}", function (this: OidWorld, glob: string) {
+  assertReasonMentions(this, `You may write: ${glob}`);
+});
+
+Then("the reason names the readable paths {string}", function (this: OidWorld, glob: string) {
+  assertReasonMentions(this, glob);
+  assertReasonMentions(this, "You may read:");
+});
+
+Then("the reason names the allowed commands {string}", function (this: OidWorld, command: string) {
+  assertReasonMentions(this, command);
+});
+
+Then("the reason says the step has no shell", function (this: OidWorld) {
+  assertReasonMentions(this, "no shell");
+});
+
+Then("the reason says git stays with the orchestrator", function (this: OidWorld) {
+  assertReasonMentions(this, "git stays with the orchestrator");
+});
+
+Then("the session offers a shell: {word}", function (this: OidWorld, shell: string) {
+  assert.equal(sandboxSession(this).getActiveToolNames().includes("bash"), shell === "yes");
+});
+
+Then("the session offers the tools: {}", function (this: OidWorld, tools: string) {
+  assert.deepEqual([...sandboxSession(this).getActiveToolNames()].sort(), tools.split(", ").sort());
+});
+
+Then("the session was not aborted", function (this: OidWorld) {
+  assert.equal(sandboxOf(this).aborts, 0);
+});
+
+Then("the session was aborted", function (this: OidWorld) {
+  assert.ok(sandboxOf(this).aborts > 0, "the session was not aborted");
+});
+
+Then("the session's tool call hook is oid's sandbox", function (this: OidWorld) {
+  assert.equal(typeof sandboxHook(this), "function");
+});
+
+Then("a forbidden call made through that hook is blocked", async function (this: OidWorld) {
+  await callTool(this, "write", { path: "src/cart.ts" });
+  assert.equal(sandboxOf(this).verdict?.block, true);
+});

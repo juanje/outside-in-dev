@@ -119,3 +119,10 @@ export function loadGitSettings(cwd: string): GitSettings {
   if (document === undefined) return DEFAULT_GIT_SETTINGS;
   return { ...DEFAULT_GIT_SETTINGS, ...parseProjectConfig(document).settings };
 }
+
+/** The project's configuration; throws when the file is missing or invalid. */
+export function loadProjectConfig(cwd: string): ProjectConfig {
+  const document = readJson(cwd, CONFIG_FILE);
+  if (document === undefined) throw new ProgressError(`${CONFIG_FILE} is missing in ${cwd}`);
+  return parseProjectConfig(document);
+}

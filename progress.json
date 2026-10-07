@@ -1746,7 +1746,77 @@
     {
       "id": "FR-AGENT-02",
       "title": "Tools and paths per step",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A test-writing step writes unit tests but not source",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test-writing step cannot read source",
+          "bdd": "pass"
+        },
+        {
+          "name": "A search without a path is treated as a search of the whole worktree",
+          "bdd": "pass"
+        },
+        {
+          "name": "Only the steps that implement or debug have a shell",
+          "bdd": "pass"
+        },
+        {
+          "name": "A step without a shell is blocked when it asks for one anyway",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step writes source and runs the project's unit tests",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step runs the project's quality gate in one command line",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step cannot write what its step does not own",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell runs only the commands its profile allows",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell cannot change the files only the orchestrator writes",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell cannot hide a command inside a wrapper",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell cannot write through a symlink to orchestrator state",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coder step's shell stays inside the worktree",
+          "bdd": "pass"
+        },
+        {
+          "name": "Git stays with the orchestrator",
+          "bdd": "pass"
+        },
+        {
+          "name": "A path that escapes through \"..\" is blocked",
+          "bdd": "pass"
+        },
+        {
+          "name": "Repeated violations end the session",
+          "bdd": "pass"
+        },
+        {
+          "name": "The sandbox is installed on the session that oid opens",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-03",
