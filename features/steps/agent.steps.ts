@@ -384,12 +384,15 @@ Then("the reason says the file is a secret", function (this: OidWorld) {
   assertReasonMentions(this, "secret");
 });
 
-type ReportScenario = { edits: Array<(project: string) => void>; report?: Record<string, unknown>; outcome?: Awaited<ReturnType<typeof import("../../src/agents/runner.js").runAgent>> };
+/** What one request to the provider ends in. */
+type Response = "productive" | "nothing" | "aborted" | { error: string };
+
+type ReportScenario = { edits: Array<(project: string) => void>; report?: Record<string, unknown>; responses: Response[]; sessionsOpened: number; waits: number[]; outcome?: Awaited<ReturnType<typeof import("../../src/agents/runner.js").runAgent>> };
 
 const reportScenarios = new WeakMap<OidWorld, ReportScenario>();
 
 function reportScenarioOf(world: OidWorld): ReportScenario {
-  const found = reportScenarios.get(world) ?? { edits: [] };
+  const found = reportScenarios.get(world) ?? { edits: [], responses: [], sessionsOpened: 0, waits: [] };
   reportScenarios.set(world, found);
   return found;
 }
@@ -414,10 +417,40 @@ Given("the agent ends by reporting it is blocked by a {string} with the detail {
   reportScenarioOf(this).report = { status: "blocked", reason, detail };
 });
 
+const ASSISTANT_USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+const MANY_REQUESTS = 10;
+
+/** The assistant message Pi ends a turn with, in Pi's shape. */
+function assistantMessage(response: Response) {
+  const base = { role: "assistant", usage: ASSISTANT_USAGE, content: [] as unknown[] };
+  if (response === "nothing") return { ...base, stopReason: "stop" };
+  if (response === "aborted") return { ...base, stopReason: "aborted", errorMessage: "Request was aborted" };
+  if (response === "productive") return { ...base, stopReason: "stop", content: [{ type: "text", text: "Working on it." }] };
+  return { ...base, stopReason: "error", errorMessage: response.error };
+}
+
+Given("the provider answers every request with the error {string}", function (this: OidWorld, error: string) {
+  reportScenarioOf(this).responses = Array.from({ length: MANY_REQUESTS }, () => ({ error }));
+});
+
+Given("the provider fails the first request with the error {string}", function (this: OidWorld, error: string) {
+  reportScenarioOf(this).responses = [{ error }];
+});
+
+Given("the provider answers with nothing", function (this: OidWorld) {
+  reportScenarioOf(this).responses = ["nothing"];
+});
+
+Given("the turn is aborted", function (this: OidWorld) {
+  reportScenarioOf(this).responses = ["aborted"];
+});
+
 /** A Pi session whose prompt makes the scripted edits and then, when the script says so, calls the report tool, with the events Pi emits. */
 function scriptedSession(project: string, scenario: ReportScenario) {
   const listeners: Array<(event: unknown) => void> = [];
   const emit = (event: unknown) => listeners.forEach((listener) => listener(event));
+  const response = scenario.responses.shift() ?? "productive";
+  scenario.sessionsOpened += 1;
   return {
     subscribe: (listener: (event: unknown) => void) => {
       listeners.push(listener);
@@ -429,7 +462,7 @@ function scriptedSession(project: string, scenario: ReportScenario) {
         emit({ type: "tool_execution_start", toolCallId: "call-1", toolName: "report", args: scenario.report });
         emit({ type: "tool_execution_end", toolCallId: "call-1", toolName: "report", result: { content: [{ type: "text", text: "Report received." }] }, isError: false });
       }
-      emit({ type: "message_end", message: { role: "assistant", stopReason: "stop", content: [] } });
+      emit({ type: "message_end", message: assistantMessage(response) });
       emit({ type: "agent_end", messages: [] });
     },
     dispose: () => {},
@@ -440,10 +473,14 @@ When("oid runs the agent for the step {word}", async function (this: OidWorld, s
   const { runAgent } = await import("../../src/agents/runner.js");
   const { project, home } = sandboxOf(this);
   const scenario = reportScenarioOf(this);
-  scenario.outcome = await runAgent(
-    { state: step as CycleState, prompt: "Do the task." },
-    { worktree: project, agentDir: join(home, "agent"), sessionsDir: this.path("report-runs/sessions"), openSession: async () => scriptedSession(project, scenario) },
-  );
+  const context = {
+    worktree: project,
+    agentDir: join(home, "agent"),
+    sessionsDir: this.path("report-runs/sessions"),
+    openSession: async () => scriptedSession(project, scenario),
+    backoff: { sleep: async (ms: number) => void scenario.waits.push(ms) },
+  };
+  scenario.outcome = await runAgent({ state: step as CycleState, prompt: "Do the task." }, context);
 });
 
 function outcomeOf(world: OidWorld) {
@@ -465,6 +502,36 @@ function failureOf(world: OidWorld): string {
   assert.equal(outcome.status, "failed");
   return outcome.status === "failed" ? outcome.reason : "";
 }
+
+Then("the attempt stops and asks", function (this: OidWorld) {
+  assert.equal(outcomeOf(this).status, "ask", JSON.stringify(outcomeOf(this)));
+});
+
+Then("the question says {string}", function (this: OidWorld, text: string) {
+  const outcome: { status: string; reason?: string; detail?: string } = outcomeOf(this);
+  assert.equal(outcome.status, "ask", JSON.stringify(outcome));
+  assert.ok(`${outcome.reason} ${outcome.detail}`.includes(text), JSON.stringify(outcome));
+});
+
+Then("oid opened {int} agent session(s)", function (this: OidWorld, count: number) {
+  assert.equal(reportScenarioOf(this).sessionsOpened, count);
+});
+
+Then("oid waited {int} seconds before the first retry", function (this: OidWorld, seconds: number) {
+  assert.equal(reportScenarioOf(this).waits[0], seconds * 1000);
+});
+
+Then("oid waited {int}, {int} and {int} seconds between the tries", function (this: OidWorld, first: number, second: number, third: number) {
+  assert.deepEqual(reportScenarioOf(this).waits, [first * 1000, second * 1000, third * 1000]);
+});
+
+Then("the failure says the agent produced nothing", function (this: OidWorld) {
+  assert.match(failureOf(this), /nothing/);
+});
+
+Then("the failure says the turn was aborted", function (this: OidWorld) {
+  assert.match(failureOf(this), /aborted/);
+});
 
 Then("the failure says the agent made no report", function (this: OidWorld) {
   assert.match(failureOf(this), /no report/);

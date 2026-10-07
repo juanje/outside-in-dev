@@ -3,9 +3,10 @@ import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
 import type { CycleState } from "./profiles.js";
 import { collectReport } from "./report-events.js";
+import { ABORTED, checkResponse, EMPTY, PROVIDER_ERROR, type ResponseVerdict } from "./response-check.js";
 import type { AgentReport } from "./tools/report.js";
 import type { Toolset } from "./toolset.js";
-import { changesSince, snapshotWorktree } from "./worktree-changes.js";
+import { changesSince, snapshotWorktree, type WorktreeSnapshot } from "./worktree-changes.js";
 
 /** The parts of the Pi SDK that oid uses; tests inject a fake one. */
 export type PiSdk = Pick<typeof pi, "createAgentSession" | "DefaultResourceLoader" | "SessionManager">;
@@ -44,15 +45,21 @@ export type AgentTask = { state: CycleState; prompt: string };
 /** The part of a Pi session that `runAgent` uses. */
 type RunnableSession = { subscribe(listener: (event: unknown) => void): () => void; prompt(text: string): Promise<void>; dispose(): void };
 
-/** Where an agent works and how its session is opened: production passes `openProfileSession` (which is why runner.ts does not import it), tests a fake. */
-export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession> };
+/** The pauses before each retry of a transient provider error (the number of delays is the number of retries) and the function that waits: tests inject a recorder. */
+type Backoff = { delaysMs?: number[]; sleep?: (ms: number) => Promise<void> };
 
-/** How an attempt ended: done with its report, blocked with the agent's reason, or failed with oid's reason. */
+/** Where an agent works and how its session is opened: production passes `openProfileSession` (which is why runner.ts does not import it), tests a fake. */
+export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession>; backoff?: Backoff };
+
+/** How an attempt ended: done with its report, blocked with the agent's reason, failed with oid's reason, or stopped to ask the human (the provider failed in a way a retry cannot fix). */
 const FAILED = "failed";
 const DONE = "done";
 const BLOCKED = "blocked";
-export type AttemptOutcome = { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
+const ASK = "ask";
+export type AttemptOutcome = { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
 
+const NOTHING_PRODUCED = "the agent produced nothing: its response had no content";
+const TURN_ABORTED = "the turn was aborted before the agent finished";
 const NO_REPORT = "the agent ended without calling the report tool: no report";
 
 const PART_SEPARATOR = "; ";
@@ -71,18 +78,54 @@ function diffMismatch(reported: string[], changed: string[]): string | undefined
   return `the report does not match the files that changed (${parts.join(PART_SEPARATOR)})`;
 }
 
-/** Runs one agent task in a new session and judges how it ended. */
-export async function runAgent(task: AgentTask, context: RunContext): Promise<AttemptOutcome> {
+const SECOND_MS = 1000;
+const FIRST_RETRY_DELAY_SECONDS = 5;
+const SECOND_RETRY_DELAY_SECONDS = 20;
+const THIRD_RETRY_DELAY_SECONDS = 60;
+const DEFAULT_RETRY_DELAYS_MS = [FIRST_RETRY_DELAY_SECONDS, SECOND_RETRY_DELAY_SECONDS, THIRD_RETRY_DELAY_SECONDS].map((seconds) => seconds * SECOND_MS);
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Opens a session, runs the task in it and returns the events it emitted. The session is always ended. */
+async function promptOnce(task: AgentTask, context: RunContext): Promise<unknown[]> {
   const session = await context.openSession(task, context);
   const events: unknown[] = [];
   const unsubscribe = session.subscribe((event) => events.push(event));
-  const before = snapshotWorktree(context.worktree);
   try {
     await session.prompt(task.prompt);
   } finally {
     unsubscribe();
     session.dispose();
   }
+  return events;
+}
+
+/** Runs one agent task and judges how it ended. A transient provider error is retried in a new session after a pause, without counting as an attempt; the response is judged before the report. */
+export async function runAgent(task: AgentTask, context: RunContext): Promise<AttemptOutcome> {
+  const delays = context.backoff?.delaysMs ?? DEFAULT_RETRY_DELAYS_MS;
+  const sleep = context.backoff?.sleep ?? realSleep;
+  const before = snapshotWorktree(context.worktree);
+  for (let retry = 0; ; retry += 1) {
+    const events = await promptOnce(task, context);
+    const response = checkResponse(events);
+    if (response.kind === PROVIDER_ERROR && response.transient && retry < delays.length) {
+      await sleep(delays[retry] ?? 0);
+      continue;
+    }
+    return judge(response, events, context, before);
+  }
+}
+
+/** The outcome of a response that is not retried: a provider error stops and asks, an empty or aborted turn fails, and only a productive one has its report examined. */
+function judge(response: ResponseVerdict, events: unknown[], context: RunContext, before: WorktreeSnapshot): AttemptOutcome {
+  if (response.kind === PROVIDER_ERROR) return { status: ASK, reason: "the provider failed", detail: response.message };
+  if (response.kind === EMPTY) return { status: FAILED, reason: NOTHING_PRODUCED };
+  if (response.kind === ABORTED) return { status: FAILED, reason: TURN_ABORTED };
+  return judgeReport(events, context, before);
+}
+
+/** Judges the report of a productive response against the files that changed since `before`. */
+function judgeReport(events: unknown[], context: RunContext, before: WorktreeSnapshot): AttemptOutcome {
   const report = collectReport(events);
   if (report === undefined) return { status: FAILED, reason: NO_REPORT };
   if (report.status === BLOCKED) return { status: BLOCKED, reason: report.reason, detail: report.detail };

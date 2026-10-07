@@ -1915,7 +1915,41 @@
     {
       "id": "FR-AGENT-05",
       "title": "Detect provider failures",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A rejected API key stops the run and asks, without a retry",
+          "bdd": "pass"
+        },
+        {
+          "name": "An exhausted quota stops the run and asks, without a retry",
+          "bdd": "pass"
+        },
+        {
+          "name": "A rate limit is retried in a new session and the retry succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "A server error is retried in a new session and the retry succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider that keeps failing with a transient error stops and asks after three retries",
+          "bdd": "pass"
+        },
+        {
+          "name": "A response with nothing in it fails the attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "An aborted turn fails the attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider error is never success, even when the agent had reported done",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-06",
