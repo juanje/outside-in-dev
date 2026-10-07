@@ -5,8 +5,8 @@ import type { ProjectConfig } from "../artifacts/project-config.js";
 export const CYCLE_STATES = ["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
 export type CycleState = (typeof CYCLE_STATES)[number];
 
-/** What a step's agent may do: its tools, the globs it may write and read (relative to the worktree), the globs nobody writes, and the commands its shell may run. */
-export type Profile = { state: CycleState; builtins: string[]; write: string[]; read: string[]; deny: string[]; shell: boolean; commands: string[] };
+/** What a step's agent may do: its tools, the globs it may write and read (relative to the worktree), the globs nobody writes, the orchestrator state no shell argument may name, and the commands its shell may run. */
+export type Profile = { state: CycleState; builtins: string[]; write: string[]; read: string[]; deny: string[]; orchestratorState: string[]; shell: boolean; commands: string[] };
 
 const READ_TOOLS = names("read grep find ls");
 const EDIT_TOOLS = [...READ_TOOLS, ...names("write edit")];
@@ -14,22 +14,14 @@ const SHELL_TOOLS = [...EDIT_TOOLS, ...names("bash")];
 const WHOLE_REPO = ["**"];
 const DOMAIN = "DOMAIN.md";
 
+/** The orchestrator's own state: the progress file, its local folder and git. */
+function orchestratorState(config: ProjectConfig): string[] {
+  return [config.paths.progress, ".outside-in*", ".outside-in*/**", ".git", ".git/**"];
+}
+
 /** The files only the orchestrator writes, whatever the step. */
 function orchestratorFiles(config: ProjectConfig): string[] {
-  return [
-    config.paths.progress,
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "**/tsconfig*.json",
-    "vitest.config.*",
-    "cucumber.*",
-    ".outside-in*",
-    ".outside-in*/**",
-    ".git",
-    ".git/**",
-  ];
+  return [...orchestratorState(config), "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "**/tsconfig*.json", "vitest.config.*", "cucumber.*"];
 }
 
 function gateCommands(config: ProjectConfig): string[] {
@@ -66,6 +58,7 @@ export function profileFor(state: CycleState, config: ProjectConfig): Profile {
     write,
     read,
     deny: orchestratorFiles(config),
+    orchestratorState: orchestratorState(config),
     shell,
     commands: shell ? gateCommands(config) : [],
   };

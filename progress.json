@@ -1815,6 +1815,14 @@
         {
           "name": "The sandbox is installed on the session that oid opens",
           "bdd": "pass"
+        },
+        {
+          "name": "A command the profile allows cannot name orchestrator state or the outside in its arguments",
+          "bdd": "pass"
+        },
+        {
+          "name": "A command the profile allows still runs with ordinary arguments",
+          "bdd": "pass"
         }
       ]
     },

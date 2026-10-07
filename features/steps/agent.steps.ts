@@ -308,3 +308,7 @@ Then("a forbidden call made through that hook is blocked", async function (this:
   await callTool(this, "write", { path: "src/cart.ts" });
   assert.equal(sandboxOf(this).verdict?.block, true);
 });
+
+Then("the reason names {string}", function (this: OidWorld, text: string) {
+  assertReasonMentions(this, text);
+});

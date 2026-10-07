@@ -8,8 +8,9 @@ import { dir, useTempDir, write } from "./temp-project.js";
 useTempDir();
 
 const DENY = ["progress.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"];
-const tester: Profile = { state: "TDD_RED", builtins: ["read", "grep", "find", "ls", "write", "edit"], write: ["tests/unit/**/*.test.ts"], read: ["tests/unit/**/*.test.ts", "features/**/*.feature"], deny: DENY, shell: false, commands: [] };
-const coder: Profile = { state: "CODE_GREEN", builtins: [...tester.builtins, "bash"], write: ["src/**/*.ts"], read: ["**"], deny: DENY, shell: true, commands: ["npx vitest run"] };
+const STATE = ["progress.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"];
+const tester: Profile = { state: "TDD_RED", builtins: ["read", "grep", "find", "ls", "write", "edit"], write: ["tests/unit/**/*.test.ts"], read: ["tests/unit/**/*.test.ts", "features/**/*.feature"], deny: DENY, orchestratorState: STATE, shell: false, commands: [] };
+const coder: Profile = { state: "CODE_GREEN", builtins: [...tester.builtins, "bash"], write: ["src/**/*.ts"], read: ["**"], deny: DENY, orchestratorState: STATE, shell: true, commands: ["npx vitest run"] };
 
 type Hook = NonNullable<SandboxSession["agent"]["beforeToolCall"]>;
 type Fake = { session: SandboxSession; aborts: number[] };

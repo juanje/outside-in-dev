@@ -1,10 +1,10 @@
 import { basename } from "node:path";
 import { names } from "./names.js";
-import { isDenied, locate } from "./containment.js";
+import { isDenied, locate, matchesGlob } from "./containment.js";
 import { parseShell, type SimpleCommand } from "./shell-parse.js";
 
-/** What the shell floor needs to know: the worktree, the project's quality-gate commands and the globs nobody writes. */
-export type ShellRules = { worktree: string; commands: string[]; deny: string[] };
+/** What the shell floor needs to know: the worktree, the project's quality-gate commands and the globs nobody writes and the orchestrator state no argument may name. */
+export type ShellRules = { worktree: string; commands: string[]; deny: string[]; state: string[] };
 export type ShellVerdict = { block: false } | { block: true; reason: string };
 type Blocked = Extract<ShellVerdict, { block: true }>;
 
@@ -20,8 +20,6 @@ const SHELL_FLAGS = /^-[a-zA-Z]*c[a-zA-Z]*$/;
 const IN_PLACE_FLAG = /^(-[a-zA-Z]*i|--in-place)/;
 const FLAG_VALUE = /^(?:--?[\w-]+|[A-Za-z_]\w*)=(.*)$/;
 const DASH = "-";
-const DOT = ".";
-const SLASH = "/";
 const SPACE = " ";
 const LIST = ", ";
 const OUTPUT_PREFIX = "of=";
@@ -49,16 +47,19 @@ function writeVerdict(target: string, glob: boolean, rules: ShellRules): Blocked
   return undefined;
 }
 
-function pathValue(text: string): string | undefined {
+function argumentValue(text: string): string | undefined {
   const value = FLAG_VALUE.exec(text)?.[1] ?? text;
-  if (value.startsWith(DASH)) return undefined;
-  return value.includes(SLASH) || value.startsWith(DOT) || value.startsWith("~") ? value : undefined;
+  return value === "" || value.startsWith(DASH) ? undefined : value;
 }
 
+/** Every argument, and the value of every `--option=value`, is a path to the shell: it must stay inside the worktree and must not name what only the orchestrator owns, whatever the command does with it. */
 function containmentVerdict(texts: string[], rules: ShellRules): Blocked | undefined {
   for (const text of texts) {
-    const path = pathValue(text);
-    if (path !== undefined && path !== NULL_DEVICE && !locate(rules.worktree, path).inside) return blocked(`"${text}" is outside the worktree, which is the only place the shell may reach.`);
+    const value = argumentValue(text);
+    if (value === undefined || value === NULL_DEVICE) continue;
+    const place = locate(rules.worktree, value);
+    if (!place.inside) return blocked(`"${text}" is outside the worktree, which is the only place the shell may reach.`);
+    if (rules.state.some((glob) => matchesGlob(place.relative, glob))) return blocked(`"${text}" names ${place.relative}, which only the orchestrator may touch: the shell cannot tell a read from a write, so no argument may name it.`);
   }
   return undefined;
 }
