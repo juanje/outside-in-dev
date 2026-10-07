@@ -138,7 +138,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.5.0`.
+- [x] Tag and install `v0.5.0`.
 - [x] `docs/METHODOLOGY.md`, steps 2–4: `oid verify red` / `oid verify green` decide; the agent may not advance `cycle_step` without them.
 - [x] Configure Claude Code hooks in `.claude/settings.json` so the rules are mechanical, not just written: after edits, run `oid verify integrity` for the current `cycle_step` (no source changes while writing tests, no test changes while writing code, no forbidden patterns); before `oid progress step`, require the matching `oid verify` to have passed.
 
