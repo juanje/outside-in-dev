@@ -50,7 +50,7 @@ function callReason(profile: Profile, options: SandboxOptions, tool: string, arg
   if (tool === SHELL) {
     const { command } = args as { command?: unknown };
     if (!isText(command)) return "The shell call has no command.";
-    const verdict = checkShell(command, { worktree: options.worktree, commands: profile.commands, deny: profile.deny });
+    const verdict = checkShell(command, { worktree: options.worktree, commands: profile.commands, deny: profile.deny, state: profile.orchestratorState });
     return verdict.block ? verdict.reason : undefined;
   }
   return paths.map((path) => pathReason(profile, tool, path, options.worktree)).find((reason) => reason !== undefined);

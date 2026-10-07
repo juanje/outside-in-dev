@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Profile } from "../../src/agents/profiles.js";
 import { buildToolset } from "../../src/agents/toolset.js";
 
-const noShell: Profile = { state: "TDD_RED", builtins: ["read", "write"], write: [], read: [], deny: [], shell: false, commands: [] };
+const noShell: Profile = { state: "TDD_RED", builtins: ["read", "write"], write: [], read: [], deny: [], orchestratorState: [], shell: false, commands: [] };
 const withShell: Profile = { ...noShell, state: "CODE_GREEN", builtins: ["read", "write", "bash"], shell: true };
 
 describe("buildToolset", () => {

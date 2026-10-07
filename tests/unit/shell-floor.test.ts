@@ -23,6 +23,7 @@ beforeEach(() => {
     worktree: dir,
     commands: ["npx vitest run", "npx tsc --noEmit", 'npm run build && NODE_OPTIONS="--import tsx" npx cucumber-js'],
     deny: ["progress.json", "package.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"],
+    state: ["progress.json", ".outside-in*", ".outside-in*/**", ".git", ".git/**"],
   };
 });
 
@@ -104,5 +105,27 @@ describe("checkShell", () => {
       expect(reasonFor(command), command).toBeDefined();
     }
     expect(reasonFor("echo $(ls)")).toContain("cannot be checked");
+  });
+
+  it("blocks every argument that names orchestrator state or the outside of the worktree, whatever the command", () => {
+    for (const command of [
+      "npx vitest run --outputFile=progress.json",
+      "npx vitest run --outputFile progress.json",
+      "npx vitest run -o=.outside-in/result.json",
+      "npx vitest run --outputFile=features/../.git/result",
+      "npx vitest run --outputFile=src/state.json",
+      "npx vitest run src/runs",
+      "npx tsc --noEmit --project ../elsewhere/tsconfig.json",
+      "npx vitest run --root=/etc",
+      "cat progress.json",
+      "grep x .outside-in/state.json",
+      'bash -c "npx vitest run --outputFile=progress.json"',
+    ]) {
+      expect(reasonFor(command), command).toBeDefined();
+    }
+    expect(reasonFor("npx vitest run --outputFile=progress.json")).toContain("progress.json");
+    for (const command of ["npx vitest run --reporter=verbose --config package.json tests/unit/a.test.ts", "cat package.json", "ls .", "npx vitest run --outputFile=src/result.json"]) {
+      expect(reasonFor(command), command).toBeUndefined();
+    }
   });
 });
