@@ -1,7 +1,11 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
+import type { CycleState } from "./profiles.js";
+import { collectReport } from "./report-events.js";
+import type { AgentReport } from "./tools/report.js";
 import type { Toolset } from "./toolset.js";
+import { changesSince, snapshotWorktree } from "./worktree-changes.js";
 
 /** The parts of the Pi SDK that oid uses; tests inject a fake one. */
 export type PiSdk = Pick<typeof pi, "createAgentSession" | "DefaultResourceLoader" | "SessionManager">;
@@ -32,4 +36,57 @@ export async function openAgentSession(request: SessionRequest, sdk: PiSdk = pi)
   const tools = request.toolset && { tools: request.toolset.names, customTools: request.toolset.customTools, excludeTools: request.toolset.excludeTools };
   const { session } = await sdk.createAgentSession({ cwd: request.worktree, agentDir: request.agentDir, resourceLoader, sessionManager, ...tools });
   return session;
+}
+
+/** What an agent is asked to do: the step it runs for and the task text. */
+export type AgentTask = { state: CycleState; prompt: string };
+
+/** The part of a Pi session that `runAgent` uses. */
+type RunnableSession = { subscribe(listener: (event: unknown) => void): () => void; prompt(text: string): Promise<void>; dispose(): void };
+
+/** Where an agent works and how its session is opened: production passes `openProfileSession` (which is why runner.ts does not import it), tests a fake. */
+export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession> };
+
+/** How an attempt ended: done with its report, blocked with the agent's reason, or failed with oid's reason. */
+const FAILED = "failed";
+const DONE = "done";
+const BLOCKED = "blocked";
+export type AttemptOutcome = { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
+
+const NO_REPORT = "the agent ended without calling the report tool: no report";
+
+const PART_SEPARATOR = "; ";
+const FILE_SEPARATOR = ", ";
+
+function listed(label: string, files: string[]): string {
+  return files.length > 0 ? `${label}: ${files.join(FILE_SEPARATOR)}` : "";
+}
+
+/** Why the files a report names are not the files that changed, or `undefined` when they are the same. */
+function diffMismatch(reported: string[], changed: string[]): string | undefined {
+  const missing = changed.filter((file) => !reported.includes(file));
+  const extra = reported.filter((file) => !changed.includes(file));
+  if (missing.length === 0 && extra.length === 0) return undefined;
+  const parts = [listed("missing files", missing), listed("extra files", extra)].filter((part) => part !== "");
+  return `the report does not match the files that changed (${parts.join(PART_SEPARATOR)})`;
+}
+
+/** Runs one agent task in a new session and judges how it ended. */
+export async function runAgent(task: AgentTask, context: RunContext): Promise<AttemptOutcome> {
+  const session = await context.openSession(task, context);
+  const events: unknown[] = [];
+  const unsubscribe = session.subscribe((event) => events.push(event));
+  const before = snapshotWorktree(context.worktree);
+  try {
+    await session.prompt(task.prompt);
+  } finally {
+    unsubscribe();
+    session.dispose();
+  }
+  const report = collectReport(events);
+  if (report === undefined) return { status: FAILED, reason: NO_REPORT };
+  if (report.status === BLOCKED) return { status: BLOCKED, reason: report.reason, detail: report.detail };
+  const mismatch = diffMismatch(report.files, changesSince(context.worktree, before));
+  if (mismatch !== undefined) return { status: FAILED, reason: mismatch };
+  return { status: DONE, report };
 }

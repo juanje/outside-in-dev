@@ -1884,7 +1884,33 @@
     {
       "id": "FR-AGENT-04",
       "title": "Completion report",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An agent that reports done with exactly the files it changed succeeds",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent that never calls the report tool fails the attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "A report that leaves out a file the agent changed fails the attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "A report that names a file the agent did not change fails the attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "A blocked report is returned as blocked, with its reason and detail",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every step is offered the report tool",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-05",
