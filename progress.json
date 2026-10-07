@@ -1541,7 +1541,41 @@
     {
       "id": "FR-GIT-02",
       "title": "Checkpoint and roll back",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A checkpoint commits the work on the run's branch and leaves the user's copy alone",
+          "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint without a scenario names only the feature and the state",
+          "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint with nothing changed makes no commit",
+          "bdd": "pass"
+        },
+        {
+          "name": "Rolling back returns to the checkpoint and removes what the step wrote",
+          "bdd": "pass"
+        },
+        {
+          "name": "Files outside the writable paths survive a rollback",
+          "bdd": "pass"
+        },
+        {
+          "name": "Ignored files survive a rollback even inside the writable paths",
+          "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint is refused on the user's own branch",
+          "bdd": "pass"
+        },
+        {
+          "name": "A rollback is refused on the user's own branch",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-GIT-03",

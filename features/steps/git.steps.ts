@@ -15,6 +15,7 @@ type GitScenario = {
   installs: Install[];
   workspace?: Workspace;
   refusal?: string;
+  checkpoint?: string;
 };
 
 const REPO_NAME = "project";
@@ -225,4 +226,96 @@ Then("the worktree's dependencies are installed by {string} in the worktree", fu
 Then("the worktree directory no longer exists", function (this: OidWorld) {
   assert.equal(existsSync(workspaceOf(this).path), false);
   assert.equal(git(scenarioOf(this).repo, "worktree", "list", "--porcelain").includes(".oid-worktrees"), false);
+});
+
+/** Calls a git controller function and records its refusal instead of failing the step. */
+async function attempt(world: OidWorld, action: (state: GitScenario) => Promise<void> | void): Promise<void> {
+  const state = scenarioOf(world);
+  try {
+    await action(state);
+  } catch (error) {
+    state.refusal = error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function makeCheckpoint(world: OidWorld, fr: string, step: string, scenario?: string): Promise<void> {
+  const { checkpoint } = await import("../../src/artifacts/git-checkpoints.js");
+  await attempt(world, (state) => {
+    state.checkpoint = checkpoint(workspaceOf(world), { fr, state: step, scenario });
+  });
+}
+
+Given("the run's worktree has a new file {string}", function (this: OidWorld, name: string) {
+  writeIn(workspaceOf(this).path, name, "content\n");
+});
+
+Given("the file {string} of the run's worktree is changed", function (this: OidWorld, name: string) {
+  writeIn(workspaceOf(this).path, name, "changed\n");
+});
+
+Given("the work is in the user's own copy", function (this: OidWorld) {
+  const state = scenarioOf(this);
+  state.workspace = { path: state.repo, branch: state.branch, startCommit: state.head };
+});
+
+Given("a checkpoint was made for {string} at the state {string}", async function (this: OidWorld, fr: string, step: string) {
+  await makeCheckpoint(this, fr, step);
+  assert.ok(scenarioOf(this).checkpoint, `no checkpoint: ${scenarioOf(this).refusal}`);
+});
+
+When("a checkpoint is made for {string} at the state {string}", async function (this: OidWorld, fr: string, step: string) {
+  await makeCheckpoint(this, fr, step);
+});
+
+When("a checkpoint is made for {string} at the state {string} for the scenario {string}", async function (this: OidWorld, fr: string, step: string, scenario: string) {
+  await makeCheckpoint(this, fr, step, scenario);
+});
+
+async function rollBack(world: OidWorld, commit: string | undefined, globs: string): Promise<void> {
+  const { rollback } = await import("../../src/artifacts/git-checkpoints.js");
+  await attempt(world, () => {
+    assert.ok(commit, "no commit to roll back to");
+    rollback(workspaceOf(world), commit, globs.split(", "));
+  });
+}
+
+When("the run is rolled back to the checkpoint, cleaning {string}", async function (this: OidWorld, globs: string) {
+  await rollBack(this, scenarioOf(this).checkpoint, globs);
+});
+
+When("the run is rolled back to the start of the run, cleaning {string}", async function (this: OidWorld, globs: string) {
+  await rollBack(this, workspaceOf(this).startCommit, globs);
+});
+
+Then("the run's branch has one new commit named {string} holding {string}", function (this: OidWorld, subject: string, file: string) {
+  const { path, startCommit } = workspaceOf(this);
+  assert.equal(git(path, "rev-list", "--count", `${startCommit}..HEAD`), "1");
+  assert.equal(git(path, "log", "-1", "--format=%s"), subject);
+  assert.deepEqual(git(path, "show", "--name-only", "--format=", "HEAD").split("\n"), [file]);
+  assert.equal(scenarioOf(this).checkpoint, git(path, "rev-parse", "HEAD"));
+});
+
+Then("the run's branch has no new commit", function (this: OidWorld) {
+  const { path, startCommit } = workspaceOf(this);
+  assert.equal(git(path, "rev-list", "--count", `${startCommit}..HEAD`), "0");
+});
+
+Then("the checkpoint is the start commit", function (this: OidWorld) {
+  assert.equal(scenarioOf(this).checkpoint, workspaceOf(this).startCommit);
+});
+
+Then("the file {string} of the run's worktree has its checkpointed content", function (this: OidWorld, name: string) {
+  assert.equal(readFileSync(join(workspaceOf(this).path, name), "utf8"), "content\n");
+});
+
+Then("the file {string} of the run's worktree does not exist", function (this: OidWorld, name: string) {
+  assert.equal(existsSync(join(workspaceOf(this).path, name)), false);
+});
+
+Then("the file {string} of the run's worktree still exists", function (this: OidWorld, name: string) {
+  assert.equal(existsSync(join(workspaceOf(this).path, name)), true);
+});
+
+Then("the run's branch is at the checkpoint", function (this: OidWorld) {
+  assert.equal(git(workspaceOf(this).path, "rev-parse", "HEAD"), scenarioOf(this).checkpoint);
 });
