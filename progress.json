@@ -1503,6 +1503,10 @@
         {
           "name": "A failing assertion in a new step is a valid Red without a decision",
           "bdd": "pass"
+        },
+        {
+          "name": "A Red names the scenario by its name",
+          "bdd": "pass"
         }
       ]
     },
@@ -1552,6 +1556,14 @@
         },
         {
           "name": "A green with a target writes the checkpoint of the target's feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green takes several scenarios at once, by name and by location",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green refuses a name that no scenario has",
           "bdd": "pass"
         }
       ]

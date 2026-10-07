@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 // Claude Code hooks for working on oid (docs/BOOTSTRAP.md §2.5): they make the cycle rules mechanical.
 //   after-edit   (PostToolUse on Edit|Write|MultiEdit): while a feature is focused, run `oid verify integrity`.
-//   before-step  (PreToolUse on Bash): `oid progress step <FR> <step>` leaving bdd_red, tdd_red or tdd_green
-//                needs the matching `oid verify` to have passed for that feature (.outside-in/checkpoint.json)
-//                on the content there is now: any change since the verification (other than progress.json and
-//                .outside-in/) invalidates it. Before `oid verify red|green` replaces the checkpoint, the
-//                changes since the last one must pass `oid verify integrity`, or a violation would be absorbed.
+//   before-step  (PreToolUse on Bash): `oid progress step <FR> <step>` moving forward (bdd_red → tdd_red,
+//                tdd_red → tdd_green, tdd_green → refactor or quality_gate, refactor → quality_gate) needs the
+//                matching `oid verify` to have passed for that feature on the content there is now: any change
+//                since the verification (other than progress.json and .outside-in/) invalidates it. Going back
+//                to a Red needs nothing. The verification is read from the feature's checkpoint
+//                (.outside-in/checkpoints/<FR>.json), or from the single .outside-in/checkpoint.json when the
+//                feature has none and that one names it (as oid up to v0.6.3 writes it). Before
+//                `oid verify red|green` replaces a checkpoint, the changes since the last one must pass
+//                `oid verify integrity`, or a violation would be absorbed.
+//                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
+//                does not.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -14,8 +20,17 @@ import { join } from "node:path";
 
 const BLOCK = 2;
 const VERIFY_FOR_STEP = { bdd_red: "oid verify red <feature file>:<line>", tdd_red: 'oid verify red "<test file> > <test name>"', tdd_green: "oid verify green" };
-const STEP_COMMAND = /\boid\s+progress\s+step\s+(\S+)\s+(\S+)/;
-const VERIFY_COMMAND = /\boid\s+verify\s+(red|green)\b/;
+/** The checkpoint step each move forward needs, by `<from> <to>`: a green is recorded as tdd_green. Any other move needs none. */
+const EVIDENCE_FOR_MOVE = {
+  "bdd_red tdd_red": "bdd_red",
+  "tdd_red tdd_green": "tdd_red",
+  "tdd_green refactor": "tdd_green",
+  "tdd_green quality_gate": "tdd_green",
+  "refactor quality_gate": "tdd_green",
+};
+/** Words that run the command that follows them: `oid` behind one of them is still oid. */
+const WRAPPERS = new Set(["env", "command", "exec", "time", "nice", "npx", "rtk", "proxy"]);
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
 const project = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : undefined);
@@ -23,6 +38,94 @@ const block = (message) => {
   process.stderr.write(`${message}\n`);
   process.exit(BLOCK);
 };
+
+/** The delimiter of a heredoc that starts at `at` (just after `<<` or `<<-`), and where its word ends. */
+function heredocDelimiter(text, at) {
+  let end = at;
+  while (text[end] === " " || text[end] === "\t") end++;
+  let word = "";
+  while (end < text.length && !/[\s;&|()<>]/.test(text[end])) {
+    const quote = text[end];
+    if (quote === "'" || quote === '"') {
+      const close = text.indexOf(quote, end + 1);
+      word += text.slice(end + 1, close < 0 ? text.length : close);
+      end = close < 0 ? text.length : close + 1;
+    } else {
+      word += text[end] === "\\" ? text[++end] ?? "" : text[end];
+      end++;
+    }
+  }
+  return { word, end };
+}
+
+/** Where a quoted string that opens at `at` ends (just after its closing quote), and its content. */
+function quoted(text, at) {
+  const quote = text[at];
+  let end = at + 1;
+  let content = "";
+  while (end < text.length && text[end] !== quote) {
+    if (quote === '"' && text[end] === "\\") end++;
+    content += text[end] ?? "";
+    end++;
+  }
+  return { content, end: end + 1 };
+}
+
+/** The simple commands a shell line runs, each as its words: quoted strings are words, and heredoc bodies and comments are left out. */
+function commandsOf(text) {
+  const commands = [];
+  let words = [];
+  let word = null;
+  const heredocs = [];
+  const endWord = () => {
+    if (word !== null) words.push(word);
+    word = null;
+  };
+  const endCommand = () => {
+    endWord();
+    if (words.length > 0) commands.push(words);
+    words = [];
+  };
+  for (let at = 0; at < text.length; at++) {
+    const char = text[at];
+    if (char === "\n") {
+      endCommand();
+      for (const { delimiter, tabs } of heredocs.splice(0)) {
+        while (at < text.length) {
+          const next = text.indexOf("\n", at + 1);
+          const line = text.slice(at + 1, next < 0 ? text.length : next);
+          at = next < 0 ? text.length : next;
+          if ((tabs ? line.replace(/^\t+/, "") : line) === delimiter) break;
+        }
+      }
+    } else if (char === " " || char === "\t") endWord();
+    else if (";&|()".includes(char)) endCommand();
+    else if (char === "#" && word === null) at = (text.indexOf("\n", at) < 0 ? text.length : text.indexOf("\n", at)) - 1;
+    else if (char === "'" || char === '"') {
+      const { content, end } = quoted(text, at);
+      word = (word ?? "") + content;
+      at = end - 1;
+    } else if (char === "\\") word = (word ?? "") + (text[++at] === "\n" ? "" : text[at] ?? "");
+    else if (text.startsWith("<<", at) && text[at + 2] !== "<") {
+      endWord();
+      const tabs = text[at + 2] === "-";
+      const { word: delimiter, end } = heredocDelimiter(text, at + (tabs ? 3 : 2));
+      heredocs.push({ delimiter, tabs });
+      at = end - 1;
+    } else word = (word ?? "") + char;
+  }
+  endCommand();
+  return commands;
+}
+
+/** The arguments of each `oid` command the line runs, behind any variable assignments and wrappers. */
+function oidCommands(text) {
+  return commandsOf(text).flatMap((words) => {
+    let at = 0;
+    while (at < words.length && (ASSIGNMENT.test(words[at]) || WRAPPERS.has(words[at]))) at++;
+    return words[at] === "oid" || words[at]?.endsWith("/oid") ? [words.slice(at + 1)] : [];
+  });
+}
 
 /** While a feature is focused, blocks with what `oid verify integrity` reports, if anything. */
 function requireIntegrity(what) {
@@ -59,22 +162,36 @@ function changedSinceVerified(checkpoint) {
   });
 }
 
-function beforeStep(input) {
-  const command = input.tool_input?.command ?? "";
-  if (VERIFY_COMMAND.test(command)) requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
-  const match = STEP_COMMAND.exec(command);
-  if (!match) return;
-  const [, id] = match;
+/** The checkpoint of a feature: its own, or the single one when it has none and that one names it. */
+function checkpointOf(id) {
+  const own = readJson(join(project, ".outside-in", "checkpoints", `${id}.json`));
+  if (own !== undefined) return own;
+  const single = readJson(join(project, ".outside-in", "checkpoint.json"));
+  return single?.feature === id ? single : undefined;
+}
+
+/** Blocks `oid progress step <id> <to>` when it moves forward without the matching verification on the current content. */
+function requireEvidence(id, to) {
   const feature = readJson(join(project, "progress.json"))?.features?.find((candidate) => candidate.id === id);
   const from = feature?.cycle_step;
-  if (!(from in VERIFY_FOR_STEP)) return;
-  const checkpoint = readJson(join(project, ".outside-in", "checkpoint.json"));
-  if (checkpoint?.step === from && checkpoint?.feature === id) {
+  const needed = EVIDENCE_FOR_MOVE[`${from} ${to}`];
+  if (needed === undefined) return;
+  const checkpoint = checkpointOf(id);
+  if (checkpoint?.step === needed) {
     const changed = changedSinceVerified(checkpoint);
     if (changed.length === 0) return;
-    block(`${id}: what \`${VERIFY_FOR_STEP[from]}\` verified has changed since (${changed.join(", ")}): run it again before leaving ${from}.`);
+    block(`${id}: what \`${VERIFY_FOR_STEP[needed]}\` verified has changed since (${changed.join(", ")}): run it again before moving from ${from} to ${to}.`);
   }
-  block(`${id} is in ${from}: run \`${VERIFY_FOR_STEP[from]}\` and get it to pass for ${id} before leaving ${from}.`);
+  block(`${id} is in ${from}: run \`${VERIFY_FOR_STEP[needed]}\` and get it to pass for ${id} before moving to ${to}.`);
+}
+
+function beforeStep(input) {
+  for (const [command, subcommand, id, to] of oidCommands(input.tool_input?.command ?? "")) {
+    if (command === "verify" && (subcommand === "red" || subcommand === "green")) {
+      requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
+    }
+    if (command === "progress" && subcommand === "step" && id !== undefined && to !== undefined) requireEvidence(id, to);
+  }
 }
 
 const input = JSON.parse(readFileSync(0, "utf8") || "{}");

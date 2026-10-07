@@ -6,8 +6,8 @@ import { FAILURE } from "../artifacts/red-classification.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { type FeatureScenarioLocation, locatePassingScenarios } from "../artifacts/passing-scenarios.js";
 import type { EvidenceScenario } from "../artifacts/checkpoint.js";
-import { parseBddTarget } from "../artifacts/verify-target.js";
-import { loadProgress } from "../artifacts/progress.js";
+import { scenarioTarget } from "../artifacts/verify-target.js";
+import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
@@ -54,15 +54,26 @@ function typecheckProblems(cwd: string, config: ProjectConfig): string[] {
 
 const FEATURE_TAG = /^@(FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?)$/;
 
-/** The scenarios the targets name, once for each feature tag of the scenario, and the problem of each target that is malformed, locates no scenario or locates one with no feature tag. */
+/** The location a target names, by `<feature>:<line>` or by the name of a scenario (none when it names no scenario), or the problem of a name that several scenarios have. */
+function locateTarget(target: string, located: LocatedScenario[]): { location?: { file: string; line: number }; problem?: string } {
+  try {
+    return { location: scenarioTarget(target, located) };
+  } catch (error) {
+    if (!(error instanceof ProgressError)) throw error;
+    return { problem: `target ${target}: ${error.message}` };
+  }
+}
+
+/** The scenarios the targets name, once for each feature tag of the scenario, and the problem of each target that names no scenario, names several, locates no scenario or locates one with no feature tag. */
 function locateTargets(targets: string[], located: LocatedScenario[]): { found: FeatureScenarioLocation[]; problems: string[] } {
   const found: FeatureScenarioLocation[] = [];
   const problems: string[] = [];
   for (const target of targets) {
-    const parsed = parseBddTarget(target);
-    const match = parsed && located.find(({ file, line }) => file === parsed.file.replace(/^\.\//, "") && line === parsed.line);
+    const { location, problem } = locateTarget(target, located);
+    const match = location && located.find(({ file, line }) => file === location.file.replace(/^\.\//, "") && line === location.line);
     const features = match?.tags.flatMap((tag) => FEATURE_TAG.exec(tag)?.[1] ?? []) ?? [];
-    if (parsed === undefined) problems.push(`target ${target}: expected <feature>:<line>`);
+    if (problem !== undefined) problems.push(problem);
+    else if (location === undefined) problems.push(`target ${target}: expected <feature>:<line> or the name of a scenario`);
     else if (match === undefined) problems.push(`bdd ${target}: no scenario starts at that line`);
     else if (features.length === 0) problems.push(`bdd ${target}: the scenario is not tagged with a feature`);
     else found.push(...features.map((feature) => ({ feature, file: match.file, line: match.line, name: match.name })));

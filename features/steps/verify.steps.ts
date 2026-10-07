@@ -137,3 +137,9 @@ Then("the checkpoint of {string} lists the scenario {string}", function (this: O
   assert.ok(existsSync(path), `${id} has no checkpoint; stdout: ${this.stdout}; stderr: ${this.stderr}`);
   assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).scenarios, [{ feature: id, name }]);
 });
+
+Then("the checkpoint of {string} lists the scenarios {string} and {string}", function (this: OidWorld, id: string, first: string, second: string) {
+  const path = this.path(`${CHECKPOINTS_DIR}/${id}.json`);
+  assert.ok(existsSync(path), `${id} has no checkpoint; stdout: ${this.stdout}; stderr: ${this.stderr}`);
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")).scenarios, [first, second].map((name) => ({ feature: id, name })));
+});
