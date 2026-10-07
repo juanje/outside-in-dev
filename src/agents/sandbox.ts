@@ -1,6 +1,7 @@
 import type { Agent } from "@earendil-works/pi-agent-core";
 import { isDenied, locate, matchesGlob } from "./containment.js";
 import type { Profile } from "./profiles.js";
+import { textContent, textOf } from "./result-text.js";
 import { withoutSecrets } from "./secret-results.js";
 import { isSecret } from "./secrets.js";
 import { checkShell } from "./shell-floor.js";
@@ -88,7 +89,7 @@ export function installSandbox(session: SandboxSession, profile: Profile, option
     const given = (context.args as { path?: unknown } | undefined)?.path;
     const directory = isText(given) ? given : CURRENT;
     const parts = prior?.content ?? context.result.content;
-    const text = parts.map((part) => (part.type === "text" ? part.text : "")).join("");
-    return { ...prior, content: [{ type: "text", text: withoutSecrets(name, text, directory, options.worktree) }], details: undefined };
+    const text = textOf(parts);
+    return { ...prior, content: textContent(withoutSecrets(name, text, directory, options.worktree)), details: undefined };
   };
 }

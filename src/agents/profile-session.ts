@@ -1,5 +1,6 @@
 import * as pi from "@earendil-works/pi-coding-agent";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { installEditHints } from "./edit-hints.js";
 import { type CycleState, type Profile, profileFor } from "./profiles.js";
 import { openAgentSession, type PiSdk } from "./runner.js";
 import { installSandbox } from "./sandbox.js";
@@ -24,5 +25,6 @@ export async function openProfileSession(request: ProfileSessionRequest, sdk: Pi
   const toolset = buildToolset(profile, [reportTool]);
   const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset }, sdk);
   installSandbox(session, profile, { worktree: request.worktree, tools: toolset.names });
+  if (toolset.names.includes("edit")) installEditHints(session);
   return session;
 }
