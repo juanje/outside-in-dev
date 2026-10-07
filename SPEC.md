@@ -168,7 +168,7 @@ Findings present when a run starts are recorded as a baseline; checks then judge
 
 ### FR-VERIFY-02: Verify a BDD Red
 
-`oid verify red <feature>:<line>` does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way.
+`oid verify red <feature>:<line>` (or `oid verify red "<scenario name>"`, when one scenario has that name) does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way.
 
 ### FR-VERIFY-03: Check that steps load
 
@@ -176,7 +176,7 @@ Reject step files that statically import modules or exports that do not exist ye
 
 ### FR-VERIFY-04: Verify a Green without regressions
 
-`oid verify green` runs the unit suite and every scenario that was passing, and reports any regression and any new type error in source code. Every verification that passes records the checkpoint of the feature it verifies, one per feature (`.outside-in/checkpoints/<id>.json`): a green records it for the feature in focus and for the feature of each scenario it was asked to run, and never replaces the checkpoint of another feature; with no feature at all it records the single checkpoint `.outside-in/checkpoint.json`. Scenario evidence (`oid progress scenario pass`, `oid progress done`) is read from the checkpoint of the feature it is about.
+`oid verify green [<feature>:<line> | "<scenario name>"]...` runs the unit suite, every scenario that was passing and the scenarios it is given, in one run, and reports any regression and any new type error in source code. Every verification that passes records the checkpoint of the feature it verifies, one per feature (`.outside-in/checkpoints/<id>.json`): a green records it for the feature in focus and for the feature of each scenario it was asked to run, and never replaces the checkpoint of another feature; with no feature at all it records the single checkpoint `.outside-in/checkpoint.json`. Scenario evidence (`oid progress scenario pass`, `oid progress done`) is read from the checkpoint of the feature it is about.
 
 ### FR-VERIFY-05: Check the integrity of a change
 

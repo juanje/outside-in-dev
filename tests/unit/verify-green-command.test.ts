@@ -53,6 +53,18 @@ describe("oid verify green", () => {
     expect({ a: scenarios("FR-A-01"), b: scenarios("FR-B-01") }).toEqual({ a: [{ feature: "FR-B-01", name: "Bs" }], b: [{ feature: "FR-B-01", name: "Bs" }] });
   });
 
+  it("takes a target by the name of its scenario, and names a target that is neither a location nor the name of a scenario", async () => {
+    const passed = { uri: "features/b.feature", name: "Bs", steps: [{ text: "it bs", status: "PASSED" }] };
+    projectWithRunners({ bddReport: runMessages([passed]) });
+    write("features/b.feature", "@FR-B-01\nFeature: B\n\n  Scenario: Bs\n    Given it bs\n");
+    commitAll();
+    const results = [await runInProject(["verify", "green", "Bs"]), await runInProject(["verify", "green", "Cs"])];
+    expect(results.map(({ exitCode, stdout }) => ({ exitCode, stdout }))).toEqual([
+      { exitCode: 0, stdout: "green: ok\n" },
+      { exitCode: 1, stdout: "green: 1 problem(s)\ntarget Cs: expected <feature>:<line> or the name of a scenario\n" },
+    ]);
+  });
+
   it("rejects a failing unit test: exit 1, the count of problems, the test and the first line of its failure, and no checkpoint", async () => {
     const failing = { fullName: "adds", title: "adds", status: "failed", failureMessages: ["AssertionError: expected 3 to be 4\n    at x"] };
     projectWithRunners({ unitReport: { testResults: [{ name: `${dir}/tests/unit/a.test.ts`, message: "", assertionResults: [failing] }] } });

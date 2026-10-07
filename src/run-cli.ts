@@ -23,7 +23,7 @@ const COMMANDS: Record<string, CommandHelp> = {
   },
   verify: {
     summary: "Verify that a test or a scenario is a valid Red, that a Green has no regression, or the integrity of a change",
-    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify green\n       oid verify integrity [--step <step>]',
+    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify red "<scenario name>" [--decide <class>]\n       oid verify green [<feature file>:<line> | "<scenario name>"]...\n       oid verify integrity [--step <step>]',
     options: {
       "--decide": "Answer the failure the last run of the same target recorded, without running it again (refused if files changed since): business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
       "--step": "Check the rules of this cycle step instead of the step of the focused feature",

@@ -159,6 +159,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 - [x] Tag and install `v0.5.0`.
 - [x] `docs/METHODOLOGY.md`, steps 2–4: `oid verify red` / `oid verify green` decide; the agent may not advance `cycle_step` without them.
 - [x] Configure Claude Code hooks in `.claude/settings.json` so the rules are mechanical, not just written: after edits, run `oid verify integrity` for the current `cycle_step` (no source changes while writing tests, no test changes while writing code, no forbidden patterns); before `oid progress step`, require the matching `oid verify` to have passed.
+- [x] `scripts/claude-hook.mjs` after the FR-AGENT dogfooding: it reads the commands the shell would run (text in a heredoc, a comment or a quoted string is not a command; `oid` behind `cd …&&`, a pipe, variable assignments or a wrapper such as `npx` or `rtk proxy` is); it requires a verification only to move forward (`bdd_red` → `tdd_red`, `tdd_red` → `tdd_green`, `tdd_green` → `refactor` or `quality_gate`, `refactor` → `quality_gate`, the last three a green), never to go back to a Red; and it reads the feature's own checkpoint (`.outside-in/checkpoints/<FR>.json`), falling back to the single `.outside-in/checkpoint.json` that names the feature, as v0.6.3 and earlier write it.
 
 
 

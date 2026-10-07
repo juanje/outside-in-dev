@@ -45,6 +45,19 @@ describe("oid verify red <feature>:<line>", () => {
     });
   });
 
+  it("verifies a scenario named by its name, as the scenario at its location", async () => {
+    projectWithRunner({ report: scenarioMessages([passed, missingModule("src/nope.js")]) });
+    writeMinimalConfig({ commands: COMMANDS, paths: { source: ["src/**"], shared: [], unit_tests: [], bdd_features: ["features/**/*.feature"], bdd_steps: ["features/steps/**"], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" } });
+    write("features/a.feature", "Feature: A\n\n  Scenario: Adds\n    Given it adds\n");
+    commitAll();
+    write("features/steps/a.steps.ts", "// the steps\n");
+    expect(await runInProject(["verify", "red", "Adds"])).toEqual({
+      exitCode: 0,
+      stdout: "red: valid (missing_implementation): the module src/nope.js does not exist yet\n",
+      stderr: "",
+    });
+  });
+
   it("rejects a run that never started when its stderr names a step file that changed since the last commit", async () => {
     projectWithRunner({ report: undefined, stderr: `Error: Transform failed\n${dir}/features/steps/a.steps.ts:2:6: ERROR\n` });
     write("features/steps/a.steps.ts", "// committed\n");

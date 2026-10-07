@@ -57,3 +57,66 @@ describe("the before-step hook", () => {
     expect({ status: run.status, reported: run.stderr.includes("changed a test while writing code") }).toEqual({ status: 2, reported: true });
   });
 });
+
+/** A committed project whose feature FR-X-01 is focused at `step`, with no verification recorded. */
+function focusedAt(step: string): void {
+  write("src/a.ts", "export const a = 1;\n");
+  write("progress.json", JSON.stringify({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "X", status: "in_progress", cycle_step: step, scenarios: [] }] }));
+  commitAll();
+}
+
+/** Runs the before-step hook on `command` with an `oid` whose integrity check always fails: its exit code. */
+function beforeStepWithFailingIntegrity(command: string): number | null {
+  write("bin/oid", '#!/bin/sh\nif [ "$1 $2" = "verify integrity" ]; then echo "src/a.ts changed source code while writing tests"; exit 1; fi\nexit 0\n');
+  spawnSync("chmod", ["+x", join(dir, "bin", "oid")]);
+  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
+  const run = spawnSync(process.execPath, [HOOK, "before-step"], {
+    input: JSON.stringify({ tool_input: { command } }),
+    env: { ...env, CLAUDE_PROJECT_DIR: dir, PATH: `${join(dir, "bin")}:${env.PATH}` },
+    encoding: "utf8",
+  });
+  return run.status;
+}
+
+describe("the before-step hook, by direction of the move", () => {
+  it("lets a feature go back to a Red without a verification", () => {
+    focusedAt("tdd_green");
+    const back = ["oid progress step FR-X-01 tdd_red", "oid progress step FR-X-01 bdd_red"].map((command) => runHook("before-step", { tool_input: { command } }).status);
+    expect(back).toEqual([0, 0]);
+  });
+
+  it("requires a green to move forward from refactor to quality_gate", () => {
+    focusedAt("refactor");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: "oid progress step FR-X-01 quality_gate" } });
+    expect({ status, names: stderr.includes("oid verify green") }).toEqual({ status: 2, names: true });
+  });
+});
+
+describe("the before-step hook, with a checkpoint per feature", () => {
+  it("reads the checkpoint of the feature, not the single checkpoint of another one", () => {
+    focusedAt("tdd_green");
+    write("src/a.ts", "export const a = 2;\n");
+    recordCheckpoint(dir, GREEN);
+    recordCheckpoint(dir, { ...GREEN, step: "tdd_red", feature: null });
+    expect(runHook("before-step", STEP_TO_REFACTOR).status).toBe(0);
+  });
+});
+
+describe("the before-step hook, on the command it is given", () => {
+  it("takes no text in a heredoc, a comment or a quoted string for a command", () => {
+    focusedAt("tdd_green");
+    const texts = [
+      "cat <<'EOF'\noid verify green\noid progress step FR-X-01 refactor\nEOF",
+      'git commit -m "$(cat <<\'EOF\'\nrun oid verify green before oid progress step FR-X-01 refactor\nEOF\n)"',
+      "echo 'oid verify green' \"oid progress step FR-X-01 refactor\"",
+      "ls # oid verify green; oid progress step FR-X-01 refactor",
+    ];
+    expect(texts.map(beforeStepWithFailingIntegrity)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("recognises the command wherever it runs in the line: after a cd, a pipe or a wrapper", () => {
+    focusedAt("tdd_green");
+    const commands = ["cd /tmp && oid verify green", "true | rtk proxy oid verify red x.feature:3", "NODE_OPTIONS= oid verify green"];
+    expect(commands.map(beforeStepWithFailingIntegrity)).toEqual([2, 2, 2]);
+  });
+});

@@ -4,7 +4,7 @@ import { addedLines } from "../artifacts/added-lines.js";
 import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { CYCLE_STEP, ProgressError } from "../artifacts/progress.js";
-import { type ProjectConfig } from "../artifacts/project-config.js";
+import { CONFIG_FILE, type ProjectConfig } from "../artifacts/project-config.js";
 import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
@@ -12,7 +12,8 @@ import { observationToDecide, recordObservation } from "../artifacts/red-observa
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
-import { parseBddTarget, parseUnitTarget } from "../artifacts/verify-target.js";
+import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
+import { parseUnitTarget, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { normalizeVitestReport, selectTest, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import { GREEN, runGreen } from "./verify-green.js";
@@ -111,9 +112,15 @@ interface Observation {
 const TARGET = { test: "unit_test", scenario: "scenario" } as const;
 type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
 
-/** Reads the target as a scenario location when it is one, and as a unit test otherwise. */
-function parseTarget(target: string): Target {
-  const scenario = parseBddTarget(target);
+/** The scenarios of the project, to look a target up by name; none when the target has the form of a unit test or the project has no configuration. */
+function scenariosToName(cwd: string, target: string): LocatedScenario[] {
+  if (target.includes(UNIT_SEPARATOR) || !existsSync(join(cwd, CONFIG_FILE))) return [];
+  return listLocatedScenarios(readFeatureSources(cwd, loadVerifyConfig(cwd).paths.bdd_features));
+}
+
+/** Reads the target as a scenario when it is the location or the name of one, and as a unit test otherwise. */
+function parseTarget(cwd: string, target: string): Target {
+  const scenario = scenarioTarget(target, scenariosToName(cwd, target));
   return scenario === undefined ? { kind: TARGET.test, test: parseUnitTarget(target) } : { kind: TARGET.scenario, scenario };
 }
 
@@ -176,7 +183,7 @@ export function runVerify(io: CliIo, args: string[]): number {
   if (args[0] === GREEN) return runGreen(io, args.slice(1));
   if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
   const { target, decision } = parseArgs(args);
-  const parsed = parseTarget(target);
+  const parsed = parseTarget(io.cwd, target);
   const config = loadVerifyConfig(io.cwd);
   if (decision !== undefined) return answerRecorded(io, config, target, decision);
   const step = parsed.kind === TARGET.test ? TDD_RED : BDD_RED;
