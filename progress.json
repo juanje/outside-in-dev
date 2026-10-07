@@ -1715,7 +1715,33 @@
     {
       "id": "FR-AGENT-01",
       "title": "Isolated agent sessions",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An agent session ignores the user's personal Pi settings",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent session sees none of the user's skills or context files",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a configured agent directory, oid uses its own directory under the user's home",
+          "bdd": "pass"
+        },
+        {
+          "name": "The environment variable moves oid's agent directory",
+          "bdd": "pass"
+        },
+        {
+          "name": "Every task gets a new session with its own transcript",
+          "bdd": "pass"
+        },
+        {
+          "name": "The transcript goes into the run's sessions directory, created when missing",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-02",
