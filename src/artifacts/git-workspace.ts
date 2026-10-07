@@ -67,7 +67,7 @@ export function uncommittedFiles(root: string): string[] {
     .map((line) => line.slice(STATUS_PREFIX_LENGTH));
 }
 
-/** Starts a run on the repository of `cwd`: on a new branch from HEAD, in a worktree or in place, with its dependencies prepared. */
+/** Starts a run on the repository of `cwd`: on a new branch from the HEAD of its main working copy, in a worktree or in place, with its dependencies prepared; when they cannot be, the worktree and branch it created are removed and the error is thrown. */
 export function startRun(cwd: string, options: StartOptions): Workspace {
   const settings = loadGitSettings(cwd);
   const root = mainWorktree(cwd);
@@ -82,7 +82,14 @@ export function startRun(cwd: string, options: StartOptions): Workspace {
   const path = resolve(root, settings.worktree_dir, basename(root), options.runId);
   if (existsSync(path)) throw new ProgressError(`the worktree directory ${path} already exists`);
   git(root, "worktree add -b", branch, path, startCommit);
-  prepareDependencies(root, path, options.install ?? runInstall);
+  try {
+    prepareDependencies(root, path, options.install ?? runInstall);
+  } catch (error) {
+    // Undo only what this attempt created, so the same run can start again.
+    git(root, "worktree remove --force", path);
+    git(root, "branch -D", branch);
+    throw error;
+  }
   return { path, branch, startCommit };
 }
 
