@@ -36,6 +36,8 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 **The verify gates the step.** Move forward (`bdd_red` → `tdd_red`, `tdd_red` → `tdd_green`, `tdd_green` → `refactor` or `quality_gate`, `refactor` → `quality_gate`) only after the matching `oid verify` passed for the feature, on the content there is now; going back to a Red needs no verification. A scenario can be named by its location or by its name (`oid verify red "<scenario name>"`, `oid verify green "<name>" <feature>:<line> ...`); `oid verify integrity` reports changes the current step does not allow (source while writing tests, tests while writing code, approved feature files, forbidden patterns). In Claude Code both are enforced by hooks (`.claude/settings.json`, `scripts/claude-hook.mjs`).
 
+**No legal move (ADR-035).** If the cycle leaves you in a step with no allowed move forward (for example, a step definition fixed in `bdd_red` leaves every scenario green, so no Red is possible), do not work around the hooks or mutate the source to force a Red. Stop and say why. The human moves the step with `oid progress step` outside the hook; then run `oid verify green` on the current content, mutation-check any scenario that passed without a Red, and record the intervention in the bootstrap log.
+
 ### 3. TDD Red [`tdd_red`]
 
 - Write **one** failing unit test in `tests/unit/` for the next piece of logic the scenario needs.
