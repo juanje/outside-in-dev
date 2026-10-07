@@ -1,4 +1,5 @@
 import { readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, normalize } from "node:path";
 import { locate, matchesGlob, userHome } from "./containment.js";
 
@@ -11,19 +12,21 @@ const ROOT = "/";
 const HERE = ".";
 const PROBE = "/_";
 
-function inHomeSecrets(real: string): boolean {
-  const home = locate(userHome(), HERE).real;
-  return HOME_SECRETS.some((name) => {
-    const secret = join(home, name);
-    return real === secret || real.startsWith(`${secret}${ROOT}`);
-  });
+function inHomeSecrets(real: string, accountHome: string): boolean {
+  const homes = new Set([userHome(), accountHome].map((home) => locate(home, HERE).real));
+  return [...homes].some((home) =>
+    HOME_SECRETS.some((name) => {
+      const secret = join(home, name);
+      return real === secret || real.startsWith(`${secret}${ROOT}`);
+    }),
+  );
 }
 
-/** Whether `requested` (relative to `worktree`) is, or resolves through symbolic links to, a secret: a file matching the secret patterns, a directory that holds some, or anything in the user's SSH, AWS and GnuPG directories. */
-export function isSecret(worktree: string, requested: string): boolean {
+/** Whether `requested` (relative to `worktree`) is, or resolves through symbolic links to, a secret: a file matching the secret patterns, a directory that holds some, or anything in the SSH, AWS and GnuPG directories of the home named by `HOME` and of the account's own home (`accountHome`, the passwd entry), whichever `HOME` says. */
+export function isSecret(worktree: string, requested: string, accountHome: string = homedir()): boolean {
   const place = locate(worktree, requested);
   const path = place.inside ? place.relative : place.real.slice(ROOT.length);
-  return inHomeSecrets(place.real) || SECRET_GLOBS.some((glob) => matchesGlob(path, glob) || matchesGlob(`${path}${PROBE}`, glob));
+  return inHomeSecrets(place.real, accountHome) || SECRET_GLOBS.some((glob) => matchesGlob(path, glob) || matchesGlob(`${path}${PROBE}`, glob));
 }
 
 /** More entries than this under a directory and its contents are not walked: the directory counts as holding a secret. */

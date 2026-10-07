@@ -35,4 +35,14 @@ describe("isSecret", () => {
       expect(isSecret(worktree, plain), plain).toBe(false);
     }
   });
+
+  it("treats the account's real home directories as secrets when HOME points elsewhere", async () => {
+    const { isSecret } = await import("../../src/agents/secrets.js");
+    const worktree = join(dir, "project");
+    const realHome = join(dir, "real-home");
+    for (const name of [".ssh", ".aws", ".gnupg"]) {
+      expect(isSecret(worktree, join(realHome, name, "file"), realHome), name).toBe(true);
+    }
+    expect(isSecret(worktree, join(realHome, ".bashrc"), realHome)).toBe(false);
+  });
 });
