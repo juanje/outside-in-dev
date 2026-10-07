@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { createEditTool } from "@earendil-works/pi-coding-agent";
 import type { OidWorld } from "../support/world.js";
 
 import type { CycleState } from "../../src/agents/profiles.js";
@@ -551,4 +552,49 @@ Then("the attempt is blocked with the reason {string} and the detail {string}", 
 
 Then("the session offers the tool {string}", function (this: OidWorld, tool: string) {
   assert.ok(sandboxSession(this).getActiveToolNames().includes(tool), `${tool} is not offered`);
+});
+
+type EditOutcome = { failed: boolean; text: string };
+
+const edits = new WeakMap<OidWorld, EditOutcome>();
+
+Given("the file {string} holds the text {string}", function (this: OidWorld, file: string, text: string) {
+  put(join(sandboxOf(this).project, file), text.replaceAll("\\n", "\n"));
+});
+
+/** Runs Pi's real edit tool and gives its result, a thrown error included, to the session's after-tool-call hook, as Pi does. */
+When("the agent edits {string} replacing {string} with {string}", async function (this: OidWorld, path: string, oldText: string, newText: string) {
+  const args = { path, edits: [{ oldText, newText }] };
+  let result: { content: { type: "text"; text: string }[]; details: unknown };
+  let failed = false;
+  try {
+    result = (await createEditTool(sandboxOf(this).project).execute("call-1", args)) as typeof result;
+  } catch (error) {
+    failed = true;
+    result = { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], details: undefined };
+  }
+  const after = sandboxSession(this).agent.afterToolCall;
+  assert.ok(after, "the session has no after-tool-call hook");
+  const call = { type: "toolCall" as const, id: "call-1", name: "edit", arguments: args };
+  const changed = await after({ assistantMessage: {} as never, toolCall: call, args, result, isError: failed, context: {} as never });
+  const text = (changed?.content ?? result.content).map((part) => (part.type === "text" ? part.text : "")).join("");
+  edits.set(this, { failed, text });
+});
+
+Then("the edit fails", function (this: OidWorld) {
+  assert.equal(edits.get(this)?.failed, true, "the edit did not fail");
+});
+
+Then("the edit succeeds", function (this: OidWorld) {
+  assert.equal(edits.get(this)?.failed, false, `the edit failed: ${edits.get(this)?.text}`);
+});
+
+Then("the error the agent sees says {string}", function (this: OidWorld, text: string) {
+  const seen = edits.get(this)?.text ?? "";
+  assert.ok(seen.includes(text), `the error does not say ${text}: ${seen}`);
+});
+
+Then("the result the agent sees has no hint", function (this: OidWorld) {
+  const seen = edits.get(this)?.text ?? "";
+  assert.ok(!/hint/i.test(seen), `the result has a hint: ${seen}`);
 });

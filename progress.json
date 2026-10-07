@@ -1954,7 +1954,25 @@
     {
       "id": "FR-AGENT-06",
       "title": "Hints after a failed edit",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An anchor that does not match gets a hint to copy it exactly",
+          "bdd": "pass"
+        },
+        {
+          "name": "An anchor that is not unique gets a hint to add surrounding lines",
+          "bdd": "pass"
+        },
+        {
+          "name": "A replacement that changes nothing gets a hint that it is identical",
+          "bdd": "pass"
+        },
+        {
+          "name": "A successful edit gets no hint",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-07",
