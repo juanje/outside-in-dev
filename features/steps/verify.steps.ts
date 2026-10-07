@@ -1,4 +1,4 @@
-import { Given, Then, When } from "@cucumber/cucumber";
+import { Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -98,10 +98,6 @@ Then("the checkpoint records an external decision", function (this: OidWorld) {
 
 Then("the checkpoint lists the file {string}", function (this: OidWorld, path: string) {
   assert.ok(path in readCheckpoint(this).snapshot, `the checkpoint does not list ${path}`);
-});
-
-When("I run the built {string}", function (this: OidWorld, commandLine: string) {
-  this.runBuilt(commandLine);
 });
 
 Then("the checkpoint lists the scenario {string} of {string}", function (this: OidWorld, name: string, feature: string) {
