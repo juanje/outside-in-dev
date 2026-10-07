@@ -193,7 +193,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 3. **Classifier.** Jev, through the same adapter as the other decisions, on what the floor cannot settle: credentials, private data leaving the machine, paths that should not be read, commands that are dangerous in this step. Patterns go to the classifier as evidence. If the classifier is unavailable, the floor still holds: no credential read and no write outside the worktree.
 
 A quality-gate command the agent runs is feedback for that attempt. It does not decide Red or Green and it does not advance the cycle. The orchestrator does, from its own run of the runner's report.
-**Consequences.** ADR-005 still governs verification and every profile without a shell. Implement and debug agents can probe, and their prompt requires the quality gate before they report done. The shell is a sandbox surface of its own and needs tests for wrappers, symlinks, and writes to orchestrator state. `SPEC.md` NFR-02 and `docs/design.md` still say no agent has a shell; they have to change when this is built, not before.
+**Consequences.** ADR-005 still governs verification and every profile without a shell. Implement and debug agents can probe, and their prompt requires the quality gate before they report done. The shell is a sandbox surface of its own and needs tests for wrappers, symlinks, and writes to orchestrator state. The rule is now stated in SPEC.md NFR-02 and docs/design.md. The sandbox, the per-profile allow list and their tests are still unbuilt (FR-AGENT). Until that code exists, no agent has a shell.
 
 ## ADR-030: `oid verify` before Jev: an external decision, and a local checkpoint
 
