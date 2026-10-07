@@ -1,5 +1,5 @@
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
-import { advanceStep, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, dropScenario, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
@@ -43,16 +43,24 @@ function focusFeature(progress: Progress, io: Context, id: string): void {
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
+function unfocus(progress: Progress, io: Context): void {
+  progress.current_focus = null;
+  saveProgress(io.cwd, progress, io.paths.progress);
+}
+
 function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step);
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
+/** The word of `oid progress scenario` that removes a pending scenario instead of recording a status. */
+const DROP = "drop";
+
 function recordFeatureScenario(progress: Progress, io: Context, status: string, id: string, name: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   if (status === SCENARIO_STATUS.pass) requirePassEvidence(io.cwd, id, name);
-  progress.features[progress.features.indexOf(feature)] = recordScenario(feature, name, status);
+  progress.features[progress.features.indexOf(feature)] = status === DROP ? dropScenario(feature, name) : recordScenario(feature, name, status);
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
@@ -98,11 +106,12 @@ const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
     allowed: { label: "Cycle steps", values: CYCLE_STEPS },
   },
   scenario: {
-    summary: "Record the status of a scenario",
+    summary: `Record the status of a scenario, or remove a pending one with ${DROP} instead of a status`,
     operands: ["<pass|fail|pending>", ID, '"<scenario name>"'],
     allowed: { label: "Statuses", values: SCENARIO_STATUSES },
   },
   done: { summary: "Mark a feature done once every scenario passes", operands: [ID] },
+  unfocus: { summary: "Clear the focus", operands: [] },
 };
 const SUBCOMMANDS = Object.keys(SUBCOMMAND_HELP);
 
@@ -136,6 +145,7 @@ const ACTIONS: Record<string, Action> = {
   step: (progress, io, [id, step]) => stepFeature(progress, io, id!, step!),
   scenario: (progress, io, [status, id, name]) => recordFeatureScenario(progress, io, status!, id!, name!),
   done: (progress, io, [id]) => doneFeature(progress, io, id!),
+  unfocus: (progress, io) => unfocus(progress, io),
 };
 
 export function runProgress(args: string[], cli: CliIo): void {

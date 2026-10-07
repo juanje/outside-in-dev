@@ -112,6 +112,14 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
   return { ...feature, scenarios };
 }
 
+/** Returns the feature without the scenario, which must be pending: a scenario in pass or fail is never dropped; the input is not modified. */
+export function dropScenario(feature: FeatureProgress, name: string): FeatureProgress {
+  const scenario = feature.scenarios?.find((s) => s.name === name);
+  if (scenario === undefined) throw new ProgressError(`${feature.id} has no scenario "${name}"`);
+  if (scenario.bdd !== SCENARIO_STATUS.pending) throw new ProgressError(`${feature.id} "${name}" is ${scenario.bdd}: only a pending scenario can be dropped`);
+  return { ...feature, scenarios: (feature.scenarios ?? []).filter((s) => s.name !== name) };
+}
+
 /** Returns the feature marked done, without a cycle step; the input is not modified. */
 export function completeFeature(feature: FeatureProgress): FeatureProgress {
   if (!feature.scenarios?.length) {

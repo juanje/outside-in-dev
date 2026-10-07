@@ -11,7 +11,7 @@ The procedure for agents working on this repository while oid is being bootstrap
 
 ## Updating progress
 
-Only through the installed `oid progress` command (`add`, `focus`, `step`, `scenario`, `done`). Never edit `progress.json` by hand, and never run oid from this working tree.
+Only through the installed `oid progress` command (`add`, `focus`, `unfocus`, `step`, `scenario`, `scenario drop`, `done`). Never edit `progress.json` by hand, and never run oid from this working tree.
 
 Update it after every step transition.
 
