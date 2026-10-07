@@ -29,7 +29,7 @@ export interface StartOptions {
 }
 
 /** Runs `git <command> <extra...>` in `cwd` (the command is split on whitespace) and returns its standard output without the final newline; throws with git's message when it fails. */
-function git(cwd: string, command: string, ...extra: string[]): string {
+export function git(cwd: string, command: string, ...extra: string[]): string {
   const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
   const result = spawnSync(GIT, [...command.split(/\s+/), ...extra], { cwd, env });
   if (result.status !== 0) throw new Error(`${GIT} ${command} failed: ${result.stderr.toString().trim()}`);
