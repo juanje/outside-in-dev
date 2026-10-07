@@ -30,8 +30,8 @@ describe("locatePassingScenarios", () => {
   it("finds each scenario recorded as passing by its name among the scenarios tagged with its feature, and names those it cannot find", () => {
     expect(locatePassingScenarios(progress, located)).toEqual({
       found: [
-        { file: "features/a.feature", line: 4, name: "Adds" },
-        { file: "features/b.feature", line: 7, name: "Adds" },
+        { feature: "FR-A-01", file: "features/a.feature", line: 4, name: "Adds" },
+        { feature: "FR-B-01", file: "features/b.feature", line: 7, name: "Adds" },
       ],
       missing: [{ feature: "FR-B-01", name: "Multiplies" }],
     });

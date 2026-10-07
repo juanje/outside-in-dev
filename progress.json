@@ -209,6 +209,26 @@
         {
           "name": "oid progress scenario records into the configured progress file",
           "bdd": "pass"
+        },
+        {
+          "name": "Marking a scenario as passing without any verification is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Marking a scenario as passing after editing a verified file is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario is accepted as passing after a green that ran it, and the checkpoint lists it",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green with no target does not add a scenario to the evidence",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green with a target that cannot be located fails and records no checkpoint",
+          "bdd": "pass"
         }
       ]
     },

@@ -100,6 +100,18 @@ export class OidWorld extends World {
     this.stderr = stderr;
   }
 
+  /** Runs the command with the built CLI (`dist/cli.js`) in a child process, as a user would, and keeps what it printed and its exit code. */
+  runBuilt(commandLine: string): void {
+    const args = splitArgs(commandLine);
+    if (args[0] === "oid") args.shift();
+    this.progressBefore = this.readProgressRaw();
+    this.filesBefore = this.snapshotFiles();
+    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
+    this.exitCode = result.status;
+    this.stdout = result.stdout;
+    this.stderr = result.stderr;
+  }
+
   /** Runs `git` with `args` in the project directory (never in the repository oid is developed in) and fails the step when git fails. */
   git(...args: string[]): void {
     const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;

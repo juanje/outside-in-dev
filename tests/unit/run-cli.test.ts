@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
+import { commitAll } from "./git-fixture.js";
 import { dir, useTempDir, writeProgressFile } from "./temp-project.js";
 import { runInProject as run } from "./run-capture.js";
 
@@ -158,6 +160,8 @@ describe("runCli progress step", () => {
 describe("runCli progress scenario", () => {
   it("records the scenario status and saves it", async () => {
     writeProgressFile(SAMPLE);
+    commitAll();
+    recordCheckpoint(dir, { step: "tdd_green", feature: "FR-X-02", verify: { kind: "green", target: "all" }, external: false, date: new Date(0), scenarios: [{ feature: "FR-X-02", name: "Beta works" }] });
     const result = await run(["progress", "scenario", "pass", "FR-X-02", "Beta works"]);
     expect(result.exitCode).toBe(0);
     expect(readProgress().features[1].scenarios[0]).toEqual({ name: "Beta works", bdd: "pass" });

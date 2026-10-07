@@ -1,4 +1,4 @@
-import { Given, Then } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -32,7 +32,7 @@ const FIXTURE_TSCONFIG = {
 };
 
 /** The checkpoint file of the project, parsed. */
-function readCheckpoint(world: OidWorld): { step: string; external: boolean; snapshot: Record<string, string> } {
+function readCheckpoint(world: OidWorld): { step: string; external: boolean; snapshot: Record<string, string>; scenarios: { feature: string; name: string }[] } {
   assert.ok(existsSync(world.path(CHECKPOINT_FILE)), `no checkpoint was recorded; stdout: ${world.stdout}; stderr: ${world.stderr}`);
   return JSON.parse(readFileSync(world.path(CHECKPOINT_FILE), "utf8"));
 }
@@ -83,4 +83,16 @@ Then("the checkpoint records an external decision", function (this: OidWorld) {
 
 Then("the checkpoint lists the file {string}", function (this: OidWorld, path: string) {
   assert.ok(path in readCheckpoint(this).snapshot, `the checkpoint does not list ${path}`);
+});
+
+When("I run the built {string}", function (this: OidWorld, commandLine: string) {
+  this.runBuilt(commandLine);
+});
+
+Then("the checkpoint lists the scenario {string} of {string}", function (this: OidWorld, name: string, feature: string) {
+  assert.deepEqual(readCheckpoint(this).scenarios.filter((scenario) => scenario.name === name && scenario.feature === feature), [{ feature, name }]);
+});
+
+Then("the checkpoint lists no scenario", function (this: OidWorld) {
+  assert.deepEqual(readCheckpoint(this).scenarios, []);
 });

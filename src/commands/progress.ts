@@ -1,4 +1,5 @@
-import { advanceStep, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { requirePassEvidence } from "../artifacts/scenario-evidence.js";
+import { advanceStep, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
@@ -50,6 +51,7 @@ function stepFeature(progress: Progress, io: Context, id: string, step: string):
 
 function recordFeatureScenario(progress: Progress, io: Context, status: string, id: string, name: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
+  if (status === SCENARIO_STATUS.pass) requirePassEvidence(io.cwd, id, name);
   progress.features[progress.features.indexOf(feature)] = recordScenario(feature, name, status);
   saveProgress(io.cwd, progress, io.paths.progress);
 }

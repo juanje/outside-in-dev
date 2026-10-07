@@ -3,6 +3,7 @@ Feature: Record scenario status
 
   Scenario: The status of an existing scenario is updated
     Given a tracked feature "FR-X-01" with a scenario "Alpha works" marked "fail"
+    And the last green ran the scenario "Alpha works" of "FR-X-01"
     When I run "oid progress scenario pass FR-X-01 \"Alpha works\""
     Then the command succeeds
     And the feature "FR-X-01" has the scenario "Alpha works" marked "pass"

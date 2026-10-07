@@ -149,7 +149,7 @@ function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): s
 
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. */
 export function runVerify(io: CliIo, args: string[]): number {
-  if (args[0] === GREEN) return runGreen(io);
+  if (args[0] === GREEN) return runGreen(io, args.slice(1));
   if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(target);

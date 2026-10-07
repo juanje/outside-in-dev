@@ -180,3 +180,13 @@ When(
     await this.runClosingOutputEarly(commandLine);
   },
 );
+
+Given("the last green ran the scenario {string} of {string}", async function (this: OidWorld, name: string, id: string) {
+  const { recordCheckpoint } = await import("../../src/artifacts/checkpoint.js");
+  this.git("init", "--quiet");
+  this.git("config", "user.name", "Fixture");
+  this.git("config", "user.email", "fixture@example.com");
+  this.git("add", "-A");
+  this.git("commit", "--quiet", "--message", "fixture");
+  recordCheckpoint(this.dir, { step: "tdd_green", feature: id, verify: { kind: "green", target: "all" }, external: false, date: new Date(), scenarios: [{ feature: id, name }] });
+});

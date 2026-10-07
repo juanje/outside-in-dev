@@ -22,12 +22,20 @@ const CHECKPOINT_FILE = `${OID_DIR}/checkpoint.json`;
 /** The content of the files of the snapshot, kept to tell later which lines were added since. */
 const CHECKPOINT_FILES = `${OID_DIR}/checkpoint-files`;
 
+/** A scenario that a Green ran and that passed: the feature it is tagged with and its name. */
+export interface EvidenceScenario {
+  feature: string;
+  name: string;
+}
+
 export interface CheckpointDetails {
   step: string;
   feature: string | null;
   verify: { kind: string; target: string };
   /** Whether a person or an agent outside oid took the decision that the verification rests on. */
   external: boolean;
+  /** The scenarios the verification ran and that passed; none for a Red, which is never evidence of pass. */
+  scenarios?: EvidenceScenario[];
   date: Date;
 }
 
@@ -37,7 +45,12 @@ function hashFile(cwd: string, name: string): string {
 }
 
 /** The part of a checkpoint file that comparing with it needs. */
-const checkpointSchema = z.object({ snapshot: z.record(z.string(), z.string()), deleted: z.array(z.string()).default([]) });
+const checkpointSchema = z.object({
+  snapshot: z.record(z.string(), z.string()),
+  deleted: z.array(z.string()).default([]),
+  verify: z.object({ kind: z.string() }).optional(),
+  scenarios: z.array(z.object({ feature: z.string(), name: z.string() })).default([]),
+});
 
 /** Runs `git` with `args` in the project, giving it `input` to read: whether it succeeded and what it printed. */
 export function runGit(cwd: string, args: string[], input?: string): { ok: boolean; text: string } {
@@ -60,7 +73,7 @@ function changesFromHead(cwd: string): { present: string[]; deleted: string[] } 
 }
 
 /** Records the verification that just passed in `.outside-in/checkpoint.json`, with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them. */
-export function recordCheckpoint(cwd: string, { date, ...details }: CheckpointDetails): void {
+export function recordCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): void {
   if (spawnSync(GIT, [REV_PARSE, "--verify", "--quiet", HEAD], { cwd }).status !== 0) {
     throw new ProgressError("a checkpoint compares with HEAD: this directory is not a git repository with a commit");
   }
@@ -72,7 +85,7 @@ export function recordCheckpoint(cwd: string, { date, ...details }: CheckpointDe
     copyFileSync(join(cwd, name), join(cwd, CHECKPOINT_FILES, name));
   }
   mkdirSync(join(cwd, OID_DIR), { recursive: true });
-  writeFileAtomic(join(cwd, CHECKPOINT_FILE), `${JSON.stringify({ ...details, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
+  writeFileAtomic(join(cwd, CHECKPOINT_FILE), `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
 }
 
 /** What the last checkpoint recorded: the hash of each file that differed from HEAD then, and the files deleted then. Nothing when there is no checkpoint. */
@@ -80,6 +93,12 @@ function lastCheckpoint(cwd: string): z.infer<typeof checkpointSchema> {
   const parsed = checkpointSchema.safeParse(readJson(cwd, CHECKPOINT_FILE) ?? { snapshot: {} });
   if (!parsed.success) throw new ProgressError(`${CHECKPOINT_FILE} is not a checkpoint oid wrote: verify again to record a new one`);
   return parsed.data;
+}
+
+/** The kind of verification the last checkpoint records (undefined when there is none) and the scenarios it ran and that passed. */
+export function checkpointEvidence(cwd: string): { kind: string | undefined; scenarios: EvidenceScenario[] } {
+  const { verify, scenarios } = lastCheckpoint(cwd);
+  return { kind: verify?.kind, scenarios };
 }
 
 /** The state of a file for comparing with a checkpoint: the hash of its content, or `undefined` when it does not exist. */

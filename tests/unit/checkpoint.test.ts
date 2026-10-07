@@ -32,6 +32,7 @@ describe("recordCheckpoint", () => {
       external: false,
       snapshot: { "src/a.ts": sha256("export const a = 2;\n"), "tests/a.test.ts": sha256("// new\n") },
       deleted: [],
+      scenarios: [],
     });
   });
 
