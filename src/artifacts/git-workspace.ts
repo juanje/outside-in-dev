@@ -60,7 +60,7 @@ function timeName(now: Date): string {
 }
 
 /** The files of the copy that are not committed (changed, staged or untracked), ignored files left out. */
-function uncommittedFiles(root: string): string[] {
+export function uncommittedFiles(root: string): string[] {
   return git(root, "status --porcelain --untracked-files=all")
     .split(NEWLINE)
     .filter((line) => line !== "")

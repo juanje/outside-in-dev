@@ -1,5 +1,5 @@
-import { QUIET_COMMIT, requireRunBranch } from "./git-checkpoints.js";
-import { git, headCommit, type Workspace } from "./git-workspace.js";
+import { requireRunBranch } from "./git-checkpoints.js";
+import { git, headCommit, uncommittedFiles, type Workspace } from "./git-workspace.js";
 import { NEWLINE } from "./lines.js";
 import { ProgressError } from "./progress.js";
 import { loadGitSettings } from "./project-config.js";
@@ -25,9 +25,14 @@ function commitSubject(template: string, options: SquashOptions): string {
 /** Replaces the feature's checkpoints with one commit that names the requirement and lists its scenarios; returns that commit. */
 export function squashFeature(workspace: Workspace, options: SquashOptions): string {
   requireRunBranch(workspace);
+  const files = uncommittedFiles(workspace.path);
+  if (files.length > 0) throw new ProgressError(`squashing needs the run's copy as its last checkpoint left it, and these files are not committed: ${JSON.stringify(files)}`);
   if (headCommit(workspace.path) === options.startCommit) throw new ProgressError("nothing to squash: the branch has no commit since the start of the feature");
   const subject = commitSubject(loadGitSettings(workspace.path).commit_template, options);
-  git(workspace.path, "reset --soft", options.startCommit);
-  git(workspace.path, QUIET_COMMIT, subject, "--message", options.scenarios.map((name) => `- ${name}`).join(NEWLINE));
-  return headCommit(workspace.path);
+  const last = headCommit(workspace.path);
+  // The feature's commit is built from the last checkpoint's tree, never from the index, and the branch moves only
+  // once it exists: a commit that fails leaves the branch, the index and the files as they were.
+  const squashed = git(workspace.path, "commit-tree", `${last}^{tree}`, "-p", options.startCommit, "-m", subject, "-m", options.scenarios.map((name) => `- ${name}`).join(NEWLINE));
+  git(workspace.path, "update-ref", `refs/heads/${workspace.branch}`, squashed, last);
+  return squashed;
 }

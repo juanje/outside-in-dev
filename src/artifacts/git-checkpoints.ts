@@ -14,7 +14,7 @@ export interface CheckpointOptions {
 const WORD_SEPARATOR = " ";
 
 /** Git options that keep background maintenance from racing with whoever runs next in the repository. */
-export const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
+const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
 
 /** Commits everything the step changed on the run's branch and returns the commit; when nothing changed, returns the current one. */
 export function checkpoint(workspace: Workspace, options: CheckpointOptions): string {
