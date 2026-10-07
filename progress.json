@@ -1494,7 +1494,49 @@
     {
       "id": "FR-GIT-01",
       "title": "Work in an isolated worktree",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A run starts in its own worktree and branch and the user's copy is unchanged",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run without a name gets a branch named after the time it started",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run refuses a branch that already exists",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run refuses a worktree directory that already exists",
+          "bdd": "pass"
+        },
+        {
+          "name": "The project settings choose the branch prefix and the worktree directory",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run shares the installed dependencies while the lockfile is unchanged",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run installs its own dependencies when the lockfile differs",
+          "bdd": "pass"
+        },
+        {
+          "name": "Working in place needs a clean copy",
+          "bdd": "pass"
+        },
+        {
+          "name": "Working in place creates the branch in the user's copy",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finished run's worktree can be removed",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-GIT-02",
