@@ -1580,7 +1580,25 @@
     {
       "id": "FR-GIT-03",
       "title": "One commit per feature",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "The checkpoints of a feature become one commit that names the requirement and lists its scenarios",
+          "bdd": "pass"
+        },
+        {
+          "name": "The commit message follows the template of the project configuration",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature with no checkpoint is not squashed",
+          "bdd": "pass"
+        },
+        {
+          "name": "Squashing is refused on the user's own branch",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-01",

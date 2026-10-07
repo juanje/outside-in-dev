@@ -1,4 +1,4 @@
-import { git, type Workspace } from "./git-workspace.js";
+import { git, headCommit, type Workspace } from "./git-workspace.js";
 import { ProgressError } from "./progress.js";
 import { loadGitSettings } from "./project-config.js";
 
@@ -12,7 +12,7 @@ export interface CheckpointOptions {
 const WORD_SEPARATOR = " ";
 
 /** Git options that keep background maintenance from racing with whoever runs next in the repository. */
-const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
+export const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
 
 /** Commits everything the step changed on the run's branch and returns the commit; when nothing changed, returns the current one. */
 export function checkpoint(workspace: Workspace, options: CheckpointOptions): string {
@@ -20,11 +20,11 @@ export function checkpoint(workspace: Workspace, options: CheckpointOptions): st
   requireRunBranch(workspace);
   git(workspace.path, "add -A");
   if (git(workspace.path, "status --porcelain") !== "") git(workspace.path, QUIET_COMMIT, message);
-  return git(workspace.path, "rev-parse HEAD");
+  return headCommit(workspace.path);
 }
 
 /** Refuses to touch a branch that is not a run's: the user's own work is never committed to or reset. */
-function requireRunBranch(workspace: Workspace): void {
+export function requireRunBranch(workspace: Workspace): void {
   const branch = git(workspace.path, "branch --show-current");
   const { branch_prefix: prefix } = loadGitSettings(workspace.path);
   if (!branch.startsWith(prefix)) throw new ProgressError(`the branch "${branch}" is not a run's branch (its name does not start with "${prefix}")`);
