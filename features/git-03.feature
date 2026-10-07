@@ -34,5 +34,5 @@ Feature: One commit per feature
     Given the user's copy has an untracked file "src/notes.txt"
     And the work is in the user's own copy
     When the feature "FR-AUTH-01" titled "Log in" is squashed with the scenarios "Log in"
-    Then the run is refused with a message containing "main"
+    Then the run is refused with a message containing "the branch \"main\" is not a run's branch"
     And the user's copy is unchanged, on its own branch

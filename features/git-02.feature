@@ -55,12 +55,12 @@ Feature: Checkpoint and roll back
     Given the user's copy has an untracked file "src/notes.txt"
     And the work is in the user's own copy
     When a checkpoint is made for "FR-AUTH-01" at the state "select"
-    Then the run is refused with a message containing "main"
+    Then the run is refused with a message containing "the branch \"main\" is not a run's branch"
     And the user's copy is unchanged, on its own branch
 
   Scenario: A rollback is refused on the user's own branch
     Given the user's copy has an untracked file "src/notes.txt"
     And the work is in the user's own copy
     When the run is rolled back to the start of the run, cleaning "src/**"
-    Then the run is refused with a message containing "main"
+    Then the run is refused with a message containing "the branch \"main\" is not a run's branch"
     And the user's copy is unchanged, on its own branch
