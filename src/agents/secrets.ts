@@ -1,6 +1,6 @@
 import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, normalize } from "node:path";
+import { isAbsolute, join, normalize, relative } from "node:path";
 import { locate, matchesGlob, userHome } from "./containment.js";
 
 /** The files no agent may read, whatever its step: environment files, keys and credential stores. */
@@ -10,6 +10,7 @@ const SECRET_GLOBS = ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/secret
 const HOME_SECRETS = [".ssh", ".aws", ".gnupg"];
 const ROOT = "/";
 const HERE = ".";
+const PARENT = "..";
 const PROBE = "/_";
 
 function inHomeSecrets(real: string, accountHome: string): boolean {
@@ -22,11 +23,22 @@ function inHomeSecrets(real: string, accountHome: string): boolean {
   );
 }
 
-/** Whether `requested` (relative to `worktree`) is, or resolves through symbolic links to, a secret: a file matching the secret patterns, a directory that holds some, or anything in the SSH, AWS and GnuPG directories of the home named by `HOME` and of the account's own home (`accountHome`, the passwd entry), whichever `HOME` says. */
+function matchesSecretGlob(path: string): boolean {
+  return SECRET_GLOBS.some((glob) => matchesGlob(path, glob) || matchesGlob(`${path}${PROBE}`, glob));
+}
+
+/** The name `requested` asks for, read as written (no link followed): relative to the worktree when it is inside, else without the leading slash. */
+function nameAsked(worktree: string, requested: string): string {
+  if (!isAbsolute(requested)) return normalize(requested);
+  const within = relative(locate(worktree, HERE).real, requested);
+  return within.startsWith(PARENT) || isAbsolute(within) ? requested.slice(ROOT.length) : within;
+}
+
+/** Whether `requested` (relative to `worktree`) is a secret by the name asked for or by where it leads through symbolic links: a file matching the secret patterns, a directory that holds some, or anything in the SSH, AWS and GnuPG directories of the home named by `HOME` and of the account's own home (`accountHome`, the passwd entry), whichever `HOME` says. */
 export function isSecret(worktree: string, requested: string, accountHome: string = homedir()): boolean {
   const place = locate(worktree, requested);
   const path = place.inside ? place.relative : place.real.slice(ROOT.length);
-  return inHomeSecrets(place.real, accountHome) || SECRET_GLOBS.some((glob) => matchesGlob(path, glob) || matchesGlob(`${path}${PROBE}`, glob));
+  return inHomeSecrets(place.real, accountHome) || matchesSecretGlob(path) || matchesSecretGlob(nameAsked(worktree, requested));
 }
 
 /** More entries than this under a directory and its contents are not walked: the directory counts as holding a secret. */

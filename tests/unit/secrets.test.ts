@@ -36,6 +36,20 @@ describe("isSecret", () => {
     }
   });
 
+  it("keeps a secret-shaped name secret when its link leads to a plain file", async () => {
+    const { isSecret } = await import("../../src/agents/secrets.js");
+    const worktree = join(dir, "project");
+    write("project/src/plain.txt", "plain");
+    mkdirSync(join(worktree, "config"), { recursive: true });
+    symlinkSync("src/plain.txt", join(worktree, ".env.alias"));
+    symlinkSync("../src/plain.txt", join(worktree, "config", "server.pem"));
+    symlinkSync("src", join(worktree, "secrets"));
+    for (const named of [".env.alias", "config/server.pem", "secrets/plain.txt", "src/../.env.alias"]) {
+      expect(isSecret(worktree, named), named).toBe(true);
+    }
+    expect(isSecret(worktree, "src/plain.txt")).toBe(false);
+  });
+
   it("treats the account's real home directories as secrets when HOME points elsewhere", async () => {
     const { isSecret } = await import("../../src/agents/secrets.js");
     const worktree = join(dir, "project");
