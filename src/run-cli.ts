@@ -2,6 +2,7 @@ import { ProgressError } from "./artifacts/progress.js";
 import { commandError, HELP_FLAG, row } from "./cli-usage.js";
 import type { CliIo } from "./cli-io.js";
 import type { RunServices } from "./orchestrator/services.js";
+import { packageVersion } from "./version.js";
 
 type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: () => Promise<string> };
 
@@ -50,6 +51,8 @@ const COMMANDS: Record<string, CommandHelp> = {
     },
   },
 };
+/** The option that prints the version, as the overview help lists it. */
+const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
 type Runner = (rest: string[], io: CliIo, services?: RunServices) => Promise<number>;
@@ -76,6 +79,7 @@ function overviewHelp(): string {
     "oid enforces the Outside-In development methodology (Spec, BDD, TDD).\n\n",
     "usage: oid <command> [<subcommand>] [arguments]\n\n",
     `Commands:\n${commands}\n`,
+    `Options:\n${row(VERSION_OPTION, "Print the version of oid")}\n`,
     `Run oid <command> ${HELP_FLAG} for the details of one command.\n`,
   ].join("");
 }
@@ -91,6 +95,10 @@ export async function runCli(args: string[], io: CliIo, services?: RunServices):
     const [command, ...rest] = args;
     if (command === HELP_FLAG) {
       io.stdout(overviewHelp());
+      return 0;
+    }
+    if (command === "--version" || command === "-v") {
+      io.stdout(`oid ${packageVersion()}\n`);
       return 0;
     }
     if (!COMMAND_NAMES.includes(command!)) {

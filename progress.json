@@ -2810,6 +2810,25 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-CLI-03",
+      "title": "Show the version",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "oid prints the version of the installed package",
+          "bdd": "pass"
+        },
+        {
+          "name": "The version does not depend on the project it runs in",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid --help lists the version option",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

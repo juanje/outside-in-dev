@@ -1,6 +1,6 @@
 import { Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import type { OidWorld } from "../support/world.js";
 
 /** A help line gives a name, then at least two spaces, then its description. */
@@ -36,4 +36,10 @@ Then("the output is empty", function (this: OidWorld) {
 
 Then("no project file was changed", function (this: OidWorld) {
   assert.deepEqual([...this.snapshotFiles()], [...this.filesBefore]);
+});
+
+Then("the output is {string} followed by the version in oid's package.json", function (this: OidWorld, name: string) {
+  const packageJson = new URL("../../package.json", import.meta.url);
+  const { version } = JSON.parse(readFileSync(packageJson, "utf8")) as { version: string };
+  assert.equal(this.stdout, `${name} ${version}\n`);
 });

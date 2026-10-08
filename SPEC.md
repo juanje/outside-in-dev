@@ -118,6 +118,10 @@ Every command validates `progress.json` against its schema before and after writ
 
 `oid progress status` lists the features that are not done, marks the focused one and ends with the number of done features; `oid progress status --all` lists every tracked feature. The progress of a long project stays readable at a glance.
 
+### FR-CLI-03: Show the version
+
+`oid --version` and `oid -v` print `oid <version>`, the version of the installed package, and exit 0; `oid --help` lists the option. Anyone reporting a problem, human or agent, can tell which build is running.
+
 ## Functional Requirements — Project setup
 
 
