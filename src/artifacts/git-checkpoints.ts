@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs";
 import { HEAD } from "./git-changes.js";
 import { git, headCommit, isAncestor, type Workspace } from "./git-workspace.js";
+import { NEWLINE } from "./lines.js";
 import { ProgressError } from "./progress.js";
 import { loadGitSettings } from "./project-config.js";
 
@@ -14,6 +15,8 @@ export interface CheckpointOptions {
 }
 
 const WORD_SEPARATOR = " ";
+/** What `git rev-parse --symbolic-full-name HEAD` prints before the name of the branch checked out (it prints `HEAD` alone when none is). */
+const BRANCH_REF = "refs/heads/";
 
 /** Git options that keep background maintenance from racing with whoever runs next in the repository. */
 const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
@@ -33,11 +36,11 @@ export function commitAll(workspace: Workspace, message: string, allowEmpty = fa
 
 /** Refuses to touch a checkout that is not this run's: its branch must be a run's branch and the workspace's own, its directory the workspace's, and the run's start must be in its history. The user's work and another run's are never committed to or reset. */
 export function requireRunBranch(workspace: Workspace): void {
-  const branch = git(workspace.path, "branch --show-current");
+  const [top = "", head = ""] = git(workspace.path, "rev-parse --show-toplevel --symbolic-full-name HEAD").split(NEWLINE);
+  const branch = head.startsWith(BRANCH_REF) ? head.slice(BRANCH_REF.length) : "";
   const { branch_prefix: prefix } = loadGitSettings(workspace.path);
   if (!branch.startsWith(prefix)) throw new ProgressError(`the branch "${branch}" is not a run's branch (its name does not start with "${prefix}")`);
   if (branch !== workspace.branch) throw new ProgressError(`the checkout is on the branch "${branch}", not on this run's branch "${workspace.branch}"`);
-  const top = git(workspace.path, "rev-parse --show-toplevel");
   if (realpathSync(top) !== realpathSync(workspace.path)) throw new ProgressError(`the run's directory ${workspace.path} is not the top of its checkout (${top})`);
   if (!isAncestor(workspace.path, workspace.startCommit, HEAD)) throw new ProgressError(`the branch "${branch}" does not contain the run's start ${workspace.startCommit}`);
 }

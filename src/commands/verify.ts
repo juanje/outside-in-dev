@@ -147,11 +147,15 @@ function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; n
 /** What the BDD runner did: its exit code, the Cucumber Messages report it wrote, if any, and its stderr. */
 export type BddRun = { exitCode: number | null; report: string | undefined; stderr: string };
 
+/** The step file changed since the checkpoint that the runner's stderr names, if any; asked only when the runner wrote no report, which is the only time it matters. */
+function changedStepFile(cwd: string, config: ProjectConfig, stderr: string): string | undefined {
+  return changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
+}
+
 /** What a run of the BDD runner showed about `scenario`; when the run held other scenarios too, `scenario.name` tells its steps from theirs. */
 export function observeBddRun(cwd: string, config: ProjectConfig, scenario: { file: string; line: number; name?: string }, { exitCode, report, stderr }: BddRun): Observation {
-  const changedFile = changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
   const only = scenario.name === undefined ? undefined : { file: scenario.file, name: scenario.name };
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report, only), scenario);
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile: changedStepFile(cwd, config, stderr) } : observeScenario(normalizeCucumberReport(report, only), scenario);
   return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
 
