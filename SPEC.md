@@ -64,7 +64,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-04: Advance the cycle step
 
-`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. Skipping steps is the most common silent failure of prompt-driven agents.
+`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. The one move from `bdd_red` to `quality_gate` is the human's, after `oid progress revise` when the revised requirement needs no code: it is accepted only if no file of `src/` or of the steps changed since the `revise`, every scenario of the feature exists with the text and tags it had then (scenarios may only have been removed or moved), and the feature's checkpoint is a green that ran all of them with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
 
 ### FR-PROG-05: Record scenario status
 
@@ -72,7 +72,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-06: Mark a feature done
 
-`oid progress done FR-xxx` marks a feature done only if it has at least one scenario and every scenario passes. The rule cannot be overridden from the command line.
+`oid progress done FR-xxx` marks a feature done only if it has at least one scenario and every scenario passes. It also refuses a feature that has scenarios tagged with it (effective tags) that are not recorded, and names them. The rule cannot be overridden from the command line.
 
 ### FR-PROG-07: Reject an invalid progress file
 
@@ -80,11 +80,11 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-PROG-08: Revise a requirement
 
-`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
+`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It prints `FR-xxx: bdd_red, N scenarios pending`, or `FR-xxx: already at bdd_red` when nothing changes. It records `.outside-in/checkpoints/<FR>.revise.json`, the state of the tree and the text and tags of the feature's scenarios, which is what allows the human to leave `bdd_red` for `quality_gate` when no code is needed (FR-PROG-04). It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
 
 ### FR-PROG-09: Reopen a done feature for review
 
-`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
+`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is, and prints `FR-xxx: quality_gate, N scenarios kept`. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
 
 ## Functional Requirements — Consistency checks
 
@@ -100,7 +100,7 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-CHECK-03: Check progress consistency
 
-`oid check` reports progress that contradicts the other artefacts: a focus on a feature that is not in progress, a done feature with failing scenarios, a started feature without feature files, scenarios in progress that no feature file contains.
+`oid check` reports progress that contradicts the other artefacts: a focus on a feature that is not in progress, a done feature with failing scenarios, a started feature without feature files, scenarios in progress that no feature file contains, and, for a done feature, scenarios tagged with it that are not recorded.
 
 ### FR-CHECK-04: Machine-readable results
 
@@ -156,7 +156,7 @@ Report unused exports, files and dependencies, unused locals and commented-out c
 
 ### FR-MET-04: Detect magic values
 
-Report numeric literals and repeated strings that should be named constants, excluding trivial values and test files.
+Report numeric literals and repeated strings that should be named constants, excluding trivial values, test files and Node encoding names (`utf8`, `hex`, `base64`...), which are not repeated values.
 
 ### FR-MET-05: Detect documentation drift
 
@@ -176,11 +176,11 @@ Findings present when a run starts are recorded as a baseline; checks then judge
 
 ### FR-VERIFY-01: Verify a unit Red
 
-`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A failing assertion on a line of a test added since the last checkpoint is a valid Red; one on a line that already existed needs a decision (ADR-033). A failure oid cannot classify alone is recorded with the content of the working tree it ran on; `--decide <class>` answers that recorded failure without running the test again, and is refused when no recorded run of the target needs a decision or when a file other than the progress file changed since it.
+`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A test whose name starts with `-` is still run by that name. A failing assertion on a line of a test added since the last checkpoint is a valid Red; one on a line that already existed needs a decision (ADR-033). A failure oid cannot classify alone is recorded with the content of the working tree it ran on; `--decide <class>` answers that recorded failure without running the test again, and is refused when no recorded run of the target needs a decision or when a file other than the progress file changed since it.
 
 ### FR-VERIFY-02: Verify a BDD Red
 
-`oid verify red <feature>:<line>` (or `oid verify red "<scenario name>"`, when one scenario has that name) does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way.
+`oid verify red <feature>:<line>` (or `oid verify red "<scenario name>"`, when one scenario has that name) does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way. A `<feature>:<line>` where no scenario starts is a usage error: exit 1 with the message, no classification and no observation recorded. Only one `oid verify` runs at a time per working copy: it holds `.outside-in/verify.lock` with its PID, a second one is refused naming the PID and the file, and a lock whose process no longer exists is removed.
 
 ### FR-VERIFY-03: Check that steps load
 
@@ -192,7 +192,7 @@ Reject step files that statically import modules or exports that do not exist ye
 
 ### FR-VERIFY-05: Check the integrity of a change
 
-`oid verify integrity` reports changes, since the checkpoint of the feature in focus, outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature with no checkpoint of its own is judged against the single checkpoint when that names it.
+`oid verify integrity` reports changes, since the checkpoint of the feature in focus, outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature file is approved per scenario (ADR-040): approved scenarios, and the parts of the file outside any scenario while one is approved, are frozen. A feature with no checkpoint of its own is judged against the single checkpoint when that names it.
 
 ### FR-VERIFY-06: Fix a step after the code exists
 
