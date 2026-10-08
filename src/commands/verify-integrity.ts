@@ -29,6 +29,9 @@ function stepToCheck(progress: Progress | undefined, args: string[]): string {
     return given;
   }
   const focus = progress?.features.find((feature) => feature.id === progress.current_focus);
+  if (focus?.status === FEATURE_STATUS.done) {
+    throw new ProgressError(`${focus.id} is done: run \`oid progress reopen ${focus.id}\` to address a review, or have the human run \`oid progress revise ${focus.id}\` if the requirement changed`);
+  }
   if (focus?.cycle_step === undefined) throw new ProgressError(`no feature is focused: give the step with ${STEP_FLAG} <step>`);
   return focus.cycle_step;
 }

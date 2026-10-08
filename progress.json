@@ -2791,6 +2791,25 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-PROG-09",
+      "title": "Reopen a done feature for review",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A done feature reopens at quality_gate and its scenarios keep their status",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is not done is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Integrity on a focused done feature names reopen and revise",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

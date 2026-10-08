@@ -45,6 +45,10 @@ describe("oid verify integrity", () => {
       return { exitCode, stdout, stderr };
     };
     expect(await run()).toEqual({ exitCode: 1, stdout: "", stderr: "error: no feature is focused: give the step with --step <step>\n" });
+    writeProgressFile({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "Alpha", status: "done", scenarios: [{ name: "S1", bdd: "pass" }] }] });
+    expect((await run()).stderr).toBe(
+      "error: FR-X-01 is done: run `oid progress reopen FR-X-01` to address a review, or have the human run `oid progress revise FR-X-01` if the requirement changed\n",
+    );
     expect(await run("--step", "tdd_green")).toEqual({ exitCode: 0, stdout: "integrity: ok\n", stderr: "" });
     expect(await run("--step", "bogus")).toEqual({
       exitCode: 1,

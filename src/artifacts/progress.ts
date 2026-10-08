@@ -119,6 +119,12 @@ export function reviseFeature(feature: FeatureProgress): FeatureProgress {
   return { ...feature, status: FEATURE_STATUS.inProgress, cycle_step: CYCLE_STEP.bddRed, scenarios };
 }
 
+/** Returns a done feature back at `quality_gate` with its scenarios as they were; the input is not modified. */
+export function reopenFeature(feature: FeatureProgress): FeatureProgress {
+  if (feature.status !== FEATURE_STATUS.done) throw new ProgressError(`${feature.id} is not done: only a done feature can be reopened`);
+  return { ...feature, status: FEATURE_STATUS.inProgress, cycle_step: CYCLE_STEP.qualityGate };
+}
+
 /** Returns the feature without the scenario, which must be pending: a scenario in pass or fail is never dropped; the input is not modified. */
 export function dropScenario(feature: FeatureProgress, name: string): FeatureProgress {
   const scenario = feature.scenarios?.find((s) => s.name === name);

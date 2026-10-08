@@ -82,6 +82,10 @@ Every command validates `progress.json` against its schema before and after writ
 
 `oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
 
+### FR-PROG-09: Reopen a done feature for review
+
+`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
+
 ## Functional Requirements — Consistency checks
 
 
