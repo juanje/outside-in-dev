@@ -21,6 +21,8 @@ export function committedRunProject(statuses: { unit: string; bdd: string } = { 
   gitIn(repo, "init", "--quiet", "--initial-branch", "main");
   gitIn(repo, "config", "user.name", "Fixture");
   gitIn(repo, "config", "user.email", "fixture@example.com");
+  gitIn(repo, "config", "gc.auto", "0");
+  gitIn(repo, "config", "maintenance.auto", "false");
   gitIn(repo, "add", "-A");
   gitIn(repo, "commit", "--quiet", "--message", "fixture");
   return repo;

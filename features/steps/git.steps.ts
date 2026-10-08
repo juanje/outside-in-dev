@@ -62,6 +62,8 @@ Given(
     git(repo, "init", "--quiet", "--initial-branch", INITIAL_BRANCH);
     git(repo, "config", "user.name", "Fixture");
     git(repo, "config", "user.email", "fixture@example.com");
+    git(repo, "config", "gc.auto", "0");
+    git(repo, "config", "maintenance.auto", "false");
     writeIn(repo, file, "# Project\n");
     writeIn(repo, lockfile, `${lock}\n`);
     writeIn(repo, ".gitignore", "node_modules\n");

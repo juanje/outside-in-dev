@@ -13,6 +13,8 @@ function commitFixture(world: OidWorld): void {
   world.git("init", "--quiet");
   world.git("config", "user.name", "Fixture");
   world.git("config", "user.email", "fixture@example.com");
+  world.git("config", "gc.auto", "0");
+  world.git("config", "maintenance.auto", "false");
   world.git("add", "-A");
   world.git("commit", "--quiet", "--message", "fixture");
 }

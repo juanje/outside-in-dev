@@ -12,6 +12,8 @@ export function commitAll(): void {
   git("init", "--quiet");
   git("config", "user.name", "Fixture");
   git("config", "user.email", "fixture@example.com");
+  git("config", "gc.auto", "0");
+  git("config", "maintenance.auto", "false");
   git("add", "-A");
   git("commit", "--quiet", "--message", "fixture");
 }
@@ -31,6 +33,8 @@ export function committedRepo(name: string, files: Record<string, string>): stri
   gitIn(repo, "init", "--quiet");
   gitIn(repo, "config", "user.name", "Fixture");
   gitIn(repo, "config", "user.email", "fixture@example.com");
+  gitIn(repo, "config", "gc.auto", "0");
+  gitIn(repo, "config", "maintenance.auto", "false");
   gitIn(repo, "add", "-A");
   gitIn(repo, "commit", "--quiet", "--message", "fixture");
   return repo;

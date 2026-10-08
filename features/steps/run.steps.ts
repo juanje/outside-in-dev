@@ -208,6 +208,8 @@ function initRepository(dir: string): void {
   git(dir, "init", "--quiet", "--initial-branch", "main");
   git(dir, "config", "user.name", "Fixture");
   git(dir, "config", "user.email", "fixture@example.com");
+  git(dir, "config", "gc.auto", "0");
+  git(dir, "config", "maintenance.auto", "false");
 }
 
 export function change(world: OidWorld, update: (fixture: Fixture) => void): void {

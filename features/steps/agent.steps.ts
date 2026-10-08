@@ -204,7 +204,7 @@ Given("a git project with source, unit tests, features, {string} and {string}", 
   put(join(project, "features/cart.feature"), "Feature: Cart\n");
   put(this.path("outside.txt"), "outside\n");
   mkdirSync(this.path("outside-dir"), { recursive: true });
-  const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", ...args], { cwd: project });
+  const git = (...args: string[]) => execFileSync("git", ["-c", "gc.auto=0", "-c", "maintenance.auto=false", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", ...args], { cwd: project });
   git("init", "--quiet");
   git("add", "-A");
   git("commit", "--quiet", "--message", "fixture");
