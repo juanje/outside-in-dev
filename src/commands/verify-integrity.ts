@@ -62,13 +62,17 @@ function describeChange(cwd: string, config: ProjectConfig, progress: Progress |
   };
 }
 
+/** One line for each rule of `step` that the changes since the checkpoint of the feature in focus break. */
+export function integrityProblems(cwd: string, config: ProjectConfig, progress: Progress | undefined, step: string): string[] {
+  const files = changedSinceCheckpoint(cwd, progress?.current_focus ?? null).map((file) => describeChange(cwd, config, progress, file));
+  return integrityViolations(step, files, forbiddenPatterns(config));
+}
+
 /** Checks the changes since the checkpoint of the feature in focus against the rules of a step: exit 0 when none breaks one, 1 when one does. */
 export function runIntegrity(io: CliIo, args: string[]): number {
   const config = loadVerifyConfig(io.cwd);
   const progress = existsSync(join(io.cwd, config.paths.progress)) ? loadProgress(io.cwd, config.paths.progress) : undefined;
-  const step = stepToCheck(progress, args);
-  const files = changedSinceCheckpoint(io.cwd, progress?.current_focus ?? null).map((file) => describeChange(io.cwd, config, progress, file));
-  const violations = integrityViolations(step, files, forbiddenPatterns(config));
+  const violations = integrityProblems(io.cwd, config, progress, stepToCheck(progress, args));
   io.stdout(violations.length === 0 ? `${INTEGRITY}: ok${NEWLINE}` : `${violations.join(NEWLINE)}${NEWLINE}`);
   return violations.length === 0 ? 0 : 1;
 }

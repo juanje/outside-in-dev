@@ -34,9 +34,8 @@ Feature: Write and review feature files
 
   Scenario: Approving the feature files ends the review
     When I run "oid run" with a terminal where the human answers "approve"
-    Then the process exits with code 0
-    And the last line printed says the feature files were approved and BDD Red is next
-    And the saved session has the state "BDD_RED"
+    Then the event log of the run records a transition from "FEATURE_REVIEW" to "BDD_RED"
+    And a line printed says the feature files were approved and BDD Red is next
     And the saved session holds the hash of each feature file of "FR-CART-02" and "FR-CART-03", as they are in the worktree
     And the saved session holds no pending question
     And the project has no lock
@@ -49,13 +48,12 @@ Feature: Write and review feature files
 
   Scenario: Approving creates a checkpoint with the feature files
     When I run "oid run" with a terminal where the human answers "approve"
-    Then the last commit of the worktree is "oid: checkpoint FR-CART-02 FR-CART-03 FEATURE_REVIEW" and holds the feature files and the progress update
+    Then the worktree has the commit "oid: checkpoint FR-CART-02 FR-CART-03 FEATURE_REVIEW" with the feature files and the progress update
     And the user's copy is on its own branch, at its own commit, with no change
 
   Scenario: The human edits the feature files and approves them
     When I run "oid run" with a terminal where the human edits "features/FR-CART-02.feature" adding a scenario "Remove a line" and answers "edit"
-    Then the process exits with code 0
-    And the worktree commit before the last is "oid: human edit" and holds the edited file
+    Then the worktree has the commit "oid: human edit" with the edited file "features/FR-CART-02.feature"
     And the event log of the run records a human edit of "features/FR-CART-02.feature"
     And the saved session holds the hash of the edited "features/FR-CART-02.feature"
 
@@ -65,7 +63,6 @@ Feature: Write and review feature files
     And the feature-writing agent was run again for "FR-CART-02" and for "FR-CART-03"
     And the second task of the agent for "FR-CART-02" includes the comment "Cover the empty cart"
     And the human was asked exactly twice
-    And the process exits with code 0
 
   Scenario: Without a terminal the review waits for an answer
     When I run "oid run" without a terminal

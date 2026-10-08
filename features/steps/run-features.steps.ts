@@ -13,16 +13,16 @@ type LineAnswer = () => string;
 
 const agents = new WeakMap<OidWorld, FakeAgent>();
 
-function agentOf(world: OidWorld): FakeAgent {
+export function agentOf(world: OidWorld): FakeAgent {
   const found = agents.get(world);
   assert.ok(found, "no agent was set up");
   return found;
 }
 
-const worktreePath = (world: OidWorld): string => runWorktree(world).path;
-const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
+export const worktreePath = (world: OidWorld): string => runWorktree(world).path;
+export const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
 
-Before({ tags: "@FR-RUN-02" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-02 or @FR-RUN-03" }, function (this: OidWorld) {
   const agent = new FakeAgent();
   agents.set(this, agent);
   this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent") };
@@ -69,7 +69,7 @@ Given(/^the feature-writing agent writes for "([^"]+)" a feature file (.+)$/, fu
 });
 
 /** Runs the command in this process with a terminal that answers the review from `choices` and the lines it is asked for from `lines`. */
-async function runWithTerminal(world: OidWorld, commandLine: string, choices: string[], lines: LineAnswer[]): Promise<void> {
+export async function runWithTerminal(world: OidWorld, commandLine: string, choices: string[], lines: LineAnswer[]): Promise<void> {
   const terminal = terminalOf(world);
   const base = world.services;
   assert.ok(base, "no services were set up");
@@ -101,6 +101,14 @@ When("I run {string} with a terminal where the human edits {string} adding a sce
 
 When("I run {string} with a terminal where the human answers {string} with the comment {string} and then {string}", async function (this: OidWorld, commandLine: string, first: string, comment: string, second: string) {
   await runWithTerminal(this, commandLine, [first, second], [() => comment]);
+});
+
+When("I run {string} with a terminal where the human answers {string} and then {string}", async function (this: OidWorld, commandLine: string, first: string, second: string) {
+  await runWithTerminal(this, commandLine, [first, second], []);
+});
+
+When("I run {string} with a terminal where the human answers {string}, {string} and {string}", async function (this: OidWorld, commandLine: string, first: string, second: string, third: string) {
+  await runWithTerminal(this, commandLine, [first, second, third], []);
 });
 
 When("I run {string} without a terminal", async function (this: OidWorld, commandLine: string) {
@@ -174,12 +182,6 @@ Then("the question named the worktree and offered the actions {string}, {string}
   assert.deepEqual(asked.actions, [first, second, third]);
 });
 
-Then("the last line printed says the feature files were approved and BDD Red is next", function (this: OidWorld) {
-  const last = this.stdout.trimEnd().split("\n").at(-1) ?? "";
-  assert.match(last, /approved/);
-  assert.match(last, /BDD Red is next/);
-});
-
 Then("the saved session has the state {string}", function (this: OidWorld, state: string) {
   assert.equal(session(this).state, state);
 });
@@ -213,23 +215,32 @@ Then("progress.json of the user's copy is as it was", function (this: OidWorld) 
   assert.ok(!readFileSync(this.path(join(PROJECT, "progress.json")), "utf8").includes("bdd_red"));
 });
 
-Then("the last commit of the worktree is {string} and holds the feature files and the progress update", function (this: OidWorld, message: string) {
-  const path = worktreePath(this);
-  assert.equal(git(path, "log", "-1", "--format=%s"), message);
-  const files = git(path, "show", "--name-only", "--format=", "HEAD").split("\n");
+Then("a line printed says the feature files were approved and BDD Red is next", function (this: OidWorld) {
+  assert.ok(this.stdout.split("\n").some((line) => /approved/.test(line) && /BDD Red is next/.test(line)), this.stdout);
+});
+
+/** The files of the commit of the worktree whose subject is `message`. */
+function filesOfCommit(world: OidWorld, message: string): string[] {
+  const path = worktreePath(world);
+  const found = git(path, "log", "--format=%H\t%s").split("\n").map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message);
+  assert.ok(found, `the worktree has no commit "${message}"`);
+  return git(path, "show", "--name-only", "--format=", found[0]).split("\n");
+}
+
+Then("the worktree has the commit {string} with the feature files and the progress update", function (this: OidWorld, message: string) {
+  const files = filesOfCommit(this, message);
   for (const file of ["features/FR-CART-02.feature", "features/FR-CART-03.feature", "progress.json"]) assert.ok(files.includes(file), files.join(", "));
+});
+
+Then("the worktree has the commit {string} with the edited file {string}", function (this: OidWorld, message: string, file: string) {
+  assert.ok(filesOfCommit(this, message).includes(file));
+  assert.match(worktreeText(this, file), /Remove a line/);
 });
 
 Then("the user's copy is on its own branch, at its own commit, with no change", function (this: OidWorld) {
   assert.equal(git(this.projectDir, "branch", "--show-current"), "main");
   assert.equal(git(this.projectDir, "log", "-1", "--format=%s"), "fixture");
   assert.equal(git(this.projectDir, "status", "--porcelain"), "");
-});
-
-Then("the worktree commit before the last is {string} and holds the edited file", function (this: OidWorld, message: string) {
-  const path = worktreePath(this);
-  assert.equal(git(path, "log", "-1", "--skip=1", "--format=%s"), message);
-  assert.match(git(path, "show", "HEAD~1:features/FR-CART-02.feature"), /Remove a line/);
 });
 
 Then("the event log of the run records a human edit of {string}", function (this: OidWorld, file: string) {

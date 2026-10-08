@@ -53,7 +53,7 @@ function observe(files: UnitFileResult[], { file, name }: { file: string; name: 
 }
 
 /** The failure message up to the first stack frame, the lines after the first indented. */
-function trimFailure(message: string): string {
+export function trimFailure(message: string): string {
   const lines = message.split(NEWLINE);
   const end = lines.findIndex((line) => STACK_FRAME.test(line));
   return (end < 0 ? lines : lines.slice(0, end)).join(`${NEWLINE}  `);
@@ -105,7 +105,7 @@ function decided(decision: RedClass): Decided {
 }
 
 /** What the run of the test or of the scenario showed, with the file the failure's names are imported in. */
-interface Observation {
+export interface Observation {
   failure: Failure;
   importer: string | undefined;
 }
@@ -136,12 +136,20 @@ function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; n
   return { failure, importer: ranIn === undefined ? test.file : relative(cwd, ranIn) };
 }
 
+/** What the BDD runner did: its exit code, the Cucumber Messages report it wrote, if any, and its stderr. */
+export type BddRun = { exitCode: number | null; report: string | undefined; stderr: string };
+
+/** What a run of the BDD runner showed about `scenario`; when the run held other scenarios too, `scenario.name` tells its steps from theirs. */
+export function observeBddRun(cwd: string, config: ProjectConfig, scenario: { file: string; line: number; name?: string }, { exitCode, report, stderr }: BddRun): Observation {
+  const changedFile = changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
+  const only = scenario.name === undefined ? undefined : { file: scenario.file, name: scenario.name };
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report, only), scenario);
+  return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
+}
+
 /** Runs one scenario and observes it. */
 function observeBdd(cwd: string, config: ProjectConfig, scenario: { file: string; line: number }): Observation {
-  const { exitCode, report, stderr } = runBddScenario(cwd, config.commands.bdd, scenario);
-  const changedFile = changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile } : observeScenario(normalizeCucumberReport(report), scenario);
-  return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
+  return observeBddRun(cwd, config, scenario, runBddScenario(cwd, config.commands.bdd, scenario));
 }
 
 /** Whether the first stack frame of a failure is a line of a unit test or a step file added since the last checkpoint. */
@@ -153,7 +161,7 @@ function isOnAddedTestLine(cwd: string, config: ProjectConfig, message: string):
 }
 
 /** The class of what the run showed, by the deterministic rules of the Red Gate. */
-function classifyObservation(cwd: string, config: ProjectConfig, { failure, importer }: Observation): Verdict {
+export function classifyObservation(cwd: string, config: ProjectConfig, { failure, importer }: Observation): Verdict {
   return classifyFailure(failure, {
     cwd,
     isSource: (path) => isInsideSource(config.paths.source, path),

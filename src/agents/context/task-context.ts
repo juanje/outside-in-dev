@@ -1,3 +1,4 @@
+import { globSync } from "tinyglobby";
 import { NEWLINE } from "../../artifacts/lines.js";
 import { loadProjectConfig } from "../../artifacts/project-config.js";
 import { readText } from "../../artifacts/project-json.js";
@@ -34,6 +35,16 @@ export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation;
 /** A file of the project as a section of a prompt: its path and its whole text. */
 function fileSection(cwd: string, file: string): string {
   return [`### ${file}`, readText(cwd, file) ?? ""].join(NEWLINE);
+}
+
+/** The heading of the section that holds the step definitions of the project in full, so that a new step reuses an existing one. */
+const STEPS_HEADING = "Step definitions that exist:";
+
+/** The prompt of a BDD Red task: the scenario with its location, the step definitions that exist and the public signatures of the project; no unit test, no body of the source and no other scenario. */
+export function bddRedContext(cwd: string, scenario: ScenarioLocation): string {
+  const steps = globSync(loadProjectConfig(cwd).paths.bdd_steps, { cwd }).sort();
+  const failure = "The scenario has no step definitions yet.";
+  return [testTaskContext(cwd, { scenario, failure }), [STEPS_HEADING, ...steps.map((file) => fileSection(cwd, file))].join(NEWLINE + NEWLINE)].join(NEWLINE + NEWLINE);
 }
 
 /** The prompt of an implementation task (CODE_GREEN): the failing tests in full, the normalised failure, the source files the tests import and the reuse catalogue; no other scenario and no earlier attempt. */

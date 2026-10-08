@@ -66,20 +66,18 @@ describe("writing the feature files of a run", () => {
     for (const id of ["FR-A-01", "FR-A-02"]) expect(asked[0]!.prompt).toContain(readFileSync(join(worktree, `features/${id}.feature`), "utf8"));
   });
 
-  it("ends at BDD Red with exit code 0 and the hash of each feature file when the person approves", async () => {
+  it("saves the hash of each feature file and no pending question when the person approves", async () => {
     const project = featureProject();
     const printed: string[] = [];
     const input = { isTTY: true as const, choose: async () => "approve", line: async () => "" };
-    const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
+    await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
     const saved = readJson(join(project, ".outside-in/session.json"));
     const hash = (id: string) => `sha256:${createHash("sha256").update(readFileSync(join(saved.worktree, `features/${id}.feature`))).digest("hex")}`;
-    expect({ exitCode, state: saved.state, hashes: saved.featureHashes, pending: saved.pendingInput ?? null }).toEqual({
-      exitCode: 0,
-      state: "BDD_RED",
+    expect({ hashes: saved.featureHashes, pending: saved.pendingInput ?? null }).toEqual({
       hashes: { "features/FR-A-01.feature": hash("FR-A-01"), "features/FR-A-02.feature": hash("FR-A-02") },
       pending: null,
     });
-    expect(printed.at(-1)).toBe("[FEATURE_REVIEW -> BDD_RED] the feature files are approved; BDD Red is next\n");
+    expect(printed).toContain("[FEATURE_REVIEW -> BDD_RED] the feature files are approved; BDD Red is next\n");
   });
 
   it("moves each target to bdd_red in the progress file of the worktree and leaves the user's copy as it was", async () => {
@@ -106,10 +104,9 @@ describe("writing the feature files of a run", () => {
     let worktree = "";
     const edit = async () => (appendFileSync(join(worktree, "features/FR-A-01.feature"), "\n  Scenario: Edited\n    Given a cart\n"), "");
     const input = { isTTY: true as const, choose: async (prompt: string) => ((worktree = /in (\S+)\n/.exec(prompt)![1]!), "edit"), line: edit };
-    const exitCode = await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
+    await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
     const saved = readJson(join(project, ".outside-in/session.json"));
     const edited = readFileSync(join(worktree, "features/FR-A-01.feature"), "utf8");
-    expect(exitCode).toBe(0);
     expect(gitIn(worktree, "log", "-1", "--skip=1", "--format=%s")).toBe("oid: human edit");
     expect(gitIn(worktree, "show", "HEAD~1:features/FR-A-01.feature")).toContain("Scenario: Edited");
     expect(saved.featureHashes["features/FR-A-01.feature"]).toBe(`sha256:${createHash("sha256").update(edited).digest("hex")}`);
@@ -124,9 +121,9 @@ describe("writing the feature files of a run", () => {
     const answers = ["reject", "approve"];
     const input = { isTTY: true as const, choose: async () => answers.shift()!, line: async () => "Cover the empty cart" };
     const printed: string[] = [];
-    const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, input));
+    await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, input));
     const tasksOf = (id: string) => agent.tasks.filter((task) => task.fr === id).map((task) => task.text.includes("Cover the empty cart"));
-    expect({ exitCode, first: tasksOf("FR-A-01"), second: tasksOf("FR-A-02"), answers }).toEqual({ exitCode: 0, first: [false, true], second: [false, true], answers: [] });
+    expect({ first: tasksOf("FR-A-01"), second: tasksOf("FR-A-02"), answers }).toEqual({ first: [false, true], second: [false, true], answers: [] });
     expect(printed.filter((line) => line.startsWith("[FEATURE_REVIEW -> FEATURE_WRITE]"))).toHaveLength(1);
   });
 

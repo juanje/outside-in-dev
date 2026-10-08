@@ -9,6 +9,8 @@ type Hook = (context: { assistantMessage: unknown; toolCall: unknown; args: unkn
 type OpenedSession = { agent: { beforeToolCall?: Hook; afterToolCall?: unknown }; abort: () => Promise<void> };
 
 const FR_HEADING = /^### (FR-[A-Z0-9]+-\d+[a-z]?):/m;
+/** The words the prompt of the step-writing task starts with, which tell its route from the feature-writing one. */
+const STEP_TASK_MARKER = "You write the step definitions";
 const USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 
 /** A valid feature file for the requirement; each round differs, so that a rewrite changes the file. */
@@ -32,6 +34,14 @@ export class FakeAgent {
   blocked: { reason: string; detail: string } | undefined;
   /** The error the provider answers every request with, instead of a turn. */
   providerError: string | undefined;
+  /** The step-writing route (BDD Red): the files its agent writes through the sandbox, what it also tries to write, and what it does outside the sandbox or without reporting. */
+  stepFiles: AgentFile[] = [];
+  stepAttempts: string[] = [];
+  stepRefused: string[] = [];
+  stepTasks: string[] = [];
+  stepBypass: AgentFile[] = [];
+  stepUnreported: AgentFile[] = [];
+  stepBlocked: { reason: string; detail: string } | undefined;
   private rounds = new Map<string, number>();
 
   readonly sdk = {
@@ -73,7 +83,18 @@ export class FakeAgent {
     return session;
   }
 
+  private async workSteps(session: OpenedSession, cwd: string, text: string): Promise<Report> {
+    this.stepTasks.push(text);
+    for (const path of this.stepAttempts) await this.write(session, cwd, { path, content: "// not allowed\n" }, this.stepRefused);
+    if (this.stepBlocked !== undefined) return { status: "blocked", ...this.stepBlocked };
+    for (const file of this.stepFiles) await this.write(session, cwd, file, this.stepRefused);
+    for (const file of [...this.stepBypass, ...this.stepUnreported]) await createWriteTool(cwd).execute("call-write", { path: file.path, content: file.content });
+    const paths = [...this.stepFiles, ...this.stepBypass].map((file) => file.path);
+    return { status: "done", files: paths, summary: "Wrote the step definitions." };
+  }
+
   private async work(session: OpenedSession, cwd: string, text: string): Promise<Report> {
+    if (text.includes(STEP_TASK_MARKER)) return this.workSteps(session, cwd, text);
     const fr = FR_HEADING.exec(text)?.[1] ?? "";
     this.tasks.push({ fr, text });
     const round = (this.rounds.get(fr) ?? 0) + 1;
@@ -87,11 +108,11 @@ export class FakeAgent {
   }
 
   /** Makes one write call as Pi does: the session's hook decides, and only a call it lets through writes the file. */
-  private async write(session: OpenedSession, cwd: string, file: AgentFile): Promise<void> {
+  private async write(session: OpenedSession, cwd: string, file: AgentFile, refused: string[] = this.refused): Promise<void> {
     const args = { path: file.path, content: file.content };
     const toolCall = { type: "toolCall", id: "call-write", name: "write", arguments: args };
     const verdict = await session.agent.beforeToolCall?.({ assistantMessage: {}, toolCall, args, context: {} });
-    if (verdict?.block === true) this.refused.push(file.path);
+    if (verdict?.block === true) refused.push(file.path);
     else await createWriteTool(cwd).execute("call-write", args);
   }
 }

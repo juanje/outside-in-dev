@@ -1,15 +1,18 @@
 import { Before, Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { FakeAgent } from "../support/fake-agent.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 
 type Status = "done" | "pending" | "in progress";
 type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null };
-type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean };
+/** The project that runs its scenarios with cucumber for real: the scenario of the feature that is done and passing. */
+type Cucumber = { feature: string; scenario: string };
+type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber };
 export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
 export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
 
@@ -20,6 +23,9 @@ export const SESSION = ".outside-in/session.json";
 export const PROJECT = "project";
 const FIXTURE_PATHS = { source: ["src/**"], shared: [], unit_tests: [], bdd_features: ["features/**/*.feature"], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
 const FIXTURE_COMMANDS = { bdd: "node bdd.mjs", unit: "node unit.mjs", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] };
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const CUCUMBER_PATHS = { ...FIXTURE_PATHS, unit_tests: ["tests/unit/**/*.ts"], bdd_steps: ["features/steps/**/*.ts"] };
+const CUCUMBER_COMMANDS = { ...FIXTURE_COMMANDS, bdd: 'NODE_OPTIONS="--import tsx" node_modules/.bin/cucumber-js' };
 const STATUS_FIELDS: Record<Status, object> = { done: { status: "done" }, pending: { status: "pending" }, "in progress": { status: "in_progress", cycle_step: "bdd_red" } };
 
 /** The unit runner of the fixture: writes a vitest JSON report from `suite.json`, plus a marker, and records the lock it finds when asked. */
@@ -61,6 +67,18 @@ mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
 `;
 
+/** The files of a project whose passing scenario runs with cucumber, with the steps of that scenario and a source file to reuse. */
+function cucumberFiles({ feature, scenario }: Cucumber): Record<string, string> {
+  return {
+    "package.json": `${JSON.stringify({ name: "fixture", private: true, type: "module" })}\n`,
+    "package-lock.json": "{}\n",
+    "cucumber.mjs": `export default { import: ["features/steps/**/*.ts"] };\n`,
+    [`features/${feature}.feature`]: `@${feature}\nFeature: Cart\n  Scenario: ${scenario}\n    Given a cart\n    When a product is added\n    Then the cart is not empty\n`,
+    "features/steps/cart.steps.ts": `import { Given, Then, When } from "@cucumber/cucumber";\nGiven("a cart", function () {});\nWhen("a product is added", function () {});\nThen("the cart is not empty", function () {});\n`,
+    "src/lines.ts": "/** Counts the lines of a cart. */\nexport function countLines(lines: string[]): number {\n  const bodyMarker = lines.length;\n  return bodyMarker;\n}\n",
+  };
+}
+
 export function fixtureOf(world: OidWorld): Fixture {
   const found = fixtures.get(world);
   assert.ok(found, "no project was created");
@@ -77,12 +95,18 @@ export function commit(world: OidWorld): void {
   const fixture = fixtureOf(world);
   const specs = fixture.requirements.map((id) => `### ${id}: Feature ${id}\n\nIt does what ${id} says.\n`);
   writeIn(world, "SPEC.md", `# Spec\n\n## Functional Requirements\n\n${specs.join("\n")}`);
-  const features = [...fixture.tracked].map(([id, status]) => ({ id, title: `Feature ${id}`, ...STATUS_FIELDS[status] }));
+  const passing = fixture.cucumber === undefined ? {} : { scenarios: [{ name: fixture.cucumber.scenario, bdd: "pass" }] };
+  const features = [...fixture.tracked].map(([id, status]) => ({ id, title: `Feature ${id}`, ...STATUS_FIELDS[status], ...(id === fixture.cucumber?.feature ? passing : {}) }));
   writeIn(world, "progress.json", `${JSON.stringify({ current_focus: null, features })}\n`);
   writeIn(world, "suite.json", JSON.stringify({ ...fixture.suite, lockFile: join(world.dir, PROJECT, LOCK) }));
   writeIn(world, "unit.mjs", UNIT_RUNNER);
   writeIn(world, "bdd.mjs", BDD_RUNNER);
-  const config = { version: 1, stack: "typescript", paths: FIXTURE_PATHS, commands: FIXTURE_COMMANDS };
+  const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands: fixture.cucumber ? CUCUMBER_COMMANDS : FIXTURE_COMMANDS };
+  if (fixture.cucumber) {
+    for (const [name, content] of Object.entries(cucumberFiles(fixture.cucumber))) writeIn(world, name, content);
+    writeIn(world, ".gitignore", ".outside-in/\nran-*.txt\nnode_modules\n");
+    if (!existsSync(world.path(join(PROJECT, "node_modules")))) symlinkSync(resolve(REPO_ROOT, "node_modules"), world.path(join(PROJECT, "node_modules")), "dir");
+  }
   if (fixture.config) writeIn(world, ".outside-in.json", JSON.stringify(config));
   else if (existsSync(world.path(join(PROJECT, ".outside-in.json")))) git(world.projectDir, "rm", "--quiet", "--force", ".outside-in.json");
   git(world.projectDir, "add", "-A");

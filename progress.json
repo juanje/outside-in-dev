@@ -2237,7 +2237,53 @@
     {
       "id": "FR-RUN-03",
       "title": "BDD Red",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A scenario that fails because the code is missing is checkpointed and moves the run to TDD Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "The agent that writes steps gets the first scenario and what it needs for reuse",
+          "bdd": "pass"
+        },
+        {
+          "name": "The agent works with the tools and the sandbox of BDD Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A change that breaks a scenario that passes stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is not a valid Red stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "Steps that import code that does not exist yet stop the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A change outside the step definitions stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent that is blocked stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A report that does not match the changed files stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failure oid cannot classify is put to the human, who decides it is a valid Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human decides that the failure is a bug in the step definitions",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-04",

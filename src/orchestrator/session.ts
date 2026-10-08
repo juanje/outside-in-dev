@@ -15,7 +15,7 @@ export function runDirectory(cwd: string, runId: string): string {
 }
 
 /** What a started run saves to be resumed: where it works and the state it reached. */
-export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string> };
+export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string } };
 
 function writeSession(cwd: string, session: object): void {
   mkdirSync(join(cwd, OUTSIDE_IN_DIR), { recursive: true });

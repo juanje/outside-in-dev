@@ -1,11 +1,12 @@
-import { join } from "node:path";
-import { openProfileSession } from "../agents/profile-session.js";
 import { FEATURE_WRITE } from "../agents/profiles.js";
 import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { featureWriteContext } from "../agents/context/task-context.js";
-import { ASK, type AgentTask, BLOCKED, DONE, FAILED, runAgent, type RunContext } from "../agents/runner.js";
+import { DONE, runAgent } from "../agents/runner.js";
+import { agentContext, outcomeProblem } from "./agent-run.js";
+import { PROBLEM } from "./bdd-red-gate.js";
+import { runBddRed } from "./run-bdd-red.js";
 import { featureProblem } from "./feature-gates.js";
 import { hashFile } from "../artifacts/checkpoint.js";
 import { checkpoint, commitAll } from "../artifacts/git-checkpoints.js";
@@ -16,7 +17,7 @@ import { loadProjectConfig } from "../artifacts/project-config.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { isExitCode, type RunEnvironment, STATE, startOfRun, type Started, transition } from "./begin.js";
 import type { RunArgs } from "./run-args.js";
-import { runDirectory, updateSession } from "./session.js";
+import { updateSession } from "./session.js";
 import { ERROR_EVENT, HUMAN_EDIT, WAITING_INPUT } from "../events/types.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
 import type { FeatureServices, ReviewInput, RunServices, Terminal } from "./services.js";
@@ -25,21 +26,16 @@ import type { FeatureServices, ReviewInput, RunServices, Terminal } from "./serv
 type Written = { problem: string } | { files: string[] };
 
 /** Has the feature-writing agent run once for each target feature. */
-async function writeFeatures({ cwd, runId, workspace, targets }: Started, services: FeatureServices, comment?: string): Promise<Written> {
-  const context = {
-    worktree: workspace.path,
-    agentDir: services.agentDir,
-    sessionsDir: join(runDirectory(cwd, runId), "sessions"),
-    openSession: (task: AgentTask, run: RunContext) => openProfileSession({ state: task.state, worktree: run.worktree, agentDir: run.agentDir, sessionsDir: run.sessionsDir }, services.sdk),
-  };
+async function writeFeatures(started: Started, services: FeatureServices, comment?: string): Promise<Written> {
+  const { workspace, targets } = started;
+  const context = agentContext(started, services);
   const config = loadProjectConfig(workspace.path);
   const knownIds = parseRequirements(readText(workspace.path, config.paths.spec) ?? "").map(({ id }) => id);
   const files: string[] = [];
   for (const fr of targets) {
     const outcome = await runAgent({ state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}` }, context);
-    if (outcome.status === BLOCKED) return { problem: `${fr}: the agent is blocked (${outcome.reason}): ${outcome.detail}` };
-    if (outcome.status === ASK) return { problem: `${fr}: ${outcome.reason}: ${outcome.detail}` };
-    if (outcome.status === FAILED) return { problem: `${fr}: the agent failed: ${outcome.reason}` };
+    const stopped = outcomeProblem(fr, outcome);
+    if (stopped !== undefined) return { problem: stopped };
     if (outcome.status !== DONE || outcome.report.status !== DONE) continue;
     const problem = featureProblem(workspace.path, fr, outcome.report.files, knownIds);
     if (problem !== undefined) return { problem: `${fr}: ${problem}` };
@@ -82,21 +78,24 @@ function moveToBddRed(worktree: string, targets: string[]): void {
   saveProgress(worktree, { ...progress, features }, file);
 }
 
+/** The approval of the feature files: the hash of each, as the session records it. */
+type Approval = { approved: Record<string, string> };
+
 /** Approves the feature files: the targets move to BDD Red, the session records the hashes and the run moves on. */
-function approve({ cwd, bus, workspace, targets }: Started, files: string[]): number {
+function approve({ cwd, bus, workspace, targets }: Started, files: string[]): Approval {
   moveToBddRed(workspace.path, targets);
   checkpoint(workspace, { fr: targets.join(WORD_SEPARATOR), state: STATE.featureReview });
   const featureHashes = hashesOf(workspace.path, files);
   updateSession(cwd, { state: STATE.bddRed, featureHashes });
   transition(bus, STATE.featureReview, STATE.bddRed, "the feature files are approved; BDD Red is next");
-  return 0;
+  return { approved: featureHashes };
 }
 
 /** The comment of a person who rejects the feature files. */
 type Rejection = { comment: string };
 
 /** Asks for the review of the feature files of all the targets at once: returns the exit code the question ends the process with. */
-async function askForReview(started: Started, files: string[], input: ReviewInput): Promise<number | Rejection> {
+async function askForReview(started: Started, files: string[], input: ReviewInput): Promise<number | Rejection | Approval> {
   if (input.isTTY) {
     const answer = await input.choose(reviewPrompt(started, files), REVIEW_ACTIONS.map(({ key }) => key));
     if (answer === REJECT) return { comment: await input.line("Why are the feature files rejected?") };
@@ -118,11 +117,12 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
     let comment: string | undefined;
     for (;;) {
       const written = await writeFeatures(started, services, comment);
-      if ("problem" in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
+      if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
       transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
       updateSession(cwd, { state: STATE.featureReview });
       const review = await askForReview(started, written.files, services.input ?? { isTTY: false });
       if (isExitCode(review)) return review;
+      if ("approved" in review) return runBddRed(started, services, review.approved);
       comment = review.comment;
       transition(started.bus, STATE.featureReview, STATE.featureWrite, `the feature files are rejected: ${comment}`);
       updateSession(cwd, { state: STATE.featureWrite });

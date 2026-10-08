@@ -37,10 +37,12 @@ function parseMessages(ndjson: string): Message[] {
   return parsed.flatMap((line) => (line.success ? [line.data] : []));
 }
 
-/** The steps of the scenarios a Cucumber Messages report holds, in the order they finished; the steps of hooks are left out. */
-export function normalizeCucumberReport(ndjson: string): ScenarioStep[] {
+/** The steps of the scenarios a Cucumber Messages report holds, in the order they finished, or only those of the scenario `only` names; the steps of hooks are left out. */
+export function normalizeCucumberReport(ndjson: string, only?: { file: string; name: string }): ScenarioStep[] {
   const messages = parseMessages(ndjson);
-  const scenarioSteps = new Set(messages.flatMap((message) => message.testCase?.testSteps ?? []).filter((step) => step.pickleStepId !== undefined).map((step) => step.id));
+  const wanted = new Set(messages.flatMap(({ pickle }) => (pickle !== undefined && (only === undefined || (pickle.uri === only.file && pickle.name === only.name)) ? [pickle.id] : [])));
+  const testCases = messages.flatMap(({ testCase }) => (testCase !== undefined && (only === undefined || wanted.has(testCase.pickleId ?? "")) ? [testCase] : []));
+  const scenarioSteps = new Set(testCases.flatMap(({ testSteps }) => testSteps).filter((step) => step.pickleStepId !== undefined).map((step) => step.id));
   return messages.flatMap(({ testStepFinished }) =>
     testStepFinished !== undefined && scenarioSteps.has(testStepFinished.testStepId)
       ? [{ status: testStepFinished.testStepResult.status, message: testStepFinished.testStepResult.message ?? "" }]
