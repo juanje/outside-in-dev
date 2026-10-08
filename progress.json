@@ -2725,6 +2725,11 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-VERIFY-06",
+      "title": "Fix a step after the code exists",
+      "status": "pending"
     }
   ]
 }
