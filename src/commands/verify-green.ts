@@ -12,7 +12,7 @@ import type { ProjectConfig } from "../artifacts/project-config.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { typeProblems } from "../artifacts/tsc-report.js";
-import { loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
+import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
 import { runBddScenarios, runTypecheck, runUnitSuite } from "../artifacts/verify-runner.js";
 import { normalizeVitestReport, unitProblems } from "../artifacts/vitest-report.js";
 import type { CliIo } from "../cli-io.js";
@@ -94,16 +94,17 @@ function distinctLocations(scenarios: FeatureScenarioLocation[]): FeatureScenari
   return scenarios.filter((scenario, at) => scenarios.findIndex(({ file, line }) => file === scenario.file && line === scenario.line) === at);
 }
 
-/** What the BDD run of the scenarios that progress records as passing and of the targets showed: its problems, the scenarios that ran and passed, and the features the targets are tagged with. */
+/** What the BDD run of the targets and of the scenarios that progress records as passing of the features it verifies (the one in focus and those of the targets) showed: its problems, the scenarios that ran and passed, and the features the targets are tagged with. */
 function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): { problems: string[]; ran: EvidenceScenario[]; targeted: string[] } {
   const located = listLocatedScenarios(readFeatureSources(cwd, config.paths.bdd_features));
   const hasProgress = existsSync(join(cwd, config.paths.progress));
   const passing = hasProgress ? locatePassingScenarios(loadProgress(cwd, config.paths.progress), located) : { found: [], missing: [] };
-  const gone = passing.missing.map(({ feature, name }) => `bdd ${feature} ${name}: no scenario of that name is tagged with the feature`);
   const named = locateTargets(targets, located);
-  const problems = [...named.problems, ...gone];
-  const found = [...passing.found, ...named.found];
   const targeted = named.found.map(({ feature }) => feature);
+  const verified = new Set([...targeted, focusedFeature(cwd, config) ?? ""]);
+  const gone = passing.missing.filter(({ feature }) => verified.has(feature)).map(({ feature, name }) => `bdd ${feature} ${name}: no scenario of that name is tagged with the feature`);
+  const problems = [...named.problems, ...gone];
+  const found = [...passing.found.filter(({ feature }) => verified.has(feature)), ...named.found];
   if (found.length === 0) return { problems, ran: [], targeted };
   const unloadable = loadableStepsProblems(cwd, config);
   if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [], targeted };

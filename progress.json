@@ -1577,6 +1577,26 @@
         {
           "name": "A green refuses a name that no scenario has",
           "bdd": "pass"
+        },
+        {
+          "name": "A passing scenario of another feature that now fails does not fail a green",
+          "bdd": "pass"
+        },
+        {
+          "name": "A passing scenario of the feature in focus that now fails fails the green, and one of another feature is not reported",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green with a target also runs the passing scenarios of the target's feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green with no focus and no target runs no scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature is marked done after a green that ran only its own scenarios",
+          "bdd": "pass"
         }
       ]
     },

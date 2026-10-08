@@ -100,10 +100,25 @@ describe("oid verify green", () => {
     });
   });
 
+  it("does not run the scenarios recorded as passing of a feature that is neither in focus nor the feature of a target", async () => {
+    projectWithRunners();
+    write("features/b.feature", "@FR-B-01\nFeature: B\n\n  Scenario: Bs\n    Given it bs\n");
+    writeProgressFile({
+      current_focus: "FR-A-01",
+      features: [
+        { id: "FR-A-01", title: "A", status: "in_progress", cycle_step: "tdd_green", scenarios: [] },
+        { id: "FR-B-01", title: "B", status: "done", scenarios: [{ name: "Bs", bdd: "pass" }] },
+      ],
+    });
+    commitAll();
+    expect(await runInProject(["verify", "green"])).toEqual({ exitCode: 0, stdout: "green: ok\n", stderr: "" });
+    expect(existsSync(join(dir, BDD_RAN))).toBe(false);
+  });
+
   it("names a scenario recorded as passing that no scenario tagged with its feature has the name of, and does not run the scenarios for it", async () => {
     projectWithRunners();
     write("features/a.feature", "@FR-A-01\nFeature: A\n\n  Scenario: Adds\n    Given it adds\n");
-    writeProgressFile({ current_focus: null, features: [{ id: "FR-A-02", title: "B", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
+    writeProgressFile({ current_focus: "FR-A-02", features: [{ id: "FR-A-02", title: "B", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
@@ -116,7 +131,7 @@ describe("oid verify green", () => {
   it("rejects a scenario run that wrote no report, with the exit code of the runner", async () => {
     projectWithRunners({ bddReport: null });
     write("features/a.feature", "@FR-A-01\nFeature: A\n\n  Scenario: Adds\n    Given it adds\n");
-    writeProgressFile({ current_focus: null, features: [{ id: "FR-A-01", title: "A", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
+    writeProgressFile({ current_focus: "FR-A-01", features: [{ id: "FR-A-01", title: "A", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
@@ -150,7 +165,7 @@ describe("oid verify green", () => {
   it("rejects a step file that statically imports something that does not exist yet, without running the scenarios", async () => {
     projectWithRunners();
     write("features/a.feature", "@FR-A-01\nFeature: A\n\n  Scenario: Adds\n    Given it adds\n");
-    writeProgressFile({ current_focus: null, features: [{ id: "FR-A-01", title: "A", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
+    writeProgressFile({ current_focus: "FR-A-01", features: [{ id: "FR-A-01", title: "A", status: "done", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
     commitAll();
     write("features/steps/a.steps.ts", 'import { add } from "../../src/add.js";\n');
     expect(await runInProject(["verify", "green"])).toEqual({
