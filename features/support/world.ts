@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProblem } from "./build-freshness.js";
 import { projectFiles } from "./project-files.js";
+import type { FindingDraft } from "../../src/artifacts/findings.js";
 import { runCli } from "../../src/run-cli.js";
 import type { PiSdk } from "../../src/agents/runner.js";
 import type { CliIo } from "../../src/cli-io.js";
@@ -16,7 +17,7 @@ const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 /** The terminal an in-process run is given: none, or one that answers the review. */
 export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string> };
 /** What an in-process `oid run` is given in place of the real agent and the real terminal. */
-export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string };
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; detect?: (worktree: string) => FindingDraft[] };
 
 /** `runCli` as the scenarios call it: with the services of the run. */
 const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;

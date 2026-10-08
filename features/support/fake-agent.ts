@@ -27,6 +27,8 @@ const STEP_TASK_MARKER = "You write the step definitions";
 /** The words the prompts of the unit-test and the code tasks start with, which tell their routes from the others. */
 const TEST_TASK_MARKER = "You write one failing unit test";
 const CODE_TASK_MARKER = "You write the minimum code";
+/** The words the prompt of the refactoring task starts with. */
+const REFACTOR_TASK_MARKER = "You fix exactly the findings";
 const USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 
 /** A valid feature file for the requirement; each round differs, so that a rewrite changes the file. */
@@ -62,6 +64,7 @@ export class FakeAgent {
   stepRounds: AgentFile[][] = [];
   readonly testRoute = new Route();
   readonly codeRoute = new Route();
+  readonly refactorRoute = new Route();
   private rounds = new Map<string, number>();
 
   readonly sdk = {
@@ -113,6 +116,7 @@ export class FakeAgent {
 
   private unitRoute(text: string): Route | undefined {
     if (text.includes(TEST_TASK_MARKER)) return this.testRoute;
+    if (text.includes(REFACTOR_TASK_MARKER)) return this.refactorRoute;
     return text.includes(CODE_TASK_MARKER) ? this.codeRoute : undefined;
   }
 

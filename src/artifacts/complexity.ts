@@ -1,5 +1,8 @@
 import ts from "typescript-api";
 
+/** The name the analysed text is given, which no finding shows. */
+const SOURCE_NAME = "source.ts";
+
 export interface ComplexityLimits {
   max_cyclomatic: number;
   max_depth: number;
@@ -80,7 +83,7 @@ export function symbolOf(node: FunctionWithBody): string {
 
 /** The functions of a source text whose cyclomatic complexity or nesting depth is above the limits. */
 export function findComplexFunctions(text: string, limits: ComplexityLimits): ComplexFunction[] {
-  const file = ts.createSourceFile("source.ts", text, ts.ScriptTarget.Latest, true);
+  const file = ts.createSourceFile(SOURCE_NAME, text, ts.ScriptTarget.Latest, true);
   const found: ComplexFunction[] = [];
   const visit = (node: ts.Node): void => {
     if (isFunctionWithBody(node)) {
@@ -102,4 +105,28 @@ export function findComplexFunctions(text: string, limits: ComplexityLimits): Co
   };
   visit(file);
   return found;
+}
+
+/** The functions with a body in a source text, with the cyclomatic complexity of each, in source order. */
+function functionComplexities(text: string): { symbol: string; cyclomatic: number }[] {
+  const file = ts.createSourceFile(SOURCE_NAME, text, ts.ScriptTarget.Latest, true);
+  const found: { symbol: string; cyclomatic: number }[] = [];
+  const visit = (node: ts.Node): void => {
+    if (isFunctionWithBody(node)) found.push({ symbol: symbolOf(node), cyclomatic: measure(node.body).cyclomatic });
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
+
+/** The names of the functions with a body in a source text. */
+export function functionNames(text: string): Set<string> {
+  return new Set(functionComplexities(text).map(({ symbol }) => symbol));
+}
+
+/** The sum of the cyclomatic complexity of the functions of a source text; when `names` is given, only of the functions with those names. */
+export function totalComplexity(text: string, names?: Set<string>): number {
+  return functionComplexities(text)
+    .filter(({ symbol }) => names === undefined || names.has(symbol))
+    .reduce((total, { cyclomatic }) => total + cyclomatic, 0);
 }

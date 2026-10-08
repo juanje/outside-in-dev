@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CART_CODE, CART_FILE, STEP_FILE, STEP_ROUNDS, TEST_FILE, UNIT_TESTS } from "../support/cart-files.js";
-import type { Round } from "../support/fake-agent.js";
+import type { Round, Route } from "../support/fake-agent.js";
 import { git } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
@@ -15,17 +15,17 @@ const BLOCKED_PATTERN = /^reports that it is blocked with the reason "(.+)"$/;
 const SCENARIO_FIRST_LINE = "features/FR-CART-02.feature:3";
 
 /** The recordings the fake runners of the project replay, in the order the run asks for them. */
-type Plan = { unit: string[]; bdd: string[]; typecheck: string | null };
+export type Plan = { unit: string[]; bdd: string[]; typecheck: string | null | (string | null)[] };
 const plans = new WeakMap<OidWorld, Plan>();
 
-function planOf(world: OidWorld): Plan {
+export function planOf(world: OidWorld): Plan {
   const found = plans.get(world);
   assert.ok(found, "the step-writing agent was not set up");
   return found;
 }
 
 /** Writes the plan into the project, so that its fake runners replay it. */
-function apply(world: OidWorld, plan: Plan): void {
+export function apply(world: OidWorld, plan: Plan): void {
   change(world, (fixture) => {
     assert.ok(fixture.cucumber, "the project does not run its scenarios with cucumber");
     fixture.cucumber.replay = plan.bdd;
@@ -34,7 +34,7 @@ function apply(world: OidWorld, plan: Plan): void {
 }
 
 /** Adds to the plan, then applies it. */
-function expect(world: OidWorld, added: { unit?: string[]; bdd?: string[]; typecheck?: string }): void {
+export function expect(world: OidWorld, added: { unit?: string[]; bdd?: string[]; typecheck?: string }): void {
   const plan = planOf(world);
   plan.unit.push(...(added.unit ?? []));
   plan.bdd.push(...(added.bdd ?? []));
@@ -46,11 +46,11 @@ const testId = (name: string): string => `${TEST_FILE} > ${name}`;
 const testNamed = (name: string): string => UNIT_TESTS[name.split(" > ").pop() as keyof typeof UNIT_TESTS];
 
 /** The round of the test-writing agent that writes the unit test `name` (`describe > it`). */
-function writesTest(name: string): Round {
+export function writesTest(name: string): Round {
   return { files: [{ path: TEST_FILE, content: testNamed(name) }], test: testId(name) };
 }
 
-const codeRound = (content: string): Round => ({ files: [{ path: CART_FILE, content }] });
+export const codeRound = (content: string): Round => ({ files: [{ path: CART_FILE, content }] });
 
 Given("the step-writing agent writes the steps of each scenario it is given, and they fail because the cart code does not exist yet", function (this: OidWorld) {
   agentOf(this).stepRounds = STEP_ROUNDS.map((content) => [{ path: STEP_FILE, content }]);
@@ -165,12 +165,12 @@ Given("the agents write for each of the two scenarios a failing unit test and th
 });
 
 /** The hash of the commit of the worktree whose subject is `message`, if it has one. */
-function findCommit(world: OidWorld, message: string): string | undefined {
+export function findCommit(world: OidWorld, message: string): string | undefined {
   const lines = git(worktreePath(world), "log", "--format=%H\t%s").split("\n");
   return lines.map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message)?.[0];
 }
 
-function filesOfCommit(world: OidWorld, message: string): string[] {
+export function filesOfCommit(world: OidWorld, message: string): string[] {
   const found = findCommit(world, message);
   assert.ok(found, `the worktree has no commit "${message}"`);
   return git(worktreePath(world), "show", "--name-only", "--format=", found).split("\n");
@@ -239,11 +239,15 @@ Then("the test-writing agent had no shell tool", function (this: OidWorld) {
   for (const excluded of excludedTools) assert.ok(excluded.includes("bash"), excluded.join(", "));
 });
 
-Then("the coding agent had a shell tool", function (this: OidWorld) {
-  const { toolNames, excludedTools } = agentOf(this).codeRoute;
+/** Asserts that every session of the route had the shell, the write tool and the report tool. */
+export function assertShellTool({ toolNames, excludedTools }: Route): void {
   assert.ok(toolNames.length > 0, "no session was opened");
   for (const names of toolNames) assert.ok(names.includes("bash") && names.includes("write") && names.includes("report"), names.join(", "));
   for (const excluded of excludedTools) assert.ok(!excluded.includes("bash"), excluded.join(", "));
+}
+
+Then("the coding agent had a shell tool", function (this: OidWorld) {
+  assertShellTool(agentOf(this).codeRoute);
 });
 
 function unitRedQuestions(world: OidWorld) {

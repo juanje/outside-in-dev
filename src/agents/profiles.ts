@@ -10,7 +10,9 @@ export const BDD_RED = "BDD_RED";
 export const TDD_RED = "TDD_RED";
 /** The step that writes the minimum source code. */
 export const CODE_GREEN = "CODE_GREEN";
-export const CYCLE_STATES = [FEATURE_WRITE, BDD_RED, TDD_RED, CODE_GREEN, "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"] as const;
+/** The step that fixes the findings of the detectors in the code just written. */
+export const REFACTOR = "REFACTOR";
+export const CYCLE_STATES = [FEATURE_WRITE, BDD_RED, TDD_RED, CODE_GREEN, REFACTOR, "FR_REFACTOR", "QUALITY_FIX"] as const;
 export type CycleState = (typeof CYCLE_STATES)[number];
 
 /** What a step's agent may do: its tools, the globs it may write and read (relative to the worktree), the globs nobody writes, the orchestrator state no shell argument may name, and the commands its shell may run. */
@@ -49,7 +51,7 @@ function grantFor(state: CycleState, config: ProjectConfig): Grant {
     case TDD_RED:
       return { write: paths.unit_tests, read: [...paths.unit_tests, ...paths.bdd_features, ...paths.bdd_steps], shell: false };
     case CODE_GREEN:
-    case "REFACTOR":
+    case REFACTOR:
       return { write: paths.source, read: WHOLE_REPO, shell: true };
     case "FR_REFACTOR":
     case "QUALITY_FIX":

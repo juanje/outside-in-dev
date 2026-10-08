@@ -1,12 +1,14 @@
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
+import type { Finding } from "../artifacts/findings.js";
 import { isObject, ProgressError } from "../artifacts/progress.js";
 import { readJson } from "../artifacts/project-json.js";
 import type { InputRequest } from "../events/types.js";
 
 /** The directory of oid's local state, relative to the project. */
 export const OUTSIDE_IN_DIR = ".outside-in";
+const JSON_INDENT = 2;
 const SESSION_FILE = `${OUTSIDE_IN_DIR}/session.json`;
 
 /** The directory of a run's logs and records. */
@@ -15,7 +17,7 @@ export function runDirectory(cwd: string, runId: string): string {
 }
 
 /** What a started run saves to be resumed: where it works and the state it reached. */
-export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number };
+export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number; pendingFindings?: string[] };
 
 function writeSession(cwd: string, session: object): void {
   mkdirSync(join(cwd, OUTSIDE_IN_DIR), { recursive: true });
@@ -50,4 +52,18 @@ export function unitTestsOf(cwd: string, scenario: string): string[] {
 export function recordUnitTest(cwd: string, scenario: string, test: string): void {
   const saved = readJson(cwd, SESSION_FILE) as RunSession;
   updateSession(cwd, { scenarioUnitTests: { ...saved.scenarioUnitTests, [scenario]: [...unitTestsOf(cwd, scenario), test] } });
+}
+
+/** Keeps the findings of a rejected refactor in the next numbered file of the run and lists the file in the saved session. */
+export function keepPendingFindings(cwd: string, runId: string, findings: Finding[]): void {
+  const kept = (readJson(cwd, SESSION_FILE) as RunSession).pendingFindings ?? [];
+  const path = `${OUTSIDE_IN_DIR}/runs/${runId}/findings/${kept.length + 1}.json`;
+  mkdirSync(dirname(join(cwd, path)), { recursive: true });
+  writeFileAtomic(join(cwd, path), `${JSON.stringify(findings, null, JSON_INDENT)}\n`);
+  updateSession(cwd, { pendingFindings: [...kept, path] });
+}
+
+/** The identity of the findings the detectors reported when the run started, from the baseline of the run. */
+export function runBaselineFindings(cwd: string, runId: string): string[] {
+  return ((readJson(cwd, `${OUTSIDE_IN_DIR}/runs/${runId}/baseline.json`) as { findings?: string[] }).findings) ?? [];
 }

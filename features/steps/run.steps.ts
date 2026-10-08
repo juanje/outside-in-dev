@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
 import { FakeAgent } from "../support/fake-agent.js";
+import { detectorOf } from "../support/fake-detector.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 
@@ -14,7 +15,7 @@ type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean
 /** The project that runs its scenarios with cucumber: the scenario of the feature that is done and passing, and the recorded report the BDD command replays for the gate run (`DEFAULT_REPLAY` unless the step says otherwise). */
 type Cucumber = { feature: string; scenario: string; replay: string | string[]; loop?: Loop; limit?: number };
 /** The unit tests and the type check of a project that runs the inner loop: the recorded vitest reports its unit command replays in order (the first is the baseline run), and the recorded type check output, if any. */
-export type Loop = { unit: string[]; typecheck: string | null };
+export type Loop = { unit: string[]; typecheck: string | null | (string | null)[] };
 type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber };
 export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
 export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
@@ -110,7 +111,7 @@ function writeLoopReplay(world: OidWorld, { unit, typecheck }: Loop): void {
   writeIn(world, "replay/unit.json", JSON.stringify({ sequence: unit, exitCodes }));
   writeIn(world, "replay/typecheck.json", JSON.stringify({ recording: typecheck, exitCodes }));
   for (const name of new Set(unit)) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
-  if (typecheck !== null) writeIn(world, `replay/${typecheck}.txt`, readFileSync(join(SUPPORT, "recorded", `${typecheck}.txt`), "utf8"));
+  for (const name of new Set([typecheck].flat())) if (name !== null) writeIn(world, `replay/${name}.txt`, readFileSync(join(SUPPORT, "recorded", `${name}.txt`), "utf8"));
 }
 
 export function fixtureOf(world: OidWorld): Fixture {
@@ -170,13 +171,19 @@ Before({ tags: "@FR-RUN-04" }, function (this: OidWorld, { pickle }) {
   if (pickle.name === REAL_LOOP_SCENARIO) realRunner.add(this);
 });
 
+const REAL_REFACTOR_SCENARIO = "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent";
+
+Before({ tags: "@FR-RUN-05" }, function (this: OidWorld, { pickle }) {
+  if (pickle.name === REAL_REFACTOR_SCENARIO) realRunner.add(this);
+});
+
 Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {
   this.built = true;
 });
 
 /** The scenarios that reach feature writing run in this process, with the scripted agent and no terminal to answer the review. */
 Before({ tags: "@FR-RUN-01 and not @process" }, function (this: OidWorld) {
-  this.services = { sdk: new FakeAgent().sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent") };
+  this.services = { sdk: new FakeAgent().sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect };
 });
 
 Given("a git project with a green suite", function (this: OidWorld) {

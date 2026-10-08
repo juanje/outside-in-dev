@@ -2371,7 +2371,41 @@
     {
       "id": "FR-RUN-05",
       "title": "Refactor after each Green",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A Green with no finding on the lines it changed starts no refactoring agent",
+          "bdd": "pass"
+        },
+        {
+          "name": "Findings on the lines a Green changed are fixed by the refactoring agent, and the result is checkpointed",
+          "bdd": "pass"
+        },
+        {
+          "name": "The refactoring agent gets the list of findings with their code and the reuse catalogue, and works with the shell and the sandbox of Refactor",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finding on lines the Green did not change, and a finding the baseline of the project holds, are not given to the agent",
+          "bdd": "pass"
+        },
+        {
+          "name": "A refactor that does not meet the criteria is rolled back, and its findings wait for the feature refactor",
+          "bdd": "pass"
+        },
+        {
+          "name": "A refactoring agent that is blocked or whose provider fails is treated as a rejected refactor",
+          "bdd": "pass"
+        },
+        {
+          "name": "A refactor is accepted after a Green that leaves the scenario still red",
+          "bdd": "pass"
+        },
+        {
+          "name": "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-06",

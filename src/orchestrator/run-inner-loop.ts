@@ -1,7 +1,9 @@
 import { type Started, isExitCode } from "./begin.js";
 import { AFTER_CHECK, runBddCheck } from "./run-bdd-check.js";
 import { runBddRed, type RedScenario } from "./run-bdd-red.js";
+import { headCommit } from "../artifacts/git-workspace.js";
 import { runCodeGreen } from "./run-code-green.js";
+import { runRefactor } from "./run-refactor.js";
 import { runTddRed } from "./run-tdd-red.js";
 import type { FeatureServices } from "./services.js";
 
@@ -13,10 +15,11 @@ async function innerLoop(started: Started, services: FeatureServices, red: RedSc
   for (let iteration = 1; ; iteration += 1) {
     const unitRed = await runTddRed(started, services, scenario);
     if (isExitCode(unitRed)) return unitRed;
+    const beforeGreen = headCommit(started.workspace.path);
     const stopped = await runCodeGreen(started, services, scenario, unitRed);
     if (stopped !== undefined) return stopped;
-    // REFACTOR (micro) goes here, between Code Green and the BDD check.
-    const checked = await runBddCheck(started, services, scenario, iteration);
+    const origin = await runRefactor(started, services, scenario, beforeGreen);
+    const checked = await runBddCheck(started, services, scenario, iteration, origin);
     if (isExitCode(checked)) return checked;
     if (checked.kind === AFTER_CHECK.last) return END_OF_FEATURE;
     if (checked.kind === AFTER_CHECK.next) return AFTER_CHECK.next;

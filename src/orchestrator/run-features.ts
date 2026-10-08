@@ -15,6 +15,7 @@ import { parseRequirements } from "../artifacts/spec.js";
 import { readText } from "../artifacts/project-json.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { acquireLock, releaseLock } from "./lock.js";
+import { detectProject } from "../artifacts/detect-all.js";
 import { isExitCode, type RunEnvironment, STATE, startOfRun, type Started, transition } from "./begin.js";
 import type { RunArgs } from "./run-args.js";
 import { updateSession } from "./session.js";
@@ -112,7 +113,7 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, services.pid);
   try {
-    const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands);
+    const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands, services.detect ?? detectProject);
     if (isExitCode(started)) return started;
     let comment: string | undefined;
     for (;;) {

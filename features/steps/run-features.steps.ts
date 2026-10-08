@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { detectorOf } from "../support/fake-detector.js";
 import { FakeAgent } from "../support/fake-agent.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
@@ -22,10 +23,10 @@ export function agentOf(world: OidWorld): FakeAgent {
 export const worktreePath = (world: OidWorld): string => runWorktree(world).path;
 export const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
 
-Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04 or @FR-RUN-05" }, function (this: OidWorld) {
   const agent = new FakeAgent();
   agents.set(this, agent);
-  this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent") };
+  this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect };
 });
 
 Given("the project has a DOMAIN.md and a feature file for {string}", function (this: OidWorld, id: string) {

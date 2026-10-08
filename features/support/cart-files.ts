@@ -41,6 +41,10 @@ const ADD_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: 
 const ADD_ONCE_CODE = `/** Adds a line to a cart unless the cart has it. */\nexport function addLine(lines: string[], line: string): string[] {\n  return lines.includes(line) ? lines : [...lines, line];\n}\n`;
 const COUNT_CODE = `\n/** Counts the lines of a cart. */\nexport function countCartLines(lines: string[]): number {\n  return lines.length;\n}\n`;
 const REMOVE_CODE = `\n/** Removes a line from a cart. */\nexport function removeLine(lines: string[], line: string): string[] {\n  return lines.filter((candidate) => candidate !== line);\n}\n`;
+const ADD_BOUNDED_CODE = `/** The most lines a cart holds. */\nconst MAX_LINES = 100;\n\n/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  return [...lines, line].slice(0, MAX_LINES);\n}\n`;
+const ADD_MAGIC_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  return [...lines, line].slice(0, 100);\n}\n`;
+const ADD_BRANCHING_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  if (lines.length > 99) {\n    return lines;\n  }\n  return lines.includes(line) || line === "" ? [...lines, line] : [...lines, line];\n}\n`;
+const UNIT_FAILING_CODE = "export function addLine(lines: string[], line: string): string[] {\n  return lines;\n}\n";
 const TYPE_ERROR_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): number {\n  const added: string[] = [...lines, line];\n  return added;\n}\n`;
 
 export const CART_CODE = {
@@ -49,6 +53,10 @@ export const CART_CODE = {
   dedupedUnitOnly: ADD_ONCE_CODE,
   withRemove: `${ADD_CODE}${COUNT_CODE}${REMOVE_CODE}`,
   withTypeError: TYPE_ERROR_CODE,
+  withMagicNumber: `${ADD_MAGIC_CODE}${COUNT_CODE}`,
+  refactored: `${ADD_BOUNDED_CODE}${COUNT_CODE}`,
+  moreComplex: `${ADD_BRANCHING_CODE}${COUNT_CODE}`,
+  unitFailing: `${UNIT_FAILING_CODE}${COUNT_CODE}`,
 } as const;
 
 /** The unit test of the project that exists before the run: it passes, and its comment is a marker the tasks must not carry. */

@@ -40,13 +40,17 @@ function anotherIteration(started: Started, scenario: RedScenario, iteration: nu
   return { kind: AFTER_CHECK.again, failure };
 }
 
-/** Runs BDD Check for the current scenario after Code Green: the scenario and the scenarios that passed run together. Returns what follows, or the exit code of the process. */
-export async function runBddCheck(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number): Promise<number | AfterCheck> {
+/** Where a BDD Check comes from: the state before it and what that state did, when it did something (the reason of the transition starts with the note). */
+export type Origin = { from: string; note: string };
+
+/** Runs BDD Check for the current scenario after Code Green or after the refactor that followed it: the scenario and the scenarios that passed run together. Returns what follows, or the exit code of the process. */
+export async function runBddCheck(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number, origin: Origin = { from: STATE.codeGreen, note: "" }): Promise<number | AfterCheck> {
   const { cwd, bus, workspace } = started;
   const check = bddCheck(workspace.path, scenario.current);
   if (check.kind === PROBLEM) return fail(started, `${scenario.label}: ${check.problem}`);
   updateSession(cwd, { state: STATE.bddCheck });
-  transition(bus, STATE.codeGreen, STATE.bddCheck, `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`);
+  const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;
+  transition(bus, origin.from, STATE.bddCheck, origin.note === "" ? verdict : `${origin.note}; ${verdict}`);
   if (check.kind === SCENARIO.pass) return scenarioPasses(started, scenario);
   if (iteration >= loadInnerIterationLimit(workspace.path)) return stuckLoop(bus, services.input ?? { isTTY: false }, { label: scenario.label, iterations: iteration });
   return anotherIteration(started, scenario, iteration, check.message);

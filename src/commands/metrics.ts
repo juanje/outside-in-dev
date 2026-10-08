@@ -1,11 +1,11 @@
-import { detectCommentedOutCode, detectComplexity, detectDocDrift, detectDuplication, detectMagicValues, detectUnusedCode, detectUnusedDeclarations, scannedCode } from "../artifacts/code-health.js";
+import { scannedCode } from "../artifacts/code-health.js";
+import { detectAll } from "../artifacts/detect-all.js";
 import { baselineHolds, writeBaseline } from "../artifacts/baseline.js";
 import { type LineRange, overlapsChangedLines } from "../artifacts/changed-lines.js";
 import { readChangedLines } from "../artifacts/git-changes.js";
 import { type FindingDraft, numberFindings, renderReport } from "../artifacts/findings.js";
 import { appendSnapshot, readLastSnapshot } from "../artifacts/metrics-history.js";
 import { ProgressError } from "../artifacts/progress.js";
-import { loadComplexityLimits, loadDuplicationLimits, loadMagicValueLimits, loadRefactorEntry } from "../artifacts/project-config.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { buildSnapshot, renderTrend } from "../artifacts/snapshot.js";
 import type { CliIo } from "../cli-io.js";
@@ -13,18 +13,6 @@ import type { CliIo } from "../cli-io.js";
 /** `1 finding`, `2 findings`; `adjective` goes before the noun (`2 existing findings`). */
 function countFindings(count: number, adjective = ""): string {
   return `${count} ${adjective}${count === 1 ? "finding" : "findings"}`;
-}
-
-function detectAll(cwd: string, paths: ProjectPaths): FindingDraft[] {
-  return [
-    ...detectComplexity(cwd, paths, loadComplexityLimits(cwd)),
-    ...detectDuplication(cwd, paths, loadDuplicationLimits(cwd)),
-    ...detectUnusedCode(cwd, paths, loadRefactorEntry(cwd)),
-    ...detectUnusedDeclarations(cwd, paths),
-    ...detectCommentedOutCode(cwd, paths),
-    ...detectDocDrift(cwd, paths),
-    ...detectMagicValues(cwd, paths, loadMagicValueLimits(cwd)),
-  ];
 }
 
 /** Prints the findings on the changed lines that the baseline does not hold, then how many it holds and left out; the exit code is 1 when a new finding remains. */

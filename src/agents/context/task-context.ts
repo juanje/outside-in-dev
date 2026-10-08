@@ -24,7 +24,7 @@ function scenarioText(cwd: string, { file, line }: ScenarioLocation): string {
 }
 
 /** The reuse catalogue as a section of a prompt: the public signatures of the project's exported symbols, without bodies. */
-const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the project, without bodies):";
+export const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the project, without bodies):";
 
 /** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure, and the public signatures of the project; no body of the source and no other scenario. */
 export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
@@ -33,7 +33,7 @@ export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation;
 }
 
 /** A file of the project as a section of a prompt: its path and its whole text. */
-function fileSection(cwd: string, file: string): string {
+export function fileSection(cwd: string, file: string): string {
   return [`### ${file}`, readText(cwd, file) ?? ""].join(NEWLINE);
 }
 
@@ -47,6 +47,11 @@ export function bddRedContext(cwd: string, scenario: ScenarioLocation): string {
   return [testTaskContext(cwd, { scenario, failure }), [STEPS_HEADING, ...steps.map((file) => fileSection(cwd, file))].join(NEWLINE + NEWLINE)].join(NEWLINE + NEWLINE);
 }
 
+/** The sections of a prompt as text, each one's lines and the sections themselves apart by a blank line. */
+export function joinSections(sections: string[][]): string {
+  return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
+}
+
 /** The prompt of an implementation task (CODE_GREEN): the failing tests in full, the normalised failure, the source files the tests import and the reuse catalogue; no other scenario and no earlier attempt. */
 export function implementationContext(cwd: string, task: { tests: string[]; failure: string }): string {
   const imported = importClosure(cwd, task.tests, loadProjectConfig(cwd).paths.source);
@@ -56,7 +61,7 @@ export function implementationContext(cwd: string, task: { tests: string[]; fail
     ["Source the tests import:", ...imported.map((file) => fileSection(cwd, file))],
     [CATALOGUE_HEADING, reuseCatalogue(cwd)],
   ];
-  return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
+  return joinSections(sections);
 }
 
 /** A requirement as a section of a prompt: its heading and its whole text. */

@@ -44,7 +44,7 @@ export function numberFindings(drafts: FindingDraft[]): Finding[] {
 }
 
 /** One output line: `<category> <file>:<start>-<end> [<symbol>] <detail>`, without the brackets when there is no symbol, then `, also <file>:<start>-<end>` for each related location. */
-export function formatFinding({ category, file, range, symbol, detail, related = [] }: Finding): string {
+export function formatFinding({ category, file, range, symbol, detail, related = [] }: FindingDraft): string {
   const symbolPart = symbol === undefined ? "" : ` [${symbol}]`;
   const relatedPart = related.map((other) => `, also ${other.file}:${other.range.start}-${other.range.end}`).join("");
   return `${category} ${file}:${range.start}-${range.end}${symbolPart} ${detail}${relatedPart}`;
