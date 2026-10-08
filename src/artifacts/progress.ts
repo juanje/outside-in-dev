@@ -81,7 +81,7 @@ const START_STEP = CYCLE_STEP.select;
 const NEXT_STEPS: Record<string, string[]> = {
   [CYCLE_STEP.select]: [CYCLE_STEP.bddRed],
   [CYCLE_STEP.bddRed]: [CYCLE_STEP.tddRed],
-  [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen],
+  [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen, CYCLE_STEP.bddRed],
   [CYCLE_STEP.tddGreen]: [CYCLE_STEP.refactor, CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
   [CYCLE_STEP.refactor]: [CYCLE_STEP.tddRed, CYCLE_STEP.bddRed, CYCLE_STEP.qualityGate],
   [CYCLE_STEP.qualityGate]: [CYCLE_STEP.bddRed, CYCLE_STEP.tddRed],

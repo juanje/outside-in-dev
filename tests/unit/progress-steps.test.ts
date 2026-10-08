@@ -32,6 +32,7 @@ describe("advanceStep", () => {
   it.each([
     ["bdd_red", "tdd_red"],
     ["tdd_red", "tdd_green"],
+    ["tdd_red", "bdd_red"],
     ["tdd_green", "refactor"],
     ["tdd_green", "tdd_red"],
     ["tdd_green", "bdd_red"],

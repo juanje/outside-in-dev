@@ -22,7 +22,9 @@ const CHECKPOINT_FILE = `${OID_DIR}/checkpoint.json`;
 /** The content of the files of the snapshot, kept to tell later which lines were added since. */
 const CHECKPOINT_FILES = `${OID_DIR}/checkpoint-files`;
 /** The checkpoint of each feature, and the copies of its files, apart from the single checkpoint of a verification with no feature. */
-const CHECKPOINTS_DIR = `${OID_DIR}/checkpoints`;
+export const CHECKPOINTS_DIR = `${OID_DIR}/checkpoints`;
+/** The steps whose checkpoint is a Red. */
+const RED_STEPS = ["bdd_red", "tdd_red"];
 
 /** A scenario that a Green ran and that passed: the feature it is tagged with and its name. */
 export interface EvidenceScenario {
@@ -39,6 +41,8 @@ export interface CheckpointDetails {
   /** The scenarios the verification ran and that passed; none for a Red, which is never evidence of pass. */
   scenarios?: EvidenceScenario[];
   date: Date;
+  /** Whether this checkpoint records the return of a feature to a step it came from, which is not a new Red base. */
+  returned?: boolean;
 }
 
 /** The SHA-256 of a file of the project, as hex. */
@@ -63,6 +67,11 @@ interface CheckpointLocation {
 /** Where the checkpoint of `feature` is written: its own file, or the single checkpoint for a verification with no feature. */
 function checkpointLocation(feature: string | null): CheckpointLocation {
   return feature === null ? { file: CHECKPOINT_FILE, files: CHECKPOINT_FILES } : { file: `${CHECKPOINTS_DIR}/${feature}.json`, files: `${CHECKPOINTS_DIR}/${feature}.files` };
+}
+
+/** Where the last Red checkpoint of `feature` is kept, apart from its checkpoint, which a Green replaces. */
+function redBaseLocation(feature: string): CheckpointLocation {
+  return { file: `${CHECKPOINTS_DIR}/${feature}.red.json`, files: `${CHECKPOINTS_DIR}/${feature}.red.files` };
 }
 
 /** The checkpoint that judges `feature`: its own; without one, the single checkpoint when that names the feature (as oid wrote it before keeping one per feature); none otherwise. With no feature, the single checkpoint. */
@@ -115,21 +124,25 @@ export function treeState(cwd: string): TreeState & { present: string[] } {
 }
 
 /** Records the verification that just passed in the checkpoint of its feature (`.outside-in/checkpoints/<id>.json`, or `.outside-in/checkpoint.json` with no feature), with a hash of every file of the working tree that differs from HEAD, and keeps a copy of each of them; the checkpoints of other features are left as they are. */
-export function recordCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): void {
+export function recordCheckpoint(cwd: string, { date, scenarios = [], returned = false, ...details }: CheckpointDetails): void {
   const { present, deleted, snapshot } = treeState(cwd);
-  const { file, files } = checkpointLocation(details.feature);
-  rmSync(join(cwd, files), { recursive: true, force: true });
-  for (const name of present) {
-    mkdirSync(dirname(join(cwd, files, name)), { recursive: true });
-    copyFileSync(join(cwd, name), join(cwd, files, name));
+  const text = `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`;
+  const isRed = details.feature !== null && RED_STEPS.includes(details.step) && !returned;
+  const locations = [checkpointLocation(details.feature), ...(isRed ? [redBaseLocation(details.feature!)] : [])];
+  for (const { file, files } of locations) {
+    rmSync(join(cwd, files), { recursive: true, force: true });
+    for (const name of present) {
+      mkdirSync(dirname(join(cwd, files, name)), { recursive: true });
+      copyFileSync(join(cwd, name), join(cwd, files, name));
+    }
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    writeFileAtomic(join(cwd, file), text);
   }
-  mkdirSync(dirname(join(cwd, file)), { recursive: true });
-  writeFileAtomic(join(cwd, file), `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot, deleted }, null, JSON_INDENT)}\n`);
 }
 
 /** What the checkpoint that judges `feature` recorded: the hash of each file that differed from HEAD then, the files deleted then, and where the copies of its files are. Nothing when there is no checkpoint. */
-function lastCheckpoint(cwd: string, feature: string | null): z.infer<typeof checkpointSchema> & { files: string | undefined } {
-  const location = locateCheckpoint(cwd, feature);
+function lastCheckpoint(cwd: string, feature: string | null, base?: CheckpointLocation): z.infer<typeof checkpointSchema> & { files: string | undefined } {
+  const location = base ?? locateCheckpoint(cwd, feature);
   const parsed = checkpointSchema.safeParse((location && readJson(cwd, location.file)) ?? { snapshot: {} });
   if (!parsed.success) throw new ProgressError(`${location?.file} is not a checkpoint oid wrote: verify again to record a new one`);
   return { ...parsed.data, files: location?.files };
@@ -139,6 +152,11 @@ function lastCheckpoint(cwd: string, feature: string | null): z.infer<typeof che
 export function checkpointEvidence(cwd: string, feature: string | null): { kind: string | undefined; scenarios: EvidenceScenario[] } {
   const { verify, scenarios } = lastCheckpoint(cwd, feature);
   return { kind: verify?.kind, scenarios };
+}
+
+/** The files that changed since the last Red checkpoint of `feature` (HEAD when there is none): the code and the tests written in the cycle since that Red. */
+export function changedSinceRedBase(cwd: string, feature: string): string[] {
+  return changedSince(cwd, lastCheckpoint(cwd, feature, redBaseLocation(feature)));
 }
 
 /** The state of a file for comparing with a checkpoint: the hash of its content, or `undefined` when it does not exist. */
@@ -164,11 +182,20 @@ export function changedSince(cwd: string, last: TreeState): string[] {
   });
 }
 
-/** The content of `name` as it was at the checkpoint of `feature`, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
-export function baseContent(cwd: string, name: string, feature: string | null): string | undefined {
-  const { snapshot, files } = lastCheckpoint(cwd, feature);
+/** The content of `name` as `last` recorded it, or in HEAD when `last` has no copy of it; undefined when HEAD has no such file. */
+function contentAt(cwd: string, name: string, { snapshot, files }: { snapshot: Record<string, string>; files: string | undefined }): string | undefined {
   const kept = files === undefined ? undefined : join(cwd, files, name);
   if (name in snapshot && kept !== undefined && existsSync(kept)) return readFileSync(kept).toString();
   const shown = runGit(cwd, ["show", `${HEAD}:${name}`]);
   return shown.ok ? shown.text : undefined;
+}
+
+/** The content of `name` as it was at the checkpoint of `feature`, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
+export function baseContent(cwd: string, name: string, feature: string | null): string | undefined {
+  return contentAt(cwd, name, lastCheckpoint(cwd, feature));
+}
+
+/** The content of `name` as it was at the last Red checkpoint of `feature`, or in HEAD when there is none or the file is not in it; undefined when HEAD has no such file. */
+export function redBaseContent(cwd: string, name: string, feature: string): string | undefined {
+  return contentAt(cwd, name, lastCheckpoint(cwd, feature, redBaseLocation(feature)));
 }

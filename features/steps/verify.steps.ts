@@ -84,8 +84,27 @@ Then("the output starts with {string}", function (this: OidWorld, text: string) 
   assert.ok(this.stdout.startsWith(text), `stdout does not start with "${text}":\n${this.stdout}`);
 });
 
+/** The checkpoint file of the Red a scenario recorded in a Given, by world: a later verification must leave it as it was. */
+const recordedRed = new WeakMap<OidWorld, { file: string; text: string }>();
+
 Then("no checkpoint is recorded", function (this: OidWorld) {
+  const red = recordedRed.get(this);
+  if (red !== undefined) {
+    assert.equal(readFileSync(this.path(red.file), "utf8"), red.text, "the checkpoint of the Red was replaced");
+    return;
+  }
   assert.ok(!existsSync(this.path(CHECKPOINT_FILE)) && !existsSync(this.path(CHECKPOINTS_DIR)), "a checkpoint was recorded");
+});
+
+Given("a Red of {string} was verified at step {string}", async function (this: OidWorld, id: string, step: string) {
+  const { recordVerified, loadVerifyConfig } = await import("../../src/artifacts/verified-checkpoint.js");
+  recordVerified(this.dir, loadVerifyConfig(this.dir), { step, verify: { kind: "red", target: "all" }, external: false }, [id]);
+  const file = `${CHECKPOINTS_DIR}/${id}.json`;
+  recordedRed.set(this, { file, text: readFileSync(this.path(file), "utf8") });
+});
+
+Then("the file {string} contains:", function (this: OidWorld, path: string, content: string) {
+  assert.equal(readFileSync(this.path(path), "utf8"), `${content}\n`);
 });
 
 Then("the checkpoint records the step {string}", function (this: OidWorld, step: string) {

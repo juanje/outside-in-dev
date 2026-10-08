@@ -19,6 +19,7 @@ Feature: Advance the cycle step
       | select    | bdd_red       |
       | bdd_red   | tdd_red       |
       | tdd_red   | tdd_green     |
+      | tdd_red   | bdd_red       |
       | tdd_green | refactor      |
       | tdd_green | tdd_red       |
       | tdd_green | bdd_red       |
@@ -40,7 +41,6 @@ Feature: Advance the cycle step
       | select       | tdd_green    |
       | select       | quality_gate |
       | bdd_red      | refactor     |
-      | tdd_red      | bdd_red      |
       | refactor     | tdd_green    |
       | quality_gate | select       |
       | tdd_red      | tdd_red      |

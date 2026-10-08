@@ -16,6 +16,7 @@ import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "
 import { parseUnitTarget, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
+import { answerReturn, judgeReturn, moveFeature, moveToUnitRed, passedAtOnce, returnedFeature } from "./verify-return.js";
 import { GREEN, runGreen } from "./verify-green.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
@@ -189,6 +190,7 @@ function answer(io: CliIo, config: ProjectConfig, { target, step, external }: { 
   const valid = verdict.outcome === OUTCOME.valid;
   if (valid) recordVerified(io.cwd, config, { step, verify: { kind: RED, target }, external });
   io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
+  if (valid && step === BDD_RED && moveToUnitRed(io.cwd, config.paths.progress)) io.stdout(`red: moved to ${TDD_RED}\n`);
   return valid ? 0 : 1;
 }
 
@@ -196,6 +198,39 @@ function answer(io: CliIo, config: ProjectConfig, { target, step, external }: { 
 function answerRecorded(io: CliIo, config: ProjectConfig, target: string, decision: RedClass): number {
   const { step } = observationToDecide(io.cwd, target, config.paths.progress);
   return answer(io, config, { target, step, external: true }, decided(decision));
+}
+
+/** The answer for a scenario that passes at once and still moves the feature to `tdd_red`; nothing when it does not. */
+function answerPassed(io: CliIo, config: ProjectConfig, parsed: Target, target: string, { failure }: Observation): number | undefined {
+  if (parsed.kind !== TARGET.scenario || failure.kind !== FAILURE.passed) return undefined;
+  const { file, line } = parsed.scenario;
+  const name = listLocatedScenarios(readFeatureSources(io.cwd, config.paths.bdd_features)).find((candidate) => candidate.file === file && candidate.line === line)?.name;
+  const reason = passedAtOnce(io.cwd, config.paths.progress, name ?? "");
+  if (reason === undefined) return undefined;
+  recordVerified(io.cwd, config, { step: BDD_RED, verify: { kind: RED, target }, external: false });
+  moveFeature(io.cwd, config.paths.progress, focusedFeature(io.cwd, config)!, TDD_RED);
+  io.stdout(`red: moved to ${TDD_RED}: ${reason}\n`);
+  return 0;
+}
+
+/** The answer for a scenario verified at `bdd_red` after a return, unless the cycle has no code, which the usual rules judge; nothing for any other target. */
+function answerIfReturned(io: CliIo, config: ProjectConfig, parsed: Target, target: string): number | undefined {
+  if (parsed.kind !== TARGET.scenario) return undefined;
+  const { scenario } = parsed;
+  const returned = returnedFeature(io.cwd, config.paths.progress);
+  if (returned === undefined) return undefined;
+  const passes = (): boolean => observeBdd(io.cwd, config, scenario).failure.kind === FAILURE.passed;
+  const judged = judgeReturn(io.cwd, returned, (name) => isInsideSource(config.paths.source, name), passes);
+  return judged.kind === "no_code" ? undefined : answerReturn(io, config.paths.progress, returned, target, judged);
+}
+
+/** The answer for a target that needs no observation: step files that would not load, or a scenario judged against the return of its feature. Nothing otherwise. */
+function answerBeforeRunning(io: CliIo, config: ProjectConfig, parsed: Target, target: string): number | undefined {
+  const unloadable = unloadableAnswer(io.cwd, config, parsed);
+  if (unloadable === undefined) return answerIfReturned(io, config, parsed, target);
+  recordObservation(io.cwd, { target, step: BDD_RED, message: unloadable, needsDecision: false });
+  io.stdout(unloadable);
+  return 1;
 }
 
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. With `--decide`, answers the failure the last run recorded instead. */
@@ -207,13 +242,11 @@ export function runVerify(io: CliIo, args: string[]): number {
   const config = loadVerifyConfig(io.cwd);
   if (decision !== undefined) return answerRecorded(io, config, target, decision);
   const step = parsed.kind === TARGET.test ? TDD_RED : BDD_RED;
-  const unloadable = unloadableAnswer(io.cwd, config, parsed);
-  if (unloadable !== undefined) {
-    recordObservation(io.cwd, { target, step, message: unloadable, needsDecision: false });
-    io.stdout(unloadable);
-    return 1;
-  }
+  const early = answerBeforeRunning(io, config, parsed, target);
+  if (early !== undefined) return early;
   const observation = parsed.kind === TARGET.test ? observeUnit(io.cwd, config, parsed.test) : observeBdd(io.cwd, config, parsed.scenario);
+  const passedAtOnce = answerPassed(io, config, parsed, target, observation);
+  if (passedAtOnce !== undefined) return passedAtOnce;
   const verdict = classifyObservation(io.cwd, config, observation);
   const message = "message" in observation.failure ? observation.failure.message : "";
   recordObservation(io.cwd, { target, step, message, needsDecision: verdict.outcome === OUTCOME.decision });

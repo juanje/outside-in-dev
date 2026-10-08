@@ -2729,7 +2729,45 @@
     {
       "id": "FR-VERIFY-06",
       "title": "Fix a step after the code exists",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A step fixed after the code exists returns the feature to where it came from",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that still fails does not return the feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "Source changed after going back does not return the feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that passes without this cycle's code does not return the feature, and the code is restored",
+          "bdd": "pass"
+        },
+        {
+          "name": "Integrity after going back allows step changes and refuses source changes",
+          "bdd": "pass"
+        },
+        {
+          "name": "Going back from a Red with no code yet moves to the unit test whether the scenario fails as a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Going back from a Red with no code yet moves to the unit test also when the scenario already passes",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a return, a scenario that passes with the evidence of an earlier green moves the feature to tdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "There is no manual move from bdd_red to tdd_green or refactor",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

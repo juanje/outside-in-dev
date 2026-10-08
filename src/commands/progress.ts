@@ -1,5 +1,7 @@
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
-import { advanceStep, dropScenario, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { hasHead } from "../artifacts/checkpoint.js";
+import { clearReturn, recordReturn } from "../artifacts/return-record.js";
+import { advanceStep, dropScenario, CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
@@ -48,10 +50,15 @@ function unfocus(progress: Progress, io: Context): void {
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
+/** The steps a feature can go back to `bdd_red` from, which records a return. */
+const RETURN_FROM: string[] = [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor];
+
 function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step);
   saveProgress(io.cwd, progress, io.paths.progress);
+  clearReturn(io.cwd, id);
+  if (step === CYCLE_STEP.bddRed && RETURN_FROM.includes(feature.cycle_step ?? "") && hasHead(io.cwd)) recordReturn(io.cwd, id, feature.cycle_step!);
 }
 
 /** The word of `oid progress scenario` that removes a pending scenario instead of recording a status. */
@@ -71,6 +78,7 @@ function doneFeature(progress: Progress, io: Context, id: string): void {
   progress.features[progress.features.indexOf(feature)] = done;
   if (progress.current_focus === id) progress.current_focus = null;
   saveProgress(io.cwd, progress, io.paths.progress);
+  clearReturn(io.cwd, id);
 }
 
 function showStatus(progress: Progress, io: Context, all: boolean): void {

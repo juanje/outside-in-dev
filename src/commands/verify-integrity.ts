@@ -7,6 +7,7 @@ import { NEWLINE } from "../artifacts/lines.js";
 import { CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, loadProgress, type Progress, ProgressError } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 import { readText } from "../artifacts/project-json.js";
+import { changedSinceReturn, readReturn } from "../artifacts/return-record.js";
 import { sourceReadLines } from "../artifacts/source-reads.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { listScenarios } from "../artifacts/traceability.js";
@@ -62,9 +63,14 @@ function describeChange(cwd: string, config: ProjectConfig, progress: Progress |
   };
 }
 
-/** One line for each rule of `step` that the changes since the checkpoint of the feature in focus break. */
+/** The files that changed since what the feature in focus is judged against: the return it made to `bdd_red` when it has one, and its checkpoint otherwise. */
+function changedFiles(cwd: string, focus: string | null, step: string): string[] {
+  return step === CYCLE_STEP.bddRed && focus !== null && readReturn(cwd, focus) !== undefined ? changedSinceReturn(cwd, focus) : changedSinceCheckpoint(cwd, focus);
+}
+
+/** One line for each rule of `step` that the changes since the checkpoint of the feature in focus (since its return, at `bdd_red` after one) break. */
 export function integrityProblems(cwd: string, config: ProjectConfig, progress: Progress | undefined, step: string): string[] {
-  const files = changedSinceCheckpoint(cwd, progress?.current_focus ?? null).map((file) => describeChange(cwd, config, progress, file));
+  const files = changedFiles(cwd, progress?.current_focus ?? null, step).map((file) => describeChange(cwd, config, progress, file));
   return integrityViolations(step, files, forbiddenPatterns(config));
 }
 
