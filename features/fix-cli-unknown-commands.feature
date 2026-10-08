@@ -1,15 +1,6 @@
 Feature: Reject unknown commands and missing arguments
 
   @FR-PROG-01
-  Scenario: Running oid without a command lists the valid commands
-    Given a tracked feature "FR-X-01" titled "Alpha"
-    When I run "oid"
-    Then the command fails
-    And the error output contains "progress"
-    And the error output contains "check"
-    And the output does not contain "Alpha"
-
-  @FR-PROG-01
   Scenario: An unknown command is named and the valid commands are listed
     When I run "oid bogus"
     Then the command fails

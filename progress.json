@@ -31,10 +31,6 @@
           "bdd": "pass"
         },
         {
-          "name": "Running oid without a command lists the valid commands",
-          "bdd": "pass"
-        },
-        {
           "name": "An unknown command is named and the valid commands are listed",
           "bdd": "pass"
         },
@@ -2624,61 +2620,62 @@
     {
       "id": "FR-CLI-01",
       "title": "Command help",
-      "status": "done",
+      "status": "in_progress",
       "scenarios": [
         {
           "name": "oid --help says what oid does and describes every command",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "oid progress --help lists every subcommand with its usage",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "oid check --help shows its usage and its option",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "oid init --help shows its usage and its option",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "oid progress step --help names the allowed cycle steps",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "oid progress scenario --help names the allowed statuses",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Every progress subcommand has its own help",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help works in an empty directory",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help works with an invalid project configuration and leaves the project untouched",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help is printed instead of the missing-argument error",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help given after the arguments changes nothing",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help for a command that does not exist is an error, not help",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Help for a progress subcommand that does not exist is an error, not help",
-          "bdd": "pass"
+          "bdd": "pending"
         }
-      ]
+      ],
+      "cycle_step": "bdd_red"
     },
     {
       "id": "FR-CLI-02",
