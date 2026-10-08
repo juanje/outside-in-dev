@@ -37,7 +37,9 @@ const FIXTURE_COMMANDS = { bdd: "node bdd.mjs", unit: "node unit.mjs", typecheck
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CUCUMBER_PATHS = { ...FIXTURE_PATHS, unit_tests: ["tests/unit/**/*.ts"], bdd_steps: ["features/steps/**/*.ts"] };
 const CUCUMBER_COMMANDS = { ...FIXTURE_COMMANDS, bdd: 'NODE_OPTIONS="--import tsx" node_modules/.bin/cucumber-js' };
-const REPLAY_COMMANDS = { ...FIXTURE_COMMANDS, bdd: "node bdd-replay.mjs" };
+/** The replay scripts are plain JavaScript: the commands clear the NODE_OPTIONS that the cucumber run sets (`--import tsx`), which would make each of them load the TypeScript loader for nothing. */
+const REPLAY_NODE = "NODE_OPTIONS= node";
+const REPLAY_COMMANDS = { ...FIXTURE_COMMANDS, bdd: `${REPLAY_NODE} bdd-replay.mjs` };
 const EXTRA_CHECK_FILE = "extra-check.mjs";
 const SUPPORT = join(REPO_ROOT, "features", "support");
 const BASELINE_REPLAY = "baseline-green";
@@ -170,7 +172,7 @@ export function commit(world: OidWorld): void {
   const { loop, limit } = fixture.cucumber ?? {};
   const realLoop = loop !== undefined && realRunner.has(world);
   const bddCommands = fixture.cucumber === undefined ? FIXTURE_COMMANDS : realRunner.has(world) ? CUCUMBER_COMMANDS : REPLAY_COMMANDS;
-  const loopCommands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : "node unit-replay.mjs", typecheck: realLoop ? REAL_TYPECHECK_COMMAND : "node typecheck-replay.mjs" };
+  const loopCommands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : `${REPLAY_NODE} unit-replay.mjs`, typecheck: realLoop ? REAL_TYPECHECK_COMMAND : `${REPLAY_NODE} typecheck-replay.mjs` };
   const { format, lint, extraCheck } = fixture.tools;
   const commands = { ...loopCommands, format: format ? "node prettier.mjs" : null, lint: lint ? "node eslint.mjs" : null, extra_checks: extraCheck === undefined ? [] : [`node ${EXTRA_CHECK_FILE}`] };
   if (format) writeIn(world, "prettier.mjs", PRETTIER_TOOL);
