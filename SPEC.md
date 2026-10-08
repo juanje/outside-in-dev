@@ -182,6 +182,10 @@ Reject step files that statically import modules or exports that do not exist ye
 
 `oid verify integrity` reports changes, since the checkpoint of the feature in focus, outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature with no checkpoint of its own is judged against the single checkpoint when that names it.
 
+### FR-VERIFY-06: Fix a step after the code exists
+
+A step definition found wrong at `tdd_green` or `refactor` is fixed by going back to `bdd_red`, never in place. Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written in this cycle, which it restores afterwards. When this cycle has no code yet, the scenario must be a valid Red as usual and the feature moves to `tdd_red`. There is no manual move from `bdd_red` to `tdd_green` or `refactor`.
+
 ## Functional Requirements — Git isolation
 
 
