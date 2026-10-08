@@ -47,7 +47,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 - Write the **minimum** code in `src/` to make the test pass. Before writing a new function or constant, check whether one already exists (search the exported symbols of `src/`).
 - Do not touch tests in this step.
-- Run `oid verify green`: the whole unit suite, every scenario recorded as `pass`, and the type check of `src/`. It must say `green: ok`. Type errors in the unit tests or the step definitions are not allowed either (`npx tsc --noEmit`).
+- Run `oid verify green`: the whole unit suite, the scenarios recorded as `pass` of the feature in focus (and of the features of its targets), and the type check of `src/`. It must say `green: ok`. The scenarios of other features run in the quality gate (step 6, ADR-036). Type errors in the unit tests or the step definitions are not allowed either (`npx tsc --noEmit`).
 
 ### 5. Refactor [`refactor`]
 
@@ -63,6 +63,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 - Run `oid metrics --changed` over the whole diff of the feature (tests, steps and docs included) and fix its findings as separate refactor commits or changes.
 - Run the full quality gate (`AGENTS.md`). Every check passes, or go back to the step that owns the failure. A gap seen at the gate (a behaviour with no scenario or no test) is a new Red: `oid progress step FR-… bdd_red` or `tdd_red`; the feature file is not edited inside `quality_gate`.
+- A scenario of another feature that fails in the gate is a regression of this feature's change: go back to a Red (`oid progress step FR-… bdd_red` or `tdd_red`) and fix it before committing (ADR-036).
 
 ### 7. Done
 
