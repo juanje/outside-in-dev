@@ -5,6 +5,7 @@ import type { Finding } from "../artifacts/findings.js";
 import { isObject, ProgressError } from "../artifacts/progress.js";
 import { readJson } from "../artifacts/project-json.js";
 import type { InputRequest } from "../events/types.js";
+import type { GateBaseline } from "./gate-checks.js";
 
 /** The directory of oid's local state, relative to the project. */
 export const OUTSIDE_IN_DIR = ".outside-in";
@@ -66,4 +67,10 @@ export function keepPendingFindings(cwd: string, runId: string, findings: Findin
 /** The identity of the findings the detectors reported when the run started, from the baseline of the run. */
 export function runBaselineFindings(cwd: string, runId: string): string[] {
   return ((readJson(cwd, `${OUTSIDE_IN_DIR}/runs/${runId}/baseline.json`) as { findings?: string[] }).findings) ?? [];
+}
+
+/** What the baseline of the run holds for the quality gate: the lint errors, type errors and traceability violations the project had when the run started. */
+export function runGateBaseline(cwd: string, runId: string): GateBaseline {
+  const recorded = readJson(cwd, `${OUTSIDE_IN_DIR}/runs/${runId}/baseline.json`) as Partial<GateBaseline>;
+  return { lint: recorded.lint ?? [], types: recorded.types ?? [], traceability: recorded.traceability ?? [] };
 }

@@ -47,6 +47,11 @@ function runWriting(cwd: string, commandLine: string, reportPath?: string): { ex
   return { exitCode: status, stdout: stdout.toString(), stderr: stderr.toString() };
 }
 
+/** Runs a command line through the shell in the project and returns its exit code and what it printed. */
+export function runCommand(cwd: string, commandLine: string): { exitCode: number | null; stdout: string; stderr: string } {
+  return runWriting(cwd, commandLine);
+}
+
 /** Runs the configured unit command for one test in the project and returns its exit code and the JSON report it wrote, if any. */
 export function runUnitTest(cwd: string, command: string, test: { file: string; name: string }): { exitCode: number | null; report: unknown } {
   const { exitCode } = runWriting(cwd, unitRunCommand(command, test, UNIT_REPORT), UNIT_REPORT);

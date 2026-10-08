@@ -21,5 +21,7 @@
   "bdd-remove-line-missing": 1,
   "bdd-all-green": 0,
   "typecheck-error": 1,
-  "bdd-missing-implementation": 1
+  "bdd-missing-implementation": 1,
+  "suite-red": 1,
+  "typecheck-error-in-test": 1
 }

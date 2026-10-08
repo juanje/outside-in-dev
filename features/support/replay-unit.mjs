@@ -26,11 +26,12 @@ const COUNT_FILE = join(".outside-in", "replay-unit.count");
 const position = existsSync(COUNT_FILE) ? Number(readFileSync(COUNT_FILE, "utf8")) : 0;
 mkdirSync(dirname(COUNT_FILE), { recursive: true });
 writeFileSync(COUNT_FILE, String(position + 1));
-if (position >= replay.sequence.length) {
+// `replay.after`, when the fixture names one, answers every call beyond the sequence (the gate's full run).
+if (position >= replay.sequence.length && replay.after === undefined) {
   console.error(`the run made more unit calls than the ${replay.sequence.length} recordings of the fixture`);
   process.exit(2);
 }
-const name = replay.sequence[position];
+const name = replay.sequence[position] ?? replay.after;
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, readFileSync(join(here, "replay", `${name}.json`), "utf8").split("<root>").join(process.cwd()));
 process.exit(replay.exitCodes[name]);

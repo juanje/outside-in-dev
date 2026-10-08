@@ -9,7 +9,9 @@ import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { createEventBus } from "../events/bus.js";
 import { ABORTED, ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
-import { BDD_RED, CODE_GREEN, REFACTOR, TDD_RED } from "../agents/profiles.js";
+import { BDD_RED, CODE_GREEN, QUALITY_FIX, REFACTOR, TDD_RED } from "../agents/profiles.js";
+import { gateBaseline } from "./gate-baseline.js";
+import type { GateBaseline } from "./gate-checks.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { runDirectory, startSession, updateSession } from "./session.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
@@ -22,7 +24,7 @@ import { newRunId } from "./run-id.js";
 export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void };
 
 /** The states of the orchestrator that a start goes through (design section 6.1). */
-export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, refactor: REFACTOR, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", aborted: ABORTED, done: "DONE" } as const;
+export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, refactor: REFACTOR, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", qualityFix: QUALITY_FIX, frCommit: "FR_COMMIT", aborted: ABORTED, done: "DONE" } as const;
 
 type Bus = ReturnType<typeof createEventBus>;
 
@@ -35,11 +37,11 @@ export function transition(bus: Bus, from: string, to: string, reason: string): 
 }
 
 /** Records the baseline of the run, what the suite showed at the start and, when detectors ran, the identity of the findings they reported, and keeps the reports the suite came from. */
-function recordBaseline(cwd: string, runId: string, workspace: Workspace, suite: SuiteResult, findings?: string[]): void {
+function recordBaseline(cwd: string, runId: string, workspace: Workspace, suite: SuiteResult, gate: GateBaseline | undefined, findings?: string[]): void {
   const run = runDirectory(cwd, runId);
   const unitReport = join(run, "tests/0-unit.json");
   mkdirSync(dirname(unitReport), { recursive: true });
-  writeFileAtomic(join(run, "baseline.json"), `${JSON.stringify({ startCommit: workspace.startCommit, unit: { failed: suite.unit }, bdd: { failed: suite.bdd }, ...(findings === undefined ? {} : { findings }) })}\n`);
+  writeFileAtomic(join(run, "baseline.json"), `${JSON.stringify({ startCommit: workspace.startCommit, unit: { failed: suite.unit }, bdd: { failed: suite.bdd }, ...gate, ...(findings === undefined ? {} : { findings }) })}\n`);
   writeFileAtomic(unitReport, suite.reports.unit);
   writeFileAtomic(join(run, "tests/0-bdd.ndjson"), suite.reports.bdd);
 }
@@ -63,7 +65,8 @@ function goThroughStart({ cwd, args, runId, bus, commands, now, detect }: Start)
   transition(bus, STATE.preflight, STATE.baseline, "worktree ready");
   const suite = runSuite(workspace.path, commands);
   const suiteIsGreen = suite.unit.length + suite.bdd.length === 0;
-  recordBaseline(cwd, runId, workspace, suite, suiteIsGreen && detect !== undefined ? detect(workspace.path).map(findingKey) : undefined);
+  const gate = suiteIsGreen ? gateBaseline(workspace.path, loadProjectConfig(workspace.path)) : undefined;
+  recordBaseline(cwd, runId, workspace, suite, gate, suiteIsGreen && detect !== undefined ? detect(workspace.path).map(findingKey) : undefined);
   if (!suiteIsGreen) return askAboutRedSuite(bus, suite);
   transition(bus, STATE.baseline, STATE.specCheck, "the suite is green");
   const targets = selectTargets(args, readRequirementIds(workspace.path), loadProgress(workspace.path));

@@ -14,10 +14,12 @@ import type { OidWorld } from "../support/world.js";
 type Status = "done" | "pending" | "in progress";
 type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null };
 /** The project that runs its scenarios with cucumber: the scenario of the feature that is done and passing, and the recorded report the BDD command replays for the gate run (`DEFAULT_REPLAY` unless the step says otherwise). */
-type Cucumber = { feature: string; scenario: string; replay: string | string[]; loop?: Loop; limit?: number };
+type Cucumber = { feature: string; scenario: string; replay: string | string[]; loop?: Loop; limit?: number; suite?: string[] };
+/** The tools of the quality gate a project has: scripts that behave like the formatter and the linter oid recognises by name, and an extra check that fails. */
+export type Tools = { format: boolean; lint: boolean; extraCheck?: string };
 /** The unit tests and the type check of a project that runs the inner loop: the recorded vitest reports its unit command replays in order (the first is the baseline run), and the recorded type check output, if any. */
 export type Loop = { unit: string[]; typecheck: string | null | (string | null)[] };
-type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber };
+type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber; tools: Tools };
 export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
 export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
 
@@ -36,8 +38,10 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CUCUMBER_PATHS = { ...FIXTURE_PATHS, unit_tests: ["tests/unit/**/*.ts"], bdd_steps: ["features/steps/**/*.ts"] };
 const CUCUMBER_COMMANDS = { ...FIXTURE_COMMANDS, bdd: 'NODE_OPTIONS="--import tsx" node_modules/.bin/cucumber-js' };
 const REPLAY_COMMANDS = { ...FIXTURE_COMMANDS, bdd: "node bdd-replay.mjs" };
+const EXTRA_CHECK_FILE = "extra-check.mjs";
 const SUPPORT = join(REPO_ROOT, "features", "support");
 const BASELINE_REPLAY = "baseline-green";
+const GATE_UNIT_REPORT = "unit-green";
 export const DEFAULT_REPLAY = "missing-implementation";
 const REAL_UNIT_COMMAND = "node_modules/.bin/vitest run";
 const REAL_TYPECHECK_COMMAND = "node_modules/.bin/tsc --noEmit";
@@ -86,6 +90,27 @@ mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
 `;
 
+/** A script that behaves like ESLint for the flags oid appends: it reports every TODO comment of `src` (as ESLint JSON with `--format json`) and fixes nothing. */
+const ESLINT_TOOL = `import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+const files = (dir) => readdirSync(dir).flatMap((name) => (statSync(join(dir, name)).isDirectory() ? files(join(dir, name)) : name.endsWith(".ts") ? [join(dir, name)] : []));
+const results = files("src").map((file) => ({ filePath: resolve(file), messages: readFileSync(file, "utf8").split("\\n").flatMap((line, at) => (line.includes("TODO") ? [{ ruleId: "no-todo", severity: 2, message: "Unexpected TODO comment.", line: at + 1, column: 1 }] : [])) }));
+const failed = results.some((result) => result.messages.length > 0);
+const args = process.argv.slice(2);
+if (args.includes("--format") && args[args.indexOf("--format") + 1] === "json") console.log(JSON.stringify(results));
+process.exit(failed ? 1 : 0);
+`;
+
+/** A script that behaves like Prettier for the flags oid appends: `--write` removes the trailing spaces of `src`, `--check` lists the files that have some and fails. */
+const PRETTIER_TOOL = `import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+const files = (dir) => readdirSync(dir).flatMap((name) => (statSync(join(dir, name)).isDirectory() ? files(join(dir, name)) : name.endsWith(".ts") ? [join(dir, name)] : []));
+const untidy = files("src").filter((file) => / +$/m.test(readFileSync(file, "utf8")));
+if (process.argv.includes("--write")) for (const file of untidy) writeFileSync(file, readFileSync(file, "utf8").replace(/ +$/gm, ""));
+if (process.argv.includes("--check")) for (const file of untidy) console.log("[warn] " + file);
+process.exit(process.argv.includes("--check") && untidy.length > 0 ? 1 : 0);
+`;
+
 /** The files of a project whose passing scenario runs with cucumber, with the steps of that scenario and a source file to reuse. */
 function cucumberFiles({ feature, scenario }: Cucumber): Record<string, string> {
   return {
@@ -99,11 +124,11 @@ function cucumberFiles({ feature, scenario }: Cucumber): Record<string, string> 
 }
 
 /** The fake BDD runner of the project and the recordings it replays: the green baseline and the report of the gate run. */
-function writeReplay(world: OidWorld, gate: string | string[]): void {
+function writeReplay(world: OidWorld, gate: string | string[], suite: string[] = []): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
   writeIn(world, "bdd-replay.mjs", readFileSync(join(SUPPORT, "replay-bdd.mjs"), "utf8"));
-  writeIn(world, "replay/replay.json", JSON.stringify({ baseline: BASELINE_REPLAY, gate, exitCodes }));
-  for (const name of new Set([BASELINE_REPLAY, ...[gate].flat()])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
+  writeIn(world, "replay/replay.json", JSON.stringify({ baseline: suite.length === 0 ? BASELINE_REPLAY : [BASELINE_REPLAY, ...suite], gate, exitCodes }));
+  for (const name of new Set([BASELINE_REPLAY, ...suite, ...[gate].flat()])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
 }
 
 /** The fake unit runner and type check of the project and the recordings they replay. */
@@ -111,9 +136,11 @@ function writeLoopReplay(world: OidWorld, { unit, typecheck }: Loop): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
   writeIn(world, "unit-replay.mjs", readFileSync(join(SUPPORT, "replay-unit.mjs"), "utf8"));
   writeIn(world, "typecheck-replay.mjs", readFileSync(join(SUPPORT, "replay-typecheck.mjs"), "utf8"));
-  writeIn(world, "replay/unit.json", JSON.stringify({ sequence: unit, exitCodes }));
-  writeIn(world, "replay/typecheck.json", JSON.stringify({ recording: typecheck, exitCodes }));
-  for (const name of new Set(unit)) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
+  // The full unit run of the quality gate follows the runs of the loop; unless a scenario scripts it, it passes. The type check
+  // of the start of the run comes before the runs of the loop.
+  writeIn(world, "replay/unit.json", JSON.stringify({ sequence: unit, after: GATE_UNIT_REPORT, exitCodes }));
+  writeIn(world, "replay/typecheck.json", JSON.stringify({ recording: Array.isArray(typecheck) ? [null, ...typecheck] : typecheck, exitCodes }));
+  for (const name of new Set([...unit, GATE_UNIT_REPORT])) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
   for (const name of new Set([typecheck].flat())) if (name !== null) writeIn(world, `replay/${name}.txt`, readFileSync(join(SUPPORT, "recorded", `${name}.txt`), "utf8"));
 }
 
@@ -143,11 +170,16 @@ export function commit(world: OidWorld): void {
   const { loop, limit } = fixture.cucumber ?? {};
   const realLoop = loop !== undefined && realRunner.has(world);
   const bddCommands = fixture.cucumber === undefined ? FIXTURE_COMMANDS : realRunner.has(world) ? CUCUMBER_COMMANDS : REPLAY_COMMANDS;
-  const commands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : "node unit-replay.mjs", typecheck: realLoop ? REAL_TYPECHECK_COMMAND : "node typecheck-replay.mjs" };
+  const loopCommands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : "node unit-replay.mjs", typecheck: realLoop ? REAL_TYPECHECK_COMMAND : "node typecheck-replay.mjs" };
+  const { format, lint, extraCheck } = fixture.tools;
+  const commands = { ...loopCommands, format: format ? "node prettier.mjs" : null, lint: lint ? "node eslint.mjs" : null, extra_checks: extraCheck === undefined ? [] : [`node ${EXTRA_CHECK_FILE}`] };
+  if (format) writeIn(world, "prettier.mjs", PRETTIER_TOOL);
+  if (lint) writeIn(world, "eslint.mjs", ESLINT_TOOL);
+  if (extraCheck !== undefined) writeIn(world, EXTRA_CHECK_FILE, `console.log(${JSON.stringify(extraCheck)});\nprocess.exit(1);\n`);
   const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands, ...(limit === undefined ? {} : { limits: { max_inner_iterations: limit } }) };
   if (fixture.cucumber) {
     for (const [name, content] of Object.entries(cucumberFiles(fixture.cucumber))) writeIn(world, name, content);
-    if (bddCommands === REPLAY_COMMANDS) writeReplay(world, fixture.cucumber.replay);
+    if (bddCommands === REPLAY_COMMANDS) writeReplay(world, fixture.cucumber.replay, fixture.cucumber.suite);
     if (loop !== undefined) {
       writeIn(world, "tests/unit/cart.test.ts", EXISTING_UNIT_TEST);
       writeIn(world, "tsconfig.json", TSCONFIG);
@@ -191,10 +223,16 @@ Before({ tags: "@FR-RUN-04" }, function (this: OidWorld, { pickle }) {
   if (pickle.name === REAL_LOOP_SCENARIO) realRunner.add(this);
 });
 
+const REAL_GATE_SCENARIO = "With the real runners, the formatter and the linter fix the code, every check passes and the feature moves on to its commit";
+
 const REAL_REFACTOR_SCENARIO = "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent";
 
 Before({ tags: "@FR-RUN-05" }, function (this: OidWorld, { pickle }) {
   if (pickle.name === REAL_REFACTOR_SCENARIO) realRunner.add(this);
+});
+
+Before({ tags: "@FR-RUN-06" }, function (this: OidWorld, { pickle }) {
+  if (pickle.name === REAL_GATE_SCENARIO) realRunner.add(this);
 });
 
 Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {
@@ -214,7 +252,7 @@ Given("a git project with a green suite", function (this: OidWorld) {
   writeIn(this, "README.md", "# Project\n");
   writeIn(this, "src/totals.ts", "export const cartSourceMarker = 1;\n");
   writeIn(this, "tests/unit/cart.test.ts", "// cart-test-marker\n");
-  fixtures.set(this, { requirements: [], tracked: new Map(), suite: { unitFailing: [], bddFailing: [], printFailed: false, reportLock: null }, config: true });
+  fixtures.set(this, { requirements: [], tracked: new Map(), suite: { unitFailing: [], bddFailing: [], printFailed: false, reportLock: null }, config: true, tools: { format: false, lint: false } });
   commit(this);
 });
 

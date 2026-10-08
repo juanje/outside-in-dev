@@ -18,6 +18,10 @@
 // the report of a baseline run (no locations); save them under the names above and update exit-codes.json.
 // A gate recording must hold exactly the scenarios the locations select; this script checks the count.
 //
+// Recordings suite-red (cucumber-js 13.3.0 on a fixture whose "Add to cart" step fails, the whole suite) and typecheck-error-in-test
+// (the typescript of this repository, a tsconfig including tests/ and a test file with `const count: number = "one"`) were made the same way;
+// <root> stands for the directory they were recorded in.
+//
 // `gate` may also be a list of names: the gate runs of one `oid run` then replay them in order, one for each call with
 // locations (the position is kept in .outside-in/replay-bdd.count, which git ignores). A recording may hold <root> in
 // place of the directory it was recorded in (the recorder of features/run-04.feature does); it is replaced by the
@@ -43,7 +47,17 @@ function gateName() {
   }
   return replay.gate[position];
 }
-const name = locations.length === 0 ? replay.baseline : gateName();
+// `baseline` may also be a list: the calls with no locations (the start of the run, then the gate's run of the whole
+// suite) replay its entries in order, the last one for every call beyond the list (position in .outside-in/replay-bdd-suite.count).
+const SUITE_COUNT_FILE = join(".outside-in", "replay-bdd-suite.count");
+function suiteName() {
+  if (!Array.isArray(replay.baseline)) return replay.baseline;
+  const position = existsSync(SUITE_COUNT_FILE) ? Number(readFileSync(SUITE_COUNT_FILE, "utf8")) : 0;
+  mkdirSync(dirname(SUITE_COUNT_FILE), { recursive: true });
+  writeFileSync(SUITE_COUNT_FILE, String(position + 1));
+  return replay.baseline[Math.min(position, replay.baseline.length - 1)];
+}
+const name = locations.length === 0 ? suiteName() : gateName();
 const recording = join(here, "replay", `${name}.ndjson`);
 const started = readFileSync(recording, "utf8").split("\n").filter((line) => line.startsWith('{"testCaseStarted"')).length;
 if (locations.length > 0 && started !== locations.length) {

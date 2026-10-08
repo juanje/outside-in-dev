@@ -17,8 +17,9 @@ describe("the inner loop of a run", () => {
     const { saved, log } = await approvedRun(project, agent);
     const subjects = gitIn(saved.worktree, "log", "--format=%s").split("\n").reverse().filter((subject) => subject.startsWith("oid: checkpoint FR-A-01") && subject.endsWith(SCENARIO));
     const feature = readJson(join(saved.worktree, "progress.json")).features[0];
+    const all = log.filter((event) => event.type === "state_change").map((event) => `${event.from} > ${event.to}`);
     expect({
-      moves: log.filter((event) => event.type === "state_change").slice(-4).map((event) => `${event.from} > ${event.to}`),
+      moves: all.slice(all.indexOf("BDD_RED > TDD_RED"), all.indexOf("BDD_RED > TDD_RED") + 4),
       subjects,
       feature: [feature.cycle_step, feature.scenarios],
       unitTests: saved.scenarioUnitTests,

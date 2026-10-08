@@ -9,6 +9,8 @@ export interface CheckpointOptions {
   fr: string;
   state: string;
   scenario?: string;
+  /** Whether the checkpoint is a commit even when nothing changed: the gate that passed is itself the evidence. */
+  allowEmpty?: boolean;
 }
 
 const WORD_SEPARATOR = " ";
@@ -18,14 +20,14 @@ const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --me
 
 /** Commits everything the step changed on the run's branch and returns the commit; when nothing changed, returns the current one. */
 export function checkpoint(workspace: Workspace, options: CheckpointOptions): string {
-  return commitAll(workspace, ["oid: checkpoint", options.fr, options.state, options.scenario].filter(Boolean).join(WORD_SEPARATOR));
+  return commitAll(workspace, ["oid: checkpoint", options.fr, options.state, options.scenario].filter(Boolean).join(WORD_SEPARATOR), options.allowEmpty);
 }
 
-/** Commits everything that changed in the run's worktree with `message` and returns the commit; when nothing changed, returns the current one. */
-export function commitAll(workspace: Workspace, message: string): string {
+/** Commits everything that changed in the run's worktree with `message` and returns the commit; when nothing changed, returns the current one, unless an empty commit is wanted. */
+export function commitAll(workspace: Workspace, message: string, allowEmpty = false): string {
   requireRunBranch(workspace);
   git(workspace.path, "add -A");
-  if (git(workspace.path, "status --porcelain") !== "") git(workspace.path, QUIET_COMMIT, message);
+  if (allowEmpty || git(workspace.path, "status --porcelain") !== "") git(workspace.path, QUIET_COMMIT, message, ...(allowEmpty ? ["--allow-empty"] : []));
   return headCommit(workspace.path);
 }
 

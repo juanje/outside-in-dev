@@ -20,7 +20,7 @@ import type { CliIo } from "../cli-io.js";
 export const GREEN = "green";
 
 /** The names of the two suites in the problems a Green lists. */
-const SUITE = { unit: "unit", bdd: "bdd" } as const;
+export const SUITE = { unit: "unit", bdd: "bdd" } as const;
 /** The vitest status of a test that ran and passed. */
 const TEST_PASSED = FAILURE.passed;
 

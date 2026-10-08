@@ -29,6 +29,10 @@ const TEST_TASK_MARKER = "You write one failing unit test";
 const CODE_TASK_MARKER = "You write the minimum code";
 /** The words the prompt of the refactoring task starts with. */
 const REFACTOR_TASK_MARKER = "You fix exactly the findings";
+/** The words the prompt of a quality fix starts with, and the owner it names: the unit tests, or the source files. */
+const QUALITY_FIX_MARKER = "You fix exactly the lint and type errors";
+const QUALITY_FIX_TESTS = "the unit tests you own";
+const QUALITY_FIX_SOURCE = "the source files you own";
 const USAGE = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 
 /** A valid feature file for the requirement; each round differs, so that a rewrite changes the file. */
@@ -115,6 +119,7 @@ export class FakeAgent {
   }
 
   private unitRoute(text: string): Route | undefined {
+    if (text.includes(QUALITY_FIX_MARKER)) return text.includes(QUALITY_FIX_TESTS) ? this.testRoute : text.includes(QUALITY_FIX_SOURCE) ? this.codeRoute : undefined;
     if (text.includes(TEST_TASK_MARKER)) return this.testRoute;
     if (text.includes(REFACTOR_TASK_MARKER)) return this.refactorRoute;
     return text.includes(CODE_TASK_MARKER) ? this.codeRoute : undefined;

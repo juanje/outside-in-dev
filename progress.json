@@ -2410,7 +2410,29 @@
     {
       "id": "FR-RUN-06",
       "title": "Quality gate",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "With the real runners, the formatter and the linter fix the code, every check passes and the feature moves on to its commit",
+          "bdd": "pass"
+        },
+        {
+          "name": "A lint error the run introduced goes to the coding agent, and what the project already had is not asked about",
+          "bdd": "pass"
+        },
+        {
+          "name": "A type error the run introduced in a unit test goes to the test-writing agent, with the tools and the sandbox of TDD Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Errors that are still there after the fix are put to the human, who can see the whole output and abort",
+          "bdd": "pass"
+        },
+        {
+          "name": "A check that no agent owns puts the question to the human, with what failed",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-07",
