@@ -2673,6 +2673,10 @@
         {
           "name": "Help for a progress subcommand that does not exist is an error, not help",
           "bdd": "pass"
+        },
+        {
+          "name": "oid with no command prints the same help as oid --help",
+          "bdd": "pass"
         }
       ]
     },
