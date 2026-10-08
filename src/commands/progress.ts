@@ -1,7 +1,7 @@
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { hasHead } from "../artifacts/checkpoint.js";
 import { clearReturn, recordReturn } from "../artifacts/return-record.js";
-import { advanceStep, dropScenario, CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
+import { advanceStep, dropScenario, CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, reviseFeature, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
@@ -81,6 +81,13 @@ function doneFeature(progress: Progress, io: Context, id: string): void {
   clearReturn(io.cwd, id);
 }
 
+function reviseRequirement(progress: Progress, io: Context, id: string): void {
+  const feature = requireFeature(progress, id, io.paths.progress);
+  progress.features[progress.features.indexOf(feature)] = reviseFeature(feature);
+  saveProgress(io.cwd, progress, io.paths.progress);
+  clearReturn(io.cwd, id);
+}
+
 function showStatus(progress: Progress, io: Context, all: boolean): void {
   const listed = all ? progress.features : progress.features.filter((f) => f.status !== FEATURE_STATUS.done);
   for (const feature of listed) {
@@ -120,6 +127,7 @@ const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
   },
   done: { summary: "Mark a feature done once every scenario passes", operands: [ID] },
   unfocus: { summary: "Clear the focus", operands: [] },
+  revise: { summary: "Put a feature back to bdd_red with every scenario pending, when its requirement changed", operands: [ID] },
 };
 const SUBCOMMANDS = Object.keys(SUBCOMMAND_HELP);
 
@@ -154,6 +162,7 @@ const ACTIONS: Record<string, Action> = {
   scenario: (progress, io, [status, id, name]) => recordFeatureScenario(progress, io, status!, id!, name!),
   done: (progress, io, [id]) => doneFeature(progress, io, id!),
   unfocus: (progress, io) => unfocus(progress, io),
+  revise: (progress, io, [id]) => reviseRequirement(progress, io, id!),
 };
 
 export function runProgress(args: string[], cli: CliIo): void {

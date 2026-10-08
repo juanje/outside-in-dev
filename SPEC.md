@@ -78,6 +78,10 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 Every command validates `progress.json` against its schema before and after writing, refuses unknown fields and reports the exact violation. Free-form notes in the progress file degrade it within a few sessions; the schema is what prevents that.
 
+### FR-PROG-08: Revise a requirement
+
+`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
+
 ## Functional Requirements — Consistency checks
 
 

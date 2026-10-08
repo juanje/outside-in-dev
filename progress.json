@@ -2768,6 +2768,29 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-PROG-08",
+      "title": "Revise a requirement",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A done feature with passing scenarios is reset to bdd_red with every scenario pending",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature at a later cycle step is reset the same way",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature already at bdd_red is left as it is",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature that is not tracked is refused",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

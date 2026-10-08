@@ -112,6 +112,13 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
   return { ...feature, scenarios };
 }
 
+/** Returns the feature back at `bdd_red` with every scenario pending, or the same feature when it is already at `bdd_red`; the input is not modified. */
+export function reviseFeature(feature: FeatureProgress): FeatureProgress {
+  if (feature.cycle_step === CYCLE_STEP.bddRed) return feature;
+  const scenarios = (feature.scenarios ?? []).map(({ name }) => ({ name, bdd: SCENARIO_STATUS.pending }));
+  return { ...feature, status: FEATURE_STATUS.inProgress, cycle_step: CYCLE_STEP.bddRed, scenarios };
+}
+
 /** Returns the feature without the scenario, which must be pending: a scenario in pass or fail is never dropped; the input is not modified. */
 export function dropScenario(feature: FeatureProgress, name: string): FeatureProgress {
   const scenario = feature.scenarios?.find((s) => s.name === name);

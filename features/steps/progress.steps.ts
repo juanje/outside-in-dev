@@ -145,6 +145,25 @@ Given("a completed feature {string}", function (this: OidWorld, id: string) {
   this.saveProgress(progress);
 });
 
+Given("a completed feature {string} with a scenario {string} marked {string}", function (this: OidWorld, id: string, name: string, bdd: string) {
+  const progress = this.loadProgress();
+  progress.features.push({ id, title: `Title of ${id}`, status: "done", scenarios: [{ name, bdd }] });
+  this.saveProgress(progress);
+});
+
+Given(
+  "a started feature {string} at step {string} with a scenario {string} marked {string}",
+  function (this: OidWorld, id: string, step: string, name: string, bdd: string) {
+    const progress = this.loadProgress();
+    progress.features.push({ id, title: `Title of ${id}`, status: "in_progress", cycle_step: step, scenarios: [{ name, bdd }] });
+    this.saveProgress(progress);
+  },
+);
+
+Given("a progress file with no tracked features", function (this: OidWorld) {
+  this.saveProgress({ current_focus: null, features: [] });
+});
+
 Then("the feature {string} has the cycle step {string}", function (this: OidWorld, id: string, step: string) {
   assert.equal(feature(this.loadProgress(), id).cycle_step, step);
 });
