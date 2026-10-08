@@ -1,6 +1,6 @@
-import { Before, Given, Then } from "@cucumber/cucumber";
+import { After, Before, Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,8 @@ export type SavedSession = { runId: string; worktree: string; branch: string; ba
 
 const fixtures = new WeakMap<OidWorld, Fixture>();
 const lockPaths = new WeakMap<OidWorld, string>();
+/** The processes a scenario started to hold the lock; they are stopped when the scenario ends. */
+const holders = new WeakMap<OidWorld, ChildProcess>();
 const LOCK = ".outside-in/lock";
 export const SESSION = ".outside-in/session.json";
 export const PROJECT = "project";
@@ -246,7 +248,14 @@ function holdLock(world: OidWorld, pid: number): void {
 }
 
 Given("the lock of the project is held by a process that is running", function (this: OidWorld) {
-  holdLock(this, process.pid);
+  const holder = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  assert.ok(holder.pid);
+  holders.set(this, holder);
+  holdLock(this, holder.pid);
+});
+
+After({ tags: "@FR-RUN-01" }, function (this: OidWorld) {
+  holders.get(this)?.kill();
 });
 
 Given("the lock of the project is held by a process that is no longer running", function (this: OidWorld) {
