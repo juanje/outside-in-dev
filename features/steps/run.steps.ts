@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
 import { FakeAgent } from "../support/fake-agent.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
@@ -11,7 +12,9 @@ import type { OidWorld } from "../support/world.js";
 type Status = "done" | "pending" | "in progress";
 type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null };
 /** The project that runs its scenarios with cucumber: the scenario of the feature that is done and passing, and the recorded report the BDD command replays for the gate run (`DEFAULT_REPLAY` unless the step says otherwise). */
-type Cucumber = { feature: string; scenario: string; replay: string };
+type Cucumber = { feature: string; scenario: string; replay: string | string[]; loop?: Loop; limit?: number };
+/** The unit tests and the type check of a project that runs the inner loop: the recorded vitest reports its unit command replays in order (the first is the baseline run), and the recorded type check output, if any. */
+export type Loop = { unit: string[]; typecheck: string | null };
 type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber };
 export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
 export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
@@ -30,6 +33,9 @@ const REPLAY_COMMANDS = { ...FIXTURE_COMMANDS, bdd: "node bdd-replay.mjs" };
 const SUPPORT = join(REPO_ROOT, "features", "support");
 const BASELINE_REPLAY = "baseline-green";
 export const DEFAULT_REPLAY = "missing-implementation";
+const REAL_UNIT_COMMAND = "node_modules/.bin/vitest run";
+const REAL_TYPECHECK_COMMAND = "node_modules/.bin/tsc --noEmit";
+const REAL_LOOP_SCENARIO = "A failing unit test and the code that passes it turn the scenario green, and the run goes on to the next scenario";
 /** The one scenario of FR-RUN-03 that runs the real cucumber, in the baseline and in the gate; the others replay recorded reports. */
 const REAL_RUNNER_SCENARIO = "A scenario that fails because the code is missing is checkpointed and moves the run to TDD Red";
 const realRunner = new WeakSet<OidWorld>();
@@ -87,11 +93,22 @@ function cucumberFiles({ feature, scenario }: Cucumber): Record<string, string> 
 }
 
 /** The fake BDD runner of the project and the recordings it replays: the green baseline and the report of the gate run. */
-function writeReplay(world: OidWorld, gate: string): void {
+function writeReplay(world: OidWorld, gate: string | string[]): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
   writeIn(world, "bdd-replay.mjs", readFileSync(join(SUPPORT, "replay-bdd.mjs"), "utf8"));
   writeIn(world, "replay/replay.json", JSON.stringify({ baseline: BASELINE_REPLAY, gate, exitCodes }));
-  for (const name of new Set([BASELINE_REPLAY, gate])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
+  for (const name of new Set([BASELINE_REPLAY, ...[gate].flat()])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
+}
+
+/** The fake unit runner and type check of the project and the recordings they replay. */
+function writeLoopReplay(world: OidWorld, { unit, typecheck }: Loop): void {
+  const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
+  writeIn(world, "unit-replay.mjs", readFileSync(join(SUPPORT, "replay-unit.mjs"), "utf8"));
+  writeIn(world, "typecheck-replay.mjs", readFileSync(join(SUPPORT, "replay-typecheck.mjs"), "utf8"));
+  writeIn(world, "replay/unit.json", JSON.stringify({ sequence: unit, exitCodes }));
+  writeIn(world, "replay/typecheck.json", JSON.stringify({ recording: typecheck, exitCodes }));
+  for (const name of new Set(unit)) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
+  if (typecheck !== null) writeIn(world, `replay/${typecheck}.txt`, readFileSync(join(SUPPORT, "recorded", `${typecheck}.txt`), "utf8"));
 }
 
 export function fixtureOf(world: OidWorld): Fixture {
@@ -116,11 +133,19 @@ export function commit(world: OidWorld): void {
   writeIn(world, "suite.json", JSON.stringify({ ...fixture.suite, lockFile: join(world.dir, PROJECT, LOCK) }));
   writeIn(world, "unit.mjs", UNIT_RUNNER);
   writeIn(world, "bdd.mjs", BDD_RUNNER);
-  const commands = fixture.cucumber === undefined ? FIXTURE_COMMANDS : realRunner.has(world) ? CUCUMBER_COMMANDS : REPLAY_COMMANDS;
-  const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands };
+  const { loop, limit } = fixture.cucumber ?? {};
+  const realLoop = loop !== undefined && realRunner.has(world);
+  const bddCommands = fixture.cucumber === undefined ? FIXTURE_COMMANDS : realRunner.has(world) ? CUCUMBER_COMMANDS : REPLAY_COMMANDS;
+  const commands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : "node unit-replay.mjs", typecheck: realLoop ? REAL_TYPECHECK_COMMAND : "node typecheck-replay.mjs" };
+  const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands, ...(limit === undefined ? {} : { limits: { max_inner_iterations: limit } }) };
   if (fixture.cucumber) {
     for (const [name, content] of Object.entries(cucumberFiles(fixture.cucumber))) writeIn(world, name, content);
-    if (commands === REPLAY_COMMANDS) writeReplay(world, fixture.cucumber.replay);
+    if (bddCommands === REPLAY_COMMANDS) writeReplay(world, fixture.cucumber.replay);
+    if (loop !== undefined) {
+      writeIn(world, "tests/unit/cart.test.ts", EXISTING_UNIT_TEST);
+      writeIn(world, "tsconfig.json", TSCONFIG);
+      if (!realLoop) writeLoopReplay(world, loop);
+    }
     writeIn(world, ".gitignore", ".outside-in/\nran-*.txt\nnode_modules\n");
     if (!existsSync(world.path(join(PROJECT, "node_modules")))) symlinkSync(resolve(REPO_ROOT, "node_modules"), world.path(join(PROJECT, "node_modules")), "dir");
   }
@@ -137,6 +162,10 @@ export function change(world: OidWorld, update: (fixture: Fixture) => void): voi
 
 Before({ tags: "@FR-RUN-03" }, function (this: OidWorld, { pickle }) {
   if (pickle.name === REAL_RUNNER_SCENARIO) realRunner.add(this);
+});
+
+Before({ tags: "@FR-RUN-04" }, function (this: OidWorld, { pickle }) {
+  if (pickle.name === REAL_LOOP_SCENARIO) realRunner.add(this);
 });
 
 Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {

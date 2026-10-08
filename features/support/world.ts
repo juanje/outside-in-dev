@@ -1,4 +1,4 @@
-import { After, Before, BeforeAll, setWorldConstructor, World } from "@cucumber/cucumber";
+import { After, Before, BeforeAll, setDefaultTimeout, setWorldConstructor, World } from "@cucumber/cucumber";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -164,6 +164,10 @@ export class OidWorld extends World {
 }
 
 setWorldConstructor(OidWorld);
+
+/** The scenarios of `oid run` that use the real runners take longer than the 5 seconds a step has by default. */
+const STEP_TIMEOUT_MS = 60_000;
+setDefaultTimeout(STEP_TIMEOUT_MS);
 
 // oid spawns `git`, `jscpd` and `knip` with the inherited environment. Under a git hook, GIT_* variables
 // would point oid's git at the real repository instead of the scenario's directory; and `--import tsx` in

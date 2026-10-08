@@ -17,7 +17,12 @@
 // each case, the report of the gate run (the one with locations) whose step file has the content of the case, and
 // the report of a baseline run (no locations); save them under the names above and update exit-codes.json.
 // A gate recording must hold exactly the scenarios the locations select; this script checks the count.
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+//
+// `gate` may also be a list of names: the gate runs of one `oid run` then replay them in order, one for each call with
+// locations (the position is kept in .outside-in/replay-bdd.count, which git ignores). A recording may hold <root> in
+// place of the directory it was recorded in (the recorder of features/run-04.feature does); it is replaced by the
+// directory this script runs in, so that the paths in failure messages locate the files of the project.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,7 +31,19 @@ const replay = JSON.parse(readFileSync(join(here, "replay", "replay.json"), "utf
 const args = process.argv.slice(2);
 const output = args[args.indexOf("--format") + 1].slice("message:".length);
 const locations = args.filter((arg) => /:\d+$/.test(arg));
-const name = locations.length === 0 ? replay.baseline : replay.gate;
+const COUNT_FILE = join(".outside-in", "replay-bdd.count");
+function gateName() {
+  if (!Array.isArray(replay.gate)) return replay.gate;
+  const position = existsSync(COUNT_FILE) ? Number(readFileSync(COUNT_FILE, "utf8")) : 0;
+  mkdirSync(dirname(COUNT_FILE), { recursive: true });
+  writeFileSync(COUNT_FILE, String(position + 1));
+  if (position >= replay.gate.length) {
+    console.error(`the run made more gate calls than the ${replay.gate.length} recordings of the fixture`);
+    process.exit(2);
+  }
+  return replay.gate[position];
+}
+const name = locations.length === 0 ? replay.baseline : gateName();
 const recording = join(here, "replay", `${name}.ndjson`);
 const started = readFileSync(recording, "utf8").split("\n").filter((line) => line.startsWith('{"testCaseStarted"')).length;
 if (locations.length > 0 && started !== locations.length) {
@@ -34,5 +51,5 @@ if (locations.length > 0 && started !== locations.length) {
   process.exit(2);
 }
 mkdirSync(dirname(output), { recursive: true });
-copyFileSync(recording, output);
+writeFileSync(output, readFileSync(recording, "utf8").split("<root>").join(process.cwd()));
 process.exit(replay.exitCodes[name]);

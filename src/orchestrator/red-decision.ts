@@ -11,8 +11,10 @@ const BUG = "bug";
 const TRACE = "trace";
 const ACTIONS = [VALID_RED, BUG, TRACE].map((key) => ({ key, label: key }));
 
-/** A Red oid cannot classify: whose it is, why oid cannot tell and the failure message as the runner gave it. */
-export type UnclassifiedRed = { label: string; reason: string; message: string };
+const STEP_DEFINITIONS = "step definitions";
+
+/** A Red oid cannot classify: whose it is, why oid cannot tell, the failure message as the runner gave it and what the person would call wrong if it is a bug (the step definitions by default). */
+export type UnclassifiedRed = { label: string; reason: string; message: string; subject?: string };
 
 /** The question about the Red: what failed, why oid cannot tell, and the failure up to its first stack frame, or all of it. */
 function question({ label, reason, message }: UnclassifiedRed, whole: boolean): string {
@@ -20,8 +22,8 @@ function question({ label, reason, message }: UnclassifiedRed, whole: boolean): 
 }
 
 /** Why the run ends when the person does not accept the Red: the person says the steps are wrong, or the answer is not an action. */
-function refusal(label: string, answer: string): string {
-  return answer === BUG ? `${label}: the failure is a bug in the step definitions, as the person decided` : `${label}: "${answer}" is not an answer: use ${VALID_RED}, ${BUG} or ${TRACE}`;
+function refusal(label: string, answer: string, subject: string): string {
+  return answer === BUG ? `${label}: the failure is a bug in the ${subject}, as the person decided` : `${label}: "${answer}" is not an answer: use ${VALID_RED}, ${BUG} or ${TRACE}`;
 }
 
 /** Puts the Red to the person who can classify it: returns "valid" when it is, or the exit code of the process when the run ends. */
@@ -31,7 +33,7 @@ export async function decideRed(bus: Started["bus"], input: ReviewInput, red: Un
   for (;;) {
     const answer = await input.choose(question(red, whole), ACTIONS.map(({ key }) => key));
     if (answer === VALID_RED) return VALID_RED;
-    if (answer !== TRACE) return bus.emit({ type: ERROR_EVENT, message: refusal(red.label, answer) }) ?? 1;
+    if (answer !== TRACE) return bus.emit({ type: ERROR_EVENT, message: refusal(red.label, answer, red.subject ?? STEP_DEFINITIONS) }) ?? 1;
     whole = true;
   }
 }

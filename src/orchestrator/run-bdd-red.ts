@@ -4,7 +4,7 @@ import { bddRedPrompt } from "../agents/prompts/bdd-red.js";
 import { runAgent } from "../agents/runner.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
-import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS, saveProgress } from "../artifacts/progress.js";
+import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
@@ -15,42 +15,47 @@ import { type Started, STATE, transition } from "./begin.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
 import { updateSession } from "./session.js";
 import type { FeatureServices } from "./services.js";
+import { updateFeature } from "./worktree-progress.js";
 
-/** The first scenario of the requirement in file order, with the names of all its scenarios. */
-function currentScenario(worktree: string, fr: string): { current: CurrentScenario; names: string[] } | undefined {
+/** The first scenario of the requirement in file order that does not pass yet, with the names of all its scenarios; none when all pass. A name that two scenarios share is a problem. */
+function currentScenario(worktree: string, fr: string): { current: CurrentScenario; names: string[] } | { problem: string } | undefined {
   const { paths } = loadProjectConfig(worktree);
   const own = listLocatedScenarios(readFeatureSources(worktree, paths.bdd_features)).filter(({ tags }) => tags.includes(`@${fr}`));
-  const [first] = own;
-  return first === undefined ? undefined : { current: { file: first.file, line: first.line, name: first.name }, names: own.map(({ name }) => name) };
+  const names = own.map(({ name }) => name);
+  const twice = names.find((name, at) => names.indexOf(name) !== at);
+  if (twice !== undefined) return { problem: `${fr}: the scenario "${twice}" is defined twice, and scenarios are told apart by their names` };
+  const passing = loadProgress(worktree, paths.progress).features.find(({ id }) => id === fr)?.scenarios?.filter(({ bdd }) => bdd === SCENARIO_STATUS.pass).map(({ name }) => name) ?? [];
+  const first = own.find(({ name }) => !passing.includes(name));
+  return first === undefined ? undefined : { current: { file: first.file, line: first.line, name: first.name }, names };
 }
 
-/** Moves the requirement to TDD Red in the progress file of the worktree, recording its scenarios: the current one as failing, the others as pending. */
+/** Moves the requirement to TDD Red in the progress file of the worktree, recording its scenarios: the current one as failing, the others as pending unless they are known. */
 function recordRed(worktree: string, fr: string, scenarios: { current: string; names: string[] }): void {
-  const file = loadProjectConfig(worktree).paths.progress;
-  const progress = loadProgress(worktree, file);
-  const features = progress.features.map((feature) => {
-    if (feature.id !== fr) return feature;
+  updateFeature(worktree, fr, (feature) => {
     const known = feature.scenarios ?? [];
     const registered = scenarios.names.filter((name) => !known.some((scenario) => scenario.name === name)).reduce((moved, name) => recordScenario(moved, name, SCENARIO_STATUS.pending), advanceStep(feature, CYCLE_STEP.tddRed));
     return recordScenario(registered, scenarios.current, SCENARIO_STATUS.fail);
   });
-  saveProgress(worktree, { ...progress, features }, file);
 }
 
 /** Ends the run with an error that names `message`: returns the exit code of the process. */
-function fail({ bus }: Started, message: string): number {
+export function fail({ bus }: Started, message: string): number {
   return bus.emit({ type: ERROR_EVENT, message }) ?? 1;
 }
 
-/** Runs BDD Red for the first scenario of the first target: the agent writes its steps, the gate judges them and a valid Red is checkpointed. Returns the exit code of the process. */
-export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>): Promise<number> {
+/** A scenario whose steps fail validly: the scenario, how to name it in a message, and the failure the runner showed. */
+export type RedScenario = { current: CurrentScenario; label: string; failure: string };
+
+/** Runs BDD Red for the first scenario of the first target that does not pass: the agent writes its steps, the gate judges them and a valid Red is checkpointed. Returns the scenario that failed validly, or the exit code of the process. */
+export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>): Promise<number | RedScenario> {
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const found = currentScenario(workspace.path, fr!);
   if (found === undefined) return fail(started, `${fr}: no scenario is tagged with it`);
+  if ("problem" in found) return fail(started, found.problem);
   const { current, names } = found;
   const label = `${fr} "${current.name}"`;
-  updateSession(cwd, { fr, scenario: { index: 0, name: current.name, location: `${current.file}:${current.line}` } });
+  updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1 });
   const prompt = `${bddRedPrompt(fr!)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
   const outcome = await runAgent({ state: BDD_RED, prompt }, agentContext(started, services));
   const problem = outcomeProblem(label, outcome);
@@ -65,5 +70,5 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
   updateSession(cwd, { state: STATE.tddRed });
   transition(bus, STATE.bddRed, STATE.tddRed, `the scenario "${current.name}" fails validly: ${gate.kind === OUTCOME.valid ? gate.reason : "the person decided that it is a valid Red"}`);
-  return 0;
+  return { current, label, failure: gate.message };
 }

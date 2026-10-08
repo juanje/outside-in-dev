@@ -44,6 +44,7 @@ const projectConfigSchema = z.strictObject({
       entry: globs.optional(),
     })
     .optional(),
+  limits: z.strictObject({ max_inner_iterations: z.number().int().positive().optional() }).optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
   settings: z
     .strictObject({
@@ -102,6 +103,14 @@ export function loadMagicValueLimits(cwd: string): MagicValueLimits {
 export function loadRefactorEntry(cwd: string): string[] {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? [] : (parseProjectConfig(document).refactor?.entry ?? []);
+}
+
+const DEFAULT_INNER_ITERATIONS = 8;
+
+/** How many times the inner loop may go through TDD Red, Code Green and the BDD check for one scenario: `limits.max_inner_iterations`, 8 by default and without a configuration file. */
+export function loadInnerIterationLimit(cwd: string): number {
+  const document = readJson(cwd, CONFIG_FILE);
+  return document === undefined ? DEFAULT_INNER_ITERATIONS : (parseProjectConfig(document).limits?.max_inner_iterations ?? DEFAULT_INNER_ITERATIONS);
 }
 
 export type GitSettings = { isolation: "worktree" | "in_place"; worktree_dir: string; branch_prefix: string; commit_template: string };

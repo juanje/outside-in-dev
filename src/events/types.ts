@@ -7,6 +7,12 @@ export const WAITING_INPUT = "waiting_input";
 /** The type of the event that reports a file a person edited. */
 export const HUMAN_EDIT = "human_edit";
 
+/** The type of the event that reports a move from one state to another. */
+export const STATE_CHANGE = "state_change";
+
+/** The state a run moves to when a person aborts it. */
+export const ABORTED = "ABORTED";
+
 /** A question that needs a person's answer, with the actions the person can choose. */
 export type InputRequest = {
   id: string;

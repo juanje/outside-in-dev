@@ -3,13 +3,16 @@ import { join } from "node:path";
 import { ProgressError } from "../artifacts/progress.js";
 import { runDirectory, savePendingInput } from "../orchestrator/session.js";
 import { plainLine } from "../ui/plain.js";
-import { ERROR_EVENT, WAITING_INPUT, type OIEvent, type OIEventBody } from "./types.js";
+import { ABORTED, ERROR_EVENT, STATE_CHANGE, WAITING_INPUT, type OIEvent, type OIEventBody } from "./types.js";
 
 /** The exit code of a process that waits for an answer and has no channel to receive it. */
 const WAITING_INPUT_EXIT_CODE = 3;
 
 /** The exit code of a process that cannot save the question it waits on. */
 const FAILURE_EXIT_CODE = 1;
+
+/** The exit code of a process whose run a person aborted. */
+const ABORTED_EXIT_CODE = 2;
 
 export type EventBusOptions = {
   cwd: string;
@@ -28,6 +31,7 @@ export function createEventBus(options: EventBusOptions) {
       mkdirSync(runDir, { recursive: true });
       appendFileSync(join(runDir, "events.jsonl"), `${JSON.stringify(event)}\n`);
       options.write(`${plainLine(event)}\n`);
+      if (event.type === STATE_CHANGE && event.to === ABORTED) return ABORTED_EXIT_CODE;
       if (event.type !== WAITING_INPUT) return undefined;
       try {
         savePendingInput(options.cwd, options.runId, event.request);

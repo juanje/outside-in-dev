@@ -51,7 +51,7 @@ function project(runner: string, passing: { id: string; scenario: string; file: 
 describe("the gate of BDD Red", () => {
   it("accepts a scenario whose step fails because a source module does not exist yet", () => {
     const repo = project(failingRunner("Error: Cannot find module '<cwd>/src/cart.js' imported from <cwd>/features/steps/pay.steps.ts"));
-    expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet" });
+    expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet", message: expect.stringContaining("Cannot find module") });
   });
 
   it("stops before running anything when the agent changed source code or an approved feature file, or wrote a step file that cannot load", () => {

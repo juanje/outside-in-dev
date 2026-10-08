@@ -126,14 +126,21 @@ function parseTarget(cwd: string, target: string): Target {
   return scenario === undefined ? { kind: TARGET.test, test: parseUnitTarget(target) } : { kind: TARGET.scenario, scenario };
 }
 
-/** Runs one unit test and observes it. */
-function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; name: string }): Observation {
-  const { exitCode, report } = runUnitTest(cwd, config.commands.unit, test);
+/** What a run of the unit runner did: its exit code and the vitest JSON report it wrote, if any. */
+export type UnitRun = { exitCode: number | null; report: unknown };
+
+/** What a unit run showed about one test, with the file the failure's names are imported in. */
+export function observeUnitRun(cwd: string, { exitCode, report }: UnitRun, test: { file: string; name: string }): Observation {
   if (report === undefined) return { failure: { kind: FAILURE.noReport, runner: "unit", exitCode }, importer: test.file };
   const files = normalizeVitestReport(report);
   const failure = observe(files, test, cwd);
   const [ranIn] = filesWithTest(files, test.name);
   return { failure, importer: ranIn === undefined ? test.file : relative(cwd, ranIn) };
+}
+
+/** Runs one unit test and observes it. */
+function observeUnit(cwd: string, config: ProjectConfig, test: { file: string; name: string }): Observation {
+  return observeUnitRun(cwd, runUnitTest(cwd, config.commands.unit, test), test);
 }
 
 /** What the BDD runner did: its exit code, the Cucumber Messages report it wrote, if any, and its stderr. */

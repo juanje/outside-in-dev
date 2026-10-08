@@ -6,7 +6,7 @@ import { featureWriteContext } from "../agents/context/task-context.js";
 import { DONE, runAgent } from "../agents/runner.js";
 import { agentContext, outcomeProblem } from "./agent-run.js";
 import { PROBLEM } from "./bdd-red-gate.js";
-import { runBddRed } from "./run-bdd-red.js";
+import { runInnerLoop } from "./run-inner-loop.js";
 import { featureProblem } from "./feature-gates.js";
 import { hashFile } from "../artifacts/checkpoint.js";
 import { checkpoint, commitAll } from "../artifacts/git-checkpoints.js";
@@ -122,7 +122,7 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
       updateSession(cwd, { state: STATE.featureReview });
       const review = await askForReview(started, written.files, services.input ?? { isTTY: false });
       if (isExitCode(review)) return review;
-      if ("approved" in review) return runBddRed(started, services, review.approved);
+      if ("approved" in review) return runInnerLoop(started, services, review.approved);
       comment = review.comment;
       transition(started.bus, STATE.featureReview, STATE.featureWrite, `the feature files are rejected: ${comment}`);
       updateSession(cwd, { state: STATE.featureWrite });

@@ -22,7 +22,7 @@ export function agentOf(world: OidWorld): FakeAgent {
 export const worktreePath = (world: OidWorld): string => runWorktree(world).path;
 export const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
 
-Before({ tags: "@FR-RUN-02 or @FR-RUN-03" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04" }, function (this: OidWorld) {
   const agent = new FakeAgent();
   agents.set(this, agent);
   this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent") };

@@ -34,9 +34,13 @@ export function normalizeVitestReport(report: unknown): UnitFileResult[] {
 
 export type TestSelection = { kind: "found"; test: UnitTestResult } | { kind: "several"; fullNames: string[] } | { kind: "none" };
 
-/** The tests among `tests` that `name` designates: those whose full name is `name`, else those whose title is. */
+const DESCRIBE_SEPARATOR = " > ";
+const WORD_SEPARATOR = " ";
+
+/** The tests among `tests` that `name` designates: those whose full name is `name` (or `name` with its describe titles joined by ` > `, as an agent reports it), else those whose title is. */
 function namedTests(tests: UnitTestResult[], name: string): UnitTestResult[] {
-  const byFullName = tests.filter((candidate) => candidate.fullName === name);
+  const joined = name.split(DESCRIBE_SEPARATOR).join(WORD_SEPARATOR);
+  const byFullName = tests.filter((candidate) => candidate.fullName === name || candidate.fullName === joined);
   return byFullName.length > 0 ? byFullName : tests.filter((candidate) => candidate.title === name);
 }
 

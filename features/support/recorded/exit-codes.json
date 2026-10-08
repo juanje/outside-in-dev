@@ -4,5 +4,22 @@
   "regression": 1,
   "passes-at-once": 0,
   "undefined-step": 1,
-  "not-an-assertion": 1
+  "not-an-assertion": 1,
+  "unit-baseline": 0,
+  "unit-red-missing": 1,
+  "unit-red-not-assertion": 1,
+  "unit-passes-at-once": 0,
+  "unit-regression": 1,
+  "unit-green": 0,
+  "unit-still-failing": 1,
+  "unit-red-remove": 1,
+  "unit-green-remove": 0,
+  "unit-red-second": 1,
+  "unit-green-second": 0,
+  "bdd-add-line-green": 0,
+  "bdd-add-line-still-red": 1,
+  "bdd-remove-line-missing": 1,
+  "bdd-all-green": 0,
+  "typecheck-error": 1,
+  "bdd-missing-implementation": 1
 }

@@ -6,8 +6,8 @@ import { startRun, type Workspace } from "../artifacts/git-workspace.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { createEventBus } from "../events/bus.js";
-import { ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
-import { BDD_RED, TDD_RED } from "../agents/profiles.js";
+import { ABORTED, ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
+import { BDD_RED, CODE_GREEN, TDD_RED } from "../agents/profiles.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { runDirectory, startSession, updateSession } from "./session.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
@@ -20,7 +20,7 @@ import { newRunId } from "./run-id.js";
 export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void };
 
 /** The states of the orchestrator that a start goes through (design section 6.1). */
-export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, done: "DONE" } as const;
+export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", aborted: ABORTED, done: "DONE" } as const;
 
 type Bus = ReturnType<typeof createEventBus>;
 

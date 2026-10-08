@@ -35,7 +35,7 @@ function incoherentExit(kind: string, exitCode: number | null, what: string): st
 }
 
 /** The problems of the unit suite: each test that failed, each file that did not load, the report that is missing, a run in which no test ran, and an exit that the report does not explain. */
-function suiteProblems(cwd: string, config: ProjectConfig): string[] {
+export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
   const { exitCode, report } = runUnitSuite(cwd, config.commands.unit);
   if (report === undefined) return [noReport(SUITE.unit, exitCode)];
   const files = normalizeVitestReport(report);
@@ -45,11 +45,19 @@ function suiteProblems(cwd: string, config: ProjectConfig): string[] {
   return exitCode === 0 ? [] : [incoherentExit(SUITE.unit, exitCode, "failing test")];
 }
 
-/** The problems of the type check: each error located in a source file or in no file, or a failure that printed no error. */
-function typecheckProblems(cwd: string, config: ProjectConfig): string[] {
+const ERROR_LINE = /error TS\d+/;
+
+/** What the type check showed: the problems oid reports (each error located in a source file or in no file, or a failure that printed no error) and the lines of its output that name an error, as it printed them. */
+export function typecheckRun(cwd: string, config: ProjectConfig): { problems: string[]; errors: string[] } {
   const { exitCode, output } = runTypecheck(cwd, config.commands.typecheck);
   const problems = typeProblems(output, cwd, (path) => isInsideSource(config.paths.source, path));
-  return exitCode !== 0 && output.trim() === "" ? [`type: the type check failed (exit ${exitCode}) and printed no error`] : problems;
+  const silent = exitCode !== 0 && output.trim() === "";
+  return { problems: silent ? [`type: the type check failed (exit ${exitCode}) and printed no error`] : problems, errors: output.split(NEWLINE).filter((line) => ERROR_LINE.test(line)) };
+}
+
+/** The problems of the type check. */
+function typecheckProblems(cwd: string, config: ProjectConfig): string[] {
+  return typecheckRun(cwd, config).problems;
 }
 
 const FEATURE_TAG = /^@(FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?)$/;

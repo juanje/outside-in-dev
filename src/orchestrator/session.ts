@@ -15,7 +15,7 @@ export function runDirectory(cwd: string, runId: string): string {
 }
 
 /** What a started run saves to be resumed: where it works and the state it reached. */
-export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string } };
+export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number };
 
 function writeSession(cwd: string, session: object): void {
   mkdirSync(join(cwd, OUTSIDE_IN_DIR), { recursive: true });
@@ -38,4 +38,16 @@ export function savePendingInput(cwd: string, runId: string, request: InputReque
   if (saved !== undefined && !isObject(saved)) throw new ProgressError(`${SESSION_FILE} is not an object`);
   const sameRun = saved !== undefined && "runId" in saved && saved.runId === runId;
   writeSession(cwd, { ...(sameRun ? saved : {}), runId, pendingInput: request });
+}
+
+/** The unit tests the saved session records for a scenario, in the order they were written. */
+export function unitTestsOf(cwd: string, scenario: string): string[] {
+  const saved = readJson(cwd, SESSION_FILE) as RunSession;
+  return saved.scenarioUnitTests?.[scenario] ?? [];
+}
+
+/** Records a unit test of a scenario in the saved session. */
+export function recordUnitTest(cwd: string, scenario: string, test: string): void {
+  const saved = readJson(cwd, SESSION_FILE) as RunSession;
+  updateSession(cwd, { scenarioUnitTests: { ...saved.scenarioUnitTests, [scenario]: [...unitTestsOf(cwd, scenario), test] } });
 }

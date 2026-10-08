@@ -2288,7 +2288,65 @@
     {
       "id": "FR-RUN-04",
       "title": "TDD inner loop",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A failing unit test and the code that passes it turn the scenario green, and the run goes on to the next scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "The test-writing agent gets the scenario and its failure, and works with the tools and the sandbox of TDD Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test that is not a valid Red stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test failure oid cannot classify is put to the human, who decides it is a valid Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human decides that the failure is a bug in the unit test",
+          "bdd": "pass"
+        },
+        {
+          "name": "The coding agent gets the failing unit test and the code it imports, and works with the shell and the sandbox of Code Green",
+          "bdd": "pass"
+        },
+        {
+          "name": "Code that is not a valid Green stops the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is still red after the code is written starts another iteration",
+          "bdd": "pass"
+        },
+        {
+          "name": "Code that breaks a scenario that passed is a failure of Code Green",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent with no unit logic left sends the run to Code Green with the failure of the scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent with no unit logic left is refused when the scenario has no unit test yet",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is still red after the last iteration stops the run to ask what to do",
+          "bdd": "pass"
+        },
+        {
+          "name": "When every scenario of the requirement passes, each has its checkpoint and the progress file records them",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent that is blocked or whose provider fails stops the run",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-05",
