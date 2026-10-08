@@ -184,7 +184,7 @@ Reject step files that statically import modules or exports that do not exist ye
 
 ### FR-VERIFY-06: Fix a step after the code exists
 
-A step definition found wrong at `tdd_green` or `refactor` is fixed by going back to `bdd_red`, never in place. Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written in this cycle, which it restores afterwards. When this cycle has no code yet, the scenario must be a valid Red as usual and the feature moves to `tdd_red`. There is no manual move from `bdd_red` to `tdd_green` or `refactor`.
+A step definition found wrong at `tdd_red`, `tdd_green` or `refactor` is fixed by going back to `bdd_red`, never in place. Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written in this cycle, which it restores afterwards. When this cycle has no code yet, the feature moves to `tdd_red` if `src/` has not changed since going back and the scenario either fails as a valid Red or already passes: the unit test is still needed, and the feature never skips to `tdd_green`. There is no manual move from `bdd_red` to `tdd_green` or `refactor`.
 
 ## Functional Requirements — Git isolation
 
