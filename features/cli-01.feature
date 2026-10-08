@@ -10,6 +10,13 @@ Feature: Command help
     And the output describes the command "init"
     And the error output is empty
 
+  Scenario: oid with no command prints the same help as oid --help
+    When I run "oid"
+    Then the command succeeds
+    And the output contains "usage: oid <command>"
+    And the output is the same as the output of "oid --help"
+    And the error output is empty
+
   Scenario: oid progress --help lists every subcommand with its usage
     When I run "oid progress --help"
     Then the command succeeds

@@ -112,7 +112,7 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-CLI-01: Command help
 
-`oid --help`, `oid <command> --help` and `oid <command> <subcommand> --help` print what the command does, its subcommands, arguments and options, and exit 0. Anyone running oid, human or agent, can learn how to use it without triggering an error.
+`oid --help`, `oid <command> --help` and `oid <command> <subcommand> --help` print what the command does, its subcommands, arguments and options, and exit 0; `oid` with no command prints the same help as `oid --help` and exits 0. Anyone running oid, human or agent, can learn how to use it without triggering an error.
 
 ### FR-CLI-02: Concise status
 

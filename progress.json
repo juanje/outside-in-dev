@@ -2620,62 +2620,61 @@
     {
       "id": "FR-CLI-01",
       "title": "Command help",
-      "status": "in_progress",
+      "status": "done",
       "scenarios": [
         {
           "name": "oid --help says what oid does and describes every command",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "oid progress --help lists every subcommand with its usage",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "oid check --help shows its usage and its option",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "oid init --help shows its usage and its option",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "oid progress step --help names the allowed cycle steps",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "oid progress scenario --help names the allowed statuses",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Every progress subcommand has its own help",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help works in an empty directory",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help works with an invalid project configuration and leaves the project untouched",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help is printed instead of the missing-argument error",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help given after the arguments changes nothing",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help for a command that does not exist is an error, not help",
-          "bdd": "pending"
+          "bdd": "pass"
         },
         {
           "name": "Help for a progress subcommand that does not exist is an error, not help",
-          "bdd": "pending"
+          "bdd": "pass"
         }
-      ],
-      "cycle_step": "bdd_red"
+      ]
     },
     {
       "id": "FR-CLI-02",

@@ -93,7 +93,7 @@ async function commandHelp({ summary, usage, options, extra }: CommandHelp): Pro
 export async function runCli(args: string[], io: CliIo, services?: RunServices): Promise<number> {
   try {
     const [command, ...rest] = args;
-    if (command === HELP_FLAG) {
+    if (command === undefined || command === HELP_FLAG) {
       io.stdout(overviewHelp());
       return 0;
     }

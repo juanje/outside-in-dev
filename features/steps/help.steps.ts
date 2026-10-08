@@ -43,3 +43,11 @@ Then("the output is {string} followed by the version in oid's package.json", fun
   const { version } = JSON.parse(readFileSync(packageJson, "utf8")) as { version: string };
   assert.equal(this.stdout, `${name} ${version}\n`);
 });
+
+Then("the output is the same as the output of {string}", async function (this: OidWorld, commandLine: string) {
+  const { stdout, stderr, exitCode, progressBefore, filesBefore } = this;
+  await this.run(commandLine);
+  const expected = this.stdout;
+  Object.assign(this, { stdout, stderr, exitCode, progressBefore, filesBefore });
+  assert.equal(stdout, expected);
+});

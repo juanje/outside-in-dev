@@ -11,13 +11,12 @@ describe("top-level dispatch", () => {
     expect(stderr).toContain("check");
   });
 
-  it("reports a missing command without printing undefined", async () => {
+  it("prints the same help as --help when there is no command", async () => {
+    const help = await run(["--help"]);
     const { exitCode, stdout, stderr } = await run([]);
-    expect(exitCode).toBe(1);
-    expect(stdout).toBe("");
-    expect(stderr).toContain("missing command");
-    expect(stderr).toContain("progress, check");
-    expect(stderr).not.toContain("undefined");
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe(help.stdout);
+    expect(stderr).toBe("");
   });
 });
 
