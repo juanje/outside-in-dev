@@ -8,6 +8,7 @@ import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
 import { FakeAgent } from "../support/fake-agent.js";
 import { detectorOf } from "../support/fake-detector.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
+import { commitKey, restoreTemplate, saveTemplate } from "../support/template-repo.js";
 import type { OidWorld } from "../support/world.js";
 
 type Status = "done" | "pending" | "in progress";
@@ -22,6 +23,8 @@ export type SavedSession = { runId: string; worktree: string; branch: string; ba
 
 const fixtures = new WeakMap<OidWorld, Fixture>();
 const lockPaths = new WeakMap<OidWorld, string>();
+/** Where each scenario's fixture repository stands: the key of its last commit, and whether `git init` is still to be done (it is skipped when a template stands in for it). */
+const history = new WeakMap<OidWorld, { key: string; initialised: boolean }>();
 /** The processes a scenario started to hold the lock; they are stopped when the scenario ends. */
 const holders = new WeakMap<OidWorld, ChildProcess>();
 const LOCK = ".outside-in/lock";
@@ -133,7 +136,8 @@ export function commit(world: OidWorld): void {
   const passing = fixture.cucumber === undefined ? {} : { scenarios: [{ name: fixture.cucumber.scenario, bdd: "pass" }] };
   const features = [...fixture.tracked].map(([id, status]) => ({ id, title: `Feature ${id}`, ...STATUS_FIELDS[status], ...(id === fixture.cucumber?.feature ? passing : {}) }));
   writeIn(world, "progress.json", `${JSON.stringify({ current_focus: null, features })}\n`);
-  writeIn(world, "suite.json", JSON.stringify({ ...fixture.suite, lockFile: join(world.dir, PROJECT, LOCK) }));
+  // The lock path is read only by a runner that reports the lock; leaving it out elsewhere keeps the committed project the same in every scenario's directory.
+  writeIn(world, "suite.json", JSON.stringify(fixture.suite.reportLock === null ? fixture.suite : { ...fixture.suite, lockFile: join(world.dir, PROJECT, LOCK) }));
   writeIn(world, "unit.mjs", UNIT_RUNNER);
   writeIn(world, "bdd.mjs", BDD_RUNNER);
   const { loop, limit } = fixture.cucumber ?? {};
@@ -153,9 +157,25 @@ export function commit(world: OidWorld): void {
     if (!existsSync(world.path(join(PROJECT, "node_modules")))) symlinkSync(resolve(REPO_ROOT, "node_modules"), world.path(join(PROJECT, "node_modules")), "dir");
   }
   if (fixture.config) writeIn(world, ".outside-in.json", JSON.stringify(config));
-  else if (existsSync(world.path(join(PROJECT, ".outside-in.json")))) git(world.projectDir, "rm", "--quiet", "--force", ".outside-in.json");
+  const removesConfig = !fixture.config && existsSync(world.path(join(PROJECT, ".outside-in.json")));
+  const past = history.get(world) ?? { key: "", initialised: true };
+  const key = commitKey(past.key, world.projectDir, String(removesConfig));
+  if (restoreTemplate(key, world.projectDir)) {
+    history.set(world, { key, initialised: true });
+    return;
+  }
+  if (!past.initialised) initRepository(world.projectDir);
+  if (removesConfig) git(world.projectDir, "rm", "--quiet", "--force", ".outside-in.json");
   git(world.projectDir, "add", "-A");
   git(world.projectDir, "commit", "--quiet", "--allow-empty", "--message", "fixture");
+  saveTemplate(key, world.projectDir);
+  history.set(world, { key, initialised: true });
+}
+
+function initRepository(dir: string): void {
+  git(dir, "init", "--quiet", "--initial-branch", "main");
+  git(dir, "config", "user.name", "Fixture");
+  git(dir, "config", "user.email", "fixture@example.com");
 }
 
 export function change(world: OidWorld, update: (fixture: Fixture) => void): void {
@@ -189,9 +209,7 @@ Before({ tags: "@FR-RUN-01 and not @process" }, function (this: OidWorld) {
 Given("a git project with a green suite", function (this: OidWorld) {
   this.projectDir = this.path(PROJECT);
   mkdirSync(this.projectDir, { recursive: true });
-  git(this.projectDir, "init", "--quiet", "--initial-branch", "main");
-  git(this.projectDir, "config", "user.name", "Fixture");
-  git(this.projectDir, "config", "user.email", "fixture@example.com");
+  history.set(this, { key: "", initialised: false });
   writeIn(this, ".gitignore", ".outside-in/\nran-*.txt\n");
   writeIn(this, "README.md", "# Project\n");
   writeIn(this, "src/totals.ts", "export const cartSourceMarker = 1;\n");
