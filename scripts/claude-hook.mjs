@@ -10,6 +10,8 @@
 //                feature has none and that one names it (as oid up to v0.6.3 writes it). Before
 //                `oid verify red|green` replaces a checkpoint, the changes since the last one must pass
 //                `oid verify integrity`, or a violation would be absorbed.
+//                `oid progress revise` is refused: the human runs it in their own terminal (ADR-039);
+//                `oid progress reopen` is the agent's and is not.
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
@@ -187,6 +189,9 @@ function requireEvidence(id, to) {
 
 function beforeStep(input) {
   for (const [command, subcommand, id, to] of oidCommands(input.tool_input?.command ?? "")) {
+    if (command === "progress" && subcommand === "revise") {
+      block("`oid progress revise` resets a requirement and is run by the human in their own terminal, not by the agent. For review comments on a done feature, use `oid progress reopen`.");
+    }
     if (command === "verify" && (subcommand === "red" || subcommand === "green")) {
       requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
     }

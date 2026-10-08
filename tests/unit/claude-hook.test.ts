@@ -120,3 +120,17 @@ describe("the before-step hook, on the command it is given", () => {
     expect(commands.map(beforeStepWithFailingIntegrity)).toEqual([2, 2, 2]);
   });
 });
+
+describe("the before-step hook, on revise and reopen", () => {
+  it("refuses oid progress revise run by the agent, and names the human's terminal", () => {
+    focusedAt("tdd_green");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: "cd /tmp && oid progress revise FR-X-01" } });
+    expect({ status, names: stderr.includes("human in their own terminal") }).toEqual({ status: 2, names: true });
+  });
+
+  it("takes oid progress revise in a comment or a heredoc for text, and lets oid progress reopen run", () => {
+    focusedAt("tdd_green");
+    const commands = ["ls # oid progress revise FR-X-01", "cat <<'EOF'\noid progress revise FR-X-01\nEOF", "oid progress reopen FR-X-01"];
+    expect(commands.map((command) => runHook("before-step", { tool_input: { command } }).status)).toEqual([0, 0, 0]);
+  });
+});
