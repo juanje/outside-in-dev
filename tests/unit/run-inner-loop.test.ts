@@ -8,6 +8,9 @@ import { useTempDir } from "./temp-project.js";
 
 useTempDir();
 
+/** One whole `oid run` over real git and real node runners: about 100 git calls and a dozen runner processes, 2.5 to 3 s on an idle machine and more than the default 5 s on a cold or busy one. Nothing in it waits on a condition, so the limit only has to be far above the slowest honest run. */
+const WHOLE_RUN_TIMEOUT_MS = 60_000;
+
 describe("the inner loop of a run", () => {
   it("has the agents write a unit test and the code for the only scenario, checkpoints each step, records the scenario as passing and the requirement at the quality gate", async () => {
     const project = loopProject();
@@ -29,5 +32,5 @@ describe("the inner loop of a run", () => {
       feature: ["quality_gate", [{ name: SCENARIO, bdd: "pass" }]],
       unitTests: { [SCENARIO]: ["tests/unit/cart.test.ts > cart > adds"] },
     });
-  });
+  }, WHOLE_RUN_TIMEOUT_MS);
 });
