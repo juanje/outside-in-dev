@@ -60,5 +60,12 @@ oid metrics --changed
 - **cucumber-js 13 has no** `json` **or** `junit` **formatter.** Use `--format message:<file>`.
 - **vitest reports a missing export as** `TypeError: (0 , name) is not a function`**, not as an import error.**
 - **Always pass oid's** `agentDir` **to Pi.** Otherwise Pi reads the user's personal settings.
+- **Read progress with** `oid progress current`**,** `status` **and** `show`**.** Do not parse `progress.json`.
+- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** Stop (ADR-035). Fixing a wrong step once the code exists is ADR-038, described in `docs/METHODOLOGY.md`.
+- **BDD runs in-process.** `@process` goes only on a scenario that needs a real process, never on the `Feature`. Nothing outside `src/cli.ts` reads `process` globals (ADR-028).
+- **An** `oid run` **scenario asserts a milestone** (a transition, a checkpoint that exists, data in the session, files), not the exit code, the last line or the final state. A failure that must end on the first attempt sets `limits.max_retries: 0`.
+- **One real runner per run state;** the rest replay a recorded report.
+- **Do not rewrite a test that already fails** (`not.toThrow`, a weaker assertion, a deleted check) so that it fits the code.
+- **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
 
 `DOMAIN.md` has the details.

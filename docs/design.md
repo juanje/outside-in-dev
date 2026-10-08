@@ -161,12 +161,12 @@ Schema, the article's:
 **Valid `cycle_step` transitions.** They follow the article's two loops, not a straight line:
 
 ```
-select → bdd_red → tdd_red → tdd_green → refactor ─┬─→ tdd_red        (inner loop: scenario still red)
+select → bdd_red ⇄ tdd_red → tdd_green → refactor ─┬─→ tdd_red        (inner loop: scenario still red)
                                                    ├─→ bdd_red        (outer loop: next scenario)
                                                    └─→ quality_gate   (all scenarios green)
 ```
 
-From `tdd_green` it is also possible to go directly to `tdd_red`, `bdd_red` or `quality_gate` when there is no refactor. Any other transition is rejected.
+From `tdd_green` it is also possible to go directly to `tdd_red`, `bdd_red` or `quality_gate` when there is no refactor. From `tdd_red` it is also possible to go back to `bdd_red`, to fix a step (ADR-038). From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. Any other transition is rejected.
 
 **Moving to `done`.** Only if all scenarios are in `pass`, the FR is at `quality_gate` and the quality gate has passed. `oid` also adds its own rule, checked from `session.json`: each scenario has gone through at least one TDD cycle (§6.6). On moving to `done`, `cycle_step` disappears and `current_focus` moves to the next FR or to `null`.
 

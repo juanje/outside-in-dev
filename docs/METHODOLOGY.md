@@ -29,6 +29,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 - Write `features/<area>-<nn>.feature`, one file per FR, with `@FR-AREA-NN` on the `Feature`. Scenarios describe observable behaviour from the user's side (for oid, the user is someone running `oid` in a terminal or a test project on disk).
 - **Stop and show the feature file to the human before writing steps.** Feature files are reviewed once, up front.
 - Write step definitions in `features/steps/` with real assertions. No stubs, no pending markers.
+- In a feature of `oid run`, a scenario asserts a milestone of the run (a transition, a checkpoint, data in the session, files), not where the run ends; a failure path that must end on the first attempt sets `limits.max_retries: 0`. A later FR that extends the run then does not break it.
 - **Import source that does not exist yet dynamically, inside the step** (`const { x } = await import("../../src/…")`). A static import of a missing module stops cucumber-js before any scenario runs.
 - Run `oid verify red features/<file>.feature:<line>`. It decides whether the scenario is a **valid Red**: the steps run and fail because the behaviour is missing. "Undefined", "pending", "ambiguous", a crash before running, or a static import of something that does not exist yet are not Red (exit 1).
 
@@ -81,6 +82,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 - Use `.only`, `.skip`, `.todo`, `@ts-ignore`, `@ts-expect-error`, or code that checks whether it runs under test.
 - Assert only that something is defined, or only that something does not happen, unless that is really the requirement.
 - Treat "the test passes" as done. Done is the full quality gate plus the progress update.
+- Stash, move or revert files to fabricate a Red or to satisfy integrity. Stop and say why (ADR-035).
 
 ## Spikes
 
