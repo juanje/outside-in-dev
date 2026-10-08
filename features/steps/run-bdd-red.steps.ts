@@ -8,7 +8,7 @@ import { git } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
-import { change, session, transitions } from "./run.steps.js";
+import { change, DEFAULT_REPLAY, session, transitions } from "./run.steps.js";
 
 const STEP_FILE = "features/steps/cart-lines.steps.ts";
 const CART_FILE = "features/steps/cart.steps.ts";
@@ -22,18 +22,26 @@ const MISSING_CART_STEP = `When("a line is added", async function () {\n  const 
 const COUNT_STEP = `Then("the cart has {int} line(s)", function (count: number) {\n  assert.equal(count, 1);\n});\n`;
 const EMPTY_STEP = `When("a line is added", function () {});\n`;
 
+/** The recorded report the BDD command replays for the gate run of the scenario, in place of the run of the steps this agent writes. */
+function replaying(world: OidWorld, recording: string): void {
+  change(world, (fixture) => {
+    assert.ok(fixture.cucumber, "the project does not run its scenarios with cucumber");
+    fixture.cucumber.replay = recording;
+  });
+}
+
 function stepFile(content: string): AgentFile {
   return { path: STEP_FILE, content: `${IMPORTS}\n${content}` };
 }
 
-/** The steps of each way a scenario can be written that is not a plain missing implementation. */
-const PROBLEMS: Record<string, string> = {
-  "the scenario passes at once": `${EMPTY_STEP}\nThen("the cart has {int} line(s)", function (count: number) {\n  assert.ok(count);\n});\n`,
-  "one step has no definition": EMPTY_STEP,
+/** The steps of each way a scenario can be written that is not a plain missing implementation, with the recorded report of cucumber running them. */
+const PROBLEMS: Record<string, { steps: string; recording: string }> = {
+  "the scenario passes at once": { steps: `${EMPTY_STEP}\nThen("the cart has {int} line(s)", function (count: number) {\n  assert.ok(count);\n});\n`, recording: "passes-at-once" },
+  "one step has no definition": { steps: EMPTY_STEP, recording: "undefined-step" },
 };
 
 Given("the project runs its BDD scenarios with cucumber and defines the steps of the scenario {string}", function (this: OidWorld, scenario: string) {
-  change(this, (fixture) => (fixture.cucumber = { feature: "FR-CART-01", scenario }));
+  change(this, (fixture) => (fixture.cucumber = { feature: "FR-CART-01", scenario, replay: DEFAULT_REPLAY }));
 });
 
 Given("progress.json records {string} as done with its passing scenario {string}, and {string} as pending", function (this: OidWorld, done: string, scenario: string, pending: string) {
@@ -59,16 +67,19 @@ Given("the step-writing agent also tries to write {string} and {string}", functi
 Given("the step-writing agent also changes the step {string} so that it fails", function (this: OidWorld, step: string) {
   const content = `import { Given, Then, When } from "@cucumber/cucumber";\nGiven("a cart", function () {});\nWhen("a product is added", function () {});\nThen("${step}", function () {\n  throw new Error("the cart is empty");\n});\n`;
   agentOf(this).stepFiles.push({ path: CART_FILE, content });
+  replaying(this, "regression");
 });
 
 Given(/^the step-writing agent writes steps where (.+)$/, function (this: OidWorld, problem: string) {
-  const content = PROBLEMS[problem];
-  assert.ok(content !== undefined, `unknown problem: ${problem}`);
-  agentOf(this).stepFiles = [stepFile(content)];
+  const found = PROBLEMS[problem];
+  assert.ok(found !== undefined, `unknown problem: ${problem}`);
+  agentOf(this).stepFiles = [stepFile(found.steps)];
+  replaying(this, found.recording);
 });
 
 Given("the step-writing agent writes steps that fail with an error that is not an assertion", function (this: OidWorld) {
   agentOf(this).stepFiles = [stepFile(`When("a line is added", function () {\n  throw new Error("the cart could not be built");\n});\n\n${COUNT_STEP}`)];
+  replaying(this, "not-an-assertion");
 });
 
 Given("the step-writing agent writes a step file that imports {string} statically", function (this: OidWorld, specifier: string) {

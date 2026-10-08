@@ -1,0 +1,8 @@
+{
+  "baseline-green": 0,
+  "missing-implementation": 1,
+  "regression": 1,
+  "passes-at-once": 0,
+  "undefined-step": 1,
+  "not-an-assertion": 1
+}
