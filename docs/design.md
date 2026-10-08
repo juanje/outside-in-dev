@@ -1134,6 +1134,7 @@ oid spec --fr         # Add or refine a specific FR (MVP)
   - Jev: the article's six questions (goal, MVP, out of scope, cross-cutting rules, domain, stack) as `noul`; low ones are shown as a list of gaps.
   - Explicit confirmation from the human. No threshold replaces it.
 - On confirmation, `progress.json` is created or updated (new FRs in `pending`) and the design artifacts are committed on the user's current branch. It is the only commit `oid` makes outside its working branch, and it is explicit.
+- `oid spec --fr` on an FR that already exists is a changed requirement: on confirmation it calls `oid progress revise` for that FR, never `oid progress reopen` (ADR-039). New FRs are only registered as `pending` (FR-SPEC-03).
 
 ---
 
@@ -1221,6 +1222,8 @@ oid progress focus FR-xxx
 oid progress step FR-xxx <cycle_step>       # rejects invalid transitions
 oid progress scenario pass|fail|pending|drop FR-xxx "Scenario name"   # drop removes a pending scenario only
 oid progress done FR-xxx                    # rejects if any scenario is not in pass
+oid progress revise FR-xxx                  # changed requirement: bdd_red, every scenario pending (ADR-039)
+oid progress reopen FR-xxx                  # review of a done feature: quality_gate, scenarios kept (ADR-039)
 ```
 
 It is the progress tool the article announces as pending ("a cycle tracker"). It serves an agent guided by instructions in an `AGENTS.md` just as it serves `oid`: both use the same tool for state. Internally it is the same `artifacts/progress.ts` module the FSM uses, so there are no two implementations of the rules that could diverge. The idea of giving agents a CLI with guards instead of letting them edit the JSON comes from Buddy's `scripts/progress.ts` *(Buddy)*.

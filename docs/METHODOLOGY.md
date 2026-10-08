@@ -11,7 +11,7 @@ The procedure for agents working on this repository while oid is being bootstrap
 
 ## Updating progress
 
-Only through the installed `oid progress` command (`add`, `focus`, `unfocus`, `step`, `scenario`, `scenario drop`, `done`). Never edit `progress.json` by hand, and never run oid from this working tree.
+Only through the installed `oid progress` command (`add`, `focus`, `unfocus`, `step`, `scenario`, `scenario drop`, `done`, `reopen`; `revise` is run by the human). Never edit `progress.json` by hand, and never run oid from this working tree.
 
 Update it after every step transition.
 
@@ -72,6 +72,14 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 - Mark every scenario `pass` and the feature done (`oid progress done FR-…`; it refuses if any scenario is not passing).
 - Commit: `feat(<area>): FR-AREA-NN <title>`.
+
+## Changing a requirement
+
+When the human decides that a requirement changed, they run `oid progress revise FR-…` in their own terminal (the hook refuses it from the agent). The FR goes back to `bdd_red` with every scenario `pending`. Then: rewrite the FR's section in `SPEC.md` and its feature file, `oid progress scenario drop` the scenarios that no longer describe anything, and run the cycle again to prove what remains. Do not add a second FR for the same intent; git keeps the old one.
+
+## Review after done
+
+A pull request opens with the feature already `done`. When review comments arrive, the agent runs `oid progress reopen FR-…`: the feature goes back to `quality_gate` and every `pass` stays `pass`. The comment decides the move: a missing behaviour is `oid progress step FR-… tdd_red`; a missing scenario is `oid progress step FR-… bdd_red` (the feature file is not edited at `quality_gate`); a change to code only stays at `quality_gate`. If the tree changed, run `oid verify green` on the feature's scenarios and `oid progress done FR-…`, and commit the `done` together with the fix: a later commit that only changes `progress.json` drops the approvals of the pull request. Do not use `revise` for a review.
 
 ## Do not
 

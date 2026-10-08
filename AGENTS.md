@@ -67,5 +67,7 @@ oid metrics --changed
 - **One real runner per run state;** the rest replay a recorded report.
 - **Do not rewrite a test that already fails** (`not.toThrow`, a weaker assertion, a deleted check) so that it fits the code.
 - **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
+- **A requirement that changes is** `oid progress revise`**, run by the human.** Do not add another FR for it.
+- **A review on a** `done` **feature is** `oid progress reopen`**, run by you.** The `pass` scenarios stay; the comment picks `tdd_red`, `bdd_red` or staying at `quality_gate`; the new `done` goes in the same commit as the fix.
 
 `DOMAIN.md` has the details.
