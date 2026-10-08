@@ -37,7 +37,7 @@ export interface LocatedScenario extends ListedScenario {
 
 const PARSER_ERRORS_HEADING = "Parser errors:";
 
-function parseFeature(text: string) {
+export function parseFeature(text: string) {
   const parser = new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());
   try {
     return { feature: parser.parse(text).feature };

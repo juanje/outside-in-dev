@@ -1628,6 +1628,26 @@
         {
           "name": "A feature with no checkpoint of its own is judged against the single checkpoint that names it",
           "bdd": "pass"
+        },
+        {
+          "name": "A feature at bdd_red can remove its own scenario from a file shared with a done feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario of a done feature in a shared file stays frozen while another feature is at bdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Moving a scenario of a feature at bdd_red to a done feature by its tag is a violation",
+          "bdd": "pass"
+        },
+        {
+          "name": "The Background of a file shared with a done feature is frozen",
+          "bdd": "pass"
+        },
+        {
+          "name": "At bdd_red, a scenario already recorded as pass must not change",
+          "bdd": "pass"
         }
       ]
     },

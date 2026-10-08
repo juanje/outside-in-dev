@@ -190,3 +190,179 @@ Feature: Check the integrity of a change
     When I run "oid verify integrity --step bdd_red"
     Then the command succeeds
     And the output starts with "integrity: ok"
+
+  Scenario: A feature at bdd_red can remove its own scenario from a file shared with a done feature
+    Given a completed feature "FR-GREETING-01" with a scenario "Greet Ann" marked "pass"
+    And a started feature "FR-GREETING-02" at step "bdd_red"
+    And the focus is on "FR-GREETING-02"
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    And the changes are committed
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+      """
+    When I run "oid verify integrity"
+    Then the command succeeds
+    And the output starts with "integrity: ok"
+
+  Scenario: A scenario of a done feature in a shared file stays frozen while another feature is at bdd_red
+    Given a completed feature "FR-GREETING-01" with a scenario "Greet Ann" marked "pass"
+    And a started feature "FR-GREETING-02" at step "bdd_red"
+    And the focus is on "FR-GREETING-02"
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    And the changes are committed
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+          Then nothing is checked
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "features/greeting.feature changed an approved feature file"
+    And the output contains "Greet Ann"
+    And the output does not contain "Greet Bob"
+
+  Scenario: Moving a scenario of a feature at bdd_red to a done feature by its tag is a violation
+    Given a completed feature "FR-GREETING-01" with a scenario "Greet Ann" marked "pass"
+    And a started feature "FR-GREETING-02" at step "bdd_red"
+    And the focus is on "FR-GREETING-02"
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    And the changes are committed
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-01
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "features/greeting.feature changed an approved feature file"
+    And the output contains "Greet Bob"
+
+  Scenario: The Background of a file shared with a done feature is frozen
+    Given a completed feature "FR-GREETING-01" with a scenario "Greet Ann" marked "pass"
+    And a started feature "FR-GREETING-02" at step "bdd_red"
+    And the focus is on "FR-GREETING-02"
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Background:
+          Given the greeting for Ann
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    And the changes are committed
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Background:
+          Given the greeting for Ann
+          And the greeting for Ann
+
+        @FR-GREETING-01
+        Scenario: Greet Ann
+          Given the greeting for Ann
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "features/greeting.feature changed an approved feature file"
+    And the output contains "the parts outside scenarios"
+
+  Scenario: At bdd_red, a scenario already recorded as pass must not change
+    Given a started feature "FR-GREETING-02" at step "bdd_red" with a scenario "Greet Bob" marked "pass"
+    And the focus is on "FR-GREETING-02"
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+
+        @FR-GREETING-02
+        Scenario: Greet Cleo
+          Given the greeting for Ann
+      """
+    And the changes are committed
+    And the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        @FR-GREETING-02
+        Scenario: Greet Bob
+          Given the greeting for Bob
+          Then nothing is checked
+
+        @FR-GREETING-02
+        Scenario: Greet Cleo
+          Given the greeting for Ann
+          Then nothing is checked
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "features/greeting.feature changed an approved feature file"
+    And the output contains "Greet Bob"
+    And the output does not contain "Greet Cleo"

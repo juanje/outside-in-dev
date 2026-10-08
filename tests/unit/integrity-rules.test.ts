@@ -4,7 +4,7 @@ import { type ChangedFile, integrityViolations } from "../../src/artifacts/integ
 const PATTERNS = { source: ["BAD_SRC"], tests: ["BAD_TEST"] };
 
 function changed(file: string, kind: ChangedFile["kind"], added: string[] = []): ChangedFile {
-  return { file, kind, added: added.map((text, at) => ({ line: at + 1, text })), approvedFeature: false, sourceReads: [] };
+  return { file, kind, added: added.map((text, at) => ({ line: at + 1, text })), frozen: [], sourceReads: [] };
 }
 
 describe("integrityViolations", () => {
@@ -52,12 +52,12 @@ describe("integrityViolations", () => {
   });
 
   it("rejects a change to an approved feature file in every step, once", () => {
-    const approved = { ...changed("features/a.feature", "feature"), approvedFeature: true };
+    const approved = { ...changed("features/a.feature", "feature"), frozen: ["Greet Ann", "the parts outside scenarios"] };
     const files = [approved, changed("features/b.feature", "feature")];
     for (const step of ["select", "bdd_red", "tdd_red", "refactor", "quality_gate"]) {
       expect(integrityViolations(step, files, PATTERNS).filter((line) => line.startsWith("features/a.feature"))).toHaveLength(1);
     }
-    expect(integrityViolations("select", files, PATTERNS)).toEqual(["features/a.feature changed an approved feature file"]);
+    expect(integrityViolations("select", files, PATTERNS)).toEqual(["features/a.feature changed an approved feature file: Greet Ann, the parts outside scenarios"]);
     expect(integrityViolations("tdd_green", files, PATTERNS)).toEqual([
       "features/a.feature changed a test while writing code",
       "features/b.feature changed a test while writing code",

@@ -69,6 +69,6 @@ describe("oid verify integrity", () => {
       stdout: "features/a.feature changed a test while writing code\ntests/unit/a.test.ts changed a test while writing code\n",
       stderr: "",
     });
-    expect((await runInProject(["verify", "integrity"])).stdout).toBe("features/a.feature changed an approved feature file\n");
+    expect((await runInProject(["verify", "integrity"])).stdout).toBe("features/a.feature changed an approved feature file: One, the parts outside scenarios\n");
   });
 });

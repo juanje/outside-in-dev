@@ -2,15 +2,15 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
 import { baseContent, changedSinceCheckpoint } from "../artifacts/checkpoint.js";
+import { frozenParts } from "../artifacts/feature-approval.js";
 import { type ChangedFile, FILE_KIND, type FileKind, forbiddenPatterns, integrityViolations } from "../artifacts/integrity.js";
 import { NEWLINE } from "../artifacts/lines.js";
-import { CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, loadProgress, type Progress, ProgressError } from "../artifacts/progress.js";
+import { CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, loadProgress, type Progress, ProgressError, SCENARIO_STATUS } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 import { readText } from "../artifacts/project-json.js";
 import { changedSinceReturn, readReturn } from "../artifacts/return-record.js";
 import { sourceReadLines } from "../artifacts/source-reads.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
-import { listScenarios } from "../artifacts/traceability.js";
 import { loadVerifyConfig } from "../artifacts/verified-checkpoint.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -44,12 +44,19 @@ function kindOf(config: ProjectConfig, name: string): FileKind | undefined {
   return isInsideSource(config.paths.source, name) ? FILE_KIND.source : undefined;
 }
 
-/** Whether a feature file, as it was at the last checkpoint, belongs to a feature whose scenarios are approved. */
-function isApproved(cwd: string, name: string, progress: Progress | undefined): boolean {
-  const text = baseContent(cwd, name, progress?.current_focus ?? null);
-  if (text === undefined || progress === undefined) return false;
-  const tagged = new Set(listScenarios([{ path: name, text }]).flatMap(({ tags }) => tags.map((tag) => FEATURE_TAG.exec(tag)?.[1] ?? "")));
-  return progress.features.some(({ id, status, cycle_step }) => tagged.has(id) && (status === FEATURE_STATUS.done || APPROVED_STEPS.includes(cycle_step ?? "")));
+/** Whether a scenario with these effective tags is approved: it has the tag of a finished FR or one past `bdd_red`, or it is recorded as `pass` (ADR-040). */
+function scenarioIsApproved(progress: Progress | undefined, name: string, tags: string[]): boolean {
+  const tagged = new Set(tags.map((tag) => FEATURE_TAG.exec(tag)?.[1] ?? ""));
+  return (progress?.features ?? []).some(
+    ({ id, status, cycle_step, scenarios }) =>
+      tagged.has(id) && (status === FEATURE_STATUS.done || APPROVED_STEPS.includes(cycle_step ?? "") || (scenarios ?? []).some((scenario) => scenario.name === name && scenario.bdd === SCENARIO_STATUS.pass)),
+  );
+}
+
+/** What of a feature file the change breaks: the approved scenarios and parts that differ from the file as it was at the last checkpoint. */
+function frozenPartsOf(cwd: string, name: string, progress: Progress | undefined): string[] {
+  const now = readText(cwd, name);
+  return frozenParts(baseContent(cwd, name, progress?.current_focus ?? null), now, (scenario, tags) => scenarioIsApproved(progress, scenario, tags));
 }
 
 /** A file that changed since the last checkpoint, with what the rules need to know of it. */
@@ -61,7 +68,7 @@ function describeChange(cwd: string, config: ProjectConfig, progress: Progress |
     file,
     kind,
     added: exists ? addedLines(cwd, file, progress?.current_focus ?? null) : [],
-    approvedFeature: kind === FILE_KIND.feature && isApproved(cwd, file, progress),
+    frozen: kind === FILE_KIND.feature ? frozenPartsOf(cwd, file, progress) : [],
     sourceReads: exists && (kind === FILE_KIND.unitTest || kind === FILE_KIND.step) ? sourceReadLines(readText(cwd, file)!, file, isSource) : [],
   };
 }

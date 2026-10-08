@@ -16,8 +16,8 @@ export interface ChangedFile {
   file: string;
   kind: FileKind | undefined;
   added: AddedLine[];
-  /** Whether the file is a feature file whose feature is past `bdd_red`. */
-  approvedFeature: boolean;
+  /** For a feature file, what of it is approved and changed: scenario names, "the parts outside scenarios", or "the whole file" (ADR-040). */
+  frozen: string[];
   /** The lines of its `readFileSync` calls that read a path under the source directories. */
   sourceReads: number[];
 }
@@ -91,9 +91,11 @@ function patternViolations(files: ChangedFile[], patterns: ForbiddenPatterns, li
   );
 }
 
-/** One line for each approved feature file that changed, unless the step already names it. */
+const LIST_SEPARATOR = ", ";
+
+/** One line for each feature file that changed what is approved in it, naming what, unless the step already names the file. */
 function approvedViolations(files: ChangedFile[], named: Set<string>): string[] {
-  return files.filter(({ file, approvedFeature }) => approvedFeature && !named.has(file)).map(({ file }) => `${file} changed an approved feature file`);
+  return files.filter(({ file, frozen }) => frozen.length > 0 && !named.has(file)).map(({ file, frozen }) => `${file} changed an approved feature file: ${frozen.join(LIST_SEPARATOR)}`);
 }
 
 /** One line, `<file>[:<line>] <rule>`, for each rule that the changes of `step` break. */
