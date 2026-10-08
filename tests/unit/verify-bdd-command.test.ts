@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
 import { scenarioMessages } from "./cucumber-messages.js";
 import { runInProject } from "./run-capture.js";
-import { dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
+import { REAL_PROCESS_TIMEOUT_MS, dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
 useTempDir();
 
@@ -43,7 +43,7 @@ describe("oid verify red <feature>:<line>", () => {
       external: false,
       snapshot: { "features/steps/a.steps.ts": expect.any(String) },
     });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("verifies a scenario named by its name, as the scenario at its location", async () => {
     projectWithRunner({ report: scenarioMessages([passed, missingModule("src/nope.js")]) });

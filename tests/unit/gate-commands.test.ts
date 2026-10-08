@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gateChecks } from "../../src/orchestrator/gate-checks.js";
 import { runMessages } from "./cucumber-run-messages.js";
 import { bddRunner, EMPTY_BASELINE, gateProject, PASSING_UNIT } from "./gate-project.js";
-import { dir, useTempDir, write } from "./temp-project.js";
+import { dir, useTempDir, write, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -17,5 +17,5 @@ describe("the coverage and the extra checks of the quality gate", () => {
     expect(gateChecks(dir, config, EMPTY_BASELINE)).toEqual({ kind: "ask", check: "extra check", problems: ['"node extra.cjs" exited 2', "the bundle is too big"], output: "the bundle is too big" });
     write("extra.cjs", "process.exit(0);");
     expect(gateChecks(dir, config, EMPTY_BASELINE)).toEqual({ kind: "ok" });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 });

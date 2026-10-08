@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readBaseline } from "../../src/artifacts/baseline.js";
 import { runCli } from "../../src/run-cli.js";
+import { REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 let dir: string;
 
@@ -25,7 +26,7 @@ describe("oid metrics --baseline", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatch(/^baseline: 2 findings recorded in \.outside-in\/baseline\.json$/m);
     expect(readBaseline(dir)?.size).toBe(2);
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("is a usage error together with --changed, and records no baseline", async () => {
     let stderr = "";

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
 import { findingLines } from "./metrics-output.js";
 import { runOid } from "./run-capture.js";
-import { dir, useTempDir } from "./temp-project.js";
+import { dir, useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -27,7 +27,7 @@ describe("the baseline and the measure of a complexity finding", () => {
       exitCode: 1,
       complexity: ["complexity src/total.ts [total] cyclomatic complexity 50 > 10"],
     });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("still counts a complexity finding as existing when its measure went down, whatever the limit", () => {
     mkdirSync(join(dir, ".outside-in"));

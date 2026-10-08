@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runInProject } from "./run-capture.js";
-import { useTempDir } from "./temp-project.js";
+import { useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -10,5 +10,5 @@ describe("oid run", () => {
     expect(exitCode).toBe(1);
     expect(stdout).toBe("");
     expect(stderr).toContain(".outside-in.json is missing");
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 });

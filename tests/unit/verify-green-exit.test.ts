@@ -3,7 +3,7 @@ import { runMessages } from "./cucumber-run-messages.js";
 import { commitAll } from "./git-fixture.js";
 import { RUNNER_COMMANDS, RUNNER_PATHS } from "./green-runners.js";
 import { runInProject } from "./run-capture.js";
-import { useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
+import { useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -27,7 +27,7 @@ describe("oid verify green and the exit of the runners", () => {
     commitAll();
     const { exitCode, stdout } = await runInProject(["verify", "green"]);
     expect({ exitCode, ok: stdout.startsWith("green: ok") }).toEqual({ exitCode: 1, ok: false });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("rejects a unit run that exits with an error although every test in its report passed", async () => {
     projectWithRunners({ unitExit: 1 });

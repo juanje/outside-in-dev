@@ -8,7 +8,7 @@ import { scenarioMessages } from "./cucumber-messages.js";
 import { commitAll } from "./git-fixture.js";
 import { FEATURE, RED } from "./red-fixture.js";
 import { runInProject } from "./run-capture.js";
-import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
+import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -48,7 +48,7 @@ describe("oid verify red <scenario> at bdd_red after a return", () => {
     expect(readReturn(dir, FEATURE)).toBeUndefined();
     expect(JSON.parse(readFileSync(join(dir, `.outside-in/checkpoints/${FEATURE}.json`), "utf8"))).toMatchObject({ step: "bdd_red" });
     expect(readFileSync(join(dir, "src/a.ts"), "utf8")).toBe("export const a = 2;\n");
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("moves a feature with no code in the cycle to tdd_red when the scenario fails as a valid Red, and forgets the return", async () => {
     goBack("tdd_red");

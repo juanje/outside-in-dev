@@ -5,7 +5,7 @@ import { runMessages } from "./cucumber-run-messages.js";
 import { commitAll } from "./git-fixture.js";
 import { RUNNER_COMMANDS, RUNNER_PATHS } from "./green-runners.js";
 import { runInProject } from "./run-capture.js";
-import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
+import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -40,7 +40,7 @@ describe("oid verify green", () => {
       snapshot: { "src/a.ts": expect.any(String) },
     });
     expect(existsSync(join(dir, BDD_RAN))).toBe(false);
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("records the checkpoint of the feature of each target, as well as the one of the feature in focus", async () => {
     const passed = { uri: "features/b.feature", name: "Bs", steps: [{ text: "it bs", status: "PASSED" }] };

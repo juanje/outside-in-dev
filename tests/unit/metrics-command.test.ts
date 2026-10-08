@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findingLines, summaryCount } from "./metrics-output.js";
-import { dir, useTempDir, writeMinimalConfig } from "./temp-project.js";
+import { dir, useTempDir, writeMinimalConfig, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 import { runOid } from "./run-capture.js";
 
 useTempDir();
@@ -17,7 +17,7 @@ describe("oid metrics", () => {
     expect(exitCode).toBe(0);
     expect(findingLines(stdout, "complexity")).toEqual(["complexity src/busy.ts:1-3 [busy] cyclomatic complexity 2 > 1"]);
     expect(summaryCount(stdout, "complexity")).toBe(1);
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("prints the blocks duplicated between files, with both locations, and counts them", async () => {
     mkdirSync(join(dir, "src"));

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findingLines } from "./metrics-output.js";
-import { dir, useTempDir } from "./temp-project.js";
+import { dir, useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 import { runOid } from "./run-capture.js";
 import { commitAll } from "./git-fixture.js";
 
@@ -32,7 +32,7 @@ describe("oid metrics --changed with a baseline", () => {
     const { stdout } = await metrics("--changed");
     expect(findingLines(stdout, "magic_value")).toEqual(["magic_value src/limits.ts:2-2 magic number 77"]);
     expect(stdout).toMatch(/^1 existing finding left out$/m);
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("fails when a finding that is not in the baseline remains, and succeeds when only findings of the baseline are left", async () => {
     await baselinedProject();
@@ -40,7 +40,7 @@ describe("oid metrics --changed with a baseline", () => {
     expect((await metrics("--changed")).exitCode).toBe(0);
     writeFileSync(join(dir, "src/limits.ts"), "export const isLong = (n: number): boolean => n > 42;\nexport const isHuge = (n: number) => n > 77;\n");
     expect((await metrics("--changed")).exitCode).toBe(1);
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("says once on the error output that there is no baseline, and treats every finding as new", async () => {
     committedProject();

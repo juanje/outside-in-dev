@@ -4,7 +4,7 @@ import { FakeAgent } from "../../features/support/fake-agent.js";
 import { gitIn } from "./git-fixture.js";
 import { SCENARIO, stepsProject } from "./feature-cycle-fixture.js";
 import { approvedRun, readJson } from "./loop-fixture.js";
-import { useTempDir } from "./temp-project.js";
+import { useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -29,5 +29,5 @@ describe("BDD Red of a run", () => {
       progress: [["FR-A-01", "tdd_red", [{ name: SCENARIO, bdd: "fail" }]], ["FR-A-02", "bdd_red", []]],
       task: "You write the step definitions for the first scenario of FR-A-01. Follow these steps in order.",
     });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 });

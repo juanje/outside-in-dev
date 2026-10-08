@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
 import { runInProject } from "./run-capture.js";
-import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
+import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -36,7 +36,7 @@ describe("oid verify red", () => {
       stdout: "red: not valid (test_bug): the test passes without new implementation\n",
       stderr: "",
     });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("accepts a test of a source module that does not exist yet: exit 0 and a checkpoint of the verified step", async () => {
     projectWithRunner({ testResults: [testFile(`Cannot find module '../../src/nope.js' imported from '${dir}/tests/unit/a.test.ts'`, [])] });

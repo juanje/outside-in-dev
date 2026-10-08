@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { dir, useTempDir } from "./temp-project.js";
+import { dir, useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 import { runOid } from "./run-capture.js";
 
 useTempDir();
@@ -31,5 +31,5 @@ describe("oid metrics snapshot", () => {
     const [snapshot] = history();
     expect(snapshot!.counts).toEqual({ complexity: 0, dead_code: 0, doc_drift: 0, duplication: 1, magic_value: 0 });
     expect(snapshot!.duplication).toEqual({ source: 90, tests: 0 });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 });

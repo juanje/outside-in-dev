@@ -6,7 +6,7 @@ import { FakeAgent } from "../../features/support/fake-agent.js";
 import { runCli } from "../../src/run-cli.js";
 import { gitIn } from "./git-fixture.js";
 import { featureProject, runServices } from "./feature-cycle-fixture.js";
-import { useTempDir } from "./temp-project.js";
+import { useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
@@ -23,7 +23,7 @@ describe("writing the feature files of a run", () => {
     const log = readFileSync(join(project, ".outside-in/runs", run!, "events.jsonl"), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
     expect(log.filter((event) => event.type === "state_change").map((event) => event.to).slice(-2)).toEqual(["FEATURE_WRITE", "FEATURE_REVIEW"]);
     expect({ exitCode, state: saved.state, actions: saved.pendingInput.actions.map((action: { key: string }) => action.key) }).toEqual({ exitCode: 3, state: "FEATURE_REVIEW", actions: ["approve", "edit", "reject"] });
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("ends with an error that names the requirement, the reason and the detail when the agent is blocked", async () => {
     const project = featureProject();

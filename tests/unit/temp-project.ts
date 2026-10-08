@@ -38,3 +38,6 @@ export function writeMinimalConfig(extra: Record<string, unknown> = {}, folder =
 export function writeProgressFile(progress: unknown): void {
   write("progress.json", `${JSON.stringify(progress, null, 2)}\n`);
 }
+
+/** Per-test limit for a test that runs real child processes (git, node runners, jscpd, knip, `oid` itself): 2 to 6 s while the BDD suite loads the machine, against vitest's 5 s default. Nothing in such a test waits on a condition, so the limit only has to be far above the slowest honest run. */
+export const REAL_PROCESS_TIMEOUT_MS = 60_000;
