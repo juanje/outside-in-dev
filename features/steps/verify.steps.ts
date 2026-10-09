@@ -29,7 +29,7 @@ const FIXTURE_CONFIG = {
 
 const FIXTURE_TSCONFIG = {
   compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext", target: "ES2022", noEmit: true, skipLibCheck: true },
-  include: ["src/**/*.ts", "tests/**/*.ts"],
+  include: ["src/**/*.ts", "tests/**/*.ts", "features/**/*.ts"],
 };
 
 /** The checkpoint of the feature in focus, or the single checkpoint when no feature is focused. */

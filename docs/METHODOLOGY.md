@@ -50,7 +50,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 - Write the **minimum** code in `src/` to make the test pass. Before writing a new function or constant, check whether one already exists (search the exported symbols of `src/`).
 - Do not touch tests in this step.
-- Run `oid verify green`: the whole unit suite, the scenarios recorded as `pass` of the feature in focus (and of the features of its targets), and the type check of `src/`. It must say `green: ok`. The scenarios of other features run in the quality gate (step 6, ADR-036). Type errors in the unit tests or the step definitions are not allowed either (`npx tsc --noEmit`).
+- Run `oid verify green`: the whole unit suite, the scenarios recorded as `pass` of the feature in focus (and of the features of its targets), and the type check of the project (source, unit tests and step definitions). It must say `green: ok`. The scenarios of other features run in the quality gate (step 6, ADR-036).
 
 ### 5. Refactor [`refactor`]
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isInsideSource } from "../../src/artifacts/source-roots.js";
+import { isInsideCode, isInsideSource } from "../../src/artifacts/source-roots.js";
 
 describe("isInsideSource", () => {
   it("is true for a path under the fixed directory of a source glob and false elsewhere", () => {
@@ -12,5 +12,13 @@ describe("isInsideSource", () => {
 
   it("takes the whole project when a glob starts with a wildcard", () => {
     expect(isInsideSource(["**/*.ts"], "anywhere/at/all.js")).toBe(true);
+  });
+});
+
+describe("isInsideCode", () => {
+  const paths = { source: ["lib/**/*.ts"], unit_tests: ["spec/unit/**/*.ts"], bdd_steps: ["spec/steps/**/*.ts"] };
+
+  it("is true for a path under the source, the unit tests or the step definitions, and false elsewhere", () => {
+    expect(["lib/a.ts", "spec/unit/a.ts", "spec/steps/a.ts", "docs/a.ts"].map((path) => isInsideCode(paths, path))).toEqual([true, true, true, false]);
   });
 });

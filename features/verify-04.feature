@@ -121,3 +121,40 @@ Feature: Verify a Green without regressions
     And the output starts with "green: 1 problem(s)"
     And the output contains "features/steps/greeting.steps.ts:2 imports shout from \"../../src/shout.js\", which does not exist yet"
     And no checkpoint is recorded
+
+  Scenario: A type error in a unit test fails the green and names the file
+    Given the unit test file "tests/unit/greeting.test.ts" containing:
+      """
+      import { expect, it } from "vitest";
+      import { greet } from "../../src/greeting.js";
+
+      it("greets by name", () => {
+        expect(greet(42)).toBe("Hello, 42");
+      });
+      """
+    When I run "oid verify green"
+    Then the command fails
+    And the output starts with "green: 1 problem(s)"
+    And the output contains "type tests/unit/greeting.test.ts:5 TS2345"
+    And no checkpoint is recorded
+
+  Scenario: A type error in a step definition fails the green and names the file
+    Given the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given, Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the greeting for Ann", async function () {
+        const { greet } = await import("../../src/greeting.js");
+        this.text = greet(42);
+      });
+
+      Then("it says hello", function () {
+        assert.equal(this.text, "Hello, 42");
+      });
+      """
+    When I run "oid verify green"
+    Then the command fails
+    And the output starts with "green: 1 problem(s)"
+    And the output contains "type features/steps/greeting.steps.ts:6 TS2345"
+    And no checkpoint is recorded

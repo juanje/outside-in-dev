@@ -1649,6 +1649,14 @@
         {
           "name": "A feature is marked done after a green that ran only its own scenarios",
           "bdd": "pass"
+        },
+        {
+          "name": "A type error in a unit test fails the green and names the file",
+          "bdd": "pass"
+        },
+        {
+          "name": "A type error in a step definition fails the green and names the file",
+          "bdd": "pass"
         }
       ]
     },

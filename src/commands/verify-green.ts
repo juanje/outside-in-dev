@@ -9,7 +9,7 @@ import type { EvidenceScenario } from "../artifacts/checkpoint.js";
 import { scenarioTarget } from "../artifacts/verify-target.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
-import { isInsideSource } from "../artifacts/source-roots.js";
+import { isInsideCode } from "../artifacts/source-roots.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { typeProblems } from "../artifacts/tsc-report.js";
 import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
@@ -47,17 +47,18 @@ export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
 
 const ERROR_LINE = /error TS\d+/;
 
-/** What the type check showed: the problems oid reports (each error located in a source file or in no file, or a failure that printed no error) and the lines of its output that name an error, as it printed them. */
-export function typecheckRun(cwd: string, config: ProjectConfig): { problems: string[]; errors: string[] } {
+/** What the type check showed: the problems oid reports (each error located in the source, the unit tests or the step definitions, or in no file, or a failure that printed no error) and the lines of its output that name an error, as it printed them. */
+export function typecheckRun(cwd: string, config: ProjectConfig, stepsUnloadable = false): { problems: string[]; errors: string[] } {
   const { exitCode, output } = runTypecheck(cwd, config.commands.typecheck);
-  const problems = typeProblems(output, cwd, (path) => isInsideSource(config.paths.source, path));
+  const reported = stepsUnloadable ? { ...config.paths, bdd_steps: [] } : config.paths;
+  const problems = typeProblems(output, cwd, (path) => isInsideCode(reported, path));
   const silent = exitCode !== 0 && output.trim() === "";
   return { problems: silent ? [`type: the type check failed (exit ${exitCode}) and printed no error`] : problems, errors: output.split(NEWLINE).filter((line) => ERROR_LINE.test(line)) };
 }
 
-/** The problems of the type check. */
-function typecheckProblems(cwd: string, config: ProjectConfig): string[] {
-  return typecheckRun(cwd, config).problems;
+/** The problems of the type check; when cucumber could not load the step files, their type errors are left out, since the load problem is the one cause. */
+function typecheckProblems(cwd: string, config: ProjectConfig, stepsUnloadable: boolean): string[] {
+  return typecheckRun(cwd, config, stepsUnloadable).problems;
 }
 
 const FEATURE_TAG = /^@(FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?)$/;
@@ -95,7 +96,7 @@ function distinctLocations(scenarios: FeatureScenarioLocation[]): FeatureScenari
 }
 
 /** What the BDD run of the targets and of the scenarios that progress records as passing of the features it verifies (the one in focus and those of the targets) showed: its problems, the scenarios that ran and passed, and the features the targets are tagged with. */
-function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): { problems: string[]; ran: EvidenceScenario[]; targeted: string[] } {
+function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): { problems: string[]; ran: EvidenceScenario[]; targeted: string[]; unloadable?: boolean } {
   const located = listLocatedScenarios(readFeatureSources(cwd, config.paths.bdd_features));
   const hasProgress = existsSync(join(cwd, config.paths.progress));
   const passing = hasProgress ? locatePassingScenarios(loadProgress(cwd, config.paths.progress), located) : { found: [], missing: [] };
@@ -107,7 +108,7 @@ function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): 
   const found = [...passing.found.filter(({ feature }) => verified.has(feature)), ...named.found];
   if (found.length === 0) return { problems, ran: [], targeted };
   const unloadable = loadableStepsProblems(cwd, config);
-  if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [], targeted };
+  if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [], targeted, unloadable: true };
   const toRun = distinctLocations(found);
   const { exitCode, report } = runBddScenarios(cwd, config.commands.bdd, toRun);
   if (report === undefined) return { problems: [noReport(SUITE.bdd, exitCode), ...problems], ran: [], targeted };
@@ -121,7 +122,7 @@ function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): 
 export function runGreen(io: CliIo, targets: string[] = []): number {
   const config = loadVerifyConfig(io.cwd);
   const scenarios = scenarioResult(io.cwd, config, targets);
-  const problems = [...suiteProblems(io.cwd, config), ...scenarios.problems, ...typecheckProblems(io.cwd, config)];
+  const problems = [...suiteProblems(io.cwd, config), ...scenarios.problems, ...typecheckProblems(io.cwd, config, scenarios.unloadable === true)];
   if (problems.length > 0) {
     io.stdout(`green: ${problems.length} problem(s)${NEWLINE}${problems.join(NEWLINE)}${NEWLINE}`);
     return 1;

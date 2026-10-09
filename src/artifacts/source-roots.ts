@@ -20,3 +20,8 @@ export function isInsideSource(globs: string[], path: string): boolean {
     return root === "" || path.startsWith(`${root}${SEPARATOR}`);
   });
 }
+
+/** Whether a path, relative to the project, lies under the source, the unit tests or the step definitions: the code whose type errors a Green reports. */
+export function isInsideCode(paths: { source: string[]; unit_tests: string[]; bdd_steps: string[] }, path: string): boolean {
+  return isInsideSource([...paths.source, ...paths.unit_tests, ...paths.bdd_steps], path);
+}
