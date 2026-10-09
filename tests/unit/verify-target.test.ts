@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
-import { parseBddTarget, parseUnitTarget, scenarioTarget } from "../../src/artifacts/verify-target.js";
+import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget } from "../../src/artifacts/verify-target.js";
 
 describe("parseUnitTarget", () => {
   it("splits the test file from the test name at the first ' > '", () => {
@@ -37,5 +37,20 @@ describe("scenarioTarget", () => {
     expect(() => scenarioTarget("Subtracts", located)).toThrow(
       new ProgressError('several scenarios are named "Subtracts"; give the location of one of them: features/a.feature:9, features/b.feature:3'),
     );
+  });
+});
+
+describe("requireScenarioStart", () => {
+  const located = [{ file: "features/a.feature", line: 4, name: "Adds", tags: [] }];
+
+  it("returns the location of a scenario that starts at the line, also when it is written with a leading ./", () => {
+    expect([requireScenarioStart({ file: "features/a.feature", line: 4 }, located), requireScenarioStart({ file: "./features/a.feature", line: 4 }, located)]).toEqual([
+      { file: "features/a.feature", line: 4 },
+      { file: "./features/a.feature", line: 4 },
+    ]);
+  });
+
+  it("refuses a line where no scenario starts, naming the location", () => {
+    expect(() => requireScenarioStart({ file: "features/a.feature", line: 5 }, located)).toThrow(new ProgressError("no scenario starts at features/a.feature:5"));
   });
 });

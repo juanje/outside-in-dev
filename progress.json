@@ -1545,10 +1545,6 @@
           "bdd": "pass"
         },
         {
-          "name": "A line where no scenario starts is not a Red",
-          "bdd": "pass"
-        },
-        {
           "name": "A step file changed since the last commit that stops cucumber from starting is not a Red",
           "bdd": "pass"
         },
@@ -1566,6 +1562,14 @@
         },
         {
           "name": "A Red names the scenario by its name",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Red at a line where no scenario starts is refused with the location",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Red at a line where no scenario starts records no observation and no checkpoint",
           "bdd": "pass"
         }
       ]

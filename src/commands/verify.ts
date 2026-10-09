@@ -10,10 +10,11 @@ import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { observationToDecide, recordObservation } from "../artifacts/red-observation.js";
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
+import { readText } from "../artifacts/project-json.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
-import { parseUnitTarget, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
+import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import { answerReturn, judgeReturn, moveFeature, moveToUnitRed, passedAtOnce, returnedFeature } from "./verify-return.js";
@@ -124,6 +125,8 @@ function scenariosToName(cwd: string, target: string): LocatedScenario[] {
 /** Reads the target as a scenario when it is the location or the name of one, and as a unit test otherwise. */
 function parseTarget(cwd: string, target: string): Target {
   const scenario = scenarioTarget(target, scenariosToName(cwd, target));
+  const text = scenario !== undefined && parseBddTarget(target) !== undefined ? readText(cwd, scenario.file) : undefined;
+  if (scenario !== undefined && text !== undefined) requireScenarioStart(scenario, listLocatedScenarios([{ path: scenario.file.replace(/^\.\//, ""), text }]));
   return scenario === undefined ? { kind: TARGET.test, test: parseUnitTarget(target) } : { kind: TARGET.scenario, scenario };
 }
 

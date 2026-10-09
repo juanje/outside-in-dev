@@ -96,6 +96,10 @@ Then("no checkpoint is recorded", function (this: OidWorld) {
   assert.ok(!existsSync(this.path(CHECKPOINT_FILE)) && !existsSync(this.path(CHECKPOINTS_DIR)), "a checkpoint was recorded");
 });
 
+Then("no observation is recorded", function (this: OidWorld) {
+  assert.ok(!existsSync(this.path(".outside-in/red-observation.json")), "an observation was recorded");
+});
+
 Given("a Red of {string} was verified at step {string}", async function (this: OidWorld, id: string, step: string) {
   const { recordVerified, loadVerifyConfig } = await import("../../src/artifacts/verified-checkpoint.js");
   recordVerified(this.dir, loadVerifyConfig(this.dir), { step, verify: { kind: "red", target: "all" }, external: false }, [id]);

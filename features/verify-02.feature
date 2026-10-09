@@ -333,27 +333,6 @@ Feature: Verify a BDD Red
     Then the command succeeds
     And the output starts with "red: valid (missing_implementation)"
 
-  Scenario: A line where no scenario starts is not a Red
-    Given the feature file "features/greeting.feature" containing:
-      """
-      Feature: Greeting
-
-        Scenario: Greet by name
-          Given the greeting
-          Then it greets Ann
-      """
-    And the step definitions file "features/steps/greeting.steps.ts" containing:
-      """
-      import { Given } from "@cucumber/cucumber";
-
-      Given("the greeting", function () {});
-      """
-    When I run "oid verify red features/greeting.feature:1"
-    Then the command fails
-    And the output starts with "red: not valid (test_bug)"
-    And the output contains "no scenario"
-    And no checkpoint is recorded
-
   Scenario: A step file changed since the last commit that stops cucumber from starting is not a Red
     Given the feature file "features/greeting.feature" containing:
       """

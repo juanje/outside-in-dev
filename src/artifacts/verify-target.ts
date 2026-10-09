@@ -32,3 +32,12 @@ export function scenarioTarget(target: string, located: ScenarioLocation[]): { f
   }
   return named.length === 0 ? undefined : { file: named[0]!.file, line: named[0]!.line };
 }
+
+/** The scenario location itself when a scenario of `located` starts at that line; refused otherwise, as a usage error. */
+export function requireScenarioStart(scenario: { file: string; line: number }, located: ScenarioLocation[]): { file: string; line: number } {
+  const file = scenario.file.replace(/^\.\//, "");
+  if (!located.some((candidate) => candidate.file === file && candidate.line === scenario.line)) {
+    throw new ProgressError(`no scenario starts at ${scenario.file}:${scenario.line}`);
+  }
+  return scenario;
+}
