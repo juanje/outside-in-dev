@@ -140,6 +140,17 @@ export function recordCheckpoint(cwd: string, { date, scenarios = [], returned =
   }
 }
 
+/** Records the checkpoint of `details.feature` from the committed tree at HEAD, with no file of the working tree, so that everything not committed counts as a change; the Red base of the feature is forgotten. Does nothing without a commit: the existing checkpoint stays. Returns whether it recorded. */
+export function recordHeadCheckpoint(cwd: string, { date, scenarios = [], ...details }: CheckpointDetails): boolean {
+  if (!hasHead(cwd)) return false;
+  const { file, files } = checkpointLocation(details.feature);
+  const text = `${JSON.stringify({ ...details, scenarios, date: date.toISOString(), snapshot: {}, deleted: [] }, null, JSON_INDENT)}\n`;
+  for (const stale of [files, redBaseLocation(details.feature!).file, redBaseLocation(details.feature!).files]) rmSync(join(cwd, stale), { recursive: true, force: true });
+  mkdirSync(dirname(join(cwd, file)), { recursive: true });
+  writeFileAtomic(join(cwd, file), text);
+  return true;
+}
+
 /** What the checkpoint that judges `feature` recorded: the hash of each file that differed from HEAD then, the files deleted then, and where the copies of its files are. Nothing when there is no checkpoint. */
 function lastCheckpoint(cwd: string, feature: string | null, base?: CheckpointLocation): z.infer<typeof checkpointSchema> & { files: string | undefined } {
   const location = base ?? locateCheckpoint(cwd, feature);

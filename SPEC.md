@@ -84,7 +84,7 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-PROG-09: Reopen a done feature for review
 
-`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is, and prints `FR-xxx: quality_gate, N scenarios kept`. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
+`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is, and prints `FR-xxx: quality_gate, N scenarios kept`. It records the feature's checkpoint from `HEAD`, so integrity judges the review's changes against what was committed, not against an older checkpoint that later commits left behind; changes not yet committed show up as changes. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
 
 ## Functional Requirements — Consistency checks
 

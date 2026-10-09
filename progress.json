@@ -2912,6 +2912,18 @@
         {
           "name": "Integrity on a focused done feature names reopen and revise",
           "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint that later commits left behind does not make the review start with violations",
+          "bdd": "pass"
+        },
+        {
+          "name": "A change that is not committed when the feature is reopened is still a change",
+          "bdd": "pass"
+        },
+        {
+          "name": "Reopening a feature is not the green that closing it needs",
+          "bdd": "pass"
         }
       ]
     },

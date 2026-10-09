@@ -1,7 +1,7 @@
 import { unrecordedScenarios } from "../artifacts/consistency.js";
 import { listScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
-import { hasHead } from "../artifacts/checkpoint.js";
+import { hasHead, recordHeadCheckpoint } from "../artifacts/checkpoint.js";
 import { clearReturn, recordReturn } from "../artifacts/return-record.js";
 import { clearRevise, recordRevise, requireReviseExit } from "../artifacts/revise-record.js";
 import { advanceStep, dropScenario, CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, reopenFeature, reviseFeature, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
@@ -113,11 +113,15 @@ function reviseRequirement(progress: Progress, io: Context, id: string): void {
   io.stdout(`${id}: ${CYCLE_STEP.bddRed}, ${revised.scenarios?.length ?? 0} scenarios pending\n`);
 }
 
+/** The kind of verification the checkpoint of a reopened feature records, which is not a green. */
+const REOPEN_KIND = "reopen";
+
 function reopenForReview(progress: Progress, io: Context, id: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   const reopened = reopenFeature(feature);
   progress.features[progress.features.indexOf(feature)] = reopened;
   saveProgress(io.cwd, progress, io.paths.progress);
+  recordHeadCheckpoint(io.cwd, { step: CYCLE_STEP.qualityGate, feature: id, verify: { kind: REOPEN_KIND, target: id }, external: false, date: new Date() });
   io.stdout(`${id}: ${CYCLE_STEP.qualityGate}, ${reopened.scenarios?.length ?? 0} scenarios kept\n`);
 }
 
