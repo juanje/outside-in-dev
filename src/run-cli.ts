@@ -1,6 +1,7 @@
 import { ProgressError } from "./artifacts/progress.js";
 import { commandError, HELP_FLAG, row } from "./cli-usage.js";
 import type { CliIo } from "./cli-io.js";
+import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
 import { packageVersion } from "./version.js";
 
@@ -55,7 +56,8 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Runner = (rest: string[], io: CliIo, services?: RunServices) => Promise<number>;
+type Services = RunServices | VerifyServices;
+type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
 const RUNNERS: Record<string, Runner> = {
@@ -65,8 +67,8 @@ const RUNNERS: Record<string, Runner> = {
   },
   check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
   init: async (rest, io) => (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--"))),
-  run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services!),
-  verify: async (rest, io) => (await import("./commands/verify.js")).runVerify(io, rest),
+  run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services as RunServices),
+  verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services),
   metrics: async (rest, io) => {
     const { runMetrics } = await import("./commands/metrics.js");
     return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });
@@ -90,7 +92,7 @@ async function commandHelp({ summary, usage, options, extra }: CommandHelp): Pro
   return `${summary}\n\nusage: ${usage}\n${optionLines.length > 0 ? `\nOptions:\n${optionLines.join("")}` : ""}${extraText}`;
 }
 
-export async function runCli(args: string[], io: CliIo, services?: RunServices): Promise<number> {
+export async function runCli(args: string[], io: CliIo, services?: Services): Promise<number> {
   try {
     const [command, ...rest] = args;
     if (command === undefined || command === HELP_FLAG) {

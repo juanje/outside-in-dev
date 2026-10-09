@@ -24,5 +24,5 @@ process.exitCode = await runCli(
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
   },
-  args[0] === "run" ? await runServices() : undefined,
+  args[0] === "run" ? await runServices() : args[0] === "verify" ? { pid: process.pid } : undefined,
 );

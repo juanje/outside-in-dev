@@ -12,6 +12,7 @@ import { observationToDecide, recordObservation } from "../artifacts/red-observa
 import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
 import { readText } from "../artifacts/project-json.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
+import { withVerifyLock, type VerifyServices } from "../artifacts/verify-lock.js";
 import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
@@ -241,9 +242,14 @@ function answerBeforeRunning(io: CliIo, config: ProjectConfig, parsed: Target, t
 }
 
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. With `--decide`, answers the failure the last run recorded instead. */
-export function runVerify(io: CliIo, args: string[]): number {
-  if (args[0] === GREEN) return runGreen(io, args.slice(1));
+export function runVerify(io: CliIo, args: string[], services?: VerifyServices): number {
   if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
+  return services === undefined ? runVerifying(io, args) : withVerifyLock(io.cwd, services, () => runVerifying(io, args));
+}
+
+/** Runs a green or a red, which hold the verify lock of the working copy. */
+function runVerifying(io: CliIo, args: string[]): number {
+  if (args[0] === GREEN) return runGreen(io, args.slice(1));
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(io.cwd, target);
   const config = loadVerifyConfig(io.cwd);
