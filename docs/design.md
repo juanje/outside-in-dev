@@ -283,7 +283,7 @@ With `review_features: "upfront"` (the default), `FEATURE_WRITE` and `FEATURE_RE
 
 | State | What happens | Exit gate |
 |:--|:--|:--|
-| `PREFLIGHT` | Acquires the lock. Checks tools, credentials and config. Creates the run's worktree and branch (§6.11) and prepares its dependencies (§9.2). | All OK. |
+| `PREFLIGHT` | Acquires the lock. Checks tools, credentials and config: the checks of `oid doctor` (FR-INIT-05). Creates the run's worktree and branch (§6.11) and prepares its dependencies (§9.2). | All OK. |
 | `BASELINE` | Runs the full existing suite (unit + BDD), the quality gate, the traceability checks and the refactor detectors. Records the baseline (§6.14) and a metrics snapshot (§6.8). | Tests green. If there are red tests, `WAITING_INPUT` (§10.1): an inherited Red cannot be told apart from a new one. Earlier lint and type errors, refactor findings and traceability violations are accepted as frozen debt. |
 | `SPEC_CHECK` | Parses `SPEC.md` (§4.2). Checks that the target FRs exist. Jev evaluates ambiguity and testability. | Deterministic + Jev (§8.2). |
 | `SELECT_FR` | Next `pending` FR in `progress.json`, or the one given with `--fr`. | Deterministic. |
@@ -1199,7 +1199,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 
 | Command | Function |
 |:--|:--|
-| `oid init [--import-progress [PATH]]` | Creates `.outside-in.json`, detecting the stack, the paths (from `tsconfig.json`'s `include` and the cucumber and vitest configuration) and the commands (from `package.json`'s scripts). Adds `.outside-in/` to `.gitignore` and initialises `progress.json` from `SPEC.md` if it does not exist. With `--import-progress`, converts a `progress.json` with another schema (below), read from `PATH` or found at `progress.json` or `specs/progress.json`, and writes it beside the spec (`paths.progress`). |
+| `oid init [--import-progress [PATH]]` | Creates `.outside-in.json`, detecting the stack, the paths (from `tsconfig.json`'s `include` and the cucumber and vitest configuration) and the commands (from `package.json`'s scripts). Adds `.outside-in/` to `.gitignore` and initialises `progress.json` from `SPEC.md` if it does not exist. Offers `oid setup` when the user has none. With `--import-progress`, converts a `progress.json` with another schema (below), read from `PATH` or found at `progress.json` or `specs/progress.json`, and writes it beside the spec (`paths.progress`). |
 | `oid spec [--fr ID]` | Interactive Phase 0. |
 | `oid tidy [--scope PATH…] [--max-items N] [--yes]` | Periodic project cleanup (§14.1). |
 | `oid metrics [--since DATE] [--changed]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
@@ -1210,7 +1210,8 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 | `oid abort` | Orderly stop. |
 | `oid watch [--run ID]` | Opens the progress interface over a running run (from another terminal) or replays a past one from its `events.jsonl`. Post-MVP, `oid dashboard` will do the same in the browser. |
 | `oid decisions [--purpose P]` | History of Jev decisions, for calibration. |
-| `oid doctor` | Tools, credentials, connectivity with Pi and Jev. |
+| `oid setup [--provider P] [--login \| --api-key-stdin] [--import-pi] [--model ROLE=provider/id]…` | Sets up the user's providers, credentials and models per role (§16.1, FR-INIT-04). Interactive, or without a terminal through its options. |
+| `oid doctor` | Checks, without changing anything, the project's tools, a credential for the provider of each role and each role's model in the catalogue; with `--connect`, one minimal call per provider (FR-INIT-05). |
 | `oid clean [--run ID]` | Removes worktrees and data of finished runs. |
 | `oid progress <subcommand>` | Reads and writes `progress.json` with the rules of §4.4 (below). |
 | `oid --help`, `oid <command> [<subcommand>] --help` | Prints what the command does, its subcommands, arguments and options, and exits 0 (FR-CLI-01). |
@@ -1265,15 +1266,7 @@ Validated with Zod at startup.
     "coverage": null,
     "extra_checks": []
   },
-  "models": {
-    "fast": "<provider/fast model>",
-    "default": "<provider/default model>",
-    "strong": "<provider/most capable model>",
-    "spec": "<provider/model for Phase 0>"
-  },
   "decisions": {
-    "provider": "openrouter",
-    "model": "typesafe/jev-1.13",
     "temperature": null,
     "thresholds": {
       "red_gate": 0.80,
@@ -1350,7 +1343,26 @@ Notes:
 - `integrity.forbidden_in_tests` with `readFileSync` applies only when the path read is inside `paths.source` (checked on the AST); tests may read fixtures.
 - `refactor.tidy.triggers` is measured from the last `oid tidy` run: `duplication_pp` in percentage points; `max_cyclomatic` as an increase in maximum complexity; `unused_exports` as an absolute increase.
 
-Credentials: never in this file. Provider credentials (including the one serving Jev, e.g. `OPENROUTER_API_KEY` or `TYPESAFE_API_KEY`) are resolved as in Pi: from the auth storage of `oid`'s own `agentDir` (`~/.config/oid/agent/auth.json`) or from the provider's variables. `oid doctor` offers to import those in `~/.pi/agent` once, explicitly, instead of reading them on every run.
+Credentials and models: never in this file. They are the user's (§16.1, ADR-048); a `models` key here is an error that names `oid setup`.
+
+### 16.1. User configuration (`<config dir>/config.json`)
+
+The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.config/oid`. `oid setup` writes it (FR-INIT-04); `oid doctor` checks it (FR-INIT-05).
+
+```json
+{
+  "models": {
+    "fast": "<provider/fast model>",
+    "default": "<provider/default model>",
+    "strong": "<provider/most capable model>",
+    "spec": "<provider/model for Phase 0>"
+  }
+}
+```
+
+- Each role is `provider/id`, resolved with Pi's `ModelRuntime`; a role may carry its own options (for example a pinned version).
+- Credentials live in `<config dir>/agent/auth.json`, the `agentDir` oid passes to Pi (`OID_AGENT_DIR` overrides it), written through Pi's `AuthStorage`: by the provider's own login flow (OAuth, from Pi) or an API key read from standard input. Provider variables (e.g. `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) still work as in Pi. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked.
+- The `decisions` role is reserved for Jev (FR-DEC): provider and pinned model (e.g. `openrouter` with `typesafe/jev-1.13`), sharing the same credential store. Jev's thresholds stay in the project (`decisions.thresholds`), since they are calibrated per project; to be confirmed in FR-DEC.
 
 ---
 

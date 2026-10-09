@@ -138,6 +138,14 @@ If no progress file exists, `oid init` creates one with every requirement in `SP
 
 `oid init --import-progress` converts a progress file written for an earlier version of the methodology (such as Buddy's) to the current schema and lists what could not be carried over. Projects that already follow the methodology can adopt oid without losing their state.
 
+### FR-INIT-04: Set up providers and models
+
+`oid setup` configures, for the user and not the project, the providers oid's agents run on: it logs in to a provider (through the provider's own login or an API key) or imports the credentials of an existing Pi installation when asked, and assigns a model from the provider's catalogue to each role (fast, default, strong, spec). It works interactively, and without a terminal through options. `oid init` offers it when no setup exists. A user should not have to edit files to run oid.
+
+### FR-INIT-05: Check the setup
+
+`oid doctor` reports, without changing anything, whether oid can run here: the project's tools, a credential for the provider of each role, and each role's model in the catalogue; optionally it makes one minimal call per provider. `oid run` and `oid resume` make the same checks before they start and refuse with what is missing and the command that fixes it.
+
 ## Functional Requirements — Code health
 
 

@@ -3196,6 +3196,16 @@
       "id": "FR-RUN-11",
       "title": "Rewrite or skip when retries run out",
       "status": "pending"
+    },
+    {
+      "id": "FR-INIT-04",
+      "title": "Set up providers and models",
+      "status": "pending"
+    },
+    {
+      "id": "FR-INIT-05",
+      "title": "Check the setup",
+      "status": "pending"
     }
   ]
 }
