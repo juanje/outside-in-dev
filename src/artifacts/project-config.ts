@@ -44,7 +44,7 @@ const projectConfigSchema = z.strictObject({
       entry: globs.optional(),
     })
     .optional(),
-  limits: z.strictObject({ max_inner_iterations: z.number().int().positive().optional() }).optional(),
+  limits: z.strictObject({ max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional() }).optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
   settings: z
     .strictObject({
@@ -111,6 +111,14 @@ const DEFAULT_INNER_ITERATIONS = 8;
 export function loadInnerIterationLimit(cwd: string): number {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? DEFAULT_INNER_ITERATIONS : (parseProjectConfig(document).limits?.max_inner_iterations ?? DEFAULT_INNER_ITERATIONS);
+}
+
+const DEFAULT_COMMAND_TIMEOUT_S = 600;
+
+/** How long a command oid runs from the configuration may take before it is stopped: `limits.command_timeout_s`, 600 seconds by default and without a configuration file. */
+export function loadCommandTimeoutS(cwd: string): number {
+  const document = readJson(cwd, CONFIG_FILE);
+  return document === undefined ? DEFAULT_COMMAND_TIMEOUT_S : (parseProjectConfig(document).limits?.command_timeout_s ?? DEFAULT_COMMAND_TIMEOUT_S);
 }
 
 export type GitSettings = { isolation: "worktree" | "in_place"; worktree_dir: string; branch_prefix: string; commit_template: string };

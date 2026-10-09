@@ -2965,6 +2965,25 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-VERIFY-07",
+      "title": "Stop a command that does not end",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A run whose suite never ends stops the runner, ends with the same message and releases its lock",
+          "bdd": "pass"
+        },
+        {
+          "name": "A green whose unit runner never ends stops it at the limit and leaves nothing running",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Red whose unit runner never ends is an environment failure",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

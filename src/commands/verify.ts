@@ -13,7 +13,7 @@ import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedCla
 import { readText } from "../artifacts/project-json.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { withVerifyLock, type VerifyServices } from "../artifacts/verify-lock.js";
-import { runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
+import { CommandTimeoutError, runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
@@ -250,6 +250,17 @@ export function runVerify(io: CliIo, args: string[], services?: VerifyServices):
 /** Runs a green or a red, which hold the verify lock of the working copy. */
 function runVerifying(io: CliIo, args: string[]): number {
   if (args[0] === GREEN) return runGreen(io, args.slice(1));
+  try {
+    return runRed(io, args);
+  } catch (error) {
+    if (!(error instanceof CommandTimeoutError)) throw error;
+    io.stdout(`red: not valid (${RED_CLASS.environment}): ${error.message}\n`);
+    return 1;
+  }
+}
+
+/** Runs one unit test or one scenario for `oid verify red`, or answers the failure it recorded. */
+function runRed(io: CliIo, args: string[]): number {
   const { target, decision } = parseArgs(args);
   const parsed = parseTarget(io.cwd, target);
   const config = loadVerifyConfig(io.cwd);

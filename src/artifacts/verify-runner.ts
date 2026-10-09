@@ -1,6 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { runSupervised } from "./command-supervisor.js";
+import { ProgressError } from "./progress.js";
+import { CONFIG_FILE, loadCommandTimeoutS } from "./project-config.js";
 import { readJson, readText } from "./project-json.js";
 
 /** The directory, relative to the project, that holds the runners' reports; local and git-ignored. */
@@ -39,12 +41,25 @@ export function bddRunCommand(command: string, scenario: { file: string; line: n
   return bddScenariosCommand(command, [scenario], reportPath);
 }
 
-/** Runs a command line through the shell in the project, after clearing the report it will write, if any; returns its exit code and what it printed. */
+/** How long the processes of a command that passed its limit have to end after SIGTERM before they are killed. */
+const STOP_GRACE_MS = 2000;
+const MS_PER_SECOND = 1000;
+
+/** A command that passed `limits.command_timeout_s` and was stopped, with every process it started. */
+export class CommandTimeoutError extends ProgressError {
+  constructor(commandLine: string, seconds: number) {
+    super(`the command "${commandLine}" did not end within ${seconds} s and was stopped; raise limits.command_timeout_s in ${CONFIG_FILE} if it needs more time`);
+  }
+}
+
+/** Runs a command line through the shell in the project, after clearing the report it will write, if any; returns its exit code and what it printed; throws when it does not end within `limits.command_timeout_s`. */
 function runWriting(cwd: string, commandLine: string, reportPath?: string): { exitCode: number | null; stdout: string; stderr: string } {
   mkdirSync(join(cwd, REPORT_DIR), { recursive: true });
   if (reportPath !== undefined) rmSync(join(cwd, reportPath), { force: true });
-  const { status, stdout, stderr } = spawnSync(commandLine, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], maxBuffer: Infinity });
-  return { exitCode: status, stdout: stdout.toString(), stderr: stderr.toString() };
+  const seconds = loadCommandTimeoutS(cwd);
+  const { status, stdout, stderr, timedOut } = runSupervised(cwd, commandLine, { timeoutMs: seconds * MS_PER_SECOND, graceMs: STOP_GRACE_MS });
+  if (timedOut) throw new CommandTimeoutError(commandLine, seconds);
+  return { exitCode: status, stdout, stderr };
 }
 
 /** Runs a command line through the shell in the project and returns its exit code and what it printed. */
