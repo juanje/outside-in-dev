@@ -44,7 +44,7 @@ const projectConfigSchema = z.strictObject({
       entry: globs.optional(),
     })
     .optional(),
-  limits: z.strictObject({ max_retries: z.number().int().nonnegative().optional(), max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional() }).optional(),
+  limits: z.strictObject({ max_retries: z.number().int().nonnegative().optional(), max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional(), cost_limit_usd: z.number().positive().optional(), cost_limit_fr_usd: z.number().positive().optional(), agent_max_turns: z.number().int().positive().optional(), agent_timeout_s: z.number().int().positive().optional() }).optional(),
   models: z.strictObject({ fast: z.string(), default: z.string(), strong: z.string(), spec: z.string().optional() }).optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
   settings: z
@@ -112,6 +112,19 @@ const DEFAULT_INNER_ITERATIONS = 8;
 export function loadInnerIterationLimit(cwd: string): number {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? DEFAULT_INNER_ITERATIONS : (parseProjectConfig(document).limits?.max_inner_iterations ?? DEFAULT_INNER_ITERATIONS);
+}
+
+/** The limits of the budget: the cost of the run and of each feature (none unless the project sets them), the turns and the seconds of one agent session. */
+export type BudgetLimits = { costUsd: number | undefined; costFrUsd: number | undefined; maxTurns: number; timeoutS: number };
+
+const DEFAULT_MAX_TURNS = 40;
+const DEFAULT_AGENT_TIMEOUT_S = 600;
+
+/** The budget the project sets: the `limits` of the configuration file, 40 turns and 600 seconds for a session by default, and no cost limit. */
+export function loadBudgetLimits(cwd: string): BudgetLimits {
+  const document = readJson(cwd, CONFIG_FILE);
+  const limits = document === undefined ? undefined : parseProjectConfig(document).limits;
+  return { costUsd: limits?.cost_limit_usd, costFrUsd: limits?.cost_limit_fr_usd, maxTurns: limits?.agent_max_turns ?? DEFAULT_MAX_TURNS, timeoutS: limits?.agent_timeout_s ?? DEFAULT_AGENT_TIMEOUT_S };
 }
 
 const DEFAULT_RETRIES = 3;

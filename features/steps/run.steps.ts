@@ -21,9 +21,11 @@ type Cucumber = { feature: string; scenario: string; replay: string | string[]; 
 export type Tools = { format: boolean; lint: boolean; extraCheck?: string };
 /** The unit tests and the type check of a project that runs the inner loop: the recorded vitest reports its unit command replays in order (the first is the baseline run), and the recorded type check output, if any. */
 export type Loop = { unit: string[]; typecheck: string | null | (string | null)[] };
-type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber; tools: Tools; retries?: number; models?: { fast: string; default: string; strong: string } };
+type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber; tools: Tools; retries?: number; models?: { fast: string; default: string; strong: string }; budget?: Budget };
+/** The limits of the budget a project sets, as `limits` holds them. */
+export type Budget = { cost_limit_usd?: number; cost_limit_fr_usd?: number; agent_max_turns?: number; agent_timeout_s?: number };
 export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
-export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null };
+export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null; spend?: { usd: number; tokens: number; byFr: Record<string, { usd: number; tokens: number }> }; extensions?: number };
 
 const fixtures = new WeakMap<OidWorld, Fixture>();
 const lockPaths = new WeakMap<OidWorld, string>();
@@ -220,7 +222,7 @@ export function commit(world: OidWorld): void {
   if (format) writeIn(world, "prettier.mjs", PRETTIER_TOOL);
   if (lint) writeIn(world, "eslint.mjs", ESLINT_TOOL);
   if (extraCheck !== undefined) writeIn(world, EXTRA_CHECK_FILE, `console.log(${JSON.stringify(extraCheck)});\nprocess.exit(1);\n`);
-  const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands, limits: { max_retries: fixture.retries ?? 0, ...(limit === undefined ? {} : { max_inner_iterations: limit }) }, ...(fixture.models === undefined ? {} : { models: fixture.models }) };
+  const config = { version: 1, stack: "typescript", paths: fixture.cucumber ? CUCUMBER_PATHS : FIXTURE_PATHS, commands, limits: { max_retries: fixture.retries ?? 0, ...(limit === undefined ? {} : { max_inner_iterations: limit }), ...fixture.budget },...(fixture.models === undefined ? {} : { models: fixture.models }) };
   if (fixture.cucumber) {
     for (const [name, content] of Object.entries(cucumberFiles(fixture.cucumber))) writeIn(world, name, content);
     if (bddCommands === REPLAY_COMMANDS) writeReplay(world, fixture.cucumber.replay, fixture.cucumber.suite);

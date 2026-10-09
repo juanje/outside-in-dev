@@ -3,8 +3,10 @@ import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { featureWriteContext } from "../agents/context/task-context.js";
-import { DONE, runAgent } from "../agents/runner.js";
-import { agentContext, outcomeProblem } from "./agent-run.js";
+import { DONE } from "../agents/runner.js";
+import { outcomeProblem } from "./agent-run.js";
+import { runBillable } from "./budget-call.js";
+import { RunStopped, settleBudget } from "./budget-settle.js";
 import { announceAgent } from "./attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { runInnerLoop } from "./run-inner-loop.js";
@@ -30,13 +32,14 @@ type Written = { problem: string } | { files: string[] };
 /** Has the feature-writing agent run once for each target feature. */
 async function writeFeatures(started: Started, services: FeatureServices, comment?: string): Promise<Written> {
   const { workspace, targets } = started;
-  const context = agentContext(started, services);
   const config = loadProjectConfig(workspace.path);
   const knownIds = parseRequirements(readText(workspace.path, config.paths.spec) ?? "").map(({ id }) => id);
   const files: string[] = [];
   for (const fr of targets) {
-    const effort = announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: config.models });
-    const outcome = await runAgent({ state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`, model: effort.model, thinkingLevel: effort.thinkingLevel }, context);
+    const announce = () => announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: config.models });
+    await settleBudget(started, services, FEATURE_WRITE, fr);
+    const effort = announce();
+    const outcome = await runBillable(started, services, { state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr, announce: () => void announce() });
     const stopped = outcomeProblem(fr, outcome);
     if (stopped !== undefined) return { problem: stopped };
     if (outcome.status !== DONE || outcome.report.status !== DONE) continue;
@@ -110,26 +113,33 @@ async function askForReview(started: Started, files: string[], input: ReviewInpu
   return started.bus.emit({ type: WAITING_INPUT, request: { id: "feature-review", prompt, actions: REVIEW_ACTIONS } }) ?? 0;
 }
 
-/** Runs the states of a run from its start to the review of the feature files, holding the lock until the process ends: returns the exit code of the process. */
+/** Has the feature files written and reviewed until they are approved, then runs the inner loop: returns the exit code of the process. */
+async function writeAndReview(started: Started, services: RunServices): Promise<number> {
+  let comment: string | undefined;
+  for (;;) {
+    const written = await writeFeatures(started, services, comment);
+    if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
+    transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
+    updateSession(started.cwd, { state: STATE.featureReview });
+    const review = await askForReview(started, written.files, services.input ?? { isTTY: false });
+    if (isExitCode(review)) return review;
+    if ("approved" in review) return runInnerLoop(started, services, review.approved);
+    comment = review.comment;
+    transition(started.bus, STATE.featureReview, STATE.featureWrite, `the feature files are rejected: ${comment}`);
+    updateSession(started.cwd, { state: STATE.featureWrite });
+  }
+}
+
+/** Runs the states of a run from its start to the review of the feature files, holding the lock until the process ends: returns the exit code of the process. A person's answer that stops the run on the budget ends it with the exit code of the answer. */
 export async function runFeatureCycle(cwd: string, args: RunArgs, environment: Omit<RunEnvironment, "pid">, services: RunServices): Promise<number> {
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, services.pid);
   try {
     const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands, services.detect ?? detectProject, runnersOf(services));
-    if (isExitCode(started)) return started;
-    let comment: string | undefined;
-    for (;;) {
-      const written = await writeFeatures(started, services, comment);
-      if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
-      transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
-      updateSession(cwd, { state: STATE.featureReview });
-      const review = await askForReview(started, written.files, services.input ?? { isTTY: false });
-      if (isExitCode(review)) return review;
-      if ("approved" in review) return runInnerLoop(started, services, review.approved);
-      comment = review.comment;
-      transition(started.bus, STATE.featureReview, STATE.featureWrite, `the feature files are rejected: ${comment}`);
-      updateSession(cwd, { state: STATE.featureWrite });
-    }
+    return isExitCode(started) ? started : await writeAndReview(started, services);
+  } catch (error) {
+    if (error instanceof RunStopped) return error.code;
+    throw error;
   } finally {
     releaseLock(cwd);
   }

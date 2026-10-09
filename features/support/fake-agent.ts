@@ -17,6 +17,12 @@ export class Route {
   excludedTools: string[][] = [];
   /** The model and the thinking level each of its sessions was opened with, in order. */
   opened: { model?: string; thinkingLevel?: string }[] = [];
+  /** The assistant messages each session sends before it finishes (one by default), indexed by session. */
+  turns: number[] = [];
+  /** Whether the first session never finishes by itself: it waits until it is aborted. */
+  hangsFirst = false;
+  /** How many sessions were aborted before they finished. */
+  stopped = 0;
 }
 type Report = { status: "done"; files: string[]; summary: string; reason?: string; test?: string } | { status: "blocked"; reason: string; detail: string };
 type Verdict = { block?: boolean } | undefined;
@@ -68,6 +74,8 @@ export class FakeAgent {
   stepBlocked: { reason: string; detail: string } | undefined;
   /** The step files of each scenario the step-writing agent is asked for, in order; beyond the list, or without it, it writes `stepFiles`. */
   stepRounds: AgentFile[][] = [];
+  /** The cost and the tokens every message of every session reports. */
+  cost = { usd: 0, tokens: USAGE.totalTokens };
   readonly testRoute = new Route();
   readonly codeRoute = new Route();
   readonly refactorRoute = new Route();
@@ -90,9 +98,15 @@ export class FakeAgent {
   private session(cwd: string, tools: { names: string[]; excluded: string[] }, opened: { model?: string; thinkingLevel?: string }) {
     const listeners: Array<(event: unknown) => void> = [];
     const emit = (event: unknown) => listeners.forEach((listener) => listener(event));
+    let aborted = false;
+    let release = () => {};
+    const until = new Promise<void>((resolve) => (release = resolve));
     const session: OpenedSession & Record<string, unknown> = {
       agent: {},
-      abort: async () => undefined,
+      abort: async () => {
+        aborted = true;
+        release();
+      },
       subscribe: (listener: (event: unknown) => void) => {
         listeners.push(listener);
         return () => listeners.splice(listeners.indexOf(listener), 1);
@@ -109,18 +123,46 @@ export class FakeAgent {
         }
         const providerError = route?.providerError ?? this.providerError;
         if (providerError !== undefined) {
-          emit({ type: "message_end", message: { role: "assistant", usage: USAGE, content: [], stopReason: "error", errorMessage: providerError } });
+          emit({ type: "message_end", message: { role: "assistant", usage: this.usage(), content: [], stopReason: "error", errorMessage: providerError } });
           return;
         }
-        const report = route === undefined ? await this.work(session, cwd, text) : await this.workRound(session, cwd, text, route);
+        let report: Report;
+        if (route === undefined) report = await this.work(session, cwd, text);
+        else {
+          const own = route.tasks.length;
+          route.tasks.push(text);
+          if (!(await this.turns(route, own, emit, { aborted: () => aborted, until }))) {
+            route.stopped += 1;
+            return;
+          }
+          report = await this.workRound(session, cwd, route, route.rounds[own - route.stopped]);
+        }
         emit({ type: "tool_execution_start", toolCallId: "call-1", toolName: "report", args: report });
         emit({ type: "tool_execution_end", toolCallId: "call-1", toolName: "report", result: { content: [{ type: "text", text: "Report received." }] }, isError: false });
-        emit({ type: "message_end", message: { role: "assistant", usage: USAGE, content: [{ type: "text", text: "Done." }], stopReason: "stop" } });
+        emit({ type: "message_end", message: { role: "assistant", usage: this.usage(), content: [{ type: "text", text: "Done." }], stopReason: "stop" } });
         emit({ type: "agent_end", messages: [] });
       },
       dispose: () => undefined,
     };
     return session;
+  }
+
+  /** The turns before a route session finishes: it ends false when the session was aborted on the way (or hangs until it is), true when it goes on to its work. */
+  private async turns(route: Route, own: number, emit: (event: unknown) => void, stopped: { aborted: () => boolean; until: Promise<void> }): Promise<boolean> {
+    if (route.hangsFirst && own === 0) {
+      await stopped.until;
+      return false;
+    }
+    for (let turn = 1; turn < (route.turns[own] ?? 1); turn += 1) {
+      emit({ type: "message_end", message: { role: "assistant", usage: this.usage(), content: [{ type: "text", text: "Working." }], stopReason: "toolUse" } });
+      if (stopped.aborted()) return false;
+    }
+    return true;
+  }
+
+  /** The usage a message reports: the cost the scenario sets for each session. */
+  private usage() {
+    return { ...USAGE, totalTokens: this.cost.tokens, cost: { ...USAGE.cost, total: this.cost.usd } };
   }
 
   private unitRoute(text: string): Route | undefined {
@@ -131,9 +173,7 @@ export class FakeAgent {
   }
 
   /** One round of a unit-test route: with no round left, the agent writes nothing and reports nothing else. */
-  private async workRound(session: OpenedSession, cwd: string, text: string, route: Route): Promise<Report> {
-    const round = route.rounds[route.tasks.length];
-    route.tasks.push(text);
+  private async workRound(session: OpenedSession, cwd: string, route: Route, round: Round | undefined): Promise<Report> {
     for (const path of route.attempts) await this.write(session, cwd, { path, content: "// not allowed\n" }, route.refused);
     if (route.blocked !== undefined) return { status: "blocked", ...route.blocked };
     if (round === undefined) return { status: "done", files: [], summary: "Nothing to write." };

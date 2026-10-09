@@ -9,8 +9,8 @@ export type Rejection = { rejected: string };
 /** The last rejection when the retries are used, and how many attempts there were. */
 export type Exhausted = Rejection & { attempts: number };
 
-/** What one attempt is told: which attempt it is, the effort it runs with and the note about the earlier attempt (empty for the first). */
-export type AttemptInfo = { attempt: number; effort: Effort; note: string };
+/** What one attempt is told: which attempt it is, the effort it runs with, the note about the earlier attempt (empty for the first), and how to announce the attempt again when its session has to run again. */
+export type AttemptInfo = { attempt: number; effort: Effort; note: string; announce: () => void };
 
 /** How the attempts of one state run: who announces them, the state and role of the agent, the retries the project allows, the models it names, how the work of a failed attempt is thrown away, and the attempt itself. */
 export type AttemptSpec<T> = {
@@ -22,6 +22,8 @@ export type AttemptSpec<T> = {
   restore: () => void;
   /** Set when the person asked for one more attempt after the retries ran out: its number and what the person said. */
   afterAsking?: { attempt: number; note: string };
+  /** Settles the budget before an attempt is announced; it rejects when the budget stops the run. */
+  beforeCall?: () => Promise<void>;
   run: (info: AttemptInfo) => Promise<T | Rejection>;
 };
 
@@ -58,8 +60,9 @@ export async function runAttempts<T>(spec: AttemptSpec<T>): Promise<T | Exhauste
   let note = extra === undefined ? "" : noteFromPerson(extra);
   const lastRetry = extra === undefined ? spec.retries : extra.attempt - 1;
   for (let attempt = extra?.attempt ?? 1; ; attempt += 1) {
+    await spec.beforeCall?.();
     const effort = announceAgent(spec.bus, { ...spec, attempt });
-    const result = await spec.run({ attempt, effort, note });
+    const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt }) });
     if (!isRejection(result)) return result;
     if (attempt > lastRetry) return { ...result, attempts: attempt };
     spec.restore();

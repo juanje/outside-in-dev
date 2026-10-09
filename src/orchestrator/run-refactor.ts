@@ -1,6 +1,5 @@
 import { refactorPrompt } from "../agents/prompts/refactor.js";
 import { REFACTOR } from "../agents/profiles.js";
-import { runAgent } from "../agents/runner.js";
 import type { Runners } from "../artifacts/verify-runner.js";
 import { type Detector, detectProject } from "../artifacts/detect-all.js";
 import { type FindingDraft, numberFindings } from "../artifacts/findings.js";
@@ -11,7 +10,9 @@ import { advanceStep, CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
-import { agentContext, outcomeProblem } from "./agent-run.js";
+import { outcomeProblem } from "./agent-run.js";
+import { runBillable } from "./budget-call.js";
+import { settleBudget } from "./budget-settle.js";
 import { announceAgent } from "./attempts.js";
 import { bddCheck, SCENARIO } from "./bdd-check.js";
 import { PROBLEM } from "./bdd-red-gate.js";
@@ -69,8 +70,10 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   updateSession(cwd, { state: STATE.refactor });
   transition(bus, STATE.codeGreen, STATE.refactor, `${listed.length} finding${listed.length === 1 ? "" : "s"} on the lines Code Green changed: the agent fixes them`);
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;
-  const effort = announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadProjectConfig(worktree).models });
-  const outcome = await runAgent({ state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, agentContext(started, services));
+  const announce = () => announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadProjectConfig(worktree).models });
+  await settleBudget(started, services, REFACTOR);
+  const effort = announce();
+  const outcome = await runBillable(started, services, { state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr: fr!, announce: () => void announce() });
   const problems = [outcomeProblem(scenario.label, outcome) ?? ""].filter((problem) => problem !== "");
   const rejected = problems.length > 0 ? problems : refactorProblems(started, detect, runnersOf(services), scenario, { findings: drafts, detected, behaviour: behaviour.kind });
   if (rejected.length === 0) {

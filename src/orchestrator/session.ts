@@ -5,6 +5,7 @@ import type { Finding } from "../artifacts/findings.js";
 import { isObject, ProgressError } from "../artifacts/progress.js";
 import { readJson } from "../artifacts/project-json.js";
 import type { InputRequest } from "../events/types.js";
+import type { RunSpend, Spend } from "./budget.js";
 import type { GateBaseline } from "./gate-checks.js";
 
 /** The directory of oid's local state, relative to the project. */
@@ -18,7 +19,7 @@ export function runDirectory(cwd: string, runId: string): string {
 }
 
 /** What a started run saves to be resumed: where it works and the state it reached. */
-export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number; pendingFindings?: string[] };
+export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number; pendingFindings?: string[]; spend?: RunSpend; extensions?: number };
 
 function writeSession(cwd: string, session: object): void {
   mkdirSync(join(cwd, OUTSIDE_IN_DIR), { recursive: true });
@@ -41,6 +42,28 @@ export function savePendingInput(cwd: string, runId: string, request: InputReque
   if (saved !== undefined && !isObject(saved)) throw new ProgressError(`${SESSION_FILE} is not an object`);
   const sameRun = saved !== undefined && "runId" in saved && saved.runId === runId;
   writeSession(cwd, { ...(sameRun ? saved : {}), runId, pendingInput: request });
+}
+
+/** What the saved session records the run has spent: nothing, until a call is recorded. */
+export function spendOf(cwd: string): RunSpend {
+  return (readJson(cwd, SESSION_FILE) as RunSession).spend ?? { usd: 0, tokens: 0, byFr: {} };
+}
+
+/** Adds what a billable call cost (an agent session now, a Jev call later) to the spend of the run and of the feature in the saved session. */
+export function recordSpend(cwd: string, fr: string, cost: Spend): void {
+  const spend = spendOf(cwd);
+  const before = spend.byFr[fr] ?? { usd: 0, tokens: 0 };
+  updateSession(cwd, { spend: { usd: spend.usd + cost.usd, tokens: spend.tokens + cost.tokens, byFr: { ...spend.byFr, [fr]: { usd: before.usd + cost.usd, tokens: before.tokens + cost.tokens } } } });
+}
+
+/** How many times the person extended the cost limit in this run. */
+export function extensionsOf(cwd: string): number {
+  return (readJson(cwd, SESSION_FILE) as RunSession).extensions ?? 0;
+}
+
+/** Records that the person extended the cost limit: it counts once more. */
+export function extendCostLimit(cwd: string): void {
+  updateSession(cwd, { extensions: extensionsOf(cwd) + 1 });
 }
 
 /** The unit tests the saved session records for a scenario, in the order they were written. */

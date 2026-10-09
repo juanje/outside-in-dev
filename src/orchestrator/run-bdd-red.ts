@@ -1,7 +1,6 @@
 import { bddRedContext } from "../agents/context/task-context.js";
 import { BDD_RED } from "../agents/profiles.js";
 import { bddRedPrompt } from "../agents/prompts/bdd-red.js";
-import { runAgent } from "../agents/runner.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
@@ -9,7 +8,7 @@ import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { ERROR_EVENT } from "../events/types.js";
-import { agentContext } from "./agent-run.js";
+import { runBillable } from "./budget-call.js";
 import { bddRedGate, type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
@@ -63,7 +62,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
     role: "bdd-agent",
     label,
     run: async (info) => {
-      const outcome = await runAgent(attemptTask(BDD_RED, prompt, info), agentContext(started, services));
+      const outcome = await runBillable(started, services, attemptTask(BDD_RED, prompt, info), { fr: fr!, announce: info.announce });
       const stopped = agentStop(started, label, outcome);
       if (stopped !== undefined) return stopped;
       const judged = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));

@@ -2608,7 +2608,37 @@
     {
       "id": "FR-RUN-10",
       "title": "Budget",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "The cost of every agent session is added to the cost of the run and of the feature in the saved session",
+          "bdd": "pass"
+        },
+        {
+          "name": "A cost limit that is reached stops the run before the next agent call and asks to extend or abort",
+          "bdd": "pass"
+        },
+        {
+          "name": "A cost limit for each feature stops the run when one feature has spent it, with no limit on the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "Extending adds the cost limit once more and the run goes on with the call it stopped",
+          "bdd": "pass"
+        },
+        {
+          "name": "A session that uses all its turns is stopped and the human is asked to extend or abort",
+          "bdd": "pass"
+        },
+        {
+          "name": "Extending after the turn limit runs the task again, from the last checkpoint, with room for as many more turns",
+          "bdd": "pass"
+        },
+        {
+          "name": "A session that outlasts its time limit is stopped and the human is asked to extend or abort",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-TUI-01",

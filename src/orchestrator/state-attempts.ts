@@ -8,6 +8,7 @@ import { loadProjectConfig, loadRetryLimit } from "../artifacts/project-config.j
 import { ERROR_EVENT } from "../events/types.js";
 import { type AttemptInfo, type AttemptSpec, isExhausted, isRejection, type Rejection, runAttempts } from "./attempts.js";
 import { isExitCode, type Started } from "./begin.js";
+import { settleBudget } from "./budget-settle.js";
 import { askAfterAttempts } from "./retries-exhausted.js";
 import type { FeatureServices } from "./services.js";
 
@@ -27,17 +28,18 @@ export function agentStop({ bus }: Started, label: string, outcome: AttemptOutco
 export type StateAttempts<T> = { state: string; role: string; label: string; run: (info: AttemptInfo) => Promise<T | number | Rejection> };
 
 /** The attempts of a state as they run in the project: the retries it allows, the models it names, and a restore that returns the worktree to where it is now. */
-export function attemptSpec<T>({ bus, workspace }: Started, { state, role, run }: Pick<AttemptSpec<T>, "state" | "role" | "run">): AttemptSpec<T> {
+export function attemptSpec<T>(started: Started, services: FeatureServices, { state, role, run }: Pick<AttemptSpec<T>, "state" | "role" | "run">): AttemptSpec<T> {
+  const { bus, workspace } = started;
   const config = loadProjectConfig(workspace.path);
   const base = headCommit(workspace.path);
   const restore = () => rollback(workspace, base, [...config.paths.source, ...config.paths.unit_tests, ...config.paths.bdd_steps]);
-  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: config.models, restore, run };
+  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: config.models, restore, beforeCall: () => settleBudget(started, services, state), run };
 }
 
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */
 export async function attemptsOf<T>(started: Started, services: FeatureServices, { state, role, label, run }: StateAttempts<T>): Promise<T | number> {
   const { bus } = started;
-  const spec = attemptSpec<T | number>(started, { state, role, run });
+  const spec = attemptSpec<T | number>(started, services, { state, role, run });
   let result = await runAttempts(spec);
   while (isExhausted(result)) {
     if (spec.retries === 0) return bus.emit({ type: ERROR_EVENT, message: result.rejected }) ?? 1;

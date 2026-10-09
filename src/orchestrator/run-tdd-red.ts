@@ -1,12 +1,12 @@
 import { testTaskContext } from "../agents/context/task-context.js";
 import { TDD_RED } from "../agents/profiles.js";
 import { tddRedPrompt } from "../agents/prompts/tdd-red.js";
-import { type AgentTask, DONE, runAgent } from "../agents/runner.js";
+import { type AgentTask, DONE } from "../agents/runner.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { parseUnitTarget } from "../artifacts/verify-target.js";
-import { agentContext } from "./agent-run.js";
+import { runBillable } from "./budget-call.js";
 import { isRejection, type Rejection } from "./attempts.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
@@ -43,11 +43,11 @@ async function judgeUnitRed(started: Started, services: FeatureServices, names: 
 }
 
 /** One attempt of TDD Red: the agent writes one unit test and the gate judges it; a valid Red is checkpointed and recorded. Returns what Code Green needs, the rejection of the attempt, or the exit code of the process. */
-async function writeUnitTest(started: Started, services: FeatureServices, scenario: RedScenario, task: AgentTask): Promise<number | Rejection | TddRed> {
+async function writeUnitTest(started: Started, services: FeatureServices, scenario: RedScenario, task: AgentTask, announce: () => void): Promise<number | Rejection | TddRed> {
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const { current, label } = scenario;
-  const outcome = await runAgent(task, agentContext(started, services));
+  const outcome = await runBillable(started, services, task, { fr: fr!, announce });
   const stopped = agentStop(started, label, outcome);
   if (stopped !== undefined) return stopped;
   const report = outcome.status === DONE ? outcome.report : undefined;
@@ -68,5 +68,5 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
 export async function runTddRed(started: Started, services: FeatureServices, scenario: RedScenario): Promise<number | TddRed> {
   const { workspace, targets } = started;
   const prompt = `${tddRedPrompt(targets[0]!)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}`;
-  return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info)) });
+  return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info), info.announce) });
 }

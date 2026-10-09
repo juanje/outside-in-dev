@@ -57,20 +57,27 @@ export async function openAgentSession(request: SessionRequest, sdk: PiSdk = pi)
 export type AgentTask = { state: CycleState; prompt: string; model?: string; thinkingLevel?: string };
 
 /** The part of a Pi session that `runAgent` uses. */
-type RunnableSession = { subscribe(listener: (event: unknown) => void): () => void; prompt(text: string): Promise<void>; dispose(): void };
+type RunnableSession = { subscribe(listener: (event: unknown) => void): () => void; prompt(text: string): Promise<void>; abort?(): Promise<void>; dispose(): void };
+
+/** What stops a session before it ends: the limit that was reached, and what was seen. */
+export const LIMIT = "limit";
+type LimitHit = { limit: "turns" | "timeout" | "cost"; detail: string };
+
+/** The limits of one session: the assistant messages it may send, the milliseconds it may run, and what it is told of the cost of each message (it answers whether the cost is over its limit). */
+export type SessionLimits = { maxTurns?: number; timeoutMs?: number; onUsage?: (spent: { usd: number; tokens: number }) => boolean };
 
 /** The pauses before each retry of a transient provider error (the number of delays is the number of retries) and the function that waits: tests inject a recorder. */
 type Backoff = { delaysMs?: number[]; sleep?: (ms: number) => Promise<void> };
 
 /** Where an agent works and how its session is opened: production passes `openProfileSession` (which is why runner.ts does not import it), tests a fake. */
-export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession>; backoff?: Backoff };
+export type RunContext = { worktree: string; agentDir: string; sessionsDir: string; openSession: (task: AgentTask, context: RunContext) => Promise<RunnableSession>; backoff?: Backoff; limits?: SessionLimits };
 
 /** How an attempt ended: done with its report, blocked with the agent's reason, failed with oid's reason, or stopped to ask the human (the provider failed in a way a retry cannot fix). */
 export const FAILED = "failed";
 export const DONE = "done";
 export const BLOCKED = "blocked";
 export const ASK = "ask";
-export type AttemptOutcome = { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
+export type AttemptOutcome = ({ status: typeof LIMIT } & LimitHit) | { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
 
 const NOTHING_PRODUCED = "the agent produced nothing: its response had no content";
 const TURN_ABORTED = "the turn was aborted before the agent finished";
@@ -105,20 +112,54 @@ function rejectedPrompt(error: unknown): unknown {
   return { type: "message_end", message: { role: "assistant", stopReason: PROVIDER_ERROR, errorMessage: error instanceof Error ? error.message : String(error) } };
 }
 
-/** Opens a session, runs the task in it and returns the events it emitted. The session is always ended; a prompt that rejects ends as a provider error. */
-async function promptOnce(task: AgentTask, context: RunContext): Promise<unknown[]> {
+type AssistantEnd = { type?: string; message?: { role?: string; stopReason?: string; usage?: { totalTokens?: number; cost?: { total?: number } } } };
+
+const MS_PER_SECOND = 1000;
+
+/** Watches a session against its limits, and calls `abort` the first time one is reached: the turns, counted on the assistant messages, are limited only when another model call would follow; the time runs from here until `end`. */
+function watchLimits(limits: SessionLimits, abort: () => void) {
+  let turns = 0;
+  let hit: LimitHit | undefined;
+  const stop = (reached: LimitHit): void => {
+    if (hit !== undefined) return;
+    hit = reached;
+    abort();
+  };
+  const timer = limits.timeoutMs === undefined ? undefined : setTimeout(() => stop({ limit: "timeout", detail: `the session ran longer than ${limits.timeoutMs! / MS_PER_SECOND} s` }), limits.timeoutMs);
+  return {
+    see(event: unknown): void {
+      const { type, message } = event as AssistantEnd;
+      if (type !== "message_end" || message?.role !== "assistant") return;
+      turns += 1;
+      const overBudget = limits.onUsage?.({ usd: message.usage?.cost?.total ?? 0, tokens: message.usage?.totalTokens ?? 0 }) === true;
+      if (message.stopReason !== "toolUse") return;
+      if (overBudget) stop({ limit: "cost", detail: "the cost limit was reached" });
+      else if (turns >= (limits.maxTurns ?? Infinity)) stop({ limit: "turns", detail: `the agent used ${turns} turns` });
+    },
+    end: () => clearTimeout(timer),
+    hit: () => hit,
+  };
+}
+
+/** Opens a session, runs the task in it and returns the events it emitted, and the limit that stopped it, if one did. The session is always ended; a prompt that rejects ends as a provider error. */
+async function promptOnce(task: AgentTask, context: RunContext): Promise<{ events: unknown[]; hit?: LimitHit }> {
   const session = await context.openSession(task, context);
   const events: unknown[] = [];
-  const unsubscribe = session.subscribe((event) => events.push(event));
+  const watch = watchLimits(context.limits ?? {}, () => void session.abort?.());
+  const unsubscribe = session.subscribe((event) => {
+    events.push(event);
+    watch.see(event);
+  });
   try {
     await session.prompt(task.prompt);
   } catch (error) {
     events.push(rejectedPrompt(error));
   } finally {
+    watch.end();
     unsubscribe();
     session.dispose();
   }
-  return events;
+  return { events, hit: watch.hit() };
 }
 
 /** Runs one agent task and judges how it ended. A transient provider error is retried in a new session after a pause, without counting as an attempt; the response is judged before the report. */
@@ -127,7 +168,8 @@ export async function runAgent(task: AgentTask, context: RunContext): Promise<At
   const sleep = context.backoff?.sleep ?? realSleep;
   const before = snapshotWorktree(context.worktree);
   for (let retry = 0; ; retry += 1) {
-    const events = await promptOnce(task, context);
+    const { events, hit } = await promptOnce(task, context);
+    if (hit !== undefined) return { status: LIMIT, ...hit };
     const response = checkResponse(events);
     if (response.kind === PROVIDER_ERROR && response.transient && retry < delays.length) {
       await sleep(delays[retry] ?? 0);

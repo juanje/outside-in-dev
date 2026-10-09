@@ -1,4 +1,3 @@
-import { runAgent } from "../agents/runner.js";
 import { qualityFixPrompt } from "../agents/prompts/quality-fix.js";
 import { checkpoint, rollback } from "../artifacts/git-checkpoints.js";
 import { headCommit } from "../artifacts/git-workspace.js";
@@ -8,7 +7,8 @@ import { loadProgress } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { ERROR_EVENT } from "../events/types.js";
-import { agentContext, outcomeStop } from "./agent-run.js";
+import { outcomeStop } from "./agent-run.js";
+import { runBillable } from "./budget-call.js";
 import { type AttemptInfo, isRejection, type Rejection, runAttempts } from "./attempts.js";
 import { type Started, STATE, transition } from "./begin.js";
 import { autofix } from "./gate-autofix.js";
@@ -51,7 +51,7 @@ async function qualityFix(started: Started, services: FeatureServices, config: P
   const before = headCommit(worktree);
   for (const { owner, state, step, errors: owned } of groups) {
     const prompt = `${qualityFixPrompt(fr!, owner)}${NEWLINE}${NEWLINE}${qualityFixContext(worktree, owned)}`;
-    const outcome = await runAgent(attemptTask(state, prompt, info), agentContext(started, services));
+    const outcome = await runBillable(started, services, attemptTask(state, prompt, info), { fr: fr!, announce: info.announce });
     const stopped = outcomeStop(fr!, outcome);
     const forbidden = stopped === undefined ? integrityProblems(worktree, config, loadProgress(worktree, config.paths.progress), step) : [];
     if (stopped !== undefined || forbidden.length > 0) {
@@ -74,7 +74,7 @@ async function fixWithRetries(started: Started, services: FeatureServices, confi
   let asked: GateAsk | undefined;
   let leftErrors = false;
   const result = await runAttempts<GateOutcome | FixStop>({
-    ...attemptSpec<GateOutcome | FixStop>(started, { state: STATE.qualityFix, role: "fix-agent", run: async (info) => {
+    ...attemptSpec<GateOutcome | FixStop>(started, services, { state: STATE.qualityFix, role: "fix-agent", run: async (info) => {
       const fix = await qualityFix(started, services, config, outcome.errors, info);
       leftErrors = false;
       if (fix !== undefined) {
