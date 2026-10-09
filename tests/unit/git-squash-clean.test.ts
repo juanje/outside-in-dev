@@ -46,3 +46,17 @@ describe("squashFeature keeps exactly the last checkpoint", () => {
     expect({ tree: git("rev-parse", `${squashed}^{tree}`), parent: git("rev-parse", `${squashed}^`) }).toEqual({ tree: git("rev-parse", `${last}^{tree}`), parent: workspace.startCommit });
   });
 });
+
+describe("squashFeature leaves out the files of the features still to do", () => {
+  it("keeps a left-out file out of the commit and in the working copy, staged for the next commit", () => {
+    const { workspace } = checkpointedRun();
+    write("features/FR-AUTH-02.feature", "@FR-AUTH-02\nFeature: Log out\n");
+    checkpoint(workspace, { fr: "FR-AUTH-01", state: "tdd_green" });
+    const squashed = squashFeature(workspace, { startCommit: workspace.startCommit, ...FEATURE, leave: ["features/FR-AUTH-02.feature"] });
+    expect({
+      committed: git("diff", "--name-only", workspace.startCommit, squashed).split("\n"),
+      status: git("status", "--porcelain"),
+      head: git("rev-parse", "HEAD"),
+    }).toEqual({ committed: ["src/login.ts"], status: "A  features/FR-AUTH-02.feature", head: squashed });
+  });
+});

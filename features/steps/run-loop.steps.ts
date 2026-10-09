@@ -166,7 +166,7 @@ Given("the agents write for each of the two scenarios a failing unit test and th
 
 /** The hash of the commit of the worktree whose subject is `message`, if it has one. */
 export function findCommit(world: OidWorld, message: string): string | undefined {
-  const lines = git(worktreePath(world), "log", "--format=%H\t%s").split("\n");
+  const lines = git(worktreePath(world), "log", "--reflog", "--topo-order", "--format=%H\t%s").split("\n");
   return lines.map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message)?.[0];
 }
 

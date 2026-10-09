@@ -23,7 +23,7 @@ export function agentOf(world: OidWorld): FakeAgent {
 export const worktreePath = (world: OidWorld): string => runWorktree(world).path;
 export const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
 
-Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04 or @FR-RUN-05 or @FR-RUN-06" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04 or @FR-RUN-05 or @FR-RUN-06 or @FR-RUN-07" }, function (this: OidWorld) {
   const agent = new FakeAgent();
   agents.set(this, agent);
   this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect };
@@ -223,7 +223,7 @@ Then("a line printed says the feature files were approved and BDD Red is next", 
 /** The files of the commit of the worktree whose subject is `message`. */
 function filesOfCommit(world: OidWorld, message: string): string[] {
   const path = worktreePath(world);
-  const found = git(path, "log", "--format=%H\t%s").split("\n").map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message);
+  const found = git(path, "log", "--reflog", "--topo-order", "--format=%H\t%s").split("\n").map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message);
   assert.ok(found, `the worktree has no commit "${message}"`);
   return git(path, "show", "--name-only", "--format=", found[0]).split("\n");
 }

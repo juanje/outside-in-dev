@@ -2553,7 +2553,21 @@
     {
       "id": "FR-RUN-07",
       "title": "Commit the feature",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A finished feature becomes one commit named after its requirement, with its scenarios listed",
+          "bdd": "pass"
+        },
+        {
+          "name": "The commit of the feature records it as done, and the run ends when no target feature is left",
+          "bdd": "pass"
+        },
+        {
+          "name": "With several target features, each becomes its own commit, in order, with only its own feature file",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-08",

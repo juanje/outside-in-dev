@@ -69,8 +69,8 @@ async function fixOnce(started: Started, services: FeatureServices, config: Proj
   return undefined;
 }
 
-/** Runs the quality gate of the feature: the project's fixes, then its checks; errors of the linter or the type check go once to the agents that own the files. Ends at the commit of the feature: returns the exit code of the process. */
-export async function runQualityGate(started: Started, services: FeatureServices): Promise<number> {
+/** Runs the quality gate of the feature: the project's fixes, then its checks; errors of the linter or the type check go once to the agents that own the files. Returns the exit code of the process when the run ends there, nothing when every check passes and the commit of the feature is next. */
+export async function runQualityGate(started: Started, services: FeatureServices): Promise<number | undefined> {
   const { cwd, runId, bus, workspace, targets } = started;
   const [fr] = targets;
   const config = loadProjectConfig(workspace.path);
@@ -90,6 +90,6 @@ export async function runQualityGate(started: Started, services: FeatureServices
     checkpoint(workspace, { fr: fr!, state: STATE.qualityGate, allowEmpty: true });
     updateSession(cwd, { state: STATE.frCommit });
     transition(bus, STATE.qualityGate, STATE.frCommit, `every check of the quality gate passes for ${fr}; its commit is next`);
-    return 0;
+    return undefined;
   }
 }

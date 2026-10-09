@@ -9,6 +9,7 @@ const VITEST_IMPORT = `import { describe, expect, it } from "vitest";\nimport { 
 
 const ADDS_A_LINE = `  it("adds a line", () => {\n    expect(countLines(addLine([], "tea"))).toBe(1);\n  });\n`;
 const REMOVES_A_LINE = `  it("removes a line", () => {\n    expect(countLines(removeLine(["tea"], "tea"))).toBe(0);\n  });\n`;
+const CLEARS_THE_CART = `  it("clears the cart", () => {\n    expect(countLines(clearCart(["tea"]))).toBe(0);\n  });\n`;
 const ADDS_A_SECOND_LINE = `  it("adds a second line", () => {\n    expect(addLine(["tea"], "tea")).toEqual(["tea"]);\n  });\n`;
 
 /** A unit test file: the imports of the cart code it uses, and the tests of its `describe`. */
@@ -20,6 +21,7 @@ function testFile(imports: string[], tests: string[]): string {
 export const UNIT_TESTS = {
   "adds a line": testFile(["addLine"], [ADDS_A_LINE]),
   "removes a line": testFile(["addLine", "removeLine"], [ADDS_A_LINE, REMOVES_A_LINE]),
+  "clears the cart": testFile(["addLine", "removeLine", "clearCart"], [ADDS_A_LINE, REMOVES_A_LINE, CLEARS_THE_CART]),
   "adds a second line": testFile(["addLine"], [ADDS_A_LINE, ADDS_A_SECOND_LINE]),
   "fails with an error": `${VITEST_IMPORT}\ndescribe("cart lines", () => {\n  it("adds a line", () => {\n    throw new Error("the cart could not be built");\n  });\n});\n`,
   "passes at once": `${VITEST_IMPORT}\ndescribe("cart lines", () => {\n  it("adds a line", () => {\n    expect(countLines(["tea"])).toBe(1);\n  });\n});\n`,
@@ -36,6 +38,12 @@ const STEP_IMPORTS = (names: string[]): string => `import assert from "node:asse
 /** The step files the step-writing agent writes: round 0 for "Add a line", round 1 for "Remove a line" (the whole file again). */
 export const STEP_ROUNDS = [`${STEP_IMPORTS(["Then", "When"])}\n${ADD_STEPS}\n${COUNT_STEP}`, `${STEP_IMPORTS(["Given", "Then", "When"])}\n${ADD_STEPS}\n${REMOVE_STEPS}\n${COUNT_STEP}`];
 
+/** The feature file the feature-writing agent writes for FR-CART-03: its one scenario starts at line 3, as the recordings of its runs say. */
+export const CLEAR_FEATURE = `@FR-CART-03\nFeature: Cart clearing\n  Scenario: Clear the cart\n    Given a cart with 1 line\n    When the cart is cleared\n    Then the cart has 0 lines\n`;
+
+/** The step file the step-writing agent writes for "Clear the cart": the steps of the earlier scenarios and the new ones (the whole file again). */
+export const CLEAR_STEP_ROUND = `${STEP_ROUNDS[1]}\nWhen("the cart is cleared", async function () {\n  const { clearCart } = await import("../../src/cart.js");\n  this.lines = clearCart(this.lines);\n});\n`;
+
 /** The cart code the coding agent writes, by what it implements. */
 const ADD_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  return [...lines, line];\n}\n`;
 const ADD_ONCE_CODE = `/** Adds a line to a cart unless the cart has it. */\nexport function addLine(lines: string[], line: string): string[] {\n  return lines.includes(line) ? lines : [...lines, line];\n}\n`;
@@ -44,6 +52,7 @@ const REMOVE_CODE = `\n/** Removes a line from a cart. */\nexport function remov
 const ADD_BOUNDED_CODE = `/** The most lines a cart holds. */\nconst MAX_LINES = 100;\n\n/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  return [...lines, line].slice(0, MAX_LINES);\n}\n`;
 const ADD_MAGIC_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  return [...lines, line].slice(0, 100);\n}\n`;
 const ADD_BRANCHING_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): string[] {\n  if (lines.length > 99) {\n    return lines;\n  }\n  return lines.includes(line) || line === "" ? [...lines, line] : [...lines, line];\n}\n`;
+const CLEAR_CODE = `\n/** Empties a cart. */\nexport function clearCart(lines: string[]): string[] {\n  return lines.slice(0, 0);\n}\n`;
 const UNIT_FAILING_CODE = "export function addLine(lines: string[], line: string): string[] {\n  return lines;\n}\n";
 const TYPE_ERROR_CODE = `/** Adds a line to a cart. */\nexport function addLine(lines: string[], line: string): number {\n  const added: string[] = [...lines, line];\n  return added;\n}\n`;
 
@@ -52,6 +61,7 @@ export const CART_CODE = {
   withCount: `${ADD_CODE}${COUNT_CODE}`,
   dedupedUnitOnly: ADD_ONCE_CODE,
   withRemove: `${ADD_CODE}${COUNT_CODE}${REMOVE_CODE}`,
+  withClear: `${ADD_CODE}${COUNT_CODE}${REMOVE_CODE}${CLEAR_CODE}`,
   withTypeError: TYPE_ERROR_CODE,
   withMagicNumber: `${ADD_MAGIC_CODE}${COUNT_CODE}`,
   refactored: `${ADD_BOUNDED_CODE}${COUNT_CODE}`,

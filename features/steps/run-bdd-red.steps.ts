@@ -106,7 +106,7 @@ function firstStepTask(world: OidWorld): string {
 
 /** The hash of the commit of the worktree whose subject is `message`. */
 function commitOf(world: OidWorld, message: string): string {
-  const found = git(worktreePath(world), "log", "--format=%H\t%s").split("\n").map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message);
+  const found = git(worktreePath(world), "log", "--reflog", "--topo-order", "--format=%H\t%s").split("\n").map((line) => line.split("\t") as [string, string]).find(([, subject]) => subject === message);
   assert.ok(found, `the worktree has no commit "${message}"`);
   return found[0];
 }

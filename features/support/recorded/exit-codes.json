@@ -23,5 +23,9 @@
   "typecheck-error": 1,
   "bdd-missing-implementation": 1,
   "suite-red": 1,
-  "typecheck-error-in-test": 1
+  "typecheck-error-in-test": 1,
+  "bdd-clear-missing": 1,
+  "bdd-clear-green": 0,
+  "unit-red-clear": 1,
+  "unit-green-clear": 0
 }

@@ -144,6 +144,8 @@ function writeReplayScripts(world: OidWorld, script: string, as: string): void {
 /** An entry of a replay sequence: the recording it answers with, the request it answers, and whether it answers every later identical call. */
 type ReplayEntry = { recording: string | null; expect?: unknown; repeat?: true };
 const SUITE = "suite";
+/** A recording of the gate list that ends with this mark answers the runs of the whole suite (as many as come) until a run of some scenarios asks for the next entry. */
+const WHOLE_RUN = "*";
 
 /** The scenarios a recorded report ran (its pickles that have a test case started), as `file:line`: the locations of the call it answers. */
 function locationsOf(recording: string): string[] {
@@ -153,17 +155,18 @@ function locationsOf(recording: string): string[] {
   return [...ran].map((id) => `${pickles.get(id)!.uri}:${pickles.get(id)!.location.line}`);
 }
 
-/** The fake BDD runner of the project and the recordings it replays, in the order of the calls: the start of the run (the whole suite), the runs of the scenarios the gate asks for, each expecting the locations of the scenarios its recording ran, and the whole suite again at the end. */
+/** The fake BDD runner of the project and the recordings it replays, in the order of the calls (a name ending with `*` stands for the whole suite, repeated): the start of the run (the whole suite), the runs of the scenarios the gate asks for, each expecting the locations of the scenarios its recording ran, and the whole suite again at the end. */
 function writeReplay(world: OidWorld, gate: string | string[], suite: string[] = []): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
   const suites = suite.length === 0 ? [BASELINE_REPLAY] : [BASELINE_REPLAY, ...suite];
   const whole = (recording: string): ReplayEntry => ({ recording, expect: SUITE });
   const finals = suites.length === 1 ? suites : suites.slice(1);
-  const sequence: ReplayEntry[] = [whole(suites[0]!), ...[gate].flat().map((recording) => ({ recording, expect: { locations: locationsOf(recording) } })), ...finals.map(whole)];
+  const gateEntries = [gate].flat().map((item): ReplayEntry => (item.endsWith(WHOLE_RUN) ? { ...whole(item.slice(0, -WHOLE_RUN.length)), repeat: true } : { recording: item, expect: { locations: locationsOf(item) } }));
+  const sequence: ReplayEntry[] = [whole(suites[0]!), ...gateEntries, ...finals.map(whole)];
   sequence[sequence.length - 1]!.repeat = true;
   writeReplayScripts(world, "replay-bdd.mjs", "bdd-replay.mjs");
   writeIn(world, "replay/replay.json", JSON.stringify({ sequence, exitCodes }));
-  for (const name of new Set([BASELINE_REPLAY, ...suite, ...[gate].flat()])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
+  for (const name of new Set([BASELINE_REPLAY, ...suite, ...gateEntries.map(({ recording }) => recording!)])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
 }
 
 /** The fake unit runner and type check of the project and the recordings they replay. */
