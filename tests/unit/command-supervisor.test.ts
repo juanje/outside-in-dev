@@ -13,6 +13,8 @@ afterEach(() => {
 });
 
 const LIMIT = { timeoutMs: 500, graceMs: 300 };
+// For the tests that need the runner and its child to exist before the limit: starting two node processes can take longer than 500 ms under load.
+const LIMIT_AFTER_START = { timeoutMs: 3000, graceMs: 300 };
 const SECOND_MS = 1000;
 const GONE_WITHIN_MS = 5000;
 const POLL_MS = 25;
@@ -66,14 +68,14 @@ describe("runSupervised", () => {
 
   it("stops a command that passes the limit together with the child it started", () => {
     runner("hang.mjs", { child: FOREVER });
-    const result = runSupervised(dir, "node hang.mjs", LIMIT);
+    const result = runSupervised(dir, "node hang.mjs", LIMIT_AFTER_START);
     const pids = recordedPids();
     expect({ timedOut: result.timedOut, started: pids.length, alive: pids.filter(isRunning) }).toEqual({ timedOut: true, started: 2, alive: [] });
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("kills a command and a child that ignore SIGTERM once the grace has passed", () => {
     runner("stubborn.mjs", { own: IGNORE_SIGTERM, child: `${IGNORE_SIGTERM}${FOREVER}` });
-    const result = runSupervised(dir, "node stubborn.mjs", LIMIT);
+    const result = runSupervised(dir, "node stubborn.mjs", LIMIT_AFTER_START);
     const pids = recordedPids();
     expect({ timedOut: result.timedOut, started: pids.length, alive: pids.filter(isRunning) }).toEqual({ timedOut: true, started: 2, alive: [] });
   }, REAL_PROCESS_TIMEOUT_MS);
