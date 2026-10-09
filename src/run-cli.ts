@@ -36,12 +36,12 @@ const COMMANDS: Record<string, CommandHelp> = {
   },
   verify: {
     summary: "Verify that a test or a scenario is a valid Red, that a Green has no regression, or the integrity of a change",
-    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify red "<scenario name>" [--decide <class>]\n       oid verify green [<feature file>:<line> | "<scenario name>"]...\n       oid verify integrity [--step <step>]',
+    usage: 'oid verify red "<test file> > <test name>" [--decide <class>]\n       oid verify red <feature file>:<line> [--decide <class>]\n       oid verify red "<scenario name>" [--decide <class>]\n       oid verify green [<feature file>:<line> | "<scenario name>"]...\n       oid verify integrity [--step <step>] [--path <file>]',
     options: {
       "--decide": "Answer the failure the last run of the same target recorded, without running it again (refused if files changed since): business_assertion or missing_implementation (a valid Red), test_bug or environment (not a Red)",
       "--step": "Check the rules of this cycle step instead of the step of the focused feature",
     },
-    extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n\noid verify integrity prints one line for each rule that the changes break (exit 1), or `integrity: ok` (exit 0).\n",
+    extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n\noid verify integrity prints one line for each rule that the changes break (exit 1), or `integrity: ok` (exit 0).\n\noid verify integrity --path <file> answers, before the file is changed, whether the step of the feature in focus allows it: `integrity: ok` (exit 0, also when the path alone cannot tell), or one line naming the file, its kind, the step and the move that would allow it (exit 1).\n",
   },
   metrics: {
     summary: "Report the code-health findings of the project",

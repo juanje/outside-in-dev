@@ -366,3 +366,56 @@ Feature: Check the integrity of a change
     And the output contains "features/greeting.feature changed an approved feature file"
     And the output contains "Greet Bob"
     And the output does not contain "Greet Cleo"
+
+  Scenario: Before source code is changed at tdd_red, the path is refused with the move that allows it
+    Given a started feature "FR-GREETING-01" at step "tdd_red"
+    And the focus is on "FR-GREETING-01"
+    When I run "oid verify integrity --path src/greeting.ts"
+    Then the command fails
+    And the output contains "src/greeting.ts: source cannot change at tdd_red"
+    And the output contains "oid progress step FR-GREETING-01 tdd_green"
+    And the output does not contain "integrity: ok"
+
+  Scenario: Before a unit test is changed at tdd_green, the path is refused with the move back to tdd_red
+    Given a started feature "FR-GREETING-01" at step "tdd_green"
+    And the focus is on "FR-GREETING-01"
+    When I run "oid verify integrity --path tests/unit/greeting.test.ts"
+    Then the command fails
+    And the output contains "tests/unit/greeting.test.ts: unit test cannot change at tdd_green"
+    And the output contains "oid progress step FR-GREETING-01 tdd_red"
+
+  Scenario: Before source code is changed at tdd_green, the path is allowed, whatever else changed in the tree
+    Given a started feature "FR-GREETING-01" at step "tdd_green"
+    And the focus is on "FR-GREETING-01"
+    And the unit test file "tests/unit/greeting.test.ts" containing:
+      """
+      import { expect, it } from "vitest";
+
+      it("greets by name", () => {
+        expect(1).toBe(1);
+      });
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "tests/unit/greeting.test.ts changed a test while writing code"
+    When I run "oid verify integrity --path src/greeting.ts"
+    Then the command succeeds
+    And the output starts with "integrity: ok"
+    And the output does not contain "tests/unit/greeting.test.ts"
+
+  Scenario: With no feature focused, or for a file of no kind, the path cannot be judged and is allowed
+    Given no feature is focused
+    When I run "oid verify integrity --path src/greeting.ts"
+    Then the command succeeds
+    Given a started feature "FR-GREETING-01" at step "tdd_red"
+    And the focus is on "FR-GREETING-01"
+    When I run "oid verify integrity --path README.md"
+    Then the command succeeds
+    And the output starts with "integrity: ok"
+
+  Scenario: An absolute path inside the project is judged like the relative one
+    Given a started feature "FR-GREETING-01" at step "tdd_red"
+    And the focus is on "FR-GREETING-01"
+    When I run "oid verify integrity --path" with the absolute path of "src/greeting.ts" in the project
+    Then the command fails
+    And the output contains "src/greeting.ts: source cannot change at tdd_red"

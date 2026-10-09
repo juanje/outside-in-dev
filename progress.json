@@ -1712,6 +1712,26 @@
         {
           "name": "At bdd_red, a scenario already recorded as pass must not change",
           "bdd": "pass"
+        },
+        {
+          "name": "An absolute path inside the project is judged like the relative one",
+          "bdd": "pass"
+        },
+        {
+          "name": "Before source code is changed at tdd_red, the path is refused with the move that allows it",
+          "bdd": "pass"
+        },
+        {
+          "name": "Before a unit test is changed at tdd_green, the path is refused with the move back to tdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Before source code is changed at tdd_green, the path is allowed, whatever else changed in the tree",
+          "bdd": "pass"
+        },
+        {
+          "name": "With no feature focused, or for a file of no kind, the path cannot be judged and is allowed",
+          "bdd": "pass"
         }
       ]
     },

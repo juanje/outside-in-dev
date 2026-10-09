@@ -106,3 +106,19 @@ export function integrityViolations(step: string, files: ChangedFile[], patterns
   const approved = approvedViolations(files, new Set(changed.map(({ file }) => file)));
   return [...changed.map(({ file }) => `${file} ${rules.rule}`), ...approved, ...patternViolations(files, patterns, rules.lists)];
 }
+
+/** The move that allows changing a file of a kind that `step` forbids. */
+function moveToAllow(step: string, kind: FileKind, feature: string): string {
+  const to = (target: string, reason: string): string => `${reason} (oid progress step ${feature} ${target}${target === CYCLE_STEP.tddRed ? ", ADR-044" : ", ADR-038"})`;
+  if (kind === FILE_KIND.unitTest) return to(CYCLE_STEP.tddRed, `go back to ${CYCLE_STEP.tddRed}`);
+  if (kind === FILE_KIND.step || kind === FILE_KIND.feature) return to(CYCLE_STEP.bddRed, `go back to ${CYCLE_STEP.bddRed}`);
+  return step === CYCLE_STEP.tddRed
+    ? `verify the Red and move to ${CYCLE_STEP.tddGreen} first (oid progress step ${feature} ${CYCLE_STEP.tddGreen})`
+    : `verify the Red, then move to ${CYCLE_STEP.tddGreen} (oid progress step ${feature} ${CYCLE_STEP.tddGreen})`;
+}
+
+/** Why a file of `kind` cannot change at `step` (the same rules as the check of the changes), naming the move that would allow it; undefined when it can. */
+export function pathRefusal(step: string, kind: FileKind | undefined, file: string, feature: string): string | undefined {
+  if (kind === undefined || !(STEP_RULES[step]?.kinds ?? []).includes(kind)) return undefined;
+  return `${file}: ${kind} cannot change at ${step}; ${moveToAllow(step, kind, feature)}`;
+}

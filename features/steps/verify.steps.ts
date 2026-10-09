@@ -1,4 +1,4 @@
-import { Given, Then } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -165,4 +165,8 @@ Then("the checkpoint of {string} lists the scenarios {string} and {string}", fun
 
 Then("the command prints no stack trace", function (this: OidWorld) {
   assert.doesNotMatch(`${this.stdout}\n${this.stderr}`, /^\s*at .*:\d+:\d+/m);
+});
+
+When("I run {string} with the absolute path of {string} in the project", async function (this: OidWorld, commandLine: string, relative: string) {
+  await this.run(`${commandLine} ${this.path(relative)}`);
 });

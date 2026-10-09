@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
 import { baseContent, changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { frozenParts } from "../artifacts/feature-approval.js";
-import { type ChangedFile, FILE_KIND, type FileKind, forbiddenPatterns, integrityViolations } from "../artifacts/integrity.js";
+import { type ChangedFile, FILE_KIND, type FileKind, forbiddenPatterns, integrityViolations, pathRefusal } from "../artifacts/integrity.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, loadProgress, type Progress, ProgressError, SCENARIO_STATUS } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
@@ -16,6 +16,8 @@ import type { CliIo } from "../cli-io.js";
 
 export const INTEGRITY = "integrity";
 const STEP_FLAG = "--step";
+const PATH_FLAG = "--path";
+const OUTSIDE = "..";
 const LIST_SEPARATOR = ", ";
 const FEATURE_TAG = /^@(FR-.+)$/;
 /** The steps after `bdd_red`: a feature at one of them, or done, has approved feature files. */
@@ -87,10 +89,27 @@ export function integrityProblems(cwd: string, config: ProjectConfig, progress: 
   return integrityViolations(step, files, forbiddenPatterns(config));
 }
 
+/** The path relative to the project, or undefined when it is outside it. */
+function insideProject(cwd: string, path: string): string | undefined {
+  const name = relative(cwd, isAbsolute(path) ? path : join(cwd, path));
+  return name === OUTSIDE || name.startsWith(`${OUTSIDE}/`) || isAbsolute(name) ? undefined : name;
+}
+
+/** Answers, before a file is changed, whether the step of the feature in focus allows it; it reads no content. A path that cannot be judged (no feature in focus, outside the project, of no kind) is allowed. */
+function runPathCheck(io: CliIo, config: ProjectConfig, progress: Progress | undefined, path: string): number {
+  const name = insideProject(io.cwd, path);
+  const focus = progress?.features.find((feature) => feature.id === progress.current_focus);
+  const refusal = name === undefined || focus?.cycle_step === undefined ? undefined : pathRefusal(focus.cycle_step, kindOf(config, name), name, focus.id);
+  io.stdout(`${refusal ?? `${INTEGRITY}: ok`}${NEWLINE}`);
+  return refusal === undefined ? 0 : 1;
+}
+
 /** Checks the changes since the checkpoint of the feature in focus against the rules of a step: exit 0 when none breaks one, 1 when one does. */
 export function runIntegrity(io: CliIo, args: string[]): number {
   const config = loadVerifyConfig(io.cwd);
   const progress = existsSync(join(io.cwd, config.paths.progress)) ? loadProgress(io.cwd, config.paths.progress) : undefined;
+  const path = args[args.indexOf(PATH_FLAG) + 1];
+  if (args.includes(PATH_FLAG) && path !== undefined) return runPathCheck(io, config, progress, path);
   const violations = integrityProblems(io.cwd, config, progress, stepToCheck(progress, args));
   io.stdout(violations.length === 0 ? `${INTEGRITY}: ok${NEWLINE}` : `${violations.join(NEWLINE)}${NEWLINE}`);
   return violations.length === 0 ? 0 : 1;
