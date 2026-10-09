@@ -11,7 +11,7 @@ import { PROBLEM } from "./bdd-red-gate.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
 import { fail, type RedScenario } from "./run-bdd-red.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import { recordUnitTest, unitTestsOf, updateSession } from "./session.js";
 import { unitRedGate } from "./unit-red-gate.js";
 
@@ -33,7 +33,7 @@ function integrationStep(started: Started, scenario: RedScenario): number | TddR
 
 /** Judges the unit test the agent wrote, putting a failure oid cannot classify to the person: what the valid Red was and why, or the exit code of the process. */
 async function judgeUnitRed(started: Started, services: FeatureServices, names: { label: string; scenario: string }, test: { file: string; name: string }): Promise<number | { reason: string; message: string }> {
-  const gate = unitRedGate(started.workspace.path, test);
+  const gate = unitRedGate(started.workspace.path, test, runnersOf(services));
   if (gate.kind === PROBLEM) return fail(started, `${names.scenario}: ${gate.problem}`);
   if (gate.kind === OUTCOME.valid) return gate;
   const decided = await decideRed(started.bus, services.input ?? { isTTY: false }, { label: names.label, reason: gate.reason, message: gate.message, subject: "unit test" });

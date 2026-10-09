@@ -21,7 +21,7 @@ import type { RunArgs } from "./run-args.js";
 import { updateSession } from "./session.js";
 import { ERROR_EVENT, HUMAN_EDIT, WAITING_INPUT } from "../events/types.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
-import type { FeatureServices, ReviewInput, RunServices, Terminal } from "./services.js";
+import { type FeatureServices, type ReviewInput, type RunServices, runnersOf, type Terminal } from "./services.js";
 
 /** What the feature writing came to: what stopped it, or the feature files of all the targets. */
 type Written = { problem: string } | { files: string[] };
@@ -113,7 +113,7 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, services.pid);
   try {
-    const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands, services.detect ?? detectProject);
+    const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands, services.detect ?? detectProject, runnersOf(services));
     if (isExitCode(started)) return started;
     let comment: string | undefined;
     for (;;) {

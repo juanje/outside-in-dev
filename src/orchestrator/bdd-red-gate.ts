@@ -8,7 +8,7 @@ import { CYCLE_STEP, loadProgress, type Progress } from "../artifacts/progress.j
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { type ProjectConfig, loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
-import { runBddScenarios } from "../artifacts/verify-runner.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { classifyObservation, type Observation, observeBddRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { join } from "node:path";
@@ -44,13 +44,13 @@ export function redGate(worktree: string, config: ProjectConfig, observation: Ob
 }
 
 /** Judges the steps an agent wrote for the current scenario: the cheap gates first, then one run of the scenario, classified with the Red Gate that `oid verify red` uses. */
-export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>): RedGate {
+export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners = REAL_RUNNERS): RedGate {
   const config = loadProjectConfig(worktree);
   const progress = loadProgress(worktree, config.paths.progress);
   const early = problemsBeforeRun(worktree, config, progress, featureHashes);
   if (early.length > 0) return { kind: PROBLEM, problem: early.join(NEWLINE) };
   const passing = locatePassingScenarios(progress, listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features))).found;
-  const run = runBddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
+  const run = runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
   const broken = run.report === undefined ? [] : bddProblems(run.report, passing);
   if (broken.length > 0) return { kind: PROBLEM, problem: ["scenarios that passed no longer pass:", ...broken].join(NEWLINE) };
   return redGate(worktree, config, observeBddRun(worktree, config, scenario, run));

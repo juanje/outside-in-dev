@@ -7,7 +7,7 @@ import { checkViolations } from "../commands/check.js";
 import { FAILING, incoherentExit, noReport } from "../artifacts/runner-verdict.js";
 import { SUITE, suiteProblems } from "../commands/verify-green.js";
 import { lintReport, typeReport } from "./gate-reports.js";
-import { runBddSuite, runCommand } from "../artifacts/verify-runner.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 
 /** What a run's baseline holds of the quality gate: the identity of the lint errors and type errors the project already had, and the traceability violations. */
 export type GateBaseline = { lint: string[]; types: string[]; traceability: string[] };
@@ -29,9 +29,9 @@ function fixOrPass(errors: GateError[], output: string): GateOutcome {
 }
 
 /** The lint check: the errors ESLint reports that the baseline does not hold; the exit code of a linter oid does not recognise. */
-function lintOutcome(worktree: string, command: string, held: Set<string>): GateOutcome {
-  const report = lintReport(worktree, command);
-  return report === undefined ? commandOutcome(LINT, worktree, command) : fixOrPass(newErrors(worktree, report.errors, held), report.output);
+function lintOutcome(worktree: string, command: string, held: Set<string>, runners: Runners): GateOutcome {
+  const report = lintReport(worktree, command, runners);
+  return report === undefined ? commandOutcome(LINT, worktree, command, runners) : fixOrPass(newErrors(worktree, report.errors, held), report.output);
 }
 
 /** The traceability violations `oid check` reports that the baseline does not hold. */
@@ -40,21 +40,21 @@ function traceabilityProblems(worktree: string, held: Set<string>): string[] {
 }
 
 /** The format check: after the fixes Prettier must find nothing to format, or oid itself is wrong; a formatter oid does not recognise is judged by its exit code. */
-function formatOutcome(worktree: string, command: string): GateOutcome {
-  if (recognisedTool(worktree, command) !== "prettier") return commandOutcome(FORMAT, worktree, command);
-  const { exitCode, stdout } = runCommand(worktree, toolInvocation(worktree, command, TOOL_MODE.check));
+function formatOutcome(worktree: string, command: string, runners: Runners): GateOutcome {
+  if (recognisedTool(worktree, command) !== "prettier") return commandOutcome(FORMAT, worktree, command, runners);
+  const { exitCode, stdout } = runners.command(worktree, toolInvocation(worktree, command, TOOL_MODE.check));
   return exitCode === 0 ? PASS : { kind: OUTCOME.internal, problem: `the formatter still finds files to format after its fixes:${NEWLINE}${stdout.trim()}` };
 }
 
 /** The type check: the errors of the whole project that the baseline does not hold. */
-function typesOutcome(worktree: string, command: string, held: Set<string>): GateOutcome {
-  const { errors, output } = typeReport(worktree, command);
+function typesOutcome(worktree: string, command: string, held: Set<string>, runners: Runners): GateOutcome {
+  const { errors, output } = typeReport(worktree, command, runners);
   return fixOrPass(newErrors(worktree, errors, held), output);
 }
 
 /** The problems of the BDD suite of the whole project: each scenario that did not pass, a report that is missing, and an exit that the report does not explain. */
-function bddProblems(worktree: string, command: string): string[] {
-  const { exitCode, report } = runBddSuite(worktree, command);
+function bddProblems(worktree: string, command: string, runners: Runners): string[] {
+  const { exitCode, report } = runners.bddScenarios(worktree, command, []);
   if (report === undefined) return [noReport(SUITE.bdd, exitCode)];
   const failed = failedScenarios(report);
   return failed.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, FAILING.bdd)] : failed;
@@ -66,33 +66,33 @@ function askOrPass(check: string, problems: string[]): GateOutcome {
 }
 
 /** The outcome of a command of the project that passes with exit code 0: a failure is put to a person with the command, its exit code and what it printed. */
-function commandOutcome(check: string, worktree: string, command: string): GateOutcome {
-  const { exitCode, stdout, stderr } = runCommand(worktree, command);
+function commandOutcome(check: string, worktree: string, command: string, runners: Runners): GateOutcome {
+  const { exitCode, stdout, stderr } = runners.command(worktree, command);
   const output = `${stdout}${stderr}`.trim();
   return exitCode === 0 ? PASS : { kind: OUTCOME.ask, check, problems: [`"${command}" exited ${exitCode}`, ...output.split(NEWLINE)], output };
 }
 
 /** The outcome of the first of some commands that fails. */
-function firstFailure(check: string, worktree: string, commands: string[]): GateOutcome {
+function firstFailure(check: string, worktree: string, commands: string[], runners: Runners): GateOutcome {
   for (const command of commands) {
-    const outcome = commandOutcome(check, worktree, command);
+    const outcome = commandOutcome(check, worktree, command, runners);
     if (outcome !== PASS) return outcome;
   }
   return PASS;
 }
 
 /** Runs the checks of the quality gate, cheapest first, and returns what the first that fails came to. */
-export function gateChecks(worktree: string, config: ProjectConfig, baseline: GateBaseline): GateOutcome {
+export function gateChecks(worktree: string, config: ProjectConfig, baseline: GateBaseline, runners: Runners = REAL_RUNNERS): GateOutcome {
   const { format, lint, typecheck, coverage, extra_checks: extra } = config.commands;
   const checks = [
-    () => (format === null ? PASS : formatOutcome(worktree, format)),
+    () => (format === null ? PASS : formatOutcome(worktree, format, runners)),
     () => askOrPass(TRACEABILITY, traceabilityProblems(worktree, new Set(baseline.traceability))),
-    () => (lint === null ? PASS : lintOutcome(worktree, lint, new Set(baseline.lint))),
-    () => typesOutcome(worktree, typecheck, new Set(baseline.types)),
-    () => askOrPass(SUITE.unit, suiteProblems(worktree, config)),
-    () => askOrPass(SUITE.bdd, bddProblems(worktree, config.commands.bdd)),
-    () => firstFailure(COVERAGE, worktree, coverage === null ? [] : [coverage]),
-    () => firstFailure(EXTRA_CHECK, worktree, extra),
+    () => (lint === null ? PASS : lintOutcome(worktree, lint, new Set(baseline.lint), runners)),
+    () => typesOutcome(worktree, typecheck, new Set(baseline.types), runners),
+    () => askOrPass(SUITE.unit, suiteProblems(worktree, config, runners)),
+    () => askOrPass(SUITE.bdd, bddProblems(worktree, config.commands.bdd, runners)),
+    () => firstFailure(COVERAGE, worktree, coverage === null ? [] : [coverage], runners),
+    () => firstFailure(EXTRA_CHECK, worktree, extra, runners),
   ];
   for (const check of checks) {
     const outcome = check();

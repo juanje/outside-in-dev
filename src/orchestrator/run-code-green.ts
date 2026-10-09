@@ -9,7 +9,7 @@ import { agentContext, outcomeProblem } from "./agent-run.js";
 import { type Started, STATE } from "./begin.js";
 import { codeGreenGate } from "./code-green-gate.js";
 import { fail, type RedScenario } from "./run-bdd-red.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import type { TddRed } from "./run-tdd-red.js";
 import { updateFeature } from "./worktree-progress.js";
 
@@ -21,7 +21,7 @@ export async function runCodeGreen(started: Started, services: FeatureServices, 
   const outcome = await runAgent({ state: CODE_GREEN, prompt }, agentContext(started, services));
   const problem = outcomeProblem(scenario.label, outcome);
   if (problem !== undefined) return fail(started, problem);
-  const problems = codeGreenGate(workspace.path);
+  const problems = codeGreenGate(workspace.path, undefined, runnersOf(services));
   if (problems.length > 0) return fail(started, `${scenario.label}: Code Green is not green:${NEWLINE}${problems.join(NEWLINE)}`);
   updateFeature(workspace.path, fr!, (feature) => advanceStep(feature, CYCLE_STEP.tddGreen));
   checkpoint(workspace, { fr: fr!, state: STATE.codeGreen, scenario: scenario.current.name });

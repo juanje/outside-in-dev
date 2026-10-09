@@ -14,7 +14,7 @@ import { isInsideCode } from "../artifacts/source-roots.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { typeProblems } from "../artifacts/tsc-report.js";
 import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
-import { runBddScenarios, runTypecheck, runUnitSuite } from "../artifacts/verify-runner.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { normalizeVitestReport, unitProblems } from "../artifacts/vitest-report.js";
 import type { CliIo } from "../cli-io.js";
 
@@ -26,8 +26,8 @@ export { SUITE };
 const TEST_PASSED = FAILURE.passed;
 
 /** The problems of the unit suite: each test that failed, each file that did not load, the report that is missing, a run in which no test ran, and an exit that the report does not explain. */
-export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
-  const { exitCode, report } = runUnitSuite(cwd, config.commands.unit);
+export function suiteProblems(cwd: string, config: ProjectConfig, runners: Runners = REAL_RUNNERS): string[] {
+  const { exitCode, report } = runners.unitSuite(cwd, config.commands.unit);
   if (report === undefined) return [noReport(SUITE.unit, exitCode)];
   const files = normalizeVitestReport(report);
   const problems = unitProblems(files, cwd);
@@ -39,8 +39,8 @@ export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
 const ERROR_LINE = /error TS\d+/;
 
 /** What the type check showed: the problems oid reports (each error located in the source, the unit tests or the step definitions, or in no file, or a failure that printed no error) and the lines of its output that name an error, as it printed them. */
-export function typecheckRun(cwd: string, config: ProjectConfig, stepsUnloadable = false): { problems: string[]; errors: string[] } {
-  const { exitCode, output } = runTypecheck(cwd, config.commands.typecheck);
+export function typecheckRun(cwd: string, config: ProjectConfig, stepsUnloadable = false, runners: Runners = REAL_RUNNERS): { problems: string[]; errors: string[] } {
+  const { exitCode, output } = runners.typecheck(cwd, config.commands.typecheck);
   const reported = stepsUnloadable ? { ...config.paths, bdd_steps: [] } : config.paths;
   const problems = typeProblems(output, cwd, (path) => isInsideCode(reported, path));
   const silent = exitCode !== 0 && output.trim() === "";
@@ -101,7 +101,7 @@ function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): 
   const unloadable = loadableStepsProblems(cwd, config);
   if (unloadable.length > 0) return { problems: [...unloadable, ...problems], ran: [], targeted, unloadable: true };
   const toRun = distinctLocations(found);
-  const { exitCode, report } = runBddScenarios(cwd, config.commands.bdd, toRun);
+  const { exitCode, report } = REAL_RUNNERS.bddScenarios(cwd, config.commands.bdd, toRun);
   if (report === undefined) return { problems: [noReport(SUITE.bdd, exitCode), ...problems], ran: [], targeted };
   const failing = bddProblems(report, toRun);
   const unexplained = failing.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, FAILING.bdd)] : [];

@@ -14,7 +14,7 @@ import { bddRedGate, type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
 import { type Started, STATE, transition } from "./begin.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
 import { updateSession } from "./session.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import { updateFeature } from "./worktree-progress.js";
 
 /** The first scenario of the requirement in file order that does not pass yet, with the names of all its scenarios; none when all pass. A name that two scenarios share is a problem. */
@@ -60,7 +60,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   const outcome = await runAgent({ state: BDD_RED, prompt }, agentContext(started, services));
   const problem = outcomeProblem(label, outcome);
   if (problem !== undefined) return fail(started, problem);
-  const gate = bddRedGate(workspace.path, current, featureHashes);
+  const gate = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));
   if (gate.kind === PROBLEM) return fail(started, `${label}: ${gate.problem}`);
   if (gate.kind === OUTCOME.decision) {
     const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: gate.reason, message: gate.message });

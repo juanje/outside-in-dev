@@ -16,6 +16,7 @@ import { acquireLock, releaseLock } from "./lock.js";
 import { runDirectory, startSession, updateSession } from "./session.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
 import { selectTargets } from "./select.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { runSuite, type SuiteResult } from "./suite.js";
 import type { RunArgs } from "./run-args.js";
 import { newRunId } from "./run-id.js";
@@ -55,17 +56,17 @@ function askAboutRedSuite(bus: Bus, suite: SuiteResult): number {
 }
 
 /** What a run carries from one state of the start to the next. */
-type Start = { cwd: string; args: RunArgs; runId: string; bus: Bus; commands: ProjectConfig["commands"]; now: Date; detect?: Detector };
+type Start = { cwd: string; args: RunArgs; runId: string; bus: Bus; commands: ProjectConfig["commands"]; now: Date; detect?: Detector; runners: Runners };
 
 /** Goes through the states of the start, from the worktree to the selection: returns the exit code of the process when the start ends the run, else what the next states need. */
-function goThroughStart({ cwd, args, runId, bus, commands, now, detect }: Start): number | Started {
+function goThroughStart({ cwd, args, runId, bus, commands, now, detect, runners }: Start): number | Started {
   transition(bus, STATE.idle, STATE.preflight, "run started");
   const workspace = startRun(cwd, { runId, name: args.branch, now });
   startSession(cwd, { runId, worktree: workspace.path, branch: workspace.branch, baseCommit: workspace.startCommit, state: STATE.baseline });
   transition(bus, STATE.preflight, STATE.baseline, "worktree ready");
-  const suite = runSuite(workspace.path, commands);
+  const suite = runSuite(workspace.path, commands, runners);
   const suiteIsGreen = suite.unit.length + suite.bdd.length === 0;
-  const gate = suiteIsGreen ? gateBaseline(workspace.path, loadProjectConfig(workspace.path)) : undefined;
+  const gate = suiteIsGreen ? gateBaseline(workspace.path, loadProjectConfig(workspace.path), runners) : undefined;
   recordBaseline(cwd, runId, workspace, suite, gate, suiteIsGreen && detect !== undefined ? detect(workspace.path).map(findingKey) : undefined);
   if (!suiteIsGreen) return askAboutRedSuite(bus, suite);
   transition(bus, STATE.baseline, STATE.specCheck, "the suite is green");
@@ -86,11 +87,11 @@ export function isExitCode(value: unknown): value is number {
 }
 
 /** Starts the run with the lock held: returns the exit code of the process when the start ends the run, else what the next states need. A failure once the run has started is an event of the run. */
-export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector): number | Started {
+export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector, runners: Runners = REAL_RUNNERS): number | Started {
   const runId = newRunId(environment.now, environment.suffix);
   const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime() });
   try {
-    return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now, detect });
+    return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now, detect, runners });
   } catch (error) {
     if (!(error instanceof ProgressError)) throw error;
     return bus.emit({ type: ERROR_EVENT, message: error.message }) ?? 1;

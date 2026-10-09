@@ -1,6 +1,7 @@
 import { refactorPrompt } from "../agents/prompts/refactor.js";
 import { REFACTOR } from "../agents/profiles.js";
 import { runAgent } from "../agents/runner.js";
+import type { Runners } from "../artifacts/verify-runner.js";
 import { type Detector, detectProject } from "../artifacts/detect-all.js";
 import { type FindingDraft, numberFindings } from "../artifacts/findings.js";
 import { checkpoint, rollback } from "../artifacts/git-checkpoints.js";
@@ -19,7 +20,7 @@ import { complexityProblem, findingProblems } from "./refactor-gate.js";
 import { newFindings, refactorContext, triage } from "./refactor-findings.js";
 import type { Origin } from "./run-bdd-check.js";
 import type { RedScenario } from "./run-bdd-red.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import { keepPendingFindings, runBaselineFindings, updateSession } from "./session.js";
 import { updateFeature } from "./worktree-progress.js";
 
@@ -36,16 +37,16 @@ function committedText(worktree: string, file: string): string {
 type Before = { findings: FindingDraft[]; detected: FindingDraft[]; behaviour: string };
 
 /** What is wrong with the refactor the agent did, cheapest check first; none means it is accepted. */
-function refactorProblems(started: Started, detect: Detector, scenario: RedScenario, before: Before): string[] {
+function refactorProblems(started: Started, detect: Detector, runners: Runners, scenario: RedScenario, before: Before): string[] {
   const worktree = started.workspace.path;
-  const early = codeGreenGate(worktree, CYCLE_STEP.refactor);
+  const early = codeGreenGate(worktree, CYCLE_STEP.refactor, runners);
   if (early.length > 0) return early;
   const found = findingProblems(before.findings, before.detected, detect(worktree));
   if (found.length > 0) return found;
   const touched = [...readChangedLines(worktree).keys()].filter((file) => SOURCE_FILE.test(file));
   const worse = complexityProblem(touched.map((file) => ({ before: committedText(worktree, file), after: readText(worktree, file) ?? "" })));
   if (worse !== undefined) return [worse];
-  const check = bddCheck(worktree, scenario.current, "The refactor");
+  const check = bddCheck(worktree, scenario.current, "The refactor", runners);
   if (check.kind === PROBLEM) return [check.problem];
   return check.kind === before.behaviour ? [] : [`the scenario "${scenario.current.name}" no longer ${before.behaviour === SCENARIO.pass ? "passes" : "fails as it did"}`];
 }
@@ -60,7 +61,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   const drafts = newFindings(detected, readChangedLines(worktree, since), new Set(runBaselineFindings(cwd, runId)));
   const listed = triage(numberFindings(drafts));
   if (listed.length === 0) return NO_REFACTOR;
-  const behaviour = bddCheck(worktree, scenario.current);
+  const behaviour = bddCheck(worktree, scenario.current, undefined, runnersOf(services));
   if (behaviour.kind === PROBLEM) return NO_REFACTOR;
   const green = headCommit(worktree);
   updateFeature(worktree, fr!, (feature) => advanceStep(feature, CYCLE_STEP.refactor));
@@ -69,7 +70,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;
   const outcome = await runAgent({ state: REFACTOR, prompt }, agentContext(started, services));
   const problems = [outcomeProblem(scenario.label, outcome) ?? ""].filter((problem) => problem !== "");
-  const rejected = problems.length > 0 ? problems : refactorProblems(started, detect, scenario, { findings: drafts, detected, behaviour: behaviour.kind });
+  const rejected = problems.length > 0 ? problems : refactorProblems(started, detect, runnersOf(services), scenario, { findings: drafts, detected, behaviour: behaviour.kind });
   if (rejected.length === 0) {
     checkpoint(workspace, { fr: fr!, state: STATE.refactor, scenario: scenario.current.name });
     return { from: STATE.refactor, note: `accepted: ${listed.length} finding${listed.length === 1 ? "" : "s"} fixed` };

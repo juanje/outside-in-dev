@@ -5,7 +5,7 @@ import { bddCheck, SCENARIO } from "./bdd-check.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { type Started, STATE, transition } from "./begin.js";
 import { fail, type RedScenario } from "./run-bdd-red.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import { updateSession } from "./session.js";
 import { stuckLoop } from "./stuck-loop.js";
 import { updateFeature } from "./worktree-progress.js";
@@ -46,7 +46,7 @@ export type Origin = { from: string; note: string };
 /** Runs BDD Check for the current scenario after Code Green or after the refactor that followed it: the scenario and the scenarios that passed run together. Returns what follows, or the exit code of the process. */
 export async function runBddCheck(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number, origin: Origin = { from: STATE.codeGreen, note: "" }): Promise<number | AfterCheck> {
   const { cwd, bus, workspace } = started;
-  const check = bddCheck(workspace.path, scenario.current);
+  const check = bddCheck(workspace.path, scenario.current, undefined, runnersOf(services));
   if (check.kind === PROBLEM) return fail(started, `${scenario.label}: ${check.problem}`);
   updateSession(cwd, { state: STATE.bddCheck });
   const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;

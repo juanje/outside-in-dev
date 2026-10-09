@@ -5,7 +5,7 @@ import { loadProgress } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { FAILURE } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
-import { runBddScenarios } from "../artifacts/verify-runner.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { classifyObservation, observeBddRun } from "../commands/verify.js";
 import { type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
 
@@ -16,11 +16,11 @@ export const SCENARIO = { pass: "pass", red: "red" } as const;
 export type BddCheck = { kind: typeof SCENARIO.pass } | { kind: typeof SCENARIO.red; message: string } | { kind: typeof PROBLEM; problem: string };
 
 /** Runs the current scenario and every scenario that passed, in one run, and says what it showed: a scenario that passed and no longer does is a problem before anything else. */
-export function bddCheck(worktree: string, scenario: CurrentScenario, culprit = "Code Green"): BddCheck {
+export function bddCheck(worktree: string, scenario: CurrentScenario, culprit = "Code Green", runners: Runners = REAL_RUNNERS): BddCheck {
   const config = loadProjectConfig(worktree);
   const progress = loadProgress(worktree, config.paths.progress);
   const passing = locatePassingScenarios(progress, listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features))).found;
-  const run = runBddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
+  const run = runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
   const broken = run.report === undefined ? [] : bddProblems(run.report, passing);
   if (broken.length > 0) return { kind: PROBLEM, problem: [`${culprit} broke scenarios that passed:`, ...broken].join(NEWLINE) };
   const observation = observeBddRun(worktree, config, scenario, run);

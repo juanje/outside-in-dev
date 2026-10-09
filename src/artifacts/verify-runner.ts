@@ -7,10 +7,10 @@ import { readJson, readText } from "./project-json.js";
 
 /** The directory, relative to the project, that holds the runners' reports; local and git-ignored. */
 const REPORT_DIR = ".outside-in/verify";
-const UNIT_REPORT = `${REPORT_DIR}/unit.json`;
+export const UNIT_REPORT = `${REPORT_DIR}/unit.json`;
 /** The glob of oid's own directory, which every unit run excludes so the copies of tests that checkpoints keep are never run as tests. */
 const OID_DIR_GLOB = "**/.outside-in/**";
-const BDD_REPORT = `${REPORT_DIR}/bdd.ndjson`;
+export const BDD_REPORT = `${REPORT_DIR}/bdd.ndjson`;
 
 /** The text quoted for a POSIX shell as one word. */
 function shellQuote(text: string): string {
@@ -54,10 +54,15 @@ export class CommandTimeoutError extends ProgressError {
   }
 }
 
-/** Runs a command line through the shell in the project, after clearing the report it will write, if any; returns its exit code and what it printed; throws when it does not end within `limits.command_timeout_s`. */
-function runWriting(cwd: string, commandLine: string, reportPath?: string): { exitCode: number | null; stdout: string; stderr: string } {
+/** Makes ready for a run that writes `reportPath`: the directory of the reports exists and the report of an earlier run is gone. Every runner does it, so a runner that answers without a process leaves the same files. */
+export function clearReport(cwd: string, reportPath?: string): void {
   mkdirSync(join(cwd, REPORT_DIR), { recursive: true });
   if (reportPath !== undefined) rmSync(join(cwd, reportPath), { force: true });
+}
+
+/** Runs a command line through the shell in the project, after clearing the report it will write, if any; returns its exit code and what it printed; throws when it does not end within `limits.command_timeout_s`. */
+function runWriting(cwd: string, commandLine: string, reportPath?: string): { exitCode: number | null; stdout: string; stderr: string } {
+  clearReport(cwd, reportPath);
   const seconds = loadCommandTimeoutS(cwd);
   const { status, stdout, stderr, timedOut } = runSupervised(cwd, commandLine, { timeoutMs: seconds * MS_PER_SECOND, graceMs: STOP_GRACE_MS });
   if (timedOut) throw new CommandTimeoutError(commandLine, seconds);
@@ -103,3 +108,14 @@ export function runTypecheck(cwd: string, command: string): { exitCode: number |
   const { exitCode, stdout } = runWriting(cwd, `${command} --pretty false`);
   return { exitCode, output: stdout };
 }
+
+/** How a run executes the project's tools: the unit suite, some BDD scenarios (all of them when the list is empty), the type check and any other command. `oid run` takes it as a service, so that a caller can answer the calls without a process; `REAL_RUNNERS` is the default, which runs each one through the shell. */
+export type Runners = {
+  unitSuite(cwd: string, command: string): { exitCode: number | null; report: unknown };
+  bddScenarios(cwd: string, command: string, scenarios: { file: string; line: number }[]): { exitCode: number | null; report: string | undefined; stderr: string };
+  typecheck(cwd: string, command: string): { exitCode: number | null; output: string };
+  command(cwd: string, commandLine: string): { exitCode: number | null; stdout: string; stderr: string };
+};
+
+/** The runners that start a process for each call, under the command timeout. */
+export const REAL_RUNNERS: Runners = { unitSuite: runUnitSuite, bddScenarios: runBddScenarios, typecheck: runTypecheck, command: runCommand };

@@ -15,7 +15,7 @@ import { gateChecks, type GateOutcome, OUTCOME } from "./gate-checks.js";
 import { type GateAsk, gateQuestion } from "./gate-question.js";
 import { fixGroups } from "./fix-owners.js";
 import { qualityFixContext, errorLine } from "./quality-fix-context.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 import { runGateBaseline, updateSession } from "./session.js";
 
 const AUTOFIX = "autofix";
@@ -76,9 +76,9 @@ export async function runQualityGate(started: Started, services: FeatureServices
   const config = loadProjectConfig(workspace.path);
   let fixed = false;
   for (;;) {
-    autofix(workspace.path, config);
+    autofix(workspace.path, config, runnersOf(services));
     checkpoint(workspace, { fr: fr!, state: STATE.qualityGate, scenario: AUTOFIX });
-    const outcome = gateChecks(workspace.path, config, runGateBaseline(cwd, runId));
+    const outcome = gateChecks(workspace.path, config, runGateBaseline(cwd, runId), runnersOf(services));
     if (outcome.kind === OUTCOME.internal) return bus.emit({ type: ERROR_EVENT, message: `${fr}: the quality gate: ${outcome.problem}` }) ?? 1;
     if (outcome.kind === OUTCOME.ask) return gateQuestion(bus, services.input ?? { isTTY: false }, outcome);
     if (outcome.kind === OUTCOME.fix) {

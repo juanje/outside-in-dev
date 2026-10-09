@@ -1,7 +1,7 @@
 import { ProgressError } from "../artifacts/progress.js";
 import { failedScenarios } from "../artifacts/cucumber-report.js";
 import { FAILING, incoherentExit, noReport, SUITE } from "../artifacts/runner-verdict.js";
-import { runBddSuite, runUnitSuite } from "../artifacts/verify-runner.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { normalizeVitestReport, unitProblems } from "../artifacts/vitest-report.js";
 
 /** What failed in the suite, one line for each unit test and each scenario, and for each runner that failed with a report that names no failure (empty when the runners passed), and the reports the runners wrote. */
@@ -13,9 +13,9 @@ function explained(kind: string, exitCode: number | null, failures: string[], wh
 }
 
 /** Runs the unit and BDD commands of the project and reads their structured reports, never what they print. A runner that wrote no report is an error. */
-export function runSuite(cwd: string, commands: { unit: string; bdd: string }): SuiteResult {
-  const unit = runUnitSuite(cwd, commands.unit);
-  const bdd = runBddSuite(cwd, commands.bdd);
+export function runSuite(cwd: string, commands: { unit: string; bdd: string }, runners: Runners = REAL_RUNNERS): SuiteResult {
+  const unit = runners.unitSuite(cwd, commands.unit);
+  const bdd = runners.bddScenarios(cwd, commands.bdd, []);
   if (unit.report === undefined) throw new ProgressError(noReport(SUITE.unit, unit.exitCode));
   if (bdd.report === undefined) throw new ProgressError(noReport(SUITE.bdd, bdd.exitCode));
   return {
