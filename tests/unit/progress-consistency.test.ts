@@ -41,6 +41,24 @@ describe("checkProgressConsistency", () => {
     ]);
   });
 
+  it("reports a scenario tagged with a done feature that it does not record, but not for a feature in progress", () => {
+    const progress: Progress = {
+      current_focus: null,
+      features: [
+        { id: "FR-X-01", title: "Login", status: "done", scenarios: [{ name: "Working login", bdd: "pass" }] },
+        { id: "FR-X-02", title: "Logout", status: "in_progress", cycle_step: "bdd_red", scenarios: [] },
+      ],
+    };
+    const scenarios = [
+      { name: "Working login", tags: ["@FR-X-01"] },
+      { name: "Forgotten login", tags: ["@FR-X-01"] },
+      { name: "Planned logout", tags: ["@FR-X-02"] },
+    ];
+    expect(checkProgressConsistency(progress, scenarios)).toEqual([
+      { feature: "FR-X-01", scenario: "Forgotten login", kind: "done but scenario is not recorded" },
+    ]);
+  });
+
   it("reports a done or started feature that no scenario is tagged with", () => {
     const progress: Progress = {
       current_focus: null,

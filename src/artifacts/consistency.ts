@@ -33,6 +33,9 @@ function checkFeature(feature: FeatureProgress, scenarios: TaggedScenario[]): Pr
     for (const { name, bdd } of recorded.filter((s) => s.bdd !== SCENARIO_STATUS.pass)) {
       violations.push({ feature: feature.id, scenario: name, kind: `done but scenario is ${bdd}` });
     }
+    for (const name of unrecordedScenarios(feature, scenarios)) {
+      violations.push({ feature: feature.id, scenario: name, kind: "done but scenario is not recorded" });
+    }
   }
   const started = feature.status !== FEATURE_STATUS.pending && feature.cycle_step !== CYCLE_STEP.select;
   if (started && !scenarios.some(({ tags }) => tags.includes(tag))) {

@@ -568,6 +568,14 @@
         {
           "name": "Progress is read from the configured progress file",
           "bdd": "pass"
+        },
+        {
+          "name": "A done feature with an unrecorded scenario is reported, a feature in progress is not",
+          "bdd": "pass"
+        },
+        {
+          "name": "A done feature with a scenario outline recorded under its name is reported only for the scenario it lacks",
+          "bdd": "pass"
         }
       ]
     },

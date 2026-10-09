@@ -102,6 +102,105 @@ Feature: Check progress consistency
     And the output does not contain "FR-X-02"
     And the output does not contain "no violations"
 
+  Scenario: A done feature with an unrecorded scenario is reported, a feature in progress is not
+    Given a SPEC.md containing:
+      """
+      ### FR-X-01: Login
+
+      The user can log in.
+
+      ### FR-X-02: Logout
+
+      The user can log out.
+      """
+    And a feature file "features/login.feature" containing:
+      """
+      @FR-X-01
+      Feature: Login
+
+        Scenario: Working login
+
+        Scenario: Forgotten login
+      """
+    And a feature file "features/logout.feature" containing:
+      """
+      @FR-X-02
+      Feature: Logout
+
+        Scenario: Working logout
+
+        Scenario: Planned logout
+      """
+    And a progress file containing:
+      """
+      {
+        "current_focus": "FR-X-02",
+        "features": [
+          {
+            "id": "FR-X-01",
+            "title": "Login",
+            "status": "done",
+            "scenarios": [{ "name": "Working login", "bdd": "pass" }]
+          },
+          {
+            "id": "FR-X-02",
+            "title": "Logout",
+            "status": "in_progress",
+            "cycle_step": "bdd_red",
+            "scenarios": [{ "name": "Working logout", "bdd": "fail" }]
+          }
+        ]
+      }
+      """
+    When I run "oid check"
+    Then the output contains "FR-X-01"
+    And the output contains "Forgotten login"
+    And the output does not contain "Working login"
+    And the output does not contain "FR-X-02"
+    And the output does not contain "Planned logout"
+    And the output does not contain "no violations"
+
+  Scenario: A done feature with a scenario outline recorded under its name is reported only for the scenario it lacks
+    Given a SPEC.md containing:
+      """
+      ### FR-X-01: Login
+
+      The user can log in.
+      """
+    And a feature file "features/login.feature" containing:
+      """
+      @FR-X-01
+      Feature: Login
+
+        Scenario Outline: Login for <role>
+          When I log in as "<role>"
+
+          Examples:
+            | role  |
+            | admin |
+            | guest |
+
+        Scenario: Forgotten login
+      """
+    And a progress file containing:
+      """
+      {
+        "current_focus": null,
+        "features": [
+          {
+            "id": "FR-X-01",
+            "title": "Login",
+            "status": "done",
+            "scenarios": [{ "name": "Login for <role>", "bdd": "pass" }]
+          }
+        ]
+      }
+      """
+    When I run "oid check"
+    Then the output contains "Forgotten login"
+    And the output does not contain "Login for"
+    And the output does not contain "no violations"
+
   Scenario: A started feature that no feature file tags is reported
     Given a SPEC.md containing:
       """
