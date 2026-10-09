@@ -3,13 +3,32 @@
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-hook.mjs\" after-edit" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-hook.mjs\" after-edit"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-hook.mjs\" before-step" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-hook.mjs\" before-step"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-hook.mjs\" before-edit"
+          }
+        ]
       }
     ]
   }
