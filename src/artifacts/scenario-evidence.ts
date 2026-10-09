@@ -32,15 +32,18 @@ export function requirePassEvidence(cwd: string, feature: string, name: string):
   if (changed.length > 0) throw new ProgressError(`${refusal}: changed since the green: ${changed.join(LIST_SEPARATOR)}; ${hint()}`);
 }
 
-/** Refuses to mark `feature` done unless the checkpoint of the feature is a green that ran each of its scenarios in `names` and nothing but the progress file and oid's own files changed since. */
-export function requireDoneEvidence(cwd: string, feature: string, names: string[]): void {
+/** Refuses with `refusal` unless the checkpoint of `feature` is a green that ran each of `names` and nothing but the progress file and oid's own files changed since; `hint` says what to run. */
+export function requireGreenRan(cwd: string, feature: string, names: string[], refusal: string, hint: string): void {
   const { kind, scenarios } = checkpointEvidence(cwd, feature);
-  const refusal = `${feature} cannot be marked done`;
-  const hint = "run: oid verify green";
   const lacking = names.filter((name) => kind !== GREEN_KIND || !scenarios.some((scenario) => scenario.feature === feature && scenario.name === name));
   if (lacking.length > 0) {
     throw new ProgressError(`${refusal}: no current green ran the scenarios ${lacking.map((name) => `"${name}"`).join(LIST_SEPARATOR)}; ${hint}`);
   }
   const changed = changedSinceGreen(cwd, feature);
   if (changed.length > 0) throw new ProgressError(`${refusal}: changed since the green: ${changed.join(LIST_SEPARATOR)}; ${hint}`);
+}
+
+/** Refuses to mark `feature` done unless the checkpoint of the feature is a green that ran each of its scenarios in `names` and nothing but the progress file and oid's own files changed since. */
+export function requireDoneEvidence(cwd: string, feature: string, names: string[]): void {
+  requireGreenRan(cwd, feature, names, `${feature} cannot be marked done`, "run: oid verify green");
 }

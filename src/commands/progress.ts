@@ -1,6 +1,7 @@
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { hasHead } from "../artifacts/checkpoint.js";
 import { clearReturn, recordReturn } from "../artifacts/return-record.js";
+import { clearRevise, recordRevise, requireReviseExit } from "../artifacts/revise-record.js";
 import { advanceStep, dropScenario, CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, SCENARIO_STATUS, SCENARIO_STATUSES, completeFeature, loadProgress, recordScenario, ProgressError, reopenFeature, reviseFeature, saveProgress, requireFeature, type FeatureProgress, type Progress } from "../artifacts/progress.js";
 import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.js";
 import { readRequirementIds } from "../artifacts/spec.js";
@@ -50,14 +51,22 @@ function unfocus(progress: Progress, io: Context): void {
   saveProgress(io.cwd, progress, io.paths.progress);
 }
 
+/** Forgets the return and the revise recorded for a feature, which a step or `done` ends. */
+function forgetRecords(cwd: string, id: string): void {
+  clearReturn(cwd, id);
+  clearRevise(cwd, id);
+}
+
 /** The steps a feature can go back to `bdd_red` from, which records a return. */
 const RETURN_FROM: string[] = [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor];
 
 function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
-  progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step);
+  const reviseExit = feature.cycle_step === CYCLE_STEP.bddRed && step === CYCLE_STEP.qualityGate;
+  if (reviseExit) requireReviseExit(io.cwd, io.paths, feature);
+  progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step, reviseExit ? [CYCLE_STEP.qualityGate] : []);
   saveProgress(io.cwd, progress, io.paths.progress);
-  clearReturn(io.cwd, id);
+  forgetRecords(io.cwd, id);
   if (step === CYCLE_STEP.bddRed && RETURN_FROM.includes(feature.cycle_step ?? "") && hasHead(io.cwd)) recordReturn(io.cwd, id, feature.cycle_step!);
 }
 
@@ -78,14 +87,22 @@ function doneFeature(progress: Progress, io: Context, id: string): void {
   progress.features[progress.features.indexOf(feature)] = done;
   if (progress.current_focus === id) progress.current_focus = null;
   saveProgress(io.cwd, progress, io.paths.progress);
-  clearReturn(io.cwd, id);
+  forgetRecords(io.cwd, id);
 }
 
 function reviseRequirement(progress: Progress, io: Context, id: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
-  progress.features[progress.features.indexOf(feature)] = reviseFeature(feature);
+  const revised = reviseFeature(feature);
+  progress.features[progress.features.indexOf(feature)] = revised;
   saveProgress(io.cwd, progress, io.paths.progress);
   clearReturn(io.cwd, id);
+  if (revised === feature) {
+    io.stdout(`${id}: already at ${CYCLE_STEP.bddRed}\n`);
+    return;
+  }
+  clearRevise(io.cwd, id);
+  if (hasHead(io.cwd)) recordRevise(io.cwd, io.paths, revised);
+  io.stdout(`${id}: ${CYCLE_STEP.bddRed}, ${revised.scenarios?.length ?? 0} scenarios pending\n`);
 }
 
 function reopenForReview(progress: Progress, io: Context, id: string): void {

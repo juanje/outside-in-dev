@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { detectCommentedOutCode, detectDuplication } from "../../src/artifacts/code-health.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
-const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], tests: ["tests/unit/**"], docs: [] };
+const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], steps: [], tests: ["tests/unit/**"], docs: [] };
 const LIMITS = { min_lines: 6, min_tokens: 50 };
 const SRC_ONLY_TSCONFIG = JSON.stringify({ compilerOptions: { strict: true, module: "NodeNext", target: "ES2022" }, include: ["src/**/*.ts"] });
 const CLONE = [

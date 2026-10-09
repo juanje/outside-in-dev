@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { commitAll } from "./git-fixture.js";
 import { runInProject } from "./run-capture.js";
-import { dir, useTempDir, writeProgressFile } from "./temp-project.js";
+import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, writeProgressFile } from "./temp-project.js";
 
 useTempDir();
 
@@ -23,7 +24,7 @@ describe("oid progress reopen", () => {
 describe("oid progress revise", () => {
   it("puts a done feature back at bdd_red with its scenarios pending", async () => {
     writeProgressFile({ current_focus: null, features: [DONE] });
-    expect(await runInProject(["progress", "revise", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+    expect(await runInProject(["progress", "revise", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "FR-X-01: bdd_red, 1 scenarios pending\n", stderr: "" });
     expect(savedProgress()).toEqual({ current_focus: null, features: [{ ...DONE, status: "in_progress", cycle_step: "bdd_red", scenarios: [{ name: "S1", bdd: "pending" }] }] });
   });
 
@@ -31,5 +32,15 @@ describe("oid progress revise", () => {
     writeProgressFile({ current_focus: null, features: [] });
     const { exitCode, stderr } = await runInProject(["progress", "revise", "FR-MISSING-01"]);
     expect({ exitCode, names: stderr.includes("FR-MISSING-01") }).toEqual({ exitCode: 1, names: true });
+  });
+
+  it("records the scenarios of the feature in a git project, and the next step forgets them", { timeout: REAL_PROCESS_TIMEOUT_MS }, async () => {
+    writeProgressFile({ current_focus: null, features: [DONE] });
+    commitAll();
+    const { readRevise } = await import("../../src/artifacts/revise-record.js");
+    await runInProject(["progress", "revise", "FR-X-01"]);
+    expect(readRevise(dir, "FR-X-01")?.scenarios.map(({ name }) => name)).toEqual(["S1"]);
+    await runInProject(["progress", "step", "FR-X-01", "tdd_red"]);
+    expect(readRevise(dir, "FR-X-01")).toBeUndefined();
   });
 });

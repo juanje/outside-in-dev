@@ -87,10 +87,10 @@ const NEXT_STEPS: Record<string, string[]> = {
   [CYCLE_STEP.qualityGate]: [CYCLE_STEP.bddRed, CYCLE_STEP.tddRed],
 };
 
-/** Returns the feature moved to `step`; the input is not modified. */
-export function advanceStep(feature: FeatureProgress, step: string): FeatureProgress {
+/** Returns the feature moved to `step`; `alsoAllowed` are steps that the caller has already checked and the table does not allow; the input is not modified. */
+export function advanceStep(feature: FeatureProgress, step: string, alsoAllowed: string[] = []): FeatureProgress {
   const from = feature.cycle_step ?? feature.status;
-  const allowed = feature.status === FEATURE_STATUS.pending ? [START_STEP] : (NEXT_STEPS[from] ?? []);
+  const allowed = feature.status === FEATURE_STATUS.pending ? [START_STEP] : [...(NEXT_STEPS[from] ?? []), ...alsoAllowed];
   if (!allowed.includes(step)) {
     throw new ProgressError(`cannot move ${feature.id} from ${from} to ${step}`);
   }

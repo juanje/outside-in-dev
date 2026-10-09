@@ -133,4 +133,10 @@ describe("the before-step hook, on revise and reopen", () => {
     const commands = ["ls # oid progress revise FR-X-01", "cat <<'EOF'\noid progress revise FR-X-01\nEOF", "oid progress reopen FR-X-01"];
     expect(commands.map((command) => runHook("before-step", { tool_input: { command } }).status)).toEqual([0, 0, 0]);
   });
+
+  it("refuses oid progress step quality_gate from bdd_red, the exit after a revise, and names the human's terminal", () => {
+    focusedAt("bdd_red");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: "oid progress step FR-X-01 quality_gate" } });
+    expect({ status, names: stderr.includes("human in their own terminal") }).toEqual({ status: 2, names: true });
+  });
 });

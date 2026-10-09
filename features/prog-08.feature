@@ -46,3 +46,159 @@ Feature: Revise a tracked requirement
     Then the command fails
     And the error output contains "FR-MISSING-01"
     And the progress file is unchanged
+
+  Scenario: Revise prints the step and how many scenarios are pending
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And the started feature "FR-X-01" also has a scenario "Beta works" marked "pass"
+    When I run "oid progress revise FR-X-01"
+    Then the command succeeds
+    And the output contains "FR-X-01: bdd_red, 2 scenarios pending"
+
+  Scenario: Revise on a feature already at bdd_red says nothing changes
+    Given a started feature "FR-X-01" at step "bdd_red" with a scenario "Alpha works" marked "fail"
+    When I run "oid progress revise FR-X-01"
+    Then the command succeeds
+    And the output contains "FR-X-01: already at bdd_red"
+
+  Scenario: A revised feature whose scenarios were only removed leaves bdd_red for quality_gate
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And the started feature "FR-X-01" also has a scenario "Beta works" marked "pass"
+    And a project file "features/x-01.feature" containing:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+
+        Scenario: Beta works
+          Given a thing
+      """
+    And a project file "src/code.ts" containing:
+      """
+      export const code = 1;
+      """
+    And the project is a git repository with its files committed
+    When I run "oid progress revise FR-X-01"
+    And the feature file "features/x-01.feature" is changed to:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+      """
+    And I run "oid progress scenario drop FR-X-01 \"Beta works\""
+    And a later green ran the scenario "Alpha works" of "FR-X-01"
+    And I run "oid progress step FR-X-01 quality_gate"
+    Then the command succeeds
+    And the feature "FR-X-01" has the cycle step "quality_gate"
+    And the feature "FR-X-01" has the scenario "Alpha works" marked "pending"
+
+  Scenario: A revised feature whose scenario text changed does not leave bdd_red
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And the started feature "FR-X-01" also has a scenario "Beta works" marked "pass"
+    And a project file "features/x-01.feature" containing:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+
+        Scenario: Beta works
+          Given a thing
+      """
+    And the project is a git repository with its files committed
+    When I run "oid progress revise FR-X-01"
+    And the feature file "features/x-01.feature" is changed to:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given another thing
+      """
+    And I run "oid progress scenario drop FR-X-01 \"Beta works\""
+    And a later green ran the scenario "Alpha works" of "FR-X-01"
+    And I run "oid progress step FR-X-01 quality_gate"
+    Then the command fails
+    And the error output contains "Alpha works"
+    And the error output contains "changed"
+    And the feature "FR-X-01" has the cycle step "bdd_red"
+
+  Scenario Outline: A revised feature whose code or steps changed does not leave bdd_red
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And a project file "features/x-01.feature" containing:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+      """
+    And a project file "src/code.ts" containing:
+      """
+      export const code = 1;
+      """
+    And a project file "features/steps/x.steps.ts" containing:
+      """
+      export const steps = 1;
+      """
+    And the project is a git repository with its files committed
+    When I run "oid progress revise FR-X-01"
+    And a project file "<file>" containing:
+      """
+      export const changed = 2;
+      """
+    And a later green ran the scenario "Alpha works" of "FR-X-01"
+    And I run "oid progress step FR-X-01 quality_gate"
+    Then the command fails
+    And the error output contains "<file>"
+    And the feature "FR-X-01" has the cycle step "bdd_red"
+
+    Examples:
+      | file                      |
+      | src/code.ts               |
+      | features/steps/x.steps.ts |
+
+  Scenario: A revised feature without a green that ran every scenario does not leave bdd_red and names the green needed
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And the started feature "FR-X-01" also has a scenario "Beta works" marked "pass"
+    And a project file "features/x-01.feature" containing:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+
+        Scenario: Beta works
+          Given a thing
+      """
+    And the project is a git repository with its files committed
+    When I run "oid progress revise FR-X-01"
+    And a later green ran the scenario "Alpha works" of "FR-X-01"
+    And I run "oid progress step FR-X-01 quality_gate"
+    Then the command fails
+    And the error output contains "Beta works"
+    And the error output contains "oid verify green features/x-01.feature:4 features/x-01.feature:7"
+    And the feature "FR-X-01" has the cycle step "bdd_red"
+
+  Scenario: A feature at bdd_red that was not revised does not leave it for quality_gate
+    Given a started feature "FR-X-01" at step "bdd_red" with a scenario "Alpha works" marked "pending"
+    And a project file "features/x-01.feature" containing:
+      """
+      @FR-X-01
+      Feature: Alpha
+
+        Scenario: Alpha works
+          Given a thing
+      """
+    And the project is a git repository with its files committed
+    And a later green ran the scenario "Alpha works" of "FR-X-01"
+    When I run "oid progress step FR-X-01 quality_gate"
+    Then the command fails
+    And the error output contains "revise"
+    And the feature "FR-X-01" has the cycle step "bdd_red"
+    And the progress file is unchanged

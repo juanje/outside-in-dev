@@ -11,7 +11,8 @@
 //                `oid verify red|green` replaces a checkpoint, the changes since the last one must pass
 //                `oid verify integrity`, or a violation would be absorbed.
 //                `oid progress revise` is refused: the human runs it in their own terminal (ADR-039);
-//                `oid progress reopen` is the agent's and is not.
+//                `oid progress reopen` is the agent's and is not. So is the move from bdd_red to quality_gate
+//                that ends a revise with no code to write (ADR-041).
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
@@ -187,6 +188,14 @@ function requireEvidence(id, to) {
   block(`${id} is in ${from}: run \`${VERIFY_FOR_STEP[needed]}\` and get it to pass for ${id} before moving to ${to}.`);
 }
 
+/** Blocks `oid progress step <id> quality_gate` while the feature is at bdd_red: that exit after a revise is the human's (ADR-041). */
+function requireHumanForReviseExit(id, to) {
+  const feature = readJson(join(project, "progress.json"))?.features?.find((candidate) => candidate.id === id);
+  if (feature?.cycle_step === "bdd_red" && to === "quality_gate") {
+    block(`\`oid progress step ${id} quality_gate\` from bdd_red ends a revise that needs no code and is run by the human in their own terminal, not by the agent.`);
+  }
+}
+
 function beforeStep(input) {
   for (const [command, subcommand, id, to] of oidCommands(input.tool_input?.command ?? "")) {
     if (command === "progress" && subcommand === "revise") {
@@ -195,7 +204,10 @@ function beforeStep(input) {
     if (command === "verify" && (subcommand === "red" || subcommand === "green")) {
       requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
     }
-    if (command === "progress" && subcommand === "step" && id !== undefined && to !== undefined) requireEvidence(id, to);
+    if (command === "progress" && subcommand === "step" && id !== undefined && to !== undefined) {
+      requireHumanForReviseExit(id, to);
+      requireEvidence(id, to);
+    }
   }
 }
 

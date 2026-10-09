@@ -33,6 +33,7 @@ describe("loadProjectPaths", () => {
       progress: "specs/progress.json",
       features: ["specs/features/**/*.feature", "extra/*.feature"],
       source: ["lib/**"],
+      steps: ["specs/steps/**"],
       tests: ["spec/**", "specs/steps/**", "specs/features/**/*.feature", "extra/*.feature"],
       docs: ["guide/**"],
     });
@@ -44,6 +45,7 @@ describe("loadProjectPaths", () => {
       progress: "progress.json",
       features: ["features/**/*.feature"],
       source: ["src/**"],
+      steps: ["features/steps/**", "features/support/**"],
       tests: ["tests/unit/**", "features/steps/**", "features/support/**", "features/**/*.feature"],
       docs: ["README.md", "docs/**"],
     });

@@ -2809,6 +2809,34 @@
         {
           "name": "A feature that is not tracked is refused",
           "bdd": "pass"
+        },
+        {
+          "name": "Revise prints the step and how many scenarios are pending",
+          "bdd": "pass"
+        },
+        {
+          "name": "Revise on a feature already at bdd_red says nothing changes",
+          "bdd": "pass"
+        },
+        {
+          "name": "A revised feature whose scenarios were only removed leaves bdd_red for quality_gate",
+          "bdd": "pass"
+        },
+        {
+          "name": "A revised feature whose scenario text changed does not leave bdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A revised feature whose code or steps changed does not leave bdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A revised feature without a green that ran every scenario does not leave bdd_red and names the green needed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature at bdd_red that was not revised does not leave it for quality_gate",
+          "bdd": "pass"
         }
       ]
     },

@@ -3,7 +3,7 @@ import { ProgressError } from "../../src/artifacts/progress.js";
 import { detectComplexity, detectDuplication, detectCommentedOutCode, detectUnusedCode, detectUnusedDeclarations } from "../../src/artifacts/code-health.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
-const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], tests: ["tests/unit/**"], docs: [] };
+const PATHS = { spec: "SPEC.md", progress: "progress.json", features: [], source: ["src/**"], steps: [], tests: ["tests/unit/**"], docs: [] };
 const LIMITS = { max_cyclomatic: 1, max_depth: 4 };
 const BUSY = "export function busy(a: boolean): number {\n  return a ? 1 : 2;\n}\n";
 const TSCONFIG = JSON.stringify({ compilerOptions: { strict: true, module: "NodeNext", target: "ES2022" }, include: ["src/**/*.ts"] });

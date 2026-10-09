@@ -101,3 +101,15 @@ export function frozenParts(base: string | undefined, now: string | undefined, i
   const outside = before.frame !== after.frame && (anyApproved(before, isApproved) || anyApproved(after, isApproved));
   return outside ? [...scenarios, OUTSIDE_SCENARIOS] : scenarios;
 }
+
+/** A scenario of a feature file as the comparisons see it: its name, its text without positions and ids, and its effective tags. */
+export interface ScenarioText {
+  name: string;
+  text: string;
+  tags: string[];
+}
+
+/** Every scenario of a feature file, in the order of the file, with its normalised text and effective tags; none when the file cannot be parsed. */
+export function scenarioTexts(text: string): ScenarioText[] {
+  return read(text).all.map(([name, part]) => ({ name, ...part }));
+}
