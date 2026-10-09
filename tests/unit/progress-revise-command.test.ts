@@ -21,6 +21,29 @@ describe("oid progress reopen", () => {
   });
 });
 
+describe("oid progress reopen focus", () => {
+  const OTHER = { id: "FR-X-02", title: "Beta", status: "in_progress", cycle_step: "bdd_red", scenarios: [{ name: "S2", bdd: "pending" }] };
+  const REOPENED = { ...DONE, status: "in_progress", cycle_step: "quality_gate" };
+
+  it("focuses the reopened feature when no feature is focused", async () => {
+    writeProgressFile({ current_focus: null, features: [DONE] });
+    expect(await runInProject(["progress", "reopen", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "FR-X-01: quality_gate, 1 scenarios kept\n", stderr: "" });
+    expect(savedProgress()).toEqual({ current_focus: "FR-X-01", features: [REOPENED] });
+  });
+
+  it("leaves the focus as it was with --no-focus", async () => {
+    writeProgressFile({ current_focus: null, features: [DONE] });
+    expect(await runInProject(["progress", "reopen", "FR-X-01", "--no-focus"])).toEqual({ exitCode: 0, stdout: "FR-X-01: quality_gate, 1 scenarios kept\n", stderr: "" });
+    expect(savedProgress()).toEqual({ current_focus: null, features: [REOPENED] });
+  });
+
+  it("keeps the focus on another feature and names it", async () => {
+    writeProgressFile({ current_focus: "FR-X-02", features: [DONE, OTHER] });
+    expect(await runInProject(["progress", "reopen", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "FR-X-01: quality_gate, 1 scenarios kept; focus kept on FR-X-02\n", stderr: "" });
+    expect(savedProgress()).toEqual({ current_focus: "FR-X-02", features: [REOPENED, OTHER] });
+  });
+});
+
 describe("oid progress revise", () => {
   it("puts a done feature back at bdd_red with its scenarios pending", async () => {
     writeProgressFile({ current_focus: null, features: [DONE] });

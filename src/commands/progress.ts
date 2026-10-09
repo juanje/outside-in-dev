@@ -116,13 +116,24 @@ function reviseRequirement(progress: Progress, io: Context, id: string): void {
 /** The kind of verification the checkpoint of a reopened feature records, which is not a green. */
 const REOPEN_KIND = "reopen";
 
-function reopenForReview(progress: Progress, io: Context, id: string): void {
+const NO_FOCUS_FLAG = "--no-focus";
+
+/** Focuses the reopened feature unless asked not to or another feature holds the focus; returns the note for the output. */
+function focusReopened(progress: Progress, id: string, keepFocus: boolean): string {
+  const held = progress.current_focus;
+  if (held !== null && held !== id) return `; focus kept on ${held}`;
+  if (!keepFocus) progress.current_focus = id;
+  return "";
+}
+
+function reopenForReview(progress: Progress, io: Context, id: string, keepFocus: boolean): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   const reopened = reopenFeature(feature);
   progress.features[progress.features.indexOf(feature)] = reopened;
+  const focusNote = focusReopened(progress, id, keepFocus);
   saveProgress(io.cwd, progress, io.paths.progress);
   recordHeadCheckpoint(io.cwd, { step: CYCLE_STEP.qualityGate, feature: id, verify: { kind: REOPEN_KIND, target: id }, external: false, date: new Date() });
-  io.stdout(`${id}: ${CYCLE_STEP.qualityGate}, ${reopened.scenarios?.length ?? 0} scenarios kept\n`);
+  io.stdout(`${id}: ${CYCLE_STEP.qualityGate}, ${reopened.scenarios?.length ?? 0} scenarios kept${focusNote}\n`);
 }
 
 function showStatus(progress: Progress, io: Context, all: boolean): void {
@@ -165,7 +176,7 @@ const SUBCOMMAND_HELP: Record<string, SubcommandHelp> = {
   done: { summary: "Mark a feature done once every scenario passes", operands: [ID] },
   unfocus: { summary: "Clear the focus", operands: [] },
   revise: { summary: "Put a feature back to bdd_red with every scenario pending, when its requirement changed", operands: [ID] },
-  reopen: { summary: "Put a done feature back to quality_gate, scenarios unchanged, to address a review", operands: [ID] },
+  reopen: { summary: "Put a done feature back to quality_gate, scenarios unchanged, to address a review", operands: [ID], options: { [NO_FOCUS_FLAG]: "Leave the focus as it is" } },
 };
 const SUBCOMMANDS = Object.keys(SUBCOMMAND_HELP);
 
@@ -201,7 +212,7 @@ const ACTIONS: Record<string, Action> = {
   done: (progress, io, [id]) => doneFeature(progress, io, id!),
   unfocus: (progress, io) => unfocus(progress, io),
   revise: (progress, io, [id]) => reviseRequirement(progress, io, id!),
-  reopen: (progress, io, [id]) => reopenForReview(progress, io, id!),
+  reopen: (progress, io, operands) => reopenForReview(progress, io, operands.find((operand) => operand !== NO_FOCUS_FLAG)!, operands.includes(NO_FOCUS_FLAG)),
 };
 
 export function runProgress(args: string[], cli: CliIo): void {

@@ -122,3 +122,29 @@ Feature: Reopen a done feature for review
     When I run "oid progress done FR-X-01"
     Then the command fails
     And the error output contains "no current green ran the scenarios \"Alpha works\""
+
+  Scenario: Reopening a feature with no feature focused focuses it
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And no feature is focused
+    When I run "oid progress reopen FR-X-01"
+    Then the command succeeds
+    And the current focus is "FR-X-01"
+
+  Scenario: Reopening with --no-focus leaves the focus as it was, and the help names the option
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And no feature is focused
+    When I run "oid progress reopen FR-X-01 --no-focus"
+    Then the command succeeds
+    And the feature "FR-X-01" has the cycle step "quality_gate"
+    And no feature is focused in the progress file
+    When I run "oid progress --help"
+    Then the output contains "oid progress reopen FR-xxx [--no-focus]"
+
+  Scenario: Reopening while another feature is focused keeps that focus and says so
+    Given a completed feature "FR-X-01" with a scenario "Alpha works" marked "pass"
+    And a started feature "FR-X-02" at step "bdd_red" with a scenario "Beta works" marked "pending"
+    And the focus is on "FR-X-02"
+    When I run "oid progress reopen FR-X-01"
+    Then the command succeeds
+    And the output contains "FR-X-01: quality_gate, 1 scenarios kept; focus kept on FR-X-02"
+    And the current focus is "FR-X-02"

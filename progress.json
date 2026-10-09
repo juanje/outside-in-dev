@@ -2944,6 +2944,18 @@
         {
           "name": "Reopening a feature is not the green that closing it needs",
           "bdd": "pass"
+        },
+        {
+          "name": "Reopening a feature with no feature focused focuses it",
+          "bdd": "pass"
+        },
+        {
+          "name": "Reopening with --no-focus leaves the focus as it was, and the help names the option",
+          "bdd": "pass"
+        },
+        {
+          "name": "Reopening while another feature is focused keeps that focus and says so",
+          "bdd": "pass"
         }
       ]
     },
