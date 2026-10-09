@@ -63,6 +63,13 @@ describe("findRepeatedStrings", () => {
     expect(findRepeatedStrings(files, 3).map(({ detail }) => detail)).toEqual(['string "x" repeated 3 times']);
   });
 
+  it("does not count the Node encoding names", () => {
+    const names = ["utf8", "utf-8", "ascii", "base64", "base64url", "hex", "latin1", "binary", "ucs2", "ucs-2", "utf16le", "utf-16le"];
+    const text = `export const f = [${names.map((n) => `"${n}"`).join(", ")}, "x"];\n`;
+    const files = [{ file: "src/a.ts", text }, { file: "src/b.ts", text }];
+    expect(findRepeatedStrings(files, 2).map(({ detail }) => detail)).toEqual(['string "x" repeated 2 times']);
+  });
+
   it("does not count the direct initializer of a const", () => {
     const files = [{ file: "src/a.ts", text: 'const A = "k";\nconst B = "k";\nconst C = "k";\nexport const list = ["x", "x", "x"];\n' }];
     expect(findRepeatedStrings(files, 3).map(({ detail }) => detail)).toEqual(['string "x" repeated 3 times']);
