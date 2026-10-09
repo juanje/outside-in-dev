@@ -115,8 +115,10 @@ function reviseRequirement(progress: Progress, io: Context, id: string): void {
 
 function reopenForReview(progress: Progress, io: Context, id: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
-  progress.features[progress.features.indexOf(feature)] = reopenFeature(feature);
+  const reopened = reopenFeature(feature);
+  progress.features[progress.features.indexOf(feature)] = reopened;
   saveProgress(io.cwd, progress, io.paths.progress);
+  io.stdout(`${id}: ${CYCLE_STEP.qualityGate}, ${reopened.scenarios?.length ?? 0} scenarios kept\n`);
 }
 
 function showStatus(progress: Progress, io: Context, all: boolean): void {

@@ -16,7 +16,7 @@ function savedProgress(): unknown {
 describe("oid progress reopen", () => {
   it("puts a done feature back at quality_gate and keeps the focus and the scenarios", async () => {
     writeProgressFile({ current_focus: "FR-X-01", features: [DONE] });
-    expect(await runInProject(["progress", "reopen", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+    expect(await runInProject(["progress", "reopen", "FR-X-01"])).toEqual({ exitCode: 0, stdout: "FR-X-01: quality_gate, 1 scenarios kept\n", stderr: "" });
     expect(savedProgress()).toEqual({ current_focus: "FR-X-01", features: [{ ...DONE, status: "in_progress", cycle_step: "quality_gate" }] });
   });
 });
