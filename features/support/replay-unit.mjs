@@ -1,9 +1,10 @@
 // The unit runner of the `oid run` fixtures that do not need a real vitest: it replays a vitest JSON report that a real
 // vitest run wrote once, and exits with the code that run had.
 //
-// Called as the configured unit command is: `node unit-replay.mjs [file -t name] --reporter=json --outputFile=<path>`.
-// `replay/unit.json` is { "sequence": ["<name>", ...], "exitCodes": {...} }: the n-th call of a run replays the n-th
-// name (the position is kept in .outside-in/replay-unit.count, which git ignores). The first call is the baseline run.
+// Called as the configured unit command is: `node unit-replay.mjs [<file> --testNamePattern=<escaped name>] --reporter=json --outputFile=<path>`.
+// `replay/unit.json` is { "sequence": [{ "recording": "<name>", "expect": "suite" | { file, name }, "repeat": true }, ...],
+// "exitCodes": {...} } (see replay-lib.mjs): the call must be the one the current entry expects, the whole suite or the one test
+// (the file and the name, with the escaping oid applies to the name taken off), and is answered with the entry's recording.
 //
 // Recordings: features/support/recorded/<name>.json, with the exit codes in exit-codes.json. They were made with
 // vitest 3.2.7 (pinned, NFR-09) in a project holding the files of features/support/cart-files.ts, once per case, with
@@ -14,24 +15,19 @@
 // which: unit-red-missing is the test "adds a line" with no src/cart.ts, unit-green the same with src/cart.ts that
 // has addLine and countCartLines, and so on), run `node_modules/.bin/vitest run --reporter=json --outputFile=<path>`
 // in it, replace the project's directory by <root> in the file, save it under the name and update exit-codes.json.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { answer, readReplay, unescapedName } from "./replay-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const replay = JSON.parse(readFileSync(join(here, "replay", "unit.json"), "utf8"));
+const replay = readReplay(here, "unit.json");
 const args = process.argv.slice(2);
 const output = args.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);
-const COUNT_FILE = join(".outside-in", "replay-unit.count");
-const position = existsSync(COUNT_FILE) ? Number(readFileSync(COUNT_FILE, "utf8")) : 0;
-mkdirSync(dirname(COUNT_FILE), { recursive: true });
-writeFileSync(COUNT_FILE, String(position + 1));
-// `replay.after`, when the fixture names one, answers every call beyond the sequence (the gate's full run).
-if (position >= replay.sequence.length && replay.after === undefined) {
-  console.error(`the run made more unit calls than the ${replay.sequence.length} recordings of the fixture`);
-  process.exit(2);
-}
-const name = replay.sequence[position] ?? replay.after;
+const file = args.find((arg) => !arg.startsWith("--"));
+const pattern = args.find((arg) => arg.startsWith("--testNamePattern="));
+const request = file === undefined && pattern === undefined ? "suite" : { file, name: pattern === undefined ? undefined : unescapedName(pattern.slice("--testNamePattern=".length)) };
+const { entry } = answer("unit", replay, request);
 mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, readFileSync(join(here, "replay", `${name}.json`), "utf8").split("<root>").join(process.cwd()));
-process.exit(replay.exitCodes[name]);
+writeFileSync(output, readFileSync(join(here, "replay", `${entry.recording}.json`), "utf8").split("<root>").join(process.cwd()));
+process.exit(replay.exitCodes[entry.recording]);

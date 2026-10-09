@@ -1,4 +1,4 @@
-import { After, Before, BeforeAll, setDefaultTimeout, setWorldConstructor, World } from "@cucumber/cucumber";
+import { After, Before, BeforeAll, Status, setDefaultTimeout, setWorldConstructor, World } from "@cucumber/cucumber";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProblem } from "./build-freshness.js";
 import { projectFiles } from "./project-files.js";
+import { replayCallsText } from "./replay-log.js";
 import type { FindingDraft } from "../../src/artifacts/findings.js";
 import { runCli } from "../../src/run-cli.js";
 import type { PiSdk } from "../../src/agents/runner.js";
@@ -187,6 +188,9 @@ Before({ tags: "@process" }, function () {
   if (problem !== null) throw new Error(problem);
 });
 
-After(function (this: OidWorld) {
+// A failed scenario keeps the calls its replay runners answered or refused, before its directory is removed.
+After(function (this: OidWorld, { result }) {
+  const calls = result?.status === Status.FAILED ? replayCallsText(this.dir) : "";
+  if (calls !== "") this.attach(calls, "text/plain");
   rmSync(this.dir, { recursive: true, force: true });
 });

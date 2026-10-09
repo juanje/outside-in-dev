@@ -128,23 +128,48 @@ function cucumberFiles({ feature, scenario }: Cucumber): Record<string, string> 
   };
 }
 
-/** The fake BDD runner of the project and the recordings it replays: the green baseline and the report of the gate run. */
+/** The replay files and scripts of one runner: the script, the library it imports and the recordings its entries name. */
+function writeReplayScripts(world: OidWorld, script: string, as: string): void {
+  writeIn(world, "replay-lib.mjs", readFileSync(join(SUPPORT, "replay-lib.mjs"), "utf8"));
+  writeIn(world, as, readFileSync(join(SUPPORT, script), "utf8"));
+}
+
+/** An entry of a replay sequence: the recording it answers with, the request it answers, and whether it answers every later identical call. */
+type ReplayEntry = { recording: string | null; expect?: unknown; repeat?: true };
+const SUITE = "suite";
+
+/** The scenarios a recorded report ran (its pickles that have a test case started), as `file:line`: the locations of the call it answers. */
+function locationsOf(recording: string): string[] {
+  const messages = readFileSync(join(SUPPORT, "recorded", `${recording}.ndjson`), "utf8").split("\n").filter((line) => line !== "").map((line) => JSON.parse(line) as { pickle?: { id: string; uri: string; location: { line: number } }; testCase?: { id: string; pickleId: string } });
+  const pickles = new Map(messages.flatMap(({ pickle }) => (pickle === undefined ? [] : [[pickle.id, pickle] as const])));
+  const ran = new Set(messages.flatMap(({ testCase }) => (testCase === undefined ? [] : [testCase.pickleId])));
+  return [...ran].map((id) => `${pickles.get(id)!.uri}:${pickles.get(id)!.location.line}`);
+}
+
+/** The fake BDD runner of the project and the recordings it replays, in the order of the calls: the start of the run (the whole suite), the runs of the scenarios the gate asks for, each expecting the locations of the scenarios its recording ran, and the whole suite again at the end. */
 function writeReplay(world: OidWorld, gate: string | string[], suite: string[] = []): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
-  writeIn(world, "bdd-replay.mjs", readFileSync(join(SUPPORT, "replay-bdd.mjs"), "utf8"));
-  writeIn(world, "replay/replay.json", JSON.stringify({ baseline: suite.length === 0 ? BASELINE_REPLAY : [BASELINE_REPLAY, ...suite], gate, exitCodes }));
+  const suites = suite.length === 0 ? [BASELINE_REPLAY] : [BASELINE_REPLAY, ...suite];
+  const whole = (recording: string): ReplayEntry => ({ recording, expect: SUITE });
+  const finals = suites.length === 1 ? suites : suites.slice(1);
+  const sequence: ReplayEntry[] = [whole(suites[0]!), ...[gate].flat().map((recording) => ({ recording, expect: { locations: locationsOf(recording) } })), ...finals.map(whole)];
+  sequence[sequence.length - 1]!.repeat = true;
+  writeReplayScripts(world, "replay-bdd.mjs", "bdd-replay.mjs");
+  writeIn(world, "replay/replay.json", JSON.stringify({ sequence, exitCodes }));
   for (const name of new Set([BASELINE_REPLAY, ...suite, ...[gate].flat()])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
 }
 
 /** The fake unit runner and type check of the project and the recordings they replay. */
 function writeLoopReplay(world: OidWorld, { unit, typecheck }: Loop): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
-  writeIn(world, "unit-replay.mjs", readFileSync(join(SUPPORT, "replay-unit.mjs"), "utf8"));
+  writeReplayScripts(world, "replay-unit.mjs", "unit-replay.mjs");
   writeIn(world, "typecheck-replay.mjs", readFileSync(join(SUPPORT, "replay-typecheck.mjs"), "utf8"));
-  // The full unit run of the quality gate follows the runs of the loop; unless a scenario scripts it, it passes. The type check
-  // of the start of the run comes before the runs of the loop.
-  writeIn(world, "replay/unit.json", JSON.stringify({ sequence: unit, after: GATE_UNIT_REPORT, exitCodes }));
-  writeIn(world, "replay/typecheck.json", JSON.stringify({ recording: Array.isArray(typecheck) ? [null, ...typecheck] : typecheck, exitCodes }));
+  // The full unit run of the quality gate follows the runs of the loop; unless a scenario scripts it, it passes, and so on for as many runs as it makes.
+  const units: ReplayEntry[] = [...unit.map((recording) => ({ recording, expect: SUITE })), { recording: GATE_UNIT_REPORT, expect: SUITE, repeat: true }];
+  writeIn(world, "replay/unit.json", JSON.stringify({ sequence: units, exitCodes }));
+  // The type check of the start of the run comes before the runs of the loop. A recording given alone answers every call.
+  const checks: ReplayEntry[] = Array.isArray(typecheck) ? [{ recording: null }, ...typecheck.map((recording) => ({ recording }))] : [{ recording: typecheck, repeat: true }];
+  writeIn(world, "replay/typecheck.json", JSON.stringify({ sequence: checks, exitCodes }));
   for (const name of new Set([...unit, GATE_UNIT_REPORT])) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
   for (const name of new Set([typecheck].flat())) if (name !== null) writeIn(world, `replay/${name}.txt`, readFileSync(join(SUPPORT, "recorded", `${name}.txt`), "utf8"));
 }
