@@ -2572,7 +2572,33 @@
     {
       "id": "FR-RUN-08",
       "title": "Retries and escalation",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A step file that is not a valid Red is retried from the last checkpoint, with the attempt number and the reason",
+          "bdd": "pass"
+        },
+        {
+          "name": "Each retry raises the reasoning level, and the last one uses the strongest model",
+          "bdd": "pass"
+        },
+        {
+          "name": "A retry of Code Green starts without the code of the failed attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "Errors that the fix of the quality gate leaves are fixed again, up to the retries, before the human is asked",
+          "bdd": "pass"
+        },
+        {
+          "name": "When the retries run out, the run asks what to do with the reason of the last attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human retries with a note, and the note goes to one more attempt on the strongest model",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-09",

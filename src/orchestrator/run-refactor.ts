@@ -12,6 +12,7 @@ import { loadProjectConfig } from "../artifacts/project-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
 import { agentContext, outcomeProblem } from "./agent-run.js";
+import { announceAgent } from "./attempts.js";
 import { bddCheck, SCENARIO } from "./bdd-check.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { type Started, STATE, transition } from "./begin.js";
@@ -68,7 +69,8 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   updateSession(cwd, { state: STATE.refactor });
   transition(bus, STATE.codeGreen, STATE.refactor, `${listed.length} finding${listed.length === 1 ? "" : "s"} on the lines Code Green changed: the agent fixes them`);
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;
-  const outcome = await runAgent({ state: REFACTOR, prompt }, agentContext(started, services));
+  const effort = announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadProjectConfig(worktree).models });
+  const outcome = await runAgent({ state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, agentContext(started, services));
   const problems = [outcomeProblem(scenario.label, outcome) ?? ""].filter((problem) => problem !== "");
   const rejected = problems.length > 0 ? problems : refactorProblems(started, detect, runnersOf(services), scenario, { findings: drafts, detected, behaviour: behaviour.kind });
   if (rejected.length === 0) {

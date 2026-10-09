@@ -40,13 +40,13 @@ describe("the question about a scenario that is still red after the last iterati
     });
   });
 
-  it("ends the run with an error that says retries are not there yet, for every answer but abort", async () => {
+  it("ends the run with an error that says the action is not implemented yet, for every answer but abort", async () => {
     const outcome = async (answer: string) => {
       const printed: string[] = [];
       const result = await stuckLoop(bus(printed), { isTTY: true, choose: async () => answer, line: async () => "" }, STUCK);
       return { result, printed };
     };
-    expect(await outcome("retry")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "retry" has to wait for retries (FR-RUN-08): only abort is possible now\n'] });
+    expect(await outcome("retry")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "retry" is not implemented yet: only abort is possible now\n'] });
     expect((await outcome("skip_fr")).result).toBe(1);
     expect((await outcome("maybe")).printed[0]).toContain('"maybe"');
   });

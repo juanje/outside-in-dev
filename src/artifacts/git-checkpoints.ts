@@ -57,5 +57,5 @@ export function rollback(workspace: Workspace, commit: string, writeGlobs: strin
   requireRunBranch(workspace);
   requireRunCommit(workspace, commit);
   git(workspace.path, "reset --hard", commit);
-  if (writeGlobs.length > 0) git(workspace.path, "clean -fd --", ...writeGlobs);
+  if (writeGlobs.length > 0) git(workspace.path, "clean -fd --", ...writeGlobs.map((glob) => `:(glob)${glob}`));
 }

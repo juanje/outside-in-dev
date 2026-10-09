@@ -9,9 +9,10 @@ import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { ERROR_EVENT } from "../events/types.js";
-import { agentContext, outcomeProblem } from "./agent-run.js";
+import { agentContext } from "./agent-run.js";
 import { bddRedGate, type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
-import { type Started, STATE, transition } from "./begin.js";
+import { isExitCode, type Started, STATE, transition } from "./begin.js";
+import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
 import { updateSession } from "./session.js";
 import { type FeatureServices, runnersOf } from "./services.js";
@@ -57,11 +58,19 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   const label = `${fr} "${current.name}"`;
   updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1 });
   const prompt = `${bddRedPrompt(fr!)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
-  const outcome = await runAgent({ state: BDD_RED, prompt }, agentContext(started, services));
-  const problem = outcomeProblem(label, outcome);
-  if (problem !== undefined) return fail(started, problem);
-  const gate = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));
-  if (gate.kind === PROBLEM) return fail(started, `${label}: ${gate.problem}`);
+  const gate = await attemptsOf(started, services, {
+    state: BDD_RED,
+    role: "bdd-agent",
+    label,
+    run: async (info) => {
+      const outcome = await runAgent(attemptTask(BDD_RED, prompt, info), agentContext(started, services));
+      const stopped = agentStop(started, label, outcome);
+      if (stopped !== undefined) return stopped;
+      const judged = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));
+      return judged.kind === PROBLEM ? { rejected: `${label}: ${judged.problem}` } : judged;
+    },
+  });
+  if (isExitCode(gate)) return gate;
   if (gate.kind === OUTCOME.decision) {
     const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: gate.reason, message: gate.message });
     if (decided !== VALID_RED) return decided;

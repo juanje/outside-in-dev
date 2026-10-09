@@ -15,6 +15,8 @@ export class Route {
   providerError: string | undefined;
   toolNames: string[][] = [];
   excludedTools: string[][] = [];
+  /** The model and the thinking level each of its sessions was opened with, in order. */
+  opened: { model?: string; thinkingLevel?: string }[] = [];
 }
 type Report = { status: "done"; files: string[]; summary: string; reason?: string; test?: string } | { status: "blocked"; reason: string; detail: string };
 type Verdict = { block?: boolean } | undefined;
@@ -76,14 +78,16 @@ export class FakeAgent {
       async reload(): Promise<void> {}
     },
     SessionManager: { create: () => ({}) },
-    createAgentSession: async (options: { cwd: string; agentDir: string; tools?: string[]; excludeTools?: string[] }) => {
+    ModelRuntime: { create: async () => ({ getModel: (provider: string, id: string) => ({ provider, id }), getAvailable: async () => [] }) },
+    createAgentSession: async (options: { cwd: string; agentDir: string; tools?: string[]; excludeTools?: string[]; model?: { provider: string; id: string }; thinkingLevel?: string }) => {
       this.agentDirs.push(options.agentDir);
       const tools = { names: options.tools ?? [], excluded: options.excludeTools ?? [] };
-      return { session: this.session(options.cwd, tools) };
+      const opened = { ...(options.model === undefined ? {} : { model: `${options.model.provider}/${options.model.id}` }), ...(options.thinkingLevel === undefined ? {} : { thinkingLevel: options.thinkingLevel }) };
+      return { session: this.session(options.cwd, tools, opened) };
     },
   } as unknown as PiSdk;
 
-  private session(cwd: string, tools: { names: string[]; excluded: string[] }) {
+  private session(cwd: string, tools: { names: string[]; excluded: string[] }, opened: { model?: string; thinkingLevel?: string }) {
     const listeners: Array<(event: unknown) => void> = [];
     const emit = (event: unknown) => listeners.forEach((listener) => listener(event));
     const session: OpenedSession & Record<string, unknown> = {
@@ -101,6 +105,7 @@ export class FakeAgent {
         } else {
           route.toolNames.push(tools.names);
           route.excludedTools.push(tools.excluded);
+          route.opened.push(opened);
         }
         const providerError = route?.providerError ?? this.providerError;
         if (providerError !== undefined) {

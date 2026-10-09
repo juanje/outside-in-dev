@@ -11,8 +11,15 @@ export function agentContext({ cwd, runId, workspace }: Started, services: Featu
     worktree: workspace.path,
     agentDir: services.agentDir,
     sessionsDir: join(runDirectory(cwd, runId), "sessions"),
-    openSession: (task: AgentTask, run: RunContext) => openProfileSession({ state: task.state, worktree: run.worktree, agentDir: run.agentDir, sessionsDir: run.sessionsDir }, services.sdk),
+    openSession: (task: AgentTask, run: RunContext) => openProfileSession({ state: task.state, worktree: run.worktree, agentDir: run.agentDir, sessionsDir: run.sessionsDir, model: task.model, thinkingLevel: task.thinkingLevel }, services.sdk),
   };
+}
+
+/** What an attempt whose agent did not finish with a report comes to: a rejection of the attempt when the agent failed, the problem that ends the run when it is blocked or the provider failed, nothing when it is done. */
+export function outcomeStop(label: string, outcome: AttemptOutcome): { rejected: string } | { stop: string } | undefined {
+  const problem = outcomeProblem(label, outcome);
+  if (problem === undefined) return undefined;
+  return outcome.status === FAILED ? { rejected: problem } : { stop: problem };
 }
 
 /** Why an attempt that did not finish with a report stopped the run, as a sentence that starts with `label`; nothing when the attempt is done. */

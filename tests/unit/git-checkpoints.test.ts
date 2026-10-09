@@ -70,6 +70,15 @@ describe("rollback", () => {
     expect(git("rev-parse", "HEAD")).toBe(hash);
   });
 
+  it("removes an untracked file that lies directly in the folder of a glob such as features/steps/**/*.ts", () => {
+    const workspace = runWorkspace();
+    write("features/steps/stray.steps.ts", "// stray\n");
+    write("features/steps/nested/deep.steps.ts", "// deep\n");
+    write("features/other.feature", "Feature: kept\n");
+    rollback(workspace, workspace.startCommit, ["features/steps/**/*.ts"]);
+    expect([existsSync(join(dir, "features/steps/stray.steps.ts")), existsSync(join(dir, "features/steps/nested/deep.steps.ts")), existsSync(join(dir, "features/other.feature"))]).toEqual([false, false, true]);
+  });
+
   it("removes no untracked file when the step may write nowhere", () => {
     const workspace = runWorkspace();
     write("src/extra.ts", "extra\n");

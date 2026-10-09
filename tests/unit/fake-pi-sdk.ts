@@ -15,6 +15,7 @@ export function fakePiSdk(makeSession: () => unknown = () => ({ fake: true })): 
       async reload(): Promise<void> {}
     },
     SessionManager: { create: (...args: unknown[]) => ({ created: args }) },
+    ModelRuntime: { create: async () => ({ getModel: (provider: string, id: string) => ({ provider, id }), getAvailable: async () => [] }) },
     createAgentSession: async (options: Record<string, unknown>) => {
       const loader = options.resourceLoader as { options: Record<string, unknown> };
       calls.push({ loader: loader.options, session: options, manager: (options.sessionManager as { created: unknown[] }).created });

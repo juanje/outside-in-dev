@@ -44,7 +44,8 @@ const projectConfigSchema = z.strictObject({
       entry: globs.optional(),
     })
     .optional(),
-  limits: z.strictObject({ max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional() }).optional(),
+  limits: z.strictObject({ max_retries: z.number().int().nonnegative().optional(), max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional() }).optional(),
+  models: z.strictObject({ fast: z.string(), default: z.string(), strong: z.string(), spec: z.string().optional() }).optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
   settings: z
     .strictObject({
@@ -111,6 +112,19 @@ const DEFAULT_INNER_ITERATIONS = 8;
 export function loadInnerIterationLimit(cwd: string): number {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? DEFAULT_INNER_ITERATIONS : (parseProjectConfig(document).limits?.max_inner_iterations ?? DEFAULT_INNER_ITERATIONS);
+}
+
+const DEFAULT_RETRIES = 3;
+
+/** How many times a failed attempt of a state is retried: `limits.max_retries`, 3 by default and without a configuration file. */
+export function loadRetryLimit(cwd: string): number {
+  const document = readJson(cwd, CONFIG_FILE);
+  return document === undefined ? DEFAULT_RETRIES : (parseProjectConfig(document).limits?.max_retries ?? DEFAULT_RETRIES);
+}
+
+/** The models the project names for its agents, as `provider/id`: the `models` of the configuration file. */
+export function loadModels(cwd: string): NonNullable<ProjectConfig["models"]> {
+  return loadProjectConfig(cwd).models!;
 }
 
 const DEFAULT_COMMAND_TIMEOUT_S = 600;

@@ -36,6 +36,13 @@ describe("openProfileSession", () => {
     const call = { toolCall: { name: "write" }, args: { path: "src/app.ts" } };
     expect(await hook(call)).toMatchObject({ block: true });
   });
+
+  it("opens the session on the model and the thinking level of the attempt", async () => {
+    writeMinimalConfig();
+    const { sdk, calls } = fakePiSdk(() => ({ agent: {}, abort: async () => {} }));
+    await openProfileSession({ state: "TDD_RED", worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, model: "prov/the-model", thinkingLevel: "high" }, sdk);
+    expect(calls[0]?.session).toMatchObject({ model: { provider: "prov", id: "the-model" }, thinkingLevel: "high" });
+  });
 });
 
 describe("openProfileSession dependencies", () => {

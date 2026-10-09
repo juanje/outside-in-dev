@@ -14,6 +14,12 @@ describe("openAgentSession", () => {
     expect(calls[0]?.session.agentDir).toBe("/oid/agent");
   });
 
+  it("opens the session on the model and the thinking level it is given", async () => {
+    const { sdk, calls } = fakePiSdk();
+    await openAgentSession({ worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, systemPrompt: "P", model: "prov/the-model", thinkingLevel: "high" }, sdk);
+    expect(calls[0]?.session).toMatchObject({ model: { provider: "prov", id: "the-model" }, thinkingLevel: "high" });
+  });
+
   it("turns off discovery of skills, context files, extensions, prompts and themes, and replaces the system prompt", async () => {
     const { sdk, calls } = fakePiSdk();
     await openAgentSession({ worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, systemPrompt: "oid prompt" }, sdk);

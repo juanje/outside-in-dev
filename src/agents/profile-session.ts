@@ -15,6 +15,9 @@ export type ProfileSessionRequest = {
   worktree: string;
   agentDir: string;
   sessionsDir: string;
+  /** The model (as `provider/id`) and the thinking level of the attempt; without them Pi chooses. */
+  model?: string;
+  thinkingLevel?: string;
   /** Who approves a requested package; without one no request is approved. */
   approveDependency?: (request: DependencyRequest) => Promise<DependencyDecision>;
   /** How a package manager command runs; by default the real one. */
@@ -36,7 +39,7 @@ export async function openProfileSession(request: ProfileSessionRequest, sdk: Pi
   const profile = profileFor(request.state, loadProjectConfig(request.worktree));
   const dependencyTools = request.state !== FEATURE_WRITE ? [requestDependencyTool({ worktree: request.worktree, approve: request.approveDependency, install: request.installDependency ?? runInstall })] : [];
   const toolset = buildToolset(profile, [reportTool, ...dependencyTools]);
-  const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset }, sdk);
+  const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset, model: request.model, thinkingLevel: request.thinkingLevel }, sdk);
   installSandbox(session, profile, { worktree: request.worktree, tools: toolset.names });
   if (toolset.names.includes("edit")) installEditHints(session);
   return session;

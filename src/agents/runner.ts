@@ -9,10 +9,22 @@ import type { Toolset } from "./toolset.js";
 import { changesSince, snapshotWorktree, type WorktreeSnapshot } from "./worktree-changes.js";
 
 /** The parts of the Pi SDK that oid uses; tests inject a fake one. */
-export type PiSdk = Pick<typeof pi, "createAgentSession" | "DefaultResourceLoader" | "SessionManager">;
+export type PiSdk = Pick<typeof pi, "createAgentSession" | "DefaultResourceLoader" | "SessionManager" | "ModelRuntime">;
 
-/** What a task's session needs: where it works, oid's agent directory, where its transcript goes, oid's own system prompt and, when the step restricts them, its tools. */
-export type SessionRequest = { worktree: string; agentDir: string; sessionsDir: string; systemPrompt: string; toolset?: Toolset };
+/** What a task's session needs: where it works, oid's agent directory, where its transcript goes, oid's own system prompt and, when the step restricts them, its tools; and, when the attempt names them, the model (as `provider/id`) and the thinking level it runs with. */
+export type SessionRequest = { worktree: string; agentDir: string; sessionsDir: string; systemPrompt: string; toolset?: Toolset; model?: string; thinkingLevel?: string };
+
+/** What separates the provider from the model in a name such as `provider/id`. */
+const MODEL_SEPARATOR = "/";
+
+/** The Pi runtime of oid's agent directory and the model it holds for a `provider/id` name; refused when the runtime has no such model. */
+async function modelOf(sdk: PiSdk, agentDir: string, name: string) {
+  const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(agentDir, "auth.json"), modelsPath: join(agentDir, "models.json") });
+  const [provider = "", ...rest] = name.split(MODEL_SEPARATOR);
+  const model = modelRuntime.getModel(provider, rest.join(MODEL_SEPARATOR));
+  if (model === undefined) throw new Error(`the model "${name}" is not one of the models Pi knows`);
+  return { modelRuntime, model };
+}
 
 /** Where oid keeps the Pi agent directory of its sessions, so that Pi never reads the user's own `~/.pi/agent`. `OID_AGENT_DIR` overrides the default. */
 export function oidAgentDir(env: { HOME?: string; OID_AGENT_DIR?: string }): string {
@@ -35,12 +47,14 @@ export async function openAgentSession(request: SessionRequest, sdk: PiSdk = pi)
   mkdirSync(request.sessionsDir, { recursive: true });
   const sessionManager = sdk.SessionManager.create(request.worktree, request.sessionsDir);
   const tools = request.toolset && { tools: request.toolset.names, customTools: request.toolset.customTools, excludeTools: request.toolset.excludeTools };
-  const { session } = await sdk.createAgentSession({ cwd: request.worktree, agentDir: request.agentDir, resourceLoader, sessionManager, ...tools });
+  const resolved = request.model === undefined ? undefined : await modelOf(sdk, request.agentDir, request.model);
+  const thinking = request.thinkingLevel === undefined ? undefined : { thinkingLevel: request.thinkingLevel as NonNullable<Parameters<PiSdk["createAgentSession"]>[0]>["thinkingLevel"] };
+  const { session } = await sdk.createAgentSession({ cwd: request.worktree, agentDir: request.agentDir, resourceLoader, sessionManager, ...tools, ...resolved, ...thinking });
   return session;
 }
 
-/** What an agent is asked to do: the step it runs for and the task text. */
-export type AgentTask = { state: CycleState; prompt: string };
+/** What an agent is asked to do: the step it runs for and the task text, and, for an attempt that names them, the model (as `provider/id`) and the thinking level it runs with. */
+export type AgentTask = { state: CycleState; prompt: string; model?: string; thinkingLevel?: string };
 
 /** The part of a Pi session that `runAgent` uses. */
 type RunnableSession = { subscribe(listener: (event: unknown) => void): () => void; prompt(text: string): Promise<void>; dispose(): void };

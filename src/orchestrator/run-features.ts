@@ -5,6 +5,7 @@ import { NEWLINE } from "../artifacts/lines.js";
 import { featureWriteContext } from "../agents/context/task-context.js";
 import { DONE, runAgent } from "../agents/runner.js";
 import { agentContext, outcomeProblem } from "./agent-run.js";
+import { announceAgent } from "./attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { runInnerLoop } from "./run-inner-loop.js";
 import { featureProblem } from "./feature-gates.js";
@@ -34,7 +35,8 @@ async function writeFeatures(started: Started, services: FeatureServices, commen
   const knownIds = parseRequirements(readText(workspace.path, config.paths.spec) ?? "").map(({ id }) => id);
   const files: string[] = [];
   for (const fr of targets) {
-    const outcome = await runAgent({ state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}` }, context);
+    const effort = announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: config.models });
+    const outcome = await runAgent({ state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`, model: effort.model, thinkingLevel: effort.thinkingLevel }, context);
     const stopped = outcomeProblem(fr, outcome);
     if (stopped !== undefined) return { problem: stopped };
     if (outcome.status !== DONE || outcome.report.status !== DONE) continue;
