@@ -15,6 +15,8 @@ export interface RedObservation {
   step: string;
   message: string;
   needsDecision: boolean;
+  /** The run was the check of a fixed test after a return, which a valid decision returns the feature for. */
+  returnCheck?: boolean;
 }
 
 const observationSchema = z.object({
@@ -22,6 +24,7 @@ const observationSchema = z.object({
   step: z.string(),
   message: z.string(),
   needsDecision: z.boolean(),
+  returnCheck: z.boolean().default(false),
   snapshot: z.record(z.string(), z.string()),
   deleted: z.array(z.string()),
 });

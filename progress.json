@@ -3049,6 +3049,18 @@
         {
           "name": "Integrity after going back allows test changes and refuses source changes",
           "bdd": "pass"
+        },
+        {
+          "name": "A fixed test that fails without this cycle's code on a line that already existed needs a decision",
+          "bdd": "pass"
+        },
+        {
+          "name": "Deciding a missing implementation returns the feature to where it came from",
+          "bdd": "pass"
+        },
+        {
+          "name": "Deciding a test bug leaves the feature at tdd_red",
+          "bdd": "pass"
         }
       ]
     }

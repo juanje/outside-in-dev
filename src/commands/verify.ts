@@ -3,6 +3,8 @@ import { join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
 import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
+import { cycleCodeFiles } from "../artifacts/cycle-code.js";
+import { readReturn } from "../artifacts/return-record.js";
 import { CYCLE_STEP, ProgressError } from "../artifacts/progress.js";
 import { CONFIG_FILE, type ProjectConfig } from "../artifacts/project-config.js";
 import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/verified-checkpoint.js";
@@ -18,7 +20,7 @@ import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "
 import { parseBddTarget, TARGET, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
-import { answerReturn, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
+import { answerReturn, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, REFUSED, refuse, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
 import { GREEN, runGreen } from "./verify-green.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
@@ -38,6 +40,8 @@ const BDD_RED = CYCLE_STEP.bddRed;
 
 /** Exit code of a verification that needs a person or an agent to decide the class. */
 const NEEDS_A_DECISION = 2;
+
+type DecisionVerdict = Extract<Verdict, { outcome: typeof OUTCOME.decision }>;
 
 /** What the run of the test showed: a file that did not load, a test that passed, or a test that failed. */
 function observe(files: UnitFileResult[], { file, name }: { file: string; name: string }, cwd: string): Failure {
@@ -63,7 +67,7 @@ export function trimFailure(message: string): string {
 }
 
 /** What a person or an agent needs to decide the class of a failure oid cannot classify alone, and how to say it. */
-function renderDecision(target: string, message: string, { reason, candidate }: Extract<Verdict, { outcome: typeof OUTCOME.decision }>): string {
+function renderDecision(target: string, message: string, { reason, candidate }: DecisionVerdict): string {
   const questions =
     candidate === RED_CLASS.businessAssertion
       ? [
@@ -175,6 +179,11 @@ function isOnAddedTestLine(cwd: string, config: ProjectConfig, message: string):
   return isTest && addedLines(cwd, frame.file, focusedFeature(cwd, config)).some(({ line }) => line === frame.line);
 }
 
+/** The message of a failure, empty when it has none. */
+function failureMessage(failure: Failure): string {
+  return "message" in failure ? failure.message : "";
+}
+
 /** The class of what the run showed, by the deterministic rules of the Red Gate. */
 export function classifyObservation(cwd: string, config: ProjectConfig, { failure, importer }: Observation): Verdict {
   return classifyFailure(failure, {
@@ -203,8 +212,16 @@ function answer(io: CliIo, config: ProjectConfig, { target, step, external }: { 
 
 /** Answers the failure the last run of `target` recorded with the class decided outside oid, without running the test again. */
 function answerRecorded(io: CliIo, config: ProjectConfig, target: string, decision: RedClass): number {
-  const { step } = observationToDecide(io.cwd, target, config.paths.progress);
+  const { step, returnCheck } = observationToDecide(io.cwd, target, config.paths.progress);
+  const returned = returnCheck ? returnedFeature(io.cwd, config.paths.progress, TDD_RED) : undefined;
+  if (returned !== undefined) return answerReturn(io, config.paths.progress, returned, target, judgedByDecision(io.cwd, config, returned, decision), TEST_RETURN);
   return answer(io, config, { target, step, external: true }, decided(decision));
+}
+
+/** What a decision on the failure of a fixed test without this cycle's code judges: the return, when the class is a valid Red, and a refusal naming the class otherwise. */
+function judgedByDecision(cwd: string, config: ProjectConfig, feature: string, decision: RedClass): Exclude<Judgement, { kind: typeof NO_CODE }> {
+  if (!VALID_RED_CLASSES.includes(decision)) return refuse(`the failure without this cycle's code was decided as ${decision}`);
+  return { kind: "returned", to: readReturn(cwd, feature)!.from, files: cycleCodeFiles(cwd, feature, (name) => isInsideSource(config.paths.source, name)) };
 }
 
 /** The answer for a scenario that passes at once and still moves the feature to `tdd_red`; nothing when it does not. */
@@ -226,14 +243,23 @@ function answerJudged(io: CliIo, config: ProjectConfig, { returned, target, judg
 }
 
 /** Why a test that passes is not a Red either without the code of the cycle, run now: nothing when it fails there as a valid Red. */
-function refusalWithoutCode(cwd: string, config: ProjectConfig, test: { file: string; name: string }): string | undefined {
+function refusalWithoutCode(cwd: string, config: ProjectConfig, test: { file: string; name: string }, onDecision: (message: string, verdict: DecisionVerdict) => void): string | undefined {
   const observation = observeUnit(cwd, config, test);
   if (observation.failure.kind === FAILURE.passed) return "the test passes without this cycle's code";
   const verdict = classifyObservation(cwd, config, observation);
   if (verdict.outcome === OUTCOME.valid) return undefined;
+  if (verdict.outcome === OUTCOME.decision) onDecision(failureMessage(observation.failure), verdict);
   return verdict.outcome === OUTCOME.decision
     ? `the test fails without this cycle's code, and the failure needs a decision: ${verdict.reason}`
     : `the test fails without this cycle's code, but not as a Red (${verdict.class}): ${verdict.reason}`;
+}
+
+/** Records the run of a fixed test whose failure without this cycle's code needs a decision, with the code back in place, and prints the decision: exit 2. */
+function answerFixedDecision(io: CliIo, target: string, { message, verdict }: { message: string; verdict: DecisionVerdict }): number {
+  recordObservation(io.cwd, { target, step: TDD_RED, message, needsDecision: true, returnCheck: true });
+  const [head, ...rest] = renderDecision(target, message, verdict).split(NEWLINE);
+  io.stdout([head, "the test passes and fails without this cycle's code, and the failure needs a decision", ...rest].join(NEWLINE));
+  return NEEDS_A_DECISION;
 }
 
 /** The answer for a unit test that passes at `tdd_red` after a return, judged as a fix of the test; nothing when it is not that case, which the usual rules judge. */
@@ -241,8 +267,10 @@ function answerFixedTest(io: CliIo, config: ProjectConfig, parsed: Target, targe
   if (parsed.kind !== TARGET.test || failure.kind !== FAILURE.passed) return undefined;
   const returned = returnedFeature(io.cwd, config.paths.progress, TDD_RED);
   if (returned === undefined) return undefined;
-  const subject: ReturnSubject = { ...TEST_RETURN, refusalWithoutCode: () => refusalWithoutCode(io.cwd, config, parsed.test) };
+  const pending: { message?: string; verdict?: DecisionVerdict } = {};
+  const subject: ReturnSubject = { ...TEST_RETURN, refusalWithoutCode: () => refusalWithoutCode(io.cwd, config, parsed.test, (message, verdict) => Object.assign(pending, { message, verdict })) };
   const judged = judgeReturn(io.cwd, returned, (name) => isInsideSource(config.paths.source, name), () => true, subject);
+  if (judged.kind === REFUSED && pending.verdict !== undefined) return answerFixedDecision(io, target, { message: pending.message!, verdict: pending.verdict });
   return answerJudged(io, config, { returned, target, judged }, TEST_RETURN);
 }
 
@@ -299,7 +327,7 @@ function runRed(io: CliIo, args: string[]): number {
   const fixed = answerFixedTest(io, config, parsed, target, observation);
   if (fixed !== undefined) return fixed;
   const verdict = classifyObservation(io.cwd, config, observation);
-  const message = "message" in observation.failure ? observation.failure.message : "";
+  const message = failureMessage(observation.failure);
   recordObservation(io.cwd, { target, step, message, needsDecision: verdict.outcome === OUTCOME.decision });
   if (verdict.outcome === OUTCOME.decision) {
     io.stdout(renderDecision(target, message, verdict));

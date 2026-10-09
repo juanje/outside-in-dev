@@ -9,14 +9,16 @@ import { TARGET } from "../artifacts/verify-target.js";
 import { changedSinceReturn, clearReturn, readReturn } from "../artifacts/return-record.js";
 
 const LIST_SEPARATOR = ", ";
+/** The kind of a judgement that refuses the return. */
+export const REFUSED = "refused";
 /** The judgement of a cycle that has no code to remove, which the usual rules judge. */
 export const NO_CODE = "no_code";
 
 /** What judging a scenario at `bdd_red` after a return found. */
-export type Judgement = { kind: "refused"; reason: string } | { kind: "returned"; to: string; files: string[] } | { kind: typeof NO_CODE };
+export type Judgement = { kind: typeof REFUSED; reason: string } | { kind: "returned"; to: string; files: string[] } | { kind: typeof NO_CODE };
 
-function refuse(reason: string): Judgement {
-  return { kind: "refused", reason };
+export function refuse(reason: string): Extract<Judgement, { kind: typeof REFUSED }> {
+  return { kind: REFUSED, reason };
 }
 
 /** What is judged after a return: a scenario at `bdd_red` or a unit test at `tdd_red`, and the Red step it is verified at. */
@@ -86,7 +88,7 @@ export function returnedFeature(cwd: string, progressFile: string, step: string 
 
 /** Prints what judging the scenario or test found and, when the feature returns, records the checkpoint and moves it: exit 0 when it returned, 1 when it did not. */
 export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: typeof NO_CODE }>, subject: ReturnKind = SCENARIO_RETURN): number {
-  if (judged.kind === "refused") {
+  if (judged.kind === REFUSED) {
     io.stdout(`red: not returned: ${judged.reason}\n`);
     return 1;
   }

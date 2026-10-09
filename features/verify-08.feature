@@ -216,3 +216,130 @@ Feature: Fix a unit test after the code exists
     And the output starts with "red: not valid (test_bug)"
     And the feature "FR-FAREWELL-01" has the cycle step "tdd_red"
     And no checkpoint is recorded
+
+  Scenario: A fixed test that fails without this cycle's code on a line that already existed needs a decision
+    Given the unit test file "tests/unit/world.test.ts" containing:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And the changes are committed
+    And a started feature "FR-FAREWELL-01" at step "tdd_green"
+    And a Red of "FR-FAREWELL-01" was verified at step "tdd_red"
+    And the source file "src/greeting.ts" is changed to:
+      """
+      export const greeting = "Hello, world";
+      """
+    When I run "oid progress step FR-FAREWELL-01 tdd_red"
+    And the unit test file "tests/unit/world.test.ts" is changed to:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      // The greeting is plain text.
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And I run "oid verify red \"tests/unit/world.test.ts > greets the world\""
+    Then the command needs a decision
+    And the output contains "passes and fails without this cycle's code"
+    And the output contains "--decide"
+    And the feature "FR-FAREWELL-01" has the cycle step "tdd_red"
+    And no checkpoint is recorded
+    And the file "src/greeting.ts" contains:
+      """
+      export const greeting = "Hello, world";
+      """
+
+  Scenario: Deciding a missing implementation returns the feature to where it came from
+    Given the unit test file "tests/unit/world.test.ts" containing:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And the changes are committed
+    And a started feature "FR-FAREWELL-01" at step "tdd_green"
+    And a Red of "FR-FAREWELL-01" was verified at step "tdd_red"
+    And the source file "src/greeting.ts" is changed to:
+      """
+      export const greeting = "Hello, world";
+      """
+    When I run "oid progress step FR-FAREWELL-01 tdd_red"
+    And the unit test file "tests/unit/world.test.ts" is changed to:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      // The greeting is plain text.
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And I run "oid verify red \"tests/unit/world.test.ts > greets the world\""
+    And I run "oid verify red \"tests/unit/world.test.ts > greets the world\" --decide missing_implementation"
+    Then the command succeeds
+    And the output starts with "red: returned to tdd_green"
+    And the output contains "src/greeting.ts"
+    And the feature "FR-FAREWELL-01" has the cycle step "tdd_green"
+    And the checkpoint records the step "tdd_red"
+    And the file "src/greeting.ts" contains:
+      """
+      export const greeting = "Hello, world";
+      """
+
+  Scenario: Deciding a test bug leaves the feature at tdd_red
+    Given the unit test file "tests/unit/world.test.ts" containing:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And the changes are committed
+    And a started feature "FR-FAREWELL-01" at step "tdd_green"
+    And a Red of "FR-FAREWELL-01" was verified at step "tdd_red"
+    And the source file "src/greeting.ts" is changed to:
+      """
+      export const greeting = "Hello, world";
+      """
+    When I run "oid progress step FR-FAREWELL-01 tdd_red"
+    And the unit test file "tests/unit/world.test.ts" is changed to:
+      """
+      import { describe, expect, it } from "vitest";
+      import { greeting } from "../../src/greeting.js";
+
+      // The greeting is plain text.
+      describe("world", () => {
+        it("greets the world", () => {
+          expect(greeting).toBe("Hello, world");
+        });
+      });
+      """
+    And I run "oid verify red \"tests/unit/world.test.ts > greets the world\""
+    And I run "oid verify red \"tests/unit/world.test.ts > greets the world\" --decide test_bug"
+    Then the command fails
+    And the output starts with "red: not returned"
+    And the output contains "test_bug"
+    And the feature "FR-FAREWELL-01" has the cycle step "tdd_red"
+    And no checkpoint is recorded

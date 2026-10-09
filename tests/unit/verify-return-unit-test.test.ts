@@ -6,14 +6,12 @@ import { loadProgress } from "../../src/artifacts/progress.js";
 import { readReturn } from "../../src/artifacts/return-record.js";
 import { commitAll } from "./git-fixture.js";
 import { FEATURE, RED } from "./red-fixture.js";
+import { COMMANDS, PATHS, TARGET } from "./return-unit-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
-const TARGET = "tests/unit/a.test.ts > adds";
-const COMMANDS = { bdd: "b", unit: "node runner.mjs", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] };
-const PATHS = { source: ["src/**"], shared: [], unit_tests: ["tests/unit/**"], bdd_features: [], bdd_steps: [], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
 
 const runner = `
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
