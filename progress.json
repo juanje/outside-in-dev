@@ -2268,6 +2268,18 @@
         {
           "name": "A project without a configuration file is refused",
           "bdd": "pass"
+        },
+        {
+          "name": "A unit runner that fails with a green report stops the run and asks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A BDD runner that fails with a green report stops the run and asks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit runner that writes no report is an error",
+          "bdd": "pass"
         }
       ]
     },

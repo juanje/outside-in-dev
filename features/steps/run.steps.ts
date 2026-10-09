@@ -12,7 +12,7 @@ import { commitKey, restoreTemplate, saveTemplate } from "../support/template-re
 import type { OidWorld } from "../support/world.js";
 
 type Status = "done" | "pending" | "in progress";
-type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null };
+type Suite = { unitFailing: string[]; bddFailing: string[]; printFailed: boolean; reportLock: string | null; unitExit: number; unitWritesReport: boolean; bddExit: number };
 /** The project that runs its scenarios with cucumber: the scenario of the feature that is done and passing, and the recorded report the BDD command replays for the gate run (`DEFAULT_REPLAY` unless the step says otherwise). */
 type Cucumber = { feature: string; scenario: string; replay: string | string[]; loop?: Loop; limit?: number; suite?: string[] };
 /** The tools of the quality gate a project has: scripts that behave like the formatter and the linter oid recognises by name, and an extra check that fails. */
@@ -59,6 +59,7 @@ import { dirname } from "node:path";
 const suite = JSON.parse(readFileSync("suite.json", "utf8"));
 const output = process.argv.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);
 writeFileSync("ran-unit.txt", "ran\\n");
+if (!suite.unitWritesReport) process.exit(suite.unitExit);
 if (suite.printFailed) console.log("1 failed");
 if (suite.reportLock !== null) {
   const parent = (pid) => Number(readFileSync("/proc/" + pid + "/stat", "utf8").replace(/^.*\\) \\S+ /, "").split(" ")[0]);
@@ -70,6 +71,7 @@ const names = ["totals > starts at zero", ...suite.unitFailing];
 const tests = names.map((name) => test(name, suite.unitFailing.includes(name)));
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, JSON.stringify({ testResults: [{ name: process.cwd() + "/tests/unit/totals.test.ts", message: "", assertionResults: tests }] }));
+process.exitCode = suite.unitExit;
 `;
 
 /** The BDD runner of the fixture: writes a Cucumber Messages report from `suite.json`, plus a marker. */
@@ -90,6 +92,7 @@ const lines = names.flatMap((name, at) => {
 });
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
+process.exitCode = suite.bddExit;
 `;
 
 /** A script that behaves like ESLint for the flags oid appends: it reports every TODO comment of `src` (as ESLint JSON with `--format json`) and fixes nothing. */
@@ -256,7 +259,7 @@ Given("a git project with a green suite", function (this: OidWorld) {
   writeIn(this, "README.md", "# Project\n");
   writeIn(this, "src/totals.ts", "export const cartSourceMarker = 1;\n");
   writeIn(this, "tests/unit/cart.test.ts", "// cart-test-marker\n");
-  fixtures.set(this, { requirements: [], tracked: new Map(), suite: { unitFailing: [], bddFailing: [], printFailed: false, reportLock: null }, config: true, tools: { format: false, lint: false } });
+  fixtures.set(this, { requirements: [], tracked: new Map(), suite: { unitFailing: [], bddFailing: [], printFailed: false, reportLock: null, unitExit: 0, unitWritesReport: true, bddExit: 0 }, config: true, tools: { format: false, lint: false } });
   commit(this);
 });
 
@@ -293,6 +296,18 @@ Given("a scenario {string} fails in the suite", function (this: OidWorld, name: 
 Given("the unit runner prints {string} and writes a report where every test passed", function (this: OidWorld, text: string) {
   assert.equal(text, "1 failed");
   change(this, (fixture) => (fixture.suite.printFailed = true));
+});
+
+Given("the unit runner writes a report where every test passed and exits with code {int}", function (this: OidWorld, code: number) {
+  change(this, (fixture) => (fixture.suite.unitExit = code));
+});
+
+Given("the BDD runner writes a report where every scenario passed and exits with code {int}", function (this: OidWorld, code: number) {
+  change(this, (fixture) => (fixture.suite.bddExit = code));
+});
+
+Given("the unit runner writes no report and exits with code {int}", function (this: OidWorld, code: number) {
+  change(this, (fixture) => Object.assign(fixture.suite, { unitExit: code, unitWritesReport: false }));
 });
 
 Given("the unit runner reports the content of the lock", function (this: OidWorld) {
@@ -440,6 +455,16 @@ Then("the output asks about the red suite, with the actions {string}, {string} a
 
 Then("the baseline of the run lists the failing unit test {string}", function (this: OidWorld, name: string) {
   assert.ok(baseline(this).unit.failed.some((entry) => entry.includes(name)), JSON.stringify(baseline(this)));
+});
+
+Then("the question about the red suite says {string}", function (this: OidWorld, text: string) {
+  const line = this.stdout.split("\n").find((candidate) => candidate.startsWith("waiting for input"));
+  assert.ok(line?.includes(text), this.stdout);
+});
+
+Then("the baseline of the run lists the problem {string}", function (this: OidWorld, problem: string) {
+  const { unit, bdd } = baseline(this);
+  assert.ok([...unit.failed, ...bdd.failed].includes(problem), JSON.stringify({ unit, bdd }));
 });
 
 Then("the baseline of the run lists the failing scenario {string}", function (this: OidWorld, name: string) {

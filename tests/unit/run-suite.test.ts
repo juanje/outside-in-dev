@@ -12,9 +12,9 @@ describe("running the existing suite", () => {
   });
   afterEach(() => rmSync(cwd, { recursive: true, force: true }));
 
-  function suite(unit: string, bdd: string) {
-    writeFileSync(join(cwd, "unit.cjs"), UNIT_SCRIPT(unit));
-    writeFileSync(join(cwd, "bdd.cjs"), BDD_SCRIPT(bdd));
+  function suite(unit: string, bdd: string, ending: { unit?: string; bdd?: string } = {}) {
+    writeFileSync(join(cwd, "unit.cjs"), UNIT_SCRIPT(unit) + (ending.unit ?? ""));
+    writeFileSync(join(cwd, "bdd.cjs"), BDD_SCRIPT(bdd) + (ending.bdd ?? ""));
     return runSuite(cwd, { unit: "node unit.cjs", bdd: "node bdd.cjs" });
   }
 
@@ -26,7 +26,26 @@ describe("running the existing suite", () => {
 
   it("refuses a BDD runner that wrote no report, instead of taking it for green", () => {
     writeFileSync(join(cwd, "unit.cjs"), UNIT_SCRIPT("passed"));
-    expect(() => runSuite(cwd, { unit: "node unit.cjs", bdd: "node -e 0" })).toThrow("the BDD runner wrote no report");
+    writeFileSync(join(cwd, "bdd.cjs"), "");
+    expect(() => runSuite(cwd, { unit: "node unit.cjs", bdd: "node bdd.cjs" })).toThrow("bdd: the runner wrote no report (exit 0)");
+  });
+
+  it("refuses a unit runner that wrote no report, with its exit code", () => {
+    writeFileSync(join(cwd, "unit.cjs"), "process.exit(4);");
+    writeFileSync(join(cwd, "bdd.cjs"), BDD_SCRIPT("PASSED"));
+    expect(() => runSuite(cwd, { unit: "node unit.cjs", bdd: "node bdd.cjs" })).toThrow("unit: the runner wrote no report (exit 4)");
+  });
+
+  it("counts a unit runner that exits 1 with a green report as a red suite", () => {
+    expect(suite("passed", "PASSED", { unit: "process.exitCode = 1;" }).unit).toEqual(["unit: the runner exited 1 but its report names no failing test"]);
+  });
+
+  it("counts a BDD runner that exits 1 with a green report as a red suite", () => {
+    expect(suite("passed", "PASSED", { bdd: "process.exitCode = 1;" }).bdd).toEqual(["bdd: the runner exited 1 but its report names no failing scenario"]);
+  });
+
+  it("counts a runner killed by a signal after a green report as a red suite", () => {
+    expect(suite("passed", "PASSED", { unit: 'process.kill(process.pid, "SIGKILL");' }).unit).toEqual(["unit: the runner exited null but its report names no failing test"]);
   });
 
   it("returns the reports it read, as the runners wrote them", () => {

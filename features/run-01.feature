@@ -68,6 +68,31 @@ Feature: Start a run
     When I run "oid run"
     Then the process exits with code 3
 
+  Scenario: A unit runner that fails with a green report stops the run and asks
+    Given the unit runner writes a report where every test passed and exits with code 1
+    When I run "oid run"
+    Then the process exits with code 3
+    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    And the question about the red suite says "unit: the runner exited 1 but its report names no failing test"
+    And the baseline of the run lists the problem "unit: the runner exited 1 but its report names no failing test"
+    And no feature is selected
+
+  Scenario: A BDD runner that fails with a green report stops the run and asks
+    Given the BDD runner writes a report where every scenario passed and exits with code 1
+    When I run "oid run"
+    Then the process exits with code 3
+    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    And the question about the red suite says "bdd: the runner exited 1 but its report names no failing scenario"
+    And the baseline of the run lists the problem "bdd: the runner exited 1 but its report names no failing scenario"
+    And no feature is selected
+
+  Scenario: A unit runner that writes no report is an error
+    Given the unit runner writes no report and exits with code 4
+    When I run "oid run"
+    Then the process exits with code 1
+    And the event log of the run records an error mentioning "unit: the runner wrote no report (exit 4)"
+    And no feature is selected
+
   Scenario: The saved session of a started run holds what the next state needs
     When I run "oid run"
     Then the saved session names the run, its worktree and branch, the commit it started from and the state "FEATURE_REVIEW"

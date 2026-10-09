@@ -6,6 +6,7 @@ import { FAILURE } from "../artifacts/red-classification.js";
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { type FeatureScenarioLocation, locatePassingScenarios } from "../artifacts/passing-scenarios.js";
 import type { EvidenceScenario } from "../artifacts/checkpoint.js";
+import { FAILING, incoherentExit, noReport, SUITE } from "../artifacts/runner-verdict.js";
 import { scenarioTarget } from "../artifacts/verify-target.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
@@ -19,20 +20,10 @@ import type { CliIo } from "../cli-io.js";
 
 export const GREEN = "green";
 
-/** The names of the two suites in the problems a Green lists. */
-export const SUITE = { unit: "unit", bdd: "bdd" } as const;
+export { SUITE };
+
 /** The vitest status of a test that ran and passed. */
 const TEST_PASSED = FAILURE.passed;
-
-/** The problem of a runner that did not write the report oid reads. */
-function noReport(kind: string, exitCode: number | null): string {
-  return `${kind}: the runner wrote no report (exit ${exitCode})`;
-}
-
-/** The problem of a runner whose exit says it failed while its report names no failure: the report cannot be trusted as a Green. */
-function incoherentExit(kind: string, exitCode: number | null, what: string): string {
-  return `${kind}: the runner exited ${exitCode} but its report names no ${what}`;
-}
 
 /** The problems of the unit suite: each test that failed, each file that did not load, the report that is missing, a run in which no test ran, and an exit that the report does not explain. */
 export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
@@ -42,7 +33,7 @@ export function suiteProblems(cwd: string, config: ProjectConfig): string[] {
   const problems = unitProblems(files, cwd);
   if (problems.length > 0) return problems;
   if (!files.some(({ tests }) => tests.some(({ status }) => status === TEST_PASSED))) return [`${SUITE.unit}: no test ran (exit ${exitCode})`];
-  return exitCode === 0 ? [] : [incoherentExit(SUITE.unit, exitCode, "failing test")];
+  return exitCode === 0 ? [] : [incoherentExit(SUITE.unit, exitCode, FAILING.unit)];
 }
 
 const ERROR_LINE = /error TS\d+/;
@@ -113,7 +104,7 @@ function scenarioResult(cwd: string, config: ProjectConfig, targets: string[]): 
   const { exitCode, report } = runBddScenarios(cwd, config.commands.bdd, toRun);
   if (report === undefined) return { problems: [noReport(SUITE.bdd, exitCode), ...problems], ran: [], targeted };
   const failing = bddProblems(report, toRun);
-  const unexplained = failing.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, "failing scenario")] : [];
+  const unexplained = failing.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, FAILING.bdd)] : [];
   const ran = [...new Map(found.map(({ feature, name }) => [`${feature}\0${name}`, { feature, name }])).values()];
   return { problems: [...failing, ...unexplained, ...problems], ran, targeted };
 }

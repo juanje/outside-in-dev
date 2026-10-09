@@ -48,9 +48,9 @@ function recordBaseline(cwd: string, runId: string, workspace: Workspace, suite:
 
 const RED_SUITE_ACTIONS = ["view", "continue", "abort"].map((key) => ({ key, label: key }));
 
-/** Asks what to do with the failures the suite already had: an inherited failure cannot be told apart from a new one. Returns the exit code the question ends the process with. */
+/** Asks what to do with the failures the suite already had, naming each (a failing test or scenario, or a runner that failed with a report that names none): an inherited failure cannot be told apart from a new one. Returns the exit code the question ends the process with. */
 function askAboutRedSuite(bus: Bus, suite: SuiteResult): number {
-  const prompt = `The existing suite is red: ${suite.unit.length} failing unit tests and ${suite.bdd.length} failing scenarios`;
+  const prompt = `The existing suite is red: ${[...suite.unit, ...suite.bdd].join(LIST_SEPARATOR)}`;
   return bus.emit({ type: WAITING_INPUT, request: { id: "red-suite", prompt, actions: RED_SUITE_ACTIONS } }) ?? 0;
 }
 

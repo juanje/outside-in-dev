@@ -4,6 +4,7 @@ import { newErrors } from "../artifacts/gate-errors.js";
 import { type GateError, recognisedTool, TOOL_MODE, toolInvocation } from "../artifacts/lint-tools.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 import { checkViolations } from "../commands/check.js";
+import { FAILING, incoherentExit, noReport } from "../artifacts/runner-verdict.js";
 import { SUITE, suiteProblems } from "../commands/verify-green.js";
 import { lintReport, typeReport } from "./gate-reports.js";
 import { runBddSuite, runCommand } from "../artifacts/verify-runner.js";
@@ -54,9 +55,9 @@ function typesOutcome(worktree: string, command: string, held: Set<string>): Gat
 /** The problems of the BDD suite of the whole project: each scenario that did not pass, a report that is missing, and an exit that the report does not explain. */
 function bddProblems(worktree: string, command: string): string[] {
   const { exitCode, report } = runBddSuite(worktree, command);
-  if (report === undefined) return [`${SUITE.bdd}: the runner wrote no report (exit ${exitCode})`];
+  if (report === undefined) return [noReport(SUITE.bdd, exitCode)];
   const failed = failedScenarios(report);
-  return failed.length === 0 && exitCode !== 0 ? [`${SUITE.bdd}: the runner exited ${exitCode} but its report names no failing scenario`] : failed;
+  return failed.length === 0 && exitCode !== 0 ? [incoherentExit(SUITE.bdd, exitCode, FAILING.bdd)] : failed;
 }
 
 /** The outcome for the problems of a check that a person has to look at: nothing to ask when there are none. */
