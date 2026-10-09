@@ -4,6 +4,7 @@ import type { CliIo } from "./cli-io.js";
 import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
 import type { AbortServices } from "./commands/abort.js";
+import type { SetupServices } from "./commands/setup.js";
 import { packageVersion } from "./version.js";
 
 type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: () => Promise<string> };
@@ -24,6 +25,18 @@ const COMMANDS: Record<string, CommandHelp> = {
     summary: "Detect the project setup and initialise progress",
     usage: "oid init [--import-progress [path]]",
     options: { "--import-progress": "Convert a progress file written for an earlier schema" },
+  },
+  setup: {
+    summary: "Set up the providers, the credentials and the models of the roles, for the user",
+    usage: "oid setup [--provider P] [--login | --api-key-stdin] [--import-pi] [--model ROLE=provider/id]...",
+    options: {
+      "--provider": "The provider to log in to (an id of Pi's catalogue)",
+      "--login": "Log in with the provider's own login, at a terminal",
+      "--api-key-stdin": "Store the API key read from standard input for the provider (never from an argument)",
+      "--import-pi": "Copy the credentials of an existing Pi installation (PI_CODING_AGENT_DIR, else ~/.pi/agent)",
+      "--model": "Assign a model of the catalogue to a role: fast, default, strong or spec (repeatable)",
+    },
+    extra: async () => "\nWithout options, at a terminal, oid setup asks for what it needs. Without a terminal, give options.\n",
   },
   run: {
     summary: "Start a run: lock, worktree, baseline of the suite and selection of the features",
@@ -70,7 +83,7 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Services = RunServices | VerifyServices | AbortServices;
+type Services = RunServices | VerifyServices | AbortServices | SetupServices;
 type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
@@ -80,7 +93,12 @@ const RUNNERS: Record<string, Runner> = {
     return 0;
   },
   check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
-  init: async (rest, io) => (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--"))),
+  init: async (rest, io, services) => {
+    const exitCode = (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--")));
+    await (await import("./commands/setup.js")).offerSetup(io, services as SetupServices | undefined);
+    return exitCode;
+  },
+  setup: async (rest, io, services) => (await import("./commands/setup.js")).runSetup(io, rest, services as SetupServices),
   run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services as RunServices),
   verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services as VerifyServices | undefined),
   resume: async (_rest, io, services) => (await import("./commands/resume.js")).runResume(io, services as RunServices),

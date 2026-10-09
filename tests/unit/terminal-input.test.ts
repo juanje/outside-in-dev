@@ -20,6 +20,15 @@ describe("the review at a terminal", () => {
     expect(shown()).toContain("approve, edit or reject");
   });
 
+  it("shows the question of a secret and returns the line that was typed without showing it", async () => {
+    const { input, stdin, shown } = terminal();
+    const answer = input.secret("API key: ");
+    stdin.write("sk-typed-hidden-5\n");
+    expect(await answer).toBe("sk-typed-hidden-5");
+    expect(shown()).toContain("API key: ");
+    expect(shown().includes("sk-typed-hidden-5")).toBe(false);
+  });
+
   it("returns an empty answer when the input ends before a line is typed", async () => {
     const { input, stdin } = terminal();
     const answer = input.choose("Review the feature files", ["approve", "edit", "reject"]);

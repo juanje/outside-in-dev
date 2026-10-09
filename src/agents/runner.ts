@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
-import { type ConfigEnv, oidConfigDir } from "../artifacts/user-config.js";
+import { AUTH_FILE, MODEL_SEPARATOR } from "../artifacts/user-config.js";
 import type { CycleState } from "./profiles.js";
 import { collectReport } from "./report-events.js";
 import { ABORTED, checkResponse, EMPTY, PROVIDER_ERROR, type ResponseVerdict } from "./response-check.js";
@@ -15,22 +15,16 @@ export type PiSdk = Pick<typeof pi, "createAgentSession" | "DefaultResourceLoade
 /** What a task's session needs: where it works, oid's agent directory, where its transcript goes, oid's own system prompt and, when the step restricts them, its tools; and, when the attempt names them, the model (as `provider/id`) and the thinking level it runs with. */
 export type SessionRequest = { worktree: string; agentDir: string; sessionsDir: string; systemPrompt: string; toolset?: Toolset; model?: string; thinkingLevel?: string };
 
-/** What separates the provider from the model in a name such as `provider/id`. */
-const MODEL_SEPARATOR = "/";
-
 /** The Pi runtime of oid's agent directory and the model it holds for a `provider/id` name; refused when the runtime has no such model. */
 async function modelOf(sdk: PiSdk, agentDir: string, name: string) {
-  const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(agentDir, "auth.json"), modelsPath: join(agentDir, "models.json") });
+  const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(agentDir, AUTH_FILE), modelsPath: join(agentDir, "models.json") });
   const [provider = "", ...rest] = name.split(MODEL_SEPARATOR);
   const model = modelRuntime.getModel(provider, rest.join(MODEL_SEPARATOR));
   if (model === undefined) throw new Error(`the model "${name}" is not one of the models Pi knows`);
   return { modelRuntime, model };
 }
 
-/** Where oid keeps the Pi agent directory of its sessions, so that Pi never reads the user's own `~/.pi/agent`: `agent` under the configuration directory. `OID_AGENT_DIR` overrides the default. */
-export function oidAgentDir(env: ConfigEnv & { OID_AGENT_DIR?: string }): string {
-  return env.OID_AGENT_DIR ?? join(oidConfigDir(env), "agent");
-}
+export { oidAgentDir } from "../artifacts/user-config.js";
 
 /** Opens a new Pi session that reads oid's agent directory and nothing of the user's own configuration. */
 export async function openAgentSession(request: SessionRequest, sdk: PiSdk = pi) {

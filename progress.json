@@ -3204,7 +3204,93 @@
     {
       "id": "FR-INIT-04",
       "title": "Set up providers and models",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "An API key read from standard input is stored for the provider",
+          "bdd": "pass"
+        },
+        {
+          "name": "The models of the roles are assigned with options and checked against the catalogue",
+          "bdd": "pass"
+        },
+        {
+          "name": "Setting up another provider keeps the credentials of the first",
+          "bdd": "pass"
+        },
+        {
+          "name": "Setting one role keeps the other roles and what else the configuration holds",
+          "bdd": "pass"
+        },
+        {
+          "name": "A model that is not in the catalogue is refused and nothing is written",
+          "bdd": "pass"
+        },
+        {
+          "name": "A role that does not exist is refused and nothing is written",
+          "bdd": "pass"
+        },
+        {
+          "name": "A first setup that leaves a required role without a model is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider that Pi does not know is refused and nothing is written",
+          "bdd": "pass"
+        },
+        {
+          "name": "An empty key is refused and nothing is written",
+          "bdd": "pass"
+        },
+        {
+          "name": "The credentials of an existing Pi installation are imported only when asked",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without the option, oid does not read the Pi installation",
+          "bdd": "pass"
+        },
+        {
+          "name": "Importing from a Pi installation that has no credentials is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a terminal and without options, oid setup says what to pass",
+          "bdd": "pass"
+        },
+        {
+          "name": "A login needs a terminal",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid setup --help shows its usage and its options",
+          "bdd": "pass"
+        },
+        {
+          "name": "At a terminal, the user logs in with the provider's own flow and picks the models",
+          "bdd": "pass"
+        },
+        {
+          "name": "At a terminal, the user pastes an API key that is not shown",
+          "bdd": "pass"
+        },
+        {
+          "name": "At a terminal, a model that is not in the catalogue is asked again, and an empty answer keeps the current one",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid init offers oid setup to a user who has none, and runs it when the user agrees",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid init without a terminal only says how to set up",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid init does not offer oid setup to a user who has set it up",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-INIT-05",

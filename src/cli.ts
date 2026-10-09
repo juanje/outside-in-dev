@@ -19,8 +19,15 @@ async function runServices(): Promise<RunServices> {
   return { pid: process.pid, agentDir: oidAgentDir(process.env), configDir: oidConfigDir(process.env), input, aborted: () => abortRequested };
 }
 
+/** What `oid setup` and `oid init` (which offers it) take from this process: where the user's configuration is, the terminal, and the standard input. */
+async function setupFromProcess() {
+  return (await import("./commands/setup-services.js")).setupServices(process.env, process.stdin, process.stdout);
+}
+
 /** What each command takes from this process; the others take nothing. */
 const SERVICES: Record<string, () => Promise<Parameters<typeof runCli>[2]>> = {
+  setup: setupFromProcess,
+  init: setupFromProcess,
   run: runServices,
   resume: runServices,
   verify: async () => ({ pid: process.pid }),
