@@ -19,6 +19,12 @@ function checkFocus(progress: Progress): ProgressViolation[] {
   return focused.status === FEATURE_STATUS.inProgress ? [] : [{ feature: focus, kind: `focused but status is ${focused.status}` }];
 }
 
+/** The names of the scenarios tagged with `feature` that its progress does not record, in the order given. */
+export function unrecordedScenarios(feature: FeatureProgress, scenarios: TaggedScenario[]): string[] {
+  const recorded = (feature.scenarios ?? []).map(({ name }) => name);
+  return scenarios.filter(({ name, tags }) => tags.includes(`@${feature.id}`) && !recorded.includes(name)).map(({ name }) => name);
+}
+
 function checkFeature(feature: FeatureProgress, scenarios: TaggedScenario[]): ProgressViolation[] {
   const violations: ProgressViolation[] = [];
   const tag = `@${feature.id}`;

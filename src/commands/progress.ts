@@ -1,3 +1,5 @@
+import { unrecordedScenarios } from "../artifacts/consistency.js";
+import { listScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { requireDoneEvidence, requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { hasHead } from "../artifacts/checkpoint.js";
 import { clearReturn, recordReturn } from "../artifacts/return-record.js";
@@ -7,6 +9,8 @@ import { loadProjectPaths, type ProjectPaths } from "../artifacts/project-paths.
 import { readRequirementIds } from "../artifacts/spec.js";
 import { commandError, HELP_FLAG, row } from "../cli-usage.js";
 import type { CliIo } from "../cli-io.js";
+
+const LIST_SEPARATOR = ", ";
 
 type Context = CliIo & { paths: ProjectPaths };
 
@@ -83,6 +87,10 @@ function recordFeatureScenario(progress: Progress, io: Context, status: string, 
 function doneFeature(progress: Progress, io: Context, id: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   const done = completeFeature(feature);
+  const unrecorded = unrecordedScenarios(feature, listScenarios(readFeatureSources(io.cwd, io.paths.features)));
+  if (unrecorded.length > 0) {
+    throw new ProgressError(`${id} cannot be marked done: scenarios tagged with it are not recorded: ${unrecorded.map((name) => `"${name}"`).join(LIST_SEPARATOR)}`);
+  }
   requireDoneEvidence(io.cwd, id, (feature.scenarios ?? []).map(({ name }) => name));
   progress.features[progress.features.indexOf(feature)] = done;
   if (progress.current_focus === id) progress.current_focus = null;

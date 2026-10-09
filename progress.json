@@ -300,6 +300,22 @@
         {
           "name": "A feature is marked done after a green that ran every scenario",
           "bdd": "pass"
+        },
+        {
+          "name": "A feature file scenario tagged with the feature but not recorded is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that carries the tag itself in a file of another feature is also refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario outline recorded under its name is not reported with the one that is missing",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario tagged with another feature is not named as missing",
+          "bdd": "pass"
         }
       ]
     },
