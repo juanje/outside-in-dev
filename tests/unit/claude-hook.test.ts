@@ -154,3 +154,37 @@ describe("the before-step hook, on --help", () => {
     expect(commands.map((command) => runHook("before-step", { tool_input: { command } }).status)).toEqual([0, 0]);
   });
 });
+
+/** Runs the before-edit hook on an edit of `file_path` with a fake `oid` (the script `oidScript`): its exit code and stderr. */
+function beforeEditWith(oidScript: string, toolInput: unknown = { file_path: "src/a.ts" }): { status: number | null; stderr: string } {
+  write("bin/oid", oidScript);
+  spawnSync("chmod", ["+x", join(dir, "bin", "oid")]);
+  const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
+  const run = spawnSync(process.execPath, [HOOK, "before-edit"], {
+    input: JSON.stringify({ tool_input: toolInput }),
+    env: { ...env, CLAUDE_PROJECT_DIR: dir, PATH: `${join(dir, "bin")}:${env.PATH}` },
+    encoding: "utf8",
+  });
+  return { status: run.status, stderr: run.stderr };
+}
+
+const REFUSING_OID = '#!/bin/sh\nif [ "$1 $2 $3" = "verify integrity --path" ]; then echo "$4 is source code: move to tdd_green to change it"; exit 1; fi\nexit 0\n';
+
+describe("the before-edit hook", () => {
+  it("blocks the edit with oid's line when oid verify integrity --path refuses the file", () => {
+    const { status, stderr } = beforeEditWith(REFUSING_OID);
+    expect({ status, reason: stderr.includes("src/a.ts is source code: move to tdd_green to change it") }).toEqual({ status: 2, reason: true });
+  });
+
+  it("allows the edit when oid says the path is allowed", () => {
+    expect(beforeEditWith("#!/bin/sh\necho 'integrity: ok'\nexit 0\n").status).toBe(0);
+  });
+
+  it("allows the edit when oid fails in any other way, because after-edit still judges the change", () => {
+    expect(beforeEditWith("#!/bin/sh\necho boom >&2\nexit 3\n").status).toBe(0);
+  });
+
+  it("allows the edit when the tool input names no file, without asking oid", () => {
+    expect(beforeEditWith(REFUSING_OID, {}).status).toBe(0);
+  });
+});

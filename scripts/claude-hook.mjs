@@ -16,6 +16,12 @@
 //                An `oid` command with `--help` or `-h` runs nothing, so none of these checks apply to it.
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
+//   before-edit  (PreToolUse on Edit|Write|MultiEdit): run `oid verify integrity --path <file>` on the file about
+//                to be changed and block the edit when oid refuses it (exit 1), passing oid's line on, which
+//                names the step to move to. It judges the path by its kind only: approved scenarios (ADR-040)
+//                and forbidden patterns are still judged by after-edit, on the content. Writes from Bash (sed,
+//                heredocs, patch) do not go through it. It fails open: if oid is missing or fails in any other
+//                way, or the input has no file_path, the edit is allowed.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -214,6 +220,15 @@ function beforeStep(input) {
   }
 }
 
+/** Blocks an edit of a file the step of the focused feature does not allow, with oid's own line. Fails open on anything else: after-edit still judges the change afterwards. */
+function beforeEdit(input) {
+  const file = input.tool_input?.file_path;
+  if (typeof file !== "string" || file === "") return;
+  const run = spawnSync("oid", ["verify", "integrity", "--path", file], { cwd: project, encoding: "utf8" });
+  if (run.status === 1) block(`${run.stdout}${run.stderr}`.trim());
+}
+
 const input = JSON.parse(readFileSync(0, "utf8") || "{}");
 if (process.argv[2] === "after-edit") afterEdit();
 else if (process.argv[2] === "before-step") beforeStep(input);
+else if (process.argv[2] === "before-edit") beforeEdit(input);
