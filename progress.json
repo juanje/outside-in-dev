@@ -395,6 +395,14 @@
         {
           "name": "An invalid progress file is reported with its configured path",
           "bdd": "pass"
+        },
+        {
+          "name": "An id with an upper-case suffix is still rejected",
+          "bdd": "pass"
+        },
+        {
+          "name": "An id with a two-letter suffix is still rejected",
+          "bdd": "pass"
         }
       ]
     },
@@ -733,6 +741,26 @@
         },
         {
           "name": "Without a shared directory the shared paths are empty",
+          "bdd": "pass"
+        },
+        {
+          "name": "A .gitignore that lacks the entry is reported as extended",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing .gitignore is reported as created with the entry",
+          "bdd": "pass"
+        },
+        {
+          "name": "A specification at the root keeps the root paths",
+          "bdd": "pass"
+        },
+        {
+          "name": "A specification at the root wins over one in specs/",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without any specification the paths stay at the root",
           "bdd": "pass"
         }
       ]
