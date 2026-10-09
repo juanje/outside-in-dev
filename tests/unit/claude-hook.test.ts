@@ -134,10 +134,16 @@ describe("the before-step hook, on revise and reopen", () => {
     expect(commands.map((command) => runHook("before-step", { tool_input: { command } }).status)).toEqual([0, 0, 0]);
   });
 
-  it("refuses oid progress step quality_gate from bdd_red, the exit after a revise, and names the human's terminal", () => {
+  it("refuses oid progress step quality_gate from bdd_red, the exit after a revise, from a subagent, and names the orchestrating session", () => {
     focusedAt("bdd_red");
-    const { status, stderr } = runHook("before-step", { tool_input: { command: "oid progress step FR-X-01 quality_gate" } });
-    expect({ status, names: stderr.includes("human in their own terminal") }).toEqual({ status: 2, names: true });
+    const { status, stderr } = runHook("before-step", { tool_input: { command: "oid progress step FR-X-01 quality_gate" }, agent_id: "a1" });
+    expect({ status, names: stderr.includes("orchestrating session") }).toEqual({ status: 2, names: true });
+  });
+
+  it("lets the main session make the exit from bdd_red to quality_gate with no override, and records nothing (ADR-046)", () => {
+    focusedAt("bdd_red");
+    expect(runHook("before-step", { tool_input: { command: "oid progress step FR-X-01 quality_gate" } }).status).toBe(0);
+    expect(existsSync(join(dir, ".outside-in", "overrides.ndjson"))).toBe(false);
   });
 });
 
@@ -225,11 +231,6 @@ describe("the before-step hook, on overrides by the orchestrating session (ADR-0
   it("still refuses oid progress revise with an override", () => {
     const { status, stderr } = runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="cause" oid progress revise FR-X-01' } });
     expect({ status, human: stderr.includes("run by the human") }).toEqual({ status: 2, human: true });
-  });
-
-  it("lets the main session make the exit from bdd_red to quality_gate with an override", () => {
-    write("progress.json", JSON.stringify({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "X", status: "in_progress", cycle_step: "bdd_red", scenarios: [] }] }));
-    expect(runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="reviewed: no code needed" oid progress step FR-X-01 quality_gate' } }).status).toBe(0);
   });
 
   it("frees only the command that carries the override in a line with two oid commands", () => {

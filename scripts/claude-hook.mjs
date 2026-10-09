@@ -12,7 +12,8 @@
 //                `oid verify integrity`, or a violation would be absorbed.
 //                `oid progress revise` is refused: the human runs it in their own terminal (ADR-039);
 //                `oid progress reopen` is the agent's and is not. The move from bdd_red to quality_gate
-//                that ends a revise with no code to write is refused too, and run by the human (ADR-041).
+//                that ends a revise with no code to write (ADR-041) is the orchestrating session's: it is refused
+//                from a subagent and let through from the main session with no override (ADR-046).
 //                An `oid` command with `--help` or `-h` runs nothing, so none of these checks apply to it.
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
@@ -23,7 +24,7 @@
 //                heredocs, patch) do not go through it. It fails open: if oid is missing or fails in any other
 //                way, or the input has no file_path, the edit is allowed.
 //   overrides    (ADR-045): an `oid verify` or `oid progress step` prefixed with OID_OVERRIDE="<cause>" skips the
-//                integrity and evidence checks, and the human-only exit from bdd_red, only from the main session:
+//                integrity and evidence checks, only from the main session:
 //                Claude Code marks a subagent's tool call with `agent_id`, and a subagent's override is refused.
 //                Each override is appended to .outside-in/overrides.ndjson with its date, command and cause,
 //                before the command runs: a line is an attempt, and oid may still refuse the command itself. An
@@ -208,11 +209,11 @@ function requireEvidence(id, to) {
   block(`${id} is in ${from}: run \`${VERIFY_FOR_STEP[needed]}\` and get it to pass for ${id} before moving to ${to}.`);
 }
 
-/** Blocks `oid progress step <id> quality_gate` while the feature is at bdd_red: that exit after a revise is the human's (ADR-041). */
-function requireHumanForReviseExit(id, to) {
+/** Blocks `oid progress step <id> quality_gate` from a subagent while the feature is at bdd_red: that exit after a revise is the orchestrating session's (ADR-041, ADR-046). */
+function requireMainSessionForReviseExit(input, id, to) {
   const feature = readJson(join(project, "progress.json"))?.features?.find((candidate) => candidate.id === id);
-  if (feature?.cycle_step === "bdd_red" && to === "quality_gate") {
-    block(`\`oid progress step ${id} quality_gate\` from bdd_red ends a revise that needs no code and is run by the human in their own terminal, not by the agent.`);
+  if (input.agent_id !== undefined && feature?.cycle_step === "bdd_red" && to === "quality_gate") {
+    block(`\`oid progress step ${id} quality_gate\` from bdd_red ends a revise that needs no code and is made by the orchestrating session, not by a subagent (ADR-046): stop and report to it.`);
   }
 }
 
@@ -228,7 +229,7 @@ function beforeStep(input) {
       requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
     }
     if (command === "progress" && subcommand === "step" && id !== undefined && to !== undefined) {
-      requireHumanForReviseExit(id, to);
+      requireMainSessionForReviseExit(input, id, to);
       requireEvidence(id, to);
     }
   }

@@ -69,7 +69,7 @@ oid metrics --changed
 - **The real-runner scenarios are named in** `features/support/real-runners.ts`**,** and a unit test checks that each one exists. Renaming one of them means updating that list.
 - **Do not rewrite a test that already fails** (`not.toThrow`, a weaker assertion, a deleted check) so that it fits the code.
 - **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
-- **A requirement that changes, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human.** The exit to `quality_gate` when no code is needed is made by the orchestrating session with an override (ADR-045). Do not add another FR for it.
+- **A requirement that changes, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human.** The exit to `quality_gate` when no code is needed is made by the orchestrating session, with no override (ADR-046). Do not add another FR for it.
 - **Subagents never override.** `OID_OVERRIDE="<cause>"` is for the orchestrating session only, as the last resort when no legal move exists (ADR-045); a subagent with no legal move stops and reports. An edit the step does not allow goes with the override that absorbs it.
 - **A review or a bug on a** `done` **feature whose passing scenarios still describe it is** `oid progress reopen`**, run by you.** The `pass` scenarios stay; the comment picks `tdd_red`, `bdd_red` or staying at `quality_gate`; the new `done` goes in the same commit as the fix.
 
