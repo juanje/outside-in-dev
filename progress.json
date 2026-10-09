@@ -2862,6 +2862,10 @@
         {
           "name": "There is no manual move from bdd_red to tdd_green or refactor",
           "bdd": "pass"
+        },
+        {
+          "name": "A step fixed after going back from the quality gate returns the feature there",
+          "bdd": "pass"
         }
       ]
     },

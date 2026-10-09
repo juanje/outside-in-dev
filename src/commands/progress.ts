@@ -62,7 +62,7 @@ function forgetRecords(cwd: string, id: string): void {
 }
 
 /** The steps a feature can go back to `bdd_red` from, which records a return. */
-const RETURN_FROM: string[] = [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor];
+const RETURN_FROM: string[] = [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor, CYCLE_STEP.qualityGate];
 
 function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);

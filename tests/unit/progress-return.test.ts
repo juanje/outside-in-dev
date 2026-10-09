@@ -29,13 +29,16 @@ describe("oid progress step to bdd_red", () => {
     expect(readReturn(dir, "FR-X-01")).toBeUndefined();
   });
 
-  it("records a return from tdd_red, and none from quality_gate, forgetting an old one", async () => {
+  it("records a return from tdd_red", async () => {
     startAt("tdd_red");
     await runInProject(["progress", "step", "FR-X-01", "bdd_red"]);
     expect(readReturn(dir, "FR-X-01")?.from).toBe("tdd_red");
-    writeProgressFile({ current_focus: "FR-X-01", features: [{ ...FEATURE, cycle_step: "quality_gate" }] });
+  });
+
+  it("records a return from quality_gate", async () => {
+    startAt("quality_gate");
     await runInProject(["progress", "step", "FR-X-01", "bdd_red"]);
-    expect(readReturn(dir, "FR-X-01")).toBeUndefined();
+    expect(readReturn(dir, "FR-X-01")?.from).toBe("quality_gate");
   });
 
   it("keeps the return when the same move back is refused", async () => {

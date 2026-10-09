@@ -66,6 +66,39 @@ Feature: Fix a step after the code exists
       | tdd_green |
       | refactor  |
 
+  Scenario: A step fixed after going back from the quality gate returns the feature there
+    Given a started feature "FR-FAREWELL-01" at step "quality_gate"
+    And a Red of "FR-FAREWELL-01" was verified at step "tdd_red"
+    And the source file "src/farewell.ts" containing:
+      """
+      export function farewell(name: string): string {
+        return `Goodbye, ${name}`;
+      }
+      """
+    When I run "oid progress step FR-FAREWELL-01 bdd_red"
+    And the step definitions file "features/steps/farewell.steps.ts" is changed to:
+      """
+      import { Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Then("it says goodbye to Ann", async function () {
+        const { farewell } = await import("../../src/farewell.js");
+        assert.equal(farewell("Ann"), "Goodbye, Ann");
+      });
+      """
+    And I run "oid verify red features/farewell.feature:4"
+    Then the command succeeds
+    And the output starts with "red: returned to quality_gate"
+    And the output contains "src/farewell.ts"
+    And the feature "FR-FAREWELL-01" has the cycle step "quality_gate"
+    And the checkpoint records the step "bdd_red"
+    And the file "src/farewell.ts" contains:
+      """
+      export function farewell(name: string): string {
+        return `Goodbye, ${name}`;
+      }
+      """
+
   Scenario: A scenario that still fails does not return the feature
     Given a started feature "FR-FAREWELL-01" at step "tdd_green"
     And a Red of "FR-FAREWELL-01" was verified at step "tdd_red"
