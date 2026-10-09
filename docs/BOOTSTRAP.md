@@ -193,7 +193,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 4. FR-RUN-05: micro refactor.
 5. FR-RUN-06, FR-RUN-07: quality gate and commit.
 6. FR-TUI-02, FR-TUI-01: cards and feature review, then the progress view.
-7. FR-RUN-08 … FR-RUN-10: retries, resume and abort, budget.
+7. FR-RUN-08 … FR-RUN-10: retries, resume and abort, budget. FR-RUN-11 (rewrite or skip when retries run out) after the first real run.
 8. FR-TUI-04: final report.
 
 **Switch-over.**

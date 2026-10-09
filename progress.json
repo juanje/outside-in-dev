@@ -3107,6 +3107,11 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-RUN-11",
+      "title": "Rewrite or skip when retries run out",
+      "status": "pending"
     }
   ]
 }
