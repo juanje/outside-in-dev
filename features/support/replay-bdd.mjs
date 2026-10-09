@@ -24,18 +24,12 @@
 // <root> stands for the directory they were recorded in. A recording may hold <root> in place of the directory it was recorded in
 // (the recorder of features/run-04.feature does); it is replaced by the directory this script runs in, so that the paths in
 // failure messages locate the files of the project.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { answer, readReplay } from "./replay-lib.mjs";
+import { finish, replayCall } from "./replay-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const replay = readReplay(here, "replay.json");
 const args = process.argv.slice(2);
 const output = args[args.indexOf("--format") + 1].slice("message:".length);
 const locations = args.filter((arg) => /:\d+$/.test(arg));
-const { entry } = answer("bdd", replay, locations.length === 0 ? "suite" : { locations });
-const recording = join(here, "replay", `${entry.recording}.ndjson`);
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, readFileSync(recording, "utf8").split("<root>").join(process.cwd()));
-process.exit(replay.exitCodes[entry.recording]);
+finish(replayCall("bdd", { here, cwd: process.cwd(), request: locations.length === 0 ? "suite" : { locations }, output }));

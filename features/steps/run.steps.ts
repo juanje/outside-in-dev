@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
 import { FakeAgent } from "../support/fake-agent.js";
+import { inProcessRunners } from "../support/in-process-runners.js";
 import { detectorOf } from "../support/fake-detector.js";
 import { REAL_RUNNER_SCENARIOS } from "../support/real-runners.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
@@ -211,6 +212,9 @@ export function commit(world: OidWorld): void {
   const realLoop = loop !== undefined && realRunner.has(world);
   const bddCommands = fixture.cucumber === undefined ? FIXTURE_COMMANDS : realRunner.has(world) ? CUCUMBER_COMMANDS : REPLAY_COMMANDS;
   const loopCommands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : `${REPLAY_NODE} unit-replay.mjs`, typecheck: realLoop ? REAL_TYPECHECK_COMMAND : `${REPLAY_NODE} typecheck-replay.mjs` };
+  // The runs of this process answer from the recorded reports without a process; the scripts stay in the project for the runs that start one (a built `oid`, `oid verify`).
+  const replayed = { bdd: fixture.cucumber !== undefined && bddCommands === REPLAY_COMMANDS, unit: loop !== undefined && !realLoop, typecheck: loop !== undefined && !realLoop };
+  if (world.services !== undefined) world.services = { ...world.services, runners: Object.values(replayed).some(Boolean) ? inProcessRunners(replayed) : undefined };
   const { format, lint, extraCheck } = fixture.tools;
   const commands = { ...loopCommands, format: format ? "node prettier.mjs" : null, lint: lint ? "node eslint.mjs" : null, extra_checks: extraCheck === undefined ? [] : [`node ${EXTRA_CHECK_FILE}`] };
   if (format) writeIn(world, "prettier.mjs", PRETTIER_TOOL);

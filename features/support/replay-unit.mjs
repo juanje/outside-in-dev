@@ -15,19 +15,14 @@
 // which: unit-red-missing is the test "adds a line" with no src/cart.ts, unit-green the same with src/cart.ts that
 // has addLine and countCartLines, and so on), run `node_modules/.bin/vitest run --reporter=json --outputFile=<path>`
 // in it, replace the project's directory by <root> in the file, save it under the name and update exit-codes.json.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { answer, readReplay, unescapedName } from "./replay-lib.mjs";
+import { finish, replayCall, unescapedName } from "./replay-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const replay = readReplay(here, "unit.json");
 const args = process.argv.slice(2);
 const output = args.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);
 const file = args.find((arg) => !arg.startsWith("--"));
 const pattern = args.find((arg) => arg.startsWith("--testNamePattern="));
 const request = file === undefined && pattern === undefined ? "suite" : { file, name: pattern === undefined ? undefined : unescapedName(pattern.slice("--testNamePattern=".length)) };
-const { entry } = answer("unit", replay, request);
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, readFileSync(join(here, "replay", `${entry.recording}.json`), "utf8").split("<root>").join(process.cwd()));
-process.exit(replay.exitCodes[entry.recording]);
+finish(replayCall("unit", { here, cwd: process.cwd(), request, output }));

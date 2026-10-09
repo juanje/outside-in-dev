@@ -10,6 +10,7 @@ import { replayCallsText } from "./replay-log.js";
 import type { FindingDraft } from "../../src/artifacts/findings.js";
 import { runCli } from "../../src/run-cli.js";
 import type { PiSdk } from "../../src/agents/runner.js";
+import type { Runners } from "../../src/artifacts/verify-runner.js";
 import type { CliIo } from "../../src/cli-io.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -18,7 +19,7 @@ const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 /** The terminal an in-process run is given: none, or one that answers the review. */
 export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string> };
 /** What an in-process `oid run` is given in place of the real agent and the real terminal. */
-export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; detect?: (worktree: string) => FindingDraft[] };
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; detect?: (worktree: string) => FindingDraft[]; runners?: Runners };
 
 /** `runCli` as the scenarios call it: with the services of the run. */
 const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;
