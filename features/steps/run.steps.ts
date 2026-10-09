@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
 import { FakeAgent } from "../support/fake-agent.js";
 import { detectorOf } from "../support/fake-detector.js";
+import { REAL_RUNNER_SCENARIOS } from "../support/real-runners.js";
 import { git, runWorktree, worktrees } from "../support/run-project.js";
 import { commitKey, restoreTemplate, saveTemplate } from "../support/template-repo.js";
 import type { OidWorld } from "../support/world.js";
@@ -47,9 +48,6 @@ const GATE_UNIT_REPORT = "unit-green";
 export const DEFAULT_REPLAY = "missing-implementation";
 const REAL_UNIT_COMMAND = "node_modules/.bin/vitest run";
 const REAL_TYPECHECK_COMMAND = "node_modules/.bin/tsc --noEmit";
-const REAL_LOOP_SCENARIO = "A failing unit test and the code that passes it turn the scenario green, and the run goes on to the next scenario";
-/** The one scenario of FR-RUN-03 that runs the real cucumber, in the baseline and in the gate; the others replay recorded reports. */
-const REAL_RUNNER_SCENARIO = "A scenario that fails because the code is missing is checkpointed and moves the run to TDD Red";
 const realRunner = new WeakSet<OidWorld>();
 const STATUS_FIELDS: Record<Status, object> = { done: { status: "done" }, pending: { status: "pending" }, "in progress": { status: "in_progress", cycle_step: "bdd_red" } };
 
@@ -248,23 +246,19 @@ export function change(world: OidWorld, update: (fixture: Fixture) => void): voi
 }
 
 Before({ tags: "@FR-RUN-03" }, function (this: OidWorld, { pickle }) {
-  if (pickle.name === REAL_RUNNER_SCENARIO) realRunner.add(this);
+  if (pickle.name === REAL_RUNNER_SCENARIOS["FR-RUN-03"]) realRunner.add(this);
 });
 
 Before({ tags: "@FR-RUN-04" }, function (this: OidWorld, { pickle }) {
-  if (pickle.name === REAL_LOOP_SCENARIO) realRunner.add(this);
+  if (pickle.name === REAL_RUNNER_SCENARIOS["FR-RUN-04"]) realRunner.add(this);
 });
 
-const REAL_GATE_SCENARIO = "With the real runners, the formatter and the linter fix the code, every check passes and the feature moves on to its commit";
-
-const REAL_REFACTOR_SCENARIO = "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent";
-
 Before({ tags: "@FR-RUN-05" }, function (this: OidWorld, { pickle }) {
-  if (pickle.name === REAL_REFACTOR_SCENARIO) realRunner.add(this);
+  if (pickle.name === REAL_RUNNER_SCENARIOS["FR-RUN-05"]) realRunner.add(this);
 });
 
 Before({ tags: "@FR-RUN-06" }, function (this: OidWorld, { pickle }) {
-  if (pickle.name === REAL_GATE_SCENARIO) realRunner.add(this);
+  if (pickle.name === REAL_RUNNER_SCENARIOS["FR-RUN-06"]) realRunner.add(this);
 });
 
 Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {
