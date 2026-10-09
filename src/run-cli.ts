@@ -3,6 +3,7 @@ import { commandError, HELP_FLAG, row } from "./cli-usage.js";
 import type { CliIo } from "./cli-io.js";
 import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
+import type { AbortServices } from "./commands/abort.js";
 import { packageVersion } from "./version.js";
 
 type CommandHelp = { summary: string; usage: string; options: Record<string, string>; extra?: () => Promise<string> };
@@ -43,6 +44,19 @@ const COMMANDS: Record<string, CommandHelp> = {
     },
     extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n\noid verify integrity prints one line for each rule that the changes break (exit 1), or `integrity: ok` (exit 0).\n\noid verify integrity --path <file> answers, before the file is changed, whether the step of the feature in focus allows it: `integrity: ok` (exit 0, also when the path alone cannot tell), or one line naming the file, its kind, the step and the move that would allow it (exit 1).\n",
   },
+  resume: {
+    summary: "Resume the run the session saved, at the state it stopped in",
+    usage: "oid resume",
+    options: {},
+    extra: async () =>
+      "\nThe worktree goes back to its last checkpoint: what the run changed after it is discarded, and listed. The feature files that wait for their review are kept and put to the person again. A lock left by a process that is not running is released.\n\nExit codes:\n  0  the run finished\n  1  error, or no run to resume\n  2  the run was aborted\n  3  waiting for an answer with no terminal: the session is saved\n",
+  },
+  abort: {
+    summary: "Stop the run in progress after the step it is in",
+    usage: "oid abort",
+    options: {},
+    extra: async () => "\nThe run keeps its worktree, its last checkpoint and its session: oid resume continues it.\n",
+  },
   metrics: {
     summary: "Report the code-health findings of the project",
     usage: "oid metrics [--changed]\n       oid metrics --baseline",
@@ -56,7 +70,7 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Services = RunServices | VerifyServices;
+type Services = RunServices | VerifyServices | AbortServices;
 type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
@@ -68,7 +82,9 @@ const RUNNERS: Record<string, Runner> = {
   check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
   init: async (rest, io) => (await import("./commands/init.js")).runInit(io, rest.includes("--import-progress"), rest.find((arg) => !arg.startsWith("--"))),
   run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services as RunServices),
-  verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services),
+  verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services as VerifyServices | undefined),
+  resume: async (_rest, io, services) => (await import("./commands/resume.js")).runResume(io, services as RunServices),
+  abort: async (_rest, io, services) => (await import("./commands/abort.js")).runAbort(io, services as AbortServices),
   metrics: async (rest, io) => {
     const { runMetrics } = await import("./commands/metrics.js");
     return runMetrics(io, { changed: rest.includes("--changed"), baseline: rest.includes("--baseline") });

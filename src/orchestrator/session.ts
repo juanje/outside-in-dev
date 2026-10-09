@@ -19,7 +19,43 @@ export function runDirectory(cwd: string, runId: string): string {
 }
 
 /** What a started run saves to be resumed: where it works and the state it reached. */
-export type RunSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; fr?: string; scenario?: { index: number; name: string; location: string }; scenarioUnitTests?: Record<string, string[]>; innerIteration?: number; pendingFindings?: string[]; spend?: RunSpend; extensions?: number };
+export type RunSession = {
+  runId: string;
+  worktree: string;
+  branch: string;
+  baseCommit: string;
+  state: string;
+  targetFrs?: string[];
+  featureHashes?: Record<string, string>;
+  fr?: string;
+  scenario?: { index: number; name: string; location: string };
+  scenarioUnitTests?: Record<string, string[]>;
+  innerIteration?: number;
+  pendingFindings?: string[];
+  spend?: RunSpend;
+  extensions?: number;
+  /** The feature files written for the review, to put them to the person again. */
+  featureFiles?: string[];
+  /** What the person said when rejecting the feature files, for the feature writing that follows. */
+  reviewComment?: string;
+  /** The commit the feature in progress started from: where the run started, then the commit of each feature committed. */
+  featureStart?: string;
+  /** The failure the current scenario showed last, which TDD Red starts from. */
+  scenarioFailure?: string;
+  /** What TDD Red handed to Code Green: the unit test files to make pass and their failure. */
+  unitRed?: { tests: string[]; failure: string };
+  /** The checkpoint before the last Code Green, which the refactor compares against. */
+  beforeGreen?: string;
+  pendingInput?: InputRequest | null;
+};
+
+/** The session the last run saved; undefined when no run saved one. */
+export function readSession(cwd: string): RunSession | undefined {
+  const saved = readJson(cwd, SESSION_FILE);
+  if (saved === undefined) return undefined;
+  if (!isObject(saved) || !("runId" in saved) || !("state" in saved)) throw new ProgressError(`${SESSION_FILE} is not the session of a run`);
+  return saved as RunSession;
+}
 
 function writeSession(cwd: string, session: object): void {
   mkdirSync(join(cwd, OUTSIDE_IN_DIR), { recursive: true });

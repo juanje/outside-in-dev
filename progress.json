@@ -2603,7 +2603,61 @@
     {
       "id": "FR-RUN-09",
       "title": "Resume, abort and concurrency",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "Resume is refused while the process of the run is alive, and nothing is touched",
+          "bdd": "pass"
+        },
+        {
+          "name": "Resume presents the pending review of the feature files again, and the run goes on once the human approves",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without a terminal, resume saves the pending review again, with the feature files as they were written",
+          "bdd": "pass"
+        },
+        {
+          "name": "After a crash, resume releases the lock of the dead process, discards what it left and runs the state again from its checkpoint",
+          "bdd": "pass"
+        },
+        {
+          "name": "Resume continues the inner loop of a scenario at the state that died, with the unit test the run had recorded, and keeps the cost",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid abort signals the process that holds the lock, and the run stops after its current step, at the checkpoint that step made",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run that was aborted is resumed at the state that was next, with nothing discarded",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run aborted at the check of its last scenario is resumed there, and the feature is committed from the commit it started at",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid abort has nothing to stop when no run holds the lock",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid abort does not signal a lock that a dead process left",
+          "bdd": "pass"
+        },
+        {
+          "name": "Resume has nothing to continue when no run saved a session",
+          "bdd": "pass"
+        },
+        {
+          "name": "Resume refuses a run that stopped before its features were selected, and leaves the session, the worktree and the lock as they were",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid abort sends a real signal to the process that holds the lock",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-10",

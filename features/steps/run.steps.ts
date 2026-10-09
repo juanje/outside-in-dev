@@ -279,7 +279,7 @@ Before({ tags: "@FR-RUN-06" }, function (this: OidWorld, { pickle }) {
   if (pickle.name === REAL_RUNNER_SCENARIOS["FR-RUN-06"]) realRunner.add(this);
 });
 
-Before({ tags: "@FR-RUN-01 and @process" }, function (this: OidWorld) {
+Before({ tags: "(@FR-RUN-01 or @FR-RUN-09) and @process" }, function (this: OidWorld) {
   this.built = true;
 });
 
@@ -373,14 +373,39 @@ Given("the lock of the project is held by a process that is running", function (
   holdLock(this, holder.pid);
 });
 
-After({ tags: "@FR-RUN-01" }, function (this: OidWorld) {
+After({ tags: "@FR-RUN-01 or @FR-RUN-09" }, function (this: OidWorld) {
   holders.get(this)?.kill();
 });
 
-Given("the lock of the project is held by a process that is no longer running", function (this: OidWorld) {
+/** The process the scenario started to hold the lock. */
+export function lockHolder(world: OidWorld): ChildProcess {
+  const holder = holders.get(world);
+  assert.ok(holder, "no process holds the lock");
+  return holder;
+}
+
+/** The process id the lock was given by the scenario. */
+export function lockedBy(world: OidWorld): string {
+  const pid = lockPaths.get(world);
+  assert.ok(pid, "the scenario gave the lock to no process");
+  return pid;
+}
+
+/** Gives the lock of the project to a process that has already ended: what a run whose process died leaves. */
+export function holdLockOfDeadProcess(world: OidWorld): void {
   const finished = spawnSync(process.execPath, ["-e", ""]);
   assert.ok(finished.pid);
-  holdLock(this, finished.pid);
+  holdLock(world, finished.pid);
+}
+
+/** The content of the lock file of the project, if there is one. */
+export function lockText(world: OidWorld): string | undefined {
+  const path = world.path(join(PROJECT, LOCK));
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+}
+
+Given("the lock of the project is held by a process that is no longer running", function (this: OidWorld) {
+  holdLockOfDeadProcess(this);
 });
 
 export function eventLog(world: OidWorld): LoggedEvent[] {

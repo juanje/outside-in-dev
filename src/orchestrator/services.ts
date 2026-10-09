@@ -17,4 +17,4 @@ export function runnersOf(services: FeatureServices): Runners {
 }
 
 /** What `oid run` takes from the process that runs it, so that nothing below `src/cli.ts` reads the process: the process id for the lock, and the services of the states. */
-export type RunServices = FeatureServices & { pid: number };
+export type RunServices = FeatureServices & { pid: number; aborted?: () => boolean };

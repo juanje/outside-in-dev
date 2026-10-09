@@ -8,7 +8,7 @@ import { startRun, type Workspace } from "../artifacts/git-workspace.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { createEventBus } from "../events/bus.js";
-import { ABORTED, ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
+import { ABORTED, ERROR_EVENT, STATE_CHANGE, WAITING_INPUT } from "../events/types.js";
 import { BDD_RED, CODE_GREEN, QUALITY_FIX, REFACTOR, TDD_RED } from "../agents/profiles.js";
 import { gateBaseline } from "./gate-baseline.js";
 import type { GateBaseline } from "./gate-checks.js";
@@ -20,9 +20,10 @@ import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { runSuite, type SuiteResult } from "./suite.js";
 import type { RunArgs } from "./run-args.js";
 import { newRunId } from "./run-id.js";
+import { RunStopped } from "./run-stopped.js";
 
 /** What a run takes from its surroundings, so a test can fix it. */
-export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void };
+export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void; aborted?: () => boolean };
 
 /** The states of the orchestrator that a start goes through (design section 6.1). */
 export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, refactor: REFACTOR, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", qualityFix: QUALITY_FIX, frCommit: "FR_COMMIT", aborted: ABORTED, done: "DONE" } as const;
@@ -32,9 +33,11 @@ type Bus = ReturnType<typeof createEventBus>;
 /** What a start that selected features hands to the states after it. */
 export type Started = { cwd: string; runId: string; bus: Bus; workspace: Workspace; targets: string[] };
 
-/** Publishes the move of the run from one state to the next. */
+/** Publishes the move of the run from one state to the next. When someone asked the run to stop, a move into a state that does not end the run is followed by the move to ABORTED, and the run stops there (it throws `RunStopped`): the step that was in progress is done and the session names the state that comes next. */
 export function transition(bus: Bus, from: string, to: string, reason: string): number | undefined {
-  return bus.emit({ type: "state_change", from, to, reason });
+  const code = bus.emit({ type: STATE_CHANGE, from, to, reason });
+  if (to === STATE.aborted || to === STATE.done || bus.stopRequested?.() !== true) return code;
+  throw new RunStopped(bus.emit({ type: STATE_CHANGE, from: to, to: STATE.aborted, reason: "the run was aborted (oid abort) after the step it was in" }) ?? 1);
 }
 
 /** Records the baseline of the run, what the suite showed at the start and, when detectors ran, the identity of the findings they reported, and keeps the reports the suite came from. */
@@ -76,8 +79,8 @@ function goThroughStart({ cwd, args, runId, bus, commands, now, detect, runners 
     transition(bus, STATE.selectFr, STATE.done, "no pending features");
     return 0;
   }
+  updateSession(cwd, { state: STATE.featureWrite, targetFrs: targets, featureStart: workspace.startCommit });
   transition(bus, STATE.selectFr, STATE.featureWrite, `start finished; selected ${targets.join(LIST_SEPARATOR)} wait for feature writing`);
-  updateSession(cwd, { state: STATE.featureWrite, targetFrs: targets });
   return { cwd, runId, bus, workspace, targets };
 }
 
@@ -89,7 +92,7 @@ export function isExitCode(value: unknown): value is number {
 /** Starts the run with the lock held: returns the exit code of the process when the start ends the run, else what the next states need. A failure once the run has started is an event of the run. */
 export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector, runners: Runners = REAL_RUNNERS): number | Started {
   const runId = newRunId(environment.now, environment.suffix);
-  const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime() });
+  const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime(), stopRequested: environment.aborted });
   try {
     return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now, detect, runners });
   } catch (error) {

@@ -23,10 +23,10 @@ export function agentOf(world: OidWorld): FakeAgent {
 export const worktreePath = (world: OidWorld): string => runWorktree(world).path;
 export const worktreeText = (world: OidWorld, file: string): string => readFileSync(join(worktreePath(world), file), "utf8");
 
-Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04 or @FR-RUN-05 or @FR-RUN-06 or @FR-RUN-07 or @FR-RUN-08 or @FR-RUN-10" }, function (this: OidWorld) {
+Before({ tags: "@FR-RUN-02 or @FR-RUN-03 or @FR-RUN-04 or @FR-RUN-05 or @FR-RUN-06 or @FR-RUN-07 or @FR-RUN-08 or @FR-RUN-09 or @FR-RUN-10" }, function (this: OidWorld) {
   const agent = new FakeAgent();
   agents.set(this, agent);
-  this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect };
+  this.services = { sdk: agent.sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect, ...this.signalServices() };
 });
 
 Given("the project has a DOMAIN.md and a feature file for {string}", function (this: OidWorld, id: string) {
@@ -113,6 +113,7 @@ When("I run {string} with a terminal where the human answers {string}, {string} 
 });
 
 When("I run {string} without a terminal", async function (this: OidWorld, commandLine: string) {
+  if (this.services !== undefined) this.services = { ...this.services, input: { isTTY: false } };
   await this.run(commandLine);
 });
 

@@ -35,7 +35,7 @@ function scenarioPasses(started: Started, scenario: RedScenario): AfterCheck {
 function anotherIteration(started: Started, scenario: RedScenario, iteration: number, failure: string): AfterCheck {
   const { cwd, bus, workspace, targets } = started;
   updateFeature(workspace.path, targets[0]!, (feature) => advanceStep(feature, CYCLE_STEP.tddRed));
-  updateSession(cwd, { state: STATE.tddRed, innerIteration: iteration + 1 });
+  updateSession(cwd, { state: STATE.tddRed, innerIteration: iteration + 1, scenarioFailure: failure });
   transition(bus, STATE.bddCheck, STATE.tddRed, `the scenario "${scenario.current.name}" is still red after ${iteration} iterations`);
   return { kind: AFTER_CHECK.again, failure };
 }

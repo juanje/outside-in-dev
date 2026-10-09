@@ -6,7 +6,8 @@ import { featureWriteContext } from "../agents/context/task-context.js";
 import { DONE } from "../agents/runner.js";
 import { outcomeProblem } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
-import { RunStopped, settleBudget } from "./budget-settle.js";
+import { settleBudget } from "./budget-settle.js";
+import { RunStopped } from "./run-stopped.js";
 import { announceAgent } from "./attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { runInnerLoop } from "./run-inner-loop.js";
@@ -113,20 +114,27 @@ async function askForReview(started: Started, files: string[], input: ReviewInpu
   return started.bus.emit({ type: WAITING_INPUT, request: { id: "feature-review", prompt, actions: REVIEW_ACTIONS } }) ?? 0;
 }
 
-/** Has the feature files written and reviewed until they are approved, then runs the inner loop: returns the exit code of the process. */
-async function writeAndReview(started: Started, services: RunServices): Promise<number> {
-  let comment: string | undefined;
+/** Where the feature writing starts: the comment of a rejection to write them again, or the files already written to review them. */
+export type ReviewEntry = { comment?: string; files?: string[] };
+
+/** Has the feature files written and reviewed until they are approved, then runs the inner loop: returns the exit code of the process. A resumed run enters with the files to review again, or with the comment of the rejection. */
+export async function writeAndReview(started: Started, services: FeatureServices, entry: ReviewEntry = {}): Promise<number> {
+  let { comment, files } = entry;
   for (;;) {
-    const written = await writeFeatures(started, services, comment);
-    if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
-    transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
-    updateSession(started.cwd, { state: STATE.featureReview });
-    const review = await askForReview(started, written.files, services.input ?? { isTTY: false });
+    if (files === undefined) {
+      const written = await writeFeatures(started, services, comment);
+      if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
+      files = written.files;
+      updateSession(started.cwd, { state: STATE.featureReview, featureFiles: files });
+      transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
+    }
+    const review = await askForReview(started, files, services.input ?? { isTTY: false });
     if (isExitCode(review)) return review;
     if ("approved" in review) return runInnerLoop(started, services, review.approved);
     comment = review.comment;
+    files = undefined;
+    updateSession(started.cwd, { state: STATE.featureWrite, reviewComment: comment });
     transition(started.bus, STATE.featureReview, STATE.featureWrite, `the feature files are rejected: ${comment}`);
-    updateSession(started.cwd, { state: STATE.featureWrite });
   }
 }
 
@@ -135,7 +143,7 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, services.pid);
   try {
-    const started = startOfRun(cwd, args, { ...environment, pid: services.pid }, commands, services.detect ?? detectProject, runnersOf(services));
+    const started = startOfRun(cwd, args, { ...environment, pid: services.pid, aborted: services.aborted }, commands, services.detect ?? detectProject, runnersOf(services));
     return isExitCode(started) ? started : await writeAndReview(started, services);
   } catch (error) {
     if (error instanceof RunStopped) return error.code;

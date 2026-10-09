@@ -19,7 +19,7 @@ const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 /** The terminal an in-process run is given: none, or one that answers the review. */
 export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string> };
 /** What an in-process `oid run` is given in place of the real agent and the real terminal. */
-export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; detect?: (worktree: string) => FindingDraft[]; runners?: Runners };
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; detect?: (worktree: string) => FindingDraft[]; runners?: Runners; signal?: (pid: number) => void; aborted?: () => boolean };
 
 /** `runCli` as the scenarios call it: with the services of the run. */
 const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;
@@ -75,6 +75,21 @@ export class OidWorld extends World {
   exitCode: number | null = null;
   progressBefore: string | null = null;
   filesBefore = new Map<string, string>();
+  /** The processes `oid abort` signalled, in order. In this process a signal does not stop anything: it raises `abortRequested`. */
+  signalled: number[] = [];
+  /** Whether a signal reached the run in this process since it started; each run starts without one. */
+  abortRequested = false;
+
+  /** The services of a run in this process that record a signal as `oid abort` sends it and let the run see it: a signal to any process is taken as one to the run. */
+  signalServices(): Pick<RunServices, "signal" | "aborted"> {
+    return {
+      signal: (pid) => {
+        this.signalled.push(pid);
+        this.abortRequested = true;
+      },
+      aborted: () => this.abortRequested,
+    };
+  }
 
   path(rel: string): string {
     return join(this.dir, rel);
@@ -112,6 +127,7 @@ export class OidWorld extends World {
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
+    this.abortRequested = false;
     let stdout = "";
     let stderr = "";
     this.exitCode = await runWithServices(

@@ -4,10 +4,20 @@ import type { PiSdk } from "../../src/agents/runner.js";
 export type AgentFile = { path: string; content: string };
 type Task = { fr: string; text: string };
 /** What an agent of a unit-test step does in one of its rounds: the files it writes through the sandbox, the files it changes without the sandbox noticing, and what it reports. */
-export type Round = { files: AgentFile[]; bypass?: AgentFile[]; test?: string; noUnitLogicLeft?: boolean };
+export type Round = { files: AgentFile[]; bypass?: AgentFile[]; test?: string; noUnitLogicLeft?: boolean; dies?: boolean };
+
+/** What a round that `dies` throws once its files are written: the process of the run ends there, as a killed process would, with no report and nothing after it. */
+export class ProcessDied extends Error {
+  constructor(readonly route: string) {
+    super(`the process died while the ${route} agent worked`);
+  }
+}
 /** A scripted route of the loop: the agent of one step, its rounds in order (an asked round beyond the list writes nothing), what it also tries to write and how it ends. */
 export class Route {
+  constructor(readonly name: string) {}
   tasks: string[] = [];
+  /** What happens while a session works, before it writes anything, by the index of the session. */
+  during = new Map<number, () => Promise<void>>();
   rounds: Round[] = [];
   attempts: string[] = [];
   refused: string[] = [];
@@ -76,9 +86,9 @@ export class FakeAgent {
   stepRounds: AgentFile[][] = [];
   /** The cost and the tokens every message of every session reports. */
   cost = { usd: 0, tokens: USAGE.totalTokens };
-  readonly testRoute = new Route();
-  readonly codeRoute = new Route();
-  readonly refactorRoute = new Route();
+  readonly testRoute = new Route("test-writing");
+  readonly codeRoute = new Route("coding");
+  readonly refactorRoute = new Route("refactoring");
   private rounds = new Map<string, number>();
 
   readonly sdk = {
@@ -99,6 +109,7 @@ export class FakeAgent {
     const listeners: Array<(event: unknown) => void> = [];
     const emit = (event: unknown) => listeners.forEach((listener) => listener(event));
     let aborted = false;
+    let dying: ProcessDied | undefined;
     let release = () => {};
     const until = new Promise<void>((resolve) => (release = resolve));
     const session: OpenedSession & Record<string, unknown> = {
@@ -135,14 +146,24 @@ export class FakeAgent {
             route.stopped += 1;
             return;
           }
-          report = await this.workRound(session, cwd, route, route.rounds[own - route.stopped]);
+          await route.during.get(own)?.();
+          const round = route.rounds[own - route.stopped];
+          if (round?.dies === true) {
+            for (const file of round.files) await this.write(session, cwd, file, route.refused);
+            emit({ type: "message_end", message: { role: "assistant", usage: this.usage(), content: [{ type: "text", text: "Working." }], stopReason: "toolUse" } });
+            dying = new ProcessDied(route.name);
+            return;
+          }
+          report = await this.workRound(session, cwd, route, round);
         }
         emit({ type: "tool_execution_start", toolCallId: "call-1", toolName: "report", args: report });
         emit({ type: "tool_execution_end", toolCallId: "call-1", toolName: "report", result: { content: [{ type: "text", text: "Report received." }] }, isError: false });
         emit({ type: "message_end", message: { role: "assistant", usage: this.usage(), content: [{ type: "text", text: "Done." }], stopReason: "stop" } });
         emit({ type: "agent_end", messages: [] });
       },
-      dispose: () => undefined,
+      dispose: () => {
+        if (dying !== undefined) throw dying;
+      },
     };
     return session;
   }

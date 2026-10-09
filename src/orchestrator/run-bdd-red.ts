@@ -76,7 +76,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   }
   recordRed(workspace.path, fr!, { current: current.name, names });
   checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
-  updateSession(cwd, { state: STATE.tddRed });
+  updateSession(cwd, { state: STATE.tddRed, scenarioFailure: gate.message });
   transition(bus, STATE.bddRed, STATE.tddRed, `the scenario "${current.name}" fails validly: ${gate.kind === OUTCOME.valid ? gate.reason : "the person decided that it is a valid Red"}`);
   return { current, label, failure: gate.message };
 }

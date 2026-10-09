@@ -28,9 +28,10 @@ function integrationStep(started: Started, scenario: RedScenario): Rejection | T
   const { cwd, bus } = started;
   const known = unitTestsOf(cwd, scenario.current.name);
   if (known.length === 0) return { rejected: `${scenario.label}: the agent reports that no unit logic is left, but a scenario needs at least one unit test before that` };
-  updateSession(cwd, { state: STATE.codeGreen });
+  const unitRed = { tests: filesOf(known), failure: scenario.failure };
+  updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `integration_step: no unit logic is left and the scenario "${scenario.current.name}" is still red`);
-  return { tests: filesOf(known), failure: scenario.failure };
+  return unitRed;
 }
 
 /** Judges the unit test the agent wrote, putting a failure oid cannot classify to the person: what the valid Red was and why, or the exit code of the process. */
@@ -59,9 +60,10 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
   if (isExitCode(gate) || isRejection(gate)) return gate;
   recordUnitTest(cwd, current.name, report.test);
   checkpoint(workspace, { fr: fr!, state: STATE.tddRed, scenario: current.name });
-  updateSession(cwd, { state: STATE.codeGreen });
+  const unitRed = { tests: [test.file], failure: gate.message };
+  updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `the unit test "${test.name}" fails validly: ${gate.reason}`);
-  return { tests: [test.file], failure: gate.message };
+  return unitRed;
 }
 
 /** Runs TDD Red for the current scenario, retrying a rejected attempt from the last checkpoint. Returns what Code Green needs, or the exit code of the process. */

@@ -19,12 +19,16 @@ export type EventBusOptions = {
   runId: string;
   write: (text: string) => void;
   now: () => number;
+  /** Whether someone asked the run to stop (`oid abort`); by default nobody does. */
+  stopRequested?: () => boolean;
 };
 
 /** Publishes the events of one run: each is logged, then printed as one plain line. */
 export function createEventBus(options: EventBusOptions) {
   const runDir = runDirectory(options.cwd, options.runId);
   const bus = {
+    /** Whether someone asked the run to stop after the step it is in. */
+    stopRequested: (): boolean => options.stopRequested?.() ?? false,
     /** Logs and prints the event; returns the exit code the process must end with, if the event ends it. */
     emit(body: OIEventBody): number | undefined {
       const event: OIEvent = { ts: options.now(), runId: options.runId, ...body };

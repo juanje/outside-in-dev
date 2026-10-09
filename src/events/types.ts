@@ -16,6 +16,9 @@ export const ABORTED = "ABORTED";
 /** The type of the event that reports an agent about to start an attempt. */
 export const AGENT_START = "agent_start";
 
+/** The type of the event that reports a run resumed by `oid resume`. */
+export const RESUMED = "resumed";
+
 /** A question that needs a person's answer, with the actions the person can choose. */
 export type InputRequest = {
   id: string;
@@ -29,7 +32,8 @@ export type OIEventBody =
   | { type: typeof ERROR_EVENT; message: string; detail?: string }
   | { type: typeof WAITING_INPUT; request: InputRequest }
   | { type: typeof HUMAN_EDIT; file: string }
-  | { type: typeof AGENT_START; state: string; role: string; attempt: number; model?: string; thinkingLevel: string };
+  | { type: typeof AGENT_START; state: string; role: string; attempt: number; model?: string; thinkingLevel: string }
+  | { type: typeof RESUMED; state: string; discarded: string[]; releasedLock?: number };
 
 /** An event as it is logged and shown: the body plus when and in which run it happened. */
 export type OIEvent = { ts: number; runId: string } & OIEventBody;
