@@ -65,6 +65,8 @@ oid metrics --changed
 - **BDD runs in-process.** `@process` goes only on a scenario that needs a real process, never on the `Feature`. Nothing outside `src/cli.ts` reads `process` globals (ADR-028).
 - **An** `oid run` **scenario asserts a milestone** (a transition, a checkpoint that exists, data in the session, files), not the exit code, the last line or the final state. A failure that must end on the first attempt sets `limits.max_retries: 0`.
 - **One real runner per run state;** the rest replay a recorded report.
+- **A replay declares the request it answers** (the test file and name, or the scenario locations) and fails on an unexpected request or an exhausted sequence. An entry answers more than once only with `repeat: true`.
+- **The real-runner scenarios are named in** `features/support/real-runners.ts`**,** and a unit test checks that each one exists. Renaming one of them means updating that list.
 - **Do not rewrite a test that already fails** (`not.toThrow`, a weaker assertion, a deleted check) so that it fits the code.
 - **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
 - **A requirement that changes, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human, as is the exit to `quality_gate` when no code is needed.** Do not add another FR for it.

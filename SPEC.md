@@ -198,6 +198,10 @@ Reject step files that statically import modules or exports that do not exist ye
 
 A step definition found wrong at `tdd_red`, `tdd_green` or `refactor` is fixed by going back to `bdd_red`, never in place. Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written in this cycle, which it restores afterwards. When this cycle has no code yet, the feature moves to `tdd_red` if `src/` has not changed since going back and the scenario either fails as a valid Red or already passes: the unit test is still needed, and the feature never skips to `tdd_green`. The move from `tdd_red` back to `bdd_red` is allowed, like any return to a Red; there is no manual move from `bdd_red` to `tdd_green` or `refactor`. At `bdd_red` without a return, a scenario that already passes and is recorded as passing with the evidence of an earlier green (for example, after the quality gate found a regression) also moves the feature to `tdd_red`; a scenario with no such evidence that passes at once is still not a Red.
 
+### FR-VERIFY-07: Stop a command that does not end
+
+Every command oid runs from the project's configuration (the unit and BDD runners, the type check, the linter and the formatter) has a time limit, `limits.command_timeout_s` in `.outside-in.json`, 600 seconds by default (ADR-043). A command that passes it is stopped together with every process it started. `oid verify` exits 1 naming the command and the limit (for `oid verify red`, an `environment` failure) and releases `.outside-in/verify.lock`; `oid run` ends the run with the same message and releases its lock.
+
 ## Functional Requirements — Git isolation
 
 
@@ -260,7 +264,7 @@ A test task (BDD_RED or TDD_RED) receives the public signatures of the project's
 
 ### FR-RUN-01: Start a run
 
-`oid run` acquires a lock, prepares the worktree, runs the existing suite and records the baseline, validates the target requirements and selects the next pending feature (or those named). A red suite at start stops and asks: an inherited failure cannot be told apart from a new one.
+`oid run` acquires a lock, prepares the worktree, runs the existing suite and records the baseline, validates the target requirements and selects the next pending feature (or those named). A red suite at start stops and asks: an inherited failure cannot be told apart from a new one. A runner that writes no report is an error; one that exits with a failure its report does not explain counts as a red suite.
 
 ### FR-RUN-02: Write and review feature files
 

@@ -987,7 +987,7 @@ interface InputRequest {
 | `max_inner_iterations` | per scenario | 8 |
 | `agent_timeout_s` | per session | 600 |
 | `agent_max_turns` | per session | 40 |
-| `command_timeout_s` | per command | 120 |
+| `command_timeout_s` | per command oid runs from the configuration (ADR-043) | 600 |
 | `sandbox_denials_abort` | per session | 5 |
 | `cost_limit_usd` | per FR and per run | no limit |
 
@@ -1308,7 +1308,7 @@ Validated with Zod at startup.
     "max_inner_iterations": 8,
     "agent_timeout_s": 600,
     "agent_max_turns": 40,
-    "command_timeout_s": 120,
+    "command_timeout_s": 600,
     "sandbox_denials_abort": 5,
     "cost_limit_usd": null
   },
