@@ -8,26 +8,42 @@ import { useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
 
+async function bddRedRun() {
+  const project = stepsProject();
+  const agent = new FakeAgent();
+  return { agent, ...(await approvedRun(project, agent)) };
+}
+
 describe("BDD Red of a run", () => {
-  it("has the agent write the steps of the first scenario, checkpoints the valid Red and moves the run to TDD Red, where a test-writing agent that writes no test ends the run", async () => {
-    const project = stepsProject();
-    const agent = new FakeAgent();
-    const { exitCode, saved, log } = await approvedRun(project, agent);
+  it("has the agent write the steps of the first scenario, checkpoints the valid Red and moves the run to TDD Red", async () => {
+    const { agent, saved, log } = await bddRedRun();
     const progress = readJson(join(saved.worktree, "progress.json")).features.map((feature: { id: string; cycle_step: string; scenarios: unknown[] }) => [feature.id, feature.cycle_step, feature.scenarios]);
+    const move = log.find((event) => event.type === "state_change" && event.to === "TDD_RED");
+    const subjects = gitIn(saved.worktree, "log", "--format=%s").split("\n");
     expect({
-      exitCode,
-      transition: log.filter((event) => event.type === "state_change").at(-1).to,
-      session: [saved.state, saved.fr, saved.scenario],
-      commit: gitIn(saved.worktree, "log", "-1", "--format=%s"),
+      transition: move && [move.from, move.to],
+      checkpoint: subjects.filter((subject) => subject === `oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`),
+      session: [saved.fr, saved.scenario],
       progress,
       task: agent.stepTasks[0]?.split("\n")[0],
     }).toEqual({
-      exitCode: 1,
-      transition: "TDD_RED",
-      session: ["TDD_RED", "FR-A-01", { index: 0, name: SCENARIO, location: "features/FR-A-01.feature:4" }],
-      commit: `oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`,
+      transition: ["BDD_RED", "TDD_RED"],
+      checkpoint: [`oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`],
+      session: ["FR-A-01", { index: 0, name: SCENARIO, location: "features/FR-A-01.feature:4" }],
       progress: [["FR-A-01", "tdd_red", [{ name: SCENARIO, bdd: "fail" }]], ["FR-A-02", "bdd_red", []]],
       task: "You write the step definitions for the first scenario of FR-A-01. Follow these steps in order.",
+    });
+  }, REAL_PROCESS_TIMEOUT_MS);
+
+  it("ends the run in TDD Red when the test-writing agent writes no test", async () => {
+    const { exitCode, saved, log } = await bddRedRun();
+    const moves = log.filter((event) => event.type === "state_change");
+    const errors = log.filter((event) => event.type === "error").map((event) => event.message);
+    expect({ exitCode, last: moves.at(-1).to, state: saved.state, errors }).toEqual({
+      exitCode: 1,
+      last: "TDD_RED",
+      state: "TDD_RED",
+      errors: ['FR-A-01 "Behaviour of FR-A-01": the report names no unit test'],
     });
   }, REAL_PROCESS_TIMEOUT_MS);
 });
