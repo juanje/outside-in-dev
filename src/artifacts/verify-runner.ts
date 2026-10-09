@@ -23,9 +23,9 @@ function reportOptions(reportPath: string): string {
   return `--reporter=json --outputFile=${shellQuote(reportPath)}`;
 }
 
-/** The configured unit command with oid's arguments appended: the test file, the test name as the `-t` filter and the JSON report. */
+/** The configured unit command with oid's arguments appended: the test file, the test name as the `--testNamePattern=` filter, in one word so a name starting with `-` is not read as an option and the JSON report. */
 export function unitRunCommand(command: string, test: { file: string; name: string }, reportPath: string): string {
-  return `${command} ${shellQuote(test.file)} -t ${shellQuote(escapeRegExp(test.name))} ${reportOptions(reportPath)}`;
+  return `${command} ${shellQuote(test.file)} --testNamePattern=${shellQuote(escapeRegExp(test.name))} ${reportOptions(reportPath)}`;
 }
 
 /** The configured BDD command with oid's arguments appended: the location of each scenario and the Cucumber Messages report. */

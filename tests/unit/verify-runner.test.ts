@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { bddRunCommand, runBddScenario, runUnitTest, unitRunCommand } from "../../src/artifacts/verify-runner.js";
-import { dir, useTempDir, write } from "./temp-project.js";
+import { resolve } from "node:path";
+import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
 
 describe("unitRunCommand", () => {
   it("appends the test file, the escaped test name and the report options to the configured command", () => {
     expect(unitRunCommand("npx vitest run", { file: "tests/unit/a.test.ts", name: "adds (1 + 1)" }, ".outside-in/verify/unit.json")).toBe(
-      "npx vitest run 'tests/unit/a.test.ts' -t 'adds \\(1 \\+ 1\\)' --reporter=json --outputFile='.outside-in/verify/unit.json'",
+      "npx vitest run 'tests/unit/a.test.ts' --testNamePattern='adds \\(1 \\+ 1\\)' --reporter=json --outputFile='.outside-in/verify/unit.json'",
     );
   });
 
   it("quotes a single quote of the test name so that the shell passes it on unchanged", () => {
-    expect(unitRunCommand("npx vitest run", { file: "a.test.ts", name: "it's" }, "r.json")).toContain("-t 'it'\\''s' ");
+    expect(unitRunCommand("npx vitest run", { file: "a.test.ts", name: "it's" }, "r.json")).toContain("--testNamePattern='it'\\''s' ");
   });
 });
 
@@ -22,7 +23,7 @@ describe("runUnitTest", () => {
     const run = runUnitTest(dir, "node runner.mjs", { file: "tests/a.test.ts", name: "adds up" });
     expect(run).toEqual({
       exitCode: 3,
-      report: { argv: ["tests/a.test.ts", "-t", "adds up", "--reporter=json", "--outputFile=.outside-in/verify/unit.json"] },
+      report: { argv: ["tests/a.test.ts", "--testNamePattern=adds up", "--reporter=json", "--outputFile=.outside-in/verify/unit.json"] },
     });
   });
 
@@ -30,6 +31,18 @@ describe("runUnitTest", () => {
     write(".outside-in/verify/unit.json", '{"stale":true}');
     expect(runUnitTest(dir, "node -e 0", { file: "a.test.ts", name: "x" })).toEqual({ exitCode: 0, report: undefined });
   });
+});
+
+describe("runUnitTest with vitest", () => {
+  const VITEST = `node ${resolve(import.meta.dirname, "../../node_modules/vitest/vitest.mjs")} run`;
+
+  it("runs a test whose name starts with a dash by that name", () => {
+    write("vitest.config.mjs", "export default { test: { globals: true } };\n");
+    write("a.test.ts", 'it("-starts with a dash", () => {});\nit("another", () => {});\n');
+    const { report } = runUnitTest(dir, VITEST, { file: "a.test.ts", name: "-starts with a dash" });
+    const results = (report as { testResults?: { assertionResults: { title: string; status: string }[] }[] } | undefined)?.testResults ?? [];
+    expect(results.flatMap((file) => file.assertionResults).map(({ title, status }) => ({ title, status }))).toContainEqual({ title: "-starts with a dash", status: "passed" });
+  }, REAL_PROCESS_TIMEOUT_MS);
 });
 
 describe("bddRunCommand", () => {
