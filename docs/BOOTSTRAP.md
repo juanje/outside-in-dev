@@ -198,7 +198,7 @@ Keep the previous tarball: if a release misbehaves, reinstall it.
 
 **Switch-over.**
 
-- [ ] Tag and install `v0.7.0` once FR-RUN-07 is done (the cycle can complete). `v0.6.0` already shipped with the git block.
+- [x] Tag and install `v0.7.0` once FR-RUN-07 is done (the cycle can complete). `v0.6.0` already shipped with the git block.
 - [ ] Run `oid run --fr <id>` on a **small, low-risk** FR of oid itself. Good candidates: FR-TUI-04 or FR-DEC-03, mostly deterministic and easy to review.
 - [ ] Compare with an FR of similar size done with Claude Code: retries, human interventions, cost, time, health delta. Write both in the bootstrap log.
 - [ ] Golden run: the URL shortener from the article, in TypeScript, as a fixture project.
