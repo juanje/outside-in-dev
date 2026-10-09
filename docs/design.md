@@ -1361,7 +1361,7 @@ The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.confi
 ```
 
 - Each role is `provider/id`, resolved with Pi's `ModelRuntime`; a role may carry its own options (for example a pinned version).
-- Credentials live in `<config dir>/agent/auth.json`, the `agentDir` oid passes to Pi (`OID_AGENT_DIR` overrides it), written through Pi's `AuthStorage`: by the provider's own login flow (OAuth, from Pi) or an API key read from standard input. Provider variables (e.g. `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) still work as in Pi. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked.
+- Credentials live in `<config dir>/agent/auth.json`, the `agentDir` oid passes to Pi (`OID_AGENT_DIR` overrides it), written through Pi's `ModelRuntime.login` (Pi does not export `AuthStorage`): by the provider's own login flow (OAuth, from Pi) or an API key read from standard input. Provider variables (e.g. `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) still work as in Pi. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked: oid parses Pi's `auth.json` (`$PI_CODING_AGENT_DIR`, else `~/.pi/agent`) and merges it per provider into its own, atomically and with mode 0600; imported OAuth entries share their refresh token with Pi, and oid says so.
 - The `decisions` role is reserved for Jev (FR-DEC): provider and pinned model (e.g. `openrouter` with `typesafe/jev-1.13`), sharing the same credential store. Jev's thresholds stay in the project (`decisions.thresholds`), since they are calibrated per project; to be confirmed in FR-DEC.
 
 ---
