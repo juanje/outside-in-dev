@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { CATEGORY } from "./findings.js";
-import { ProgressError } from "./progress.js";
+import { isObject, ProgressError } from "./progress.js";
 import { readJson } from "./project-json.js";
 
 export const CONFIG_FILE = ".outside-in.json";
 
 const WORKTREE = "worktree";
+const MODELS_KEY = "models";
 const globs = z.array(z.string());
 const command = z.string().nullable();
 
@@ -45,7 +46,6 @@ const projectConfigSchema = z.strictObject({
     })
     .optional(),
   limits: z.strictObject({ max_retries: z.number().int().nonnegative().optional(), max_inner_iterations: z.number().int().positive().optional(), command_timeout_s: z.number().int().positive().optional(), cost_limit_usd: z.number().positive().optional(), cost_limit_fr_usd: z.number().positive().optional(), agent_max_turns: z.number().int().positive().optional(), agent_timeout_s: z.number().int().positive().optional() }).optional(),
-  models: z.strictObject({ fast: z.string(), default: z.string(), strong: z.string(), spec: z.string().optional() }).optional(),
   integrity: z.strictObject({ forbidden_in_src: z.array(z.string()).optional(), forbidden_in_tests: z.array(z.string()).optional() }).optional(),
   settings: z
     .strictObject({
@@ -61,6 +61,9 @@ export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 
 /** Returns the document as a project configuration, or throws naming every invalid field. */
 export function parseProjectConfig(document: unknown): ProjectConfig {
+  if (isObject(document) && MODELS_KEY in document) {
+    throw new ProgressError(`${CONFIG_FILE} is invalid: "${MODELS_KEY}" belongs to the user, not to the project. Run \`oid setup\` to assign the models.`);
+  }
   const result = projectConfigSchema.safeParse(document);
   if (result.success) return result.data;
   const problems = result.error.issues.map((issue) => `  ${issue.path.join(".") || "(root)"}: ${issue.message}`);
@@ -133,11 +136,6 @@ const DEFAULT_RETRIES = 3;
 export function loadRetryLimit(cwd: string): number {
   const document = readJson(cwd, CONFIG_FILE);
   return document === undefined ? DEFAULT_RETRIES : (parseProjectConfig(document).limits?.max_retries ?? DEFAULT_RETRIES);
-}
-
-/** The models the project names for its agents, as `provider/id`: the `models` of the configuration file. */
-export function loadModels(cwd: string): NonNullable<ProjectConfig["models"]> {
-  return loadProjectConfig(cwd).models!;
 }
 
 const DEFAULT_COMMAND_TIMEOUT_S = 600;

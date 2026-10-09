@@ -6,6 +6,10 @@ describe("oidAgentDir", () => {
     expect(oidAgentDir({ HOME: "/home/ana" })).toBe("/home/ana/.config/oid/agent");
   });
 
+  it("is agent under the configuration directory when OID_AGENT_DIR is not set", () => {
+    expect(oidAgentDir({ HOME: "/home/ana", XDG_CONFIG_HOME: "/xdg", OID_CONFIG_DIR: "/srv/oid" })).toBe("/srv/oid/agent");
+  });
+
   it("is OID_AGENT_DIR when it is set", () => {
     expect(oidAgentDir({ HOME: "/home/ana", OID_AGENT_DIR: "/srv/oid-agent" })).toBe("/srv/oid-agent");
   });

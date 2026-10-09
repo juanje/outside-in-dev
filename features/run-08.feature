@@ -22,7 +22,7 @@ Feature: Retries and escalation
 
   Scenario: Each retry raises the reasoning level, and the last one uses the strongest model
     Given the project allows 2 retries for each state
-    And the project configures the models "fake/fast", "fake/default" and "fake/strong"
+    And the user's setup assigns the models "fake/fast", "fake/default" and "fake/strong"
     And the test-writing agent writes no unit test in any attempt
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
     Then the event log of the run records an "agent_start" of "TDD_RED" with the attempt 1, the model "fake/default" and the thinking level "medium"
@@ -69,7 +69,7 @@ Feature: Retries and escalation
 
   Scenario: The human retries with a note, and the note goes to one more attempt on the strongest model
     Given the project allows 1 retry for each state
-    And the project configures the models "fake/fast", "fake/default" and "fake/strong"
+    And the user's setup assigns the models "fake/fast", "fake/default" and "fake/strong"
     And the test-writing agent writes no unit test in its first two attempts, then writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent writes the cart code that passes the unit test and the scenario
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "retry" and "abort", and gives the note "write the test for countLines of src/lines.ts"
@@ -77,3 +77,10 @@ Feature: Retries and escalation
     And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 3, the model "fake/strong" and the thinking level "high"
     And the third task of the test-writing agent includes "attempt 3" and "write the test for countLines of src/lines.ts"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
+
+  Scenario: A project that configures models is refused before the run starts, and the error names oid setup
+    Given the project's ".outside-in.json" has a "models" key
+    When I run "oid run --fr FR-CART-02"
+    Then the process exits with code 1
+    And the error mentions "oid setup"
+    And no worktree or branch was created

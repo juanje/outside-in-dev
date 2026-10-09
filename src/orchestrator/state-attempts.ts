@@ -5,6 +5,7 @@ import { headCommit } from "../artifacts/git-workspace.js";
 import { rollback } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { loadProjectConfig, loadRetryLimit } from "../artifacts/project-config.js";
+import { loadUserModels } from "../artifacts/user-config.js";
 import { ERROR_EVENT } from "../events/types.js";
 import { type AttemptInfo, type AttemptSpec, isExhausted, isRejection, type Rejection, runAttempts } from "./attempts.js";
 import { isExitCode, type Started } from "./begin.js";
@@ -33,7 +34,7 @@ export function attemptSpec<T>(started: Started, services: FeatureServices, { st
   const config = loadProjectConfig(workspace.path);
   const base = headCommit(workspace.path);
   const restore = () => rollback(workspace, base, [...config.paths.source, ...config.paths.unit_tests, ...config.paths.bdd_steps]);
-  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: config.models, restore, beforeCall: () => settleBudget(started, services, state), run };
+  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: loadUserModels(services.configDir), restore, beforeCall: () => settleBudget(started, services, state), run };
 }
 
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */

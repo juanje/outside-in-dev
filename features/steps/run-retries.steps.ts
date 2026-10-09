@@ -22,8 +22,16 @@ Given(/^the project allows (\d+) retr(?:y|ies) for each state$/, function (this:
   change(this, (fixture) => (fixture.retries = Number(retries)));
 });
 
-Given("the project configures the models {string}, {string} and {string}", function (this: OidWorld, fast: string, byDefault: string, strong: string) {
-  change(this, (fixture) => (fixture.models = { fast, default: byDefault, strong }));
+Given("the user's setup assigns the models {string}, {string} and {string}", function (this: OidWorld, fast: string, byDefault: string, strong: string) {
+  // The scratch directory of this scenario, never the user's real configuration directory.
+  this.write("config/config.json", JSON.stringify({ models: { fast, default: byDefault, strong } }));
+  this.services = { ...this.services!, configDir: this.path("config") };
+});
+
+Given("the project's {string} has a {string} key", function (this: OidWorld, file: string, key: string) {
+  assert.equal(file, ".outside-in.json");
+  assert.equal(key, "models");
+  change(this, (fixture) => (fixture.models = { fast: "fake/fast", default: "fake/default", strong: "fake/strong" }));
 });
 
 Given("the step-writing agent's first attempt writes steps where one step has no definition, and also a file {string}", function (this: OidWorld, stray: string) {

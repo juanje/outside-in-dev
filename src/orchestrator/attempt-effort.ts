@@ -1,10 +1,10 @@
-import type { ProjectConfig } from "../artifacts/project-config.js";
+import type { Models } from "../artifacts/user-config.js";
 
 /** The model and the reasoning level one attempt of an agent runs with. */
 export type Effort = { model?: string; thinkingLevel: string };
 
-/** Which attempt this is (from 1), how many retries the state allows after the first attempt, and the models the project names. */
-export type EffortRequest = { attempt: number; retries: number; models?: ProjectConfig["models"] };
+/** Which attempt this is (from 1), how many retries the state allows after the first attempt, and the models the user assigned. */
+export type EffortRequest = { attempt: number; retries: number; models?: Models };
 
 /** The levels a task that writes code may run at, from the lowest. */
 const LEVELS = ["minimal", "low", "medium", "high"];

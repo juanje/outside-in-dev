@@ -10,13 +10,13 @@ process.stdout.on("error", (error: NodeJS.ErrnoException) => {
 
 /** What `oid run` and `oid resume` take from this process: its id, oid's agent directory, the terminal that reviews and whether `oid abort` signalled it (SIGTERM: the run stops after the step it is in). Loaded only for these commands, so that no other command loads the agent SDK. */
 async function runServices(): Promise<RunServices> {
-  const [{ oidAgentDir }, { terminalInput }] = await Promise.all([import("./agents/runner.js"), import("./commands/terminal-input.js")]);
+  const [{ oidAgentDir }, { oidConfigDir }, { terminalInput }] = await Promise.all([import("./agents/runner.js"), import("./artifacts/user-config.js"), import("./commands/terminal-input.js")]);
   const input = process.stdin.isTTY && process.stdout.isTTY ? terminalInput(process.stdin, process.stdout) : { isTTY: false as const };
   let abortRequested = false;
   process.on("SIGTERM", () => {
     abortRequested = true;
   });
-  return { pid: process.pid, agentDir: oidAgentDir(process.env), input, aborted: () => abortRequested };
+  return { pid: process.pid, agentDir: oidAgentDir(process.env), configDir: oidConfigDir(process.env), input, aborted: () => abortRequested };
 }
 
 /** What each command takes from this process; the others take nothing. */

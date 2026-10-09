@@ -18,6 +18,7 @@ import { advanceStep, CYCLE_STEP, loadProgress, saveProgress } from "../artifact
 import { parseRequirements } from "../artifacts/spec.js";
 import { readText } from "../artifacts/project-json.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { loadUserModels } from "../artifacts/user-config.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { detectProject } from "../artifacts/detect-all.js";
 import { isExitCode, type RunEnvironment, STATE, startOfRun, type Started, transition } from "./begin.js";
@@ -37,7 +38,7 @@ async function writeFeatures(started: Started, services: FeatureServices, commen
   const knownIds = parseRequirements(readText(workspace.path, config.paths.spec) ?? "").map(({ id }) => id);
   const files: string[] = [];
   for (const fr of targets) {
-    const announce = () => announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: config.models });
+    const announce = () => announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: loadUserModels(services.configDir) });
     await settleBudget(started, services, FEATURE_WRITE, fr);
     const effort = announce();
     const outcome = await runBillable(started, services, { state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr, announce: () => void announce() });

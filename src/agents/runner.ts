@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
+import { type ConfigEnv, oidConfigDir } from "../artifacts/user-config.js";
 import type { CycleState } from "./profiles.js";
 import { collectReport } from "./report-events.js";
 import { ABORTED, checkResponse, EMPTY, PROVIDER_ERROR, type ResponseVerdict } from "./response-check.js";
@@ -26,9 +27,9 @@ async function modelOf(sdk: PiSdk, agentDir: string, name: string) {
   return { modelRuntime, model };
 }
 
-/** Where oid keeps the Pi agent directory of its sessions, so that Pi never reads the user's own `~/.pi/agent`. `OID_AGENT_DIR` overrides the default. */
-export function oidAgentDir(env: { HOME?: string; OID_AGENT_DIR?: string }): string {
-  return env.OID_AGENT_DIR ?? join(env.HOME ?? "", ".config", "oid", "agent");
+/** Where oid keeps the Pi agent directory of its sessions, so that Pi never reads the user's own `~/.pi/agent`: `agent` under the configuration directory. `OID_AGENT_DIR` overrides the default. */
+export function oidAgentDir(env: ConfigEnv & { OID_AGENT_DIR?: string }): string {
+  return env.OID_AGENT_DIR ?? join(oidConfigDir(env), "agent");
 }
 
 /** Opens a new Pi session that reads oid's agent directory and nothing of the user's own configuration. */

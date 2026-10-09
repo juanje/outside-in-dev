@@ -8,6 +8,7 @@ import { readChangedLines } from "../artifacts/git-changes.js";
 import { git, headCommit } from "../artifacts/git-workspace.js";
 import { advanceStep, CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { loadUserModels } from "../artifacts/user-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
 import { outcomeProblem } from "./agent-run.js";
@@ -70,7 +71,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   updateSession(cwd, { state: STATE.refactor });
   transition(bus, STATE.codeGreen, STATE.refactor, `${listed.length} finding${listed.length === 1 ? "" : "s"} on the lines Code Green changed: the agent fixes them`);
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;
-  const announce = () => announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadProjectConfig(worktree).models });
+  const announce = () => announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadUserModels(services.configDir) });
   await settleBudget(started, services, REFACTOR);
   const effort = announce();
   const outcome = await runBillable(started, services, { state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr: fr!, announce: () => void announce() });

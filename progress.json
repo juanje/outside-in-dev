@@ -2597,6 +2597,10 @@
         {
           "name": "The human retries with a note, and the note goes to one more attempt on the strongest model",
           "bdd": "pass"
+        },
+        {
+          "name": "A project that configures models is refused before the run starts, and the error names oid setup",
+          "bdd": "pass"
         }
       ]
     },
