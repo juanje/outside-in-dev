@@ -37,9 +37,10 @@ jobs:
 
       # oid runs from an installed build, never from the working tree (AGENTS.md):
       # pack this commit and install the tarball, as the bootstrap releases do.
+      # `npm run test:bdd` above already built dist/ from this commit, and nothing
+      # between that step and this one changes the tree, so it is not built again.
       - name: Install oid from a packed tarball
         run: |
-          npm run build
           npm pack
           npm install -g ./outside-in-dev-*.tgz
 
