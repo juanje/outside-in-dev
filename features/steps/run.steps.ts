@@ -52,45 +52,54 @@ const realRunner = new WeakSet<OidWorld>();
 const STATUS_FIELDS: Record<Status, object> = { done: { status: "done" }, pending: { status: "pending" }, "in progress": { status: "in_progress", cycle_step: "bdd_red" } };
 
 /** The unit runner of the fixture: writes a vitest JSON report from `suite.json`, plus a marker, and records the lock it finds when asked. */
+/** Where a fixture runner writes the exception that stopped it, next to its marker, so a missing marker can be explained. */
+const RUNNER_ERROR = "runner-error.txt";
+
 const UNIT_RUNNER = `import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-const suite = JSON.parse(readFileSync("suite.json", "utf8"));
-const output = process.argv.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);
-writeFileSync("ran-unit.txt", "ran\\n");
-if (!suite.unitWritesReport) process.exit(suite.unitExit);
-if (suite.printFailed) console.log("1 failed");
-if (suite.reportLock !== null) {
-  const parent = (pid) => Number(readFileSync("/proc/" + pid + "/stat", "utf8").replace(/^.*\\) \\S+ /, "").split(" ")[0]);
-  const chain = [process.ppid, parent(process.ppid)];
-  writeFileSync(suite.reportLock, JSON.stringify({ lock: readFileSync(suite.lockFile, "utf8").trim(), chain }));
+try {
+  const suite = JSON.parse(readFileSync("suite.json", "utf8"));
+  const output = process.argv.find((arg) => arg.startsWith("--outputFile=")).slice("--outputFile=".length);
+  writeFileSync("ran-unit.txt", "ran\\n");
+  if (!suite.unitWritesReport) process.exit(suite.unitExit);
+  if (suite.printFailed) console.log("1 failed");
+  if (suite.reportLock !== null) writeFileSync(suite.reportLock, JSON.stringify({ lock: readFileSync(suite.lockFile, "utf8").trim() }));
+  const test = (fullName, failed) => ({ fullName, title: fullName.split(" > ").pop(), status: failed ? "failed" : "passed", failureMessages: failed ? ["boom"] : [] });
+  const names = ["totals > starts at zero", ...suite.unitFailing];
+  const tests = names.map((name) => test(name, suite.unitFailing.includes(name)));
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, JSON.stringify({ testResults: [{ name: process.cwd() + "/tests/unit/totals.test.ts", message: "", assertionResults: tests }] }));
+  process.exitCode = suite.unitExit;
+} catch (error) {
+  writeFileSync("${RUNNER_ERROR}", String(error && error.stack ? error.stack : error));
+  process.exit(70);
 }
-const test = (fullName, failed) => ({ fullName, title: fullName.split(" > ").pop(), status: failed ? "failed" : "passed", failureMessages: failed ? ["boom"] : [] });
-const names = ["totals > starts at zero", ...suite.unitFailing];
-const tests = names.map((name) => test(name, suite.unitFailing.includes(name)));
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, JSON.stringify({ testResults: [{ name: process.cwd() + "/tests/unit/totals.test.ts", message: "", assertionResults: tests }] }));
-process.exitCode = suite.unitExit;
 `;
 
 /** The BDD runner of the fixture: writes a Cucumber Messages report from `suite.json`, plus a marker. */
 const BDD_RUNNER = `import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-const suite = JSON.parse(readFileSync("suite.json", "utf8"));
-const output = process.argv[process.argv.indexOf("--format") + 1].slice("message:".length);
-writeFileSync("ran-bdd.txt", "ran\\n");
-const names = ["Add to cart", ...suite.bddFailing];
-const lines = names.flatMap((name, at) => {
-  const failed = suite.bddFailing.includes(name);
-  return [
-    { pickle: { id: "p" + at, uri: "features/cart.feature", name, steps: [{ id: "ps" + at, text: "a step" }] } },
-    { testCase: { id: "c" + at, pickleId: "p" + at, testSteps: [{ id: "s" + at, pickleStepId: "ps" + at }] } },
-    { testCaseStarted: { id: "r" + at, testCaseId: "c" + at } },
-    { testStepFinished: { testCaseStartedId: "r" + at, testStepId: "s" + at, testStepResult: failed ? { status: "FAILED", message: "boom" } : { status: "PASSED" } } },
-  ];
-});
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
-process.exitCode = suite.bddExit;
+try {
+  const suite = JSON.parse(readFileSync("suite.json", "utf8"));
+  const output = process.argv[process.argv.indexOf("--format") + 1].slice("message:".length);
+  writeFileSync("ran-bdd.txt", "ran\\n");
+  const names = ["Add to cart", ...suite.bddFailing];
+  const lines = names.flatMap((name, at) => {
+    const failed = suite.bddFailing.includes(name);
+    return [
+      { pickle: { id: "p" + at, uri: "features/cart.feature", name, steps: [{ id: "ps" + at, text: "a step" }] } },
+      { testCase: { id: "c" + at, pickleId: "p" + at, testSteps: [{ id: "s" + at, pickleStepId: "ps" + at }] } },
+      { testCaseStarted: { id: "r" + at, testCaseId: "c" + at } },
+      { testStepFinished: { testCaseStartedId: "r" + at, testStepId: "s" + at, testStepResult: failed ? { status: "FAILED", message: "boom" } : { status: "PASSED" } } },
+    ];
+  });
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
+  process.exitCode = suite.bddExit;
+} catch (error) {
+  writeFileSync("${RUNNER_ERROR}", String(error && error.stack ? error.stack : error));
+  process.exit(70);
+}
 `;
 
 /** A script that behaves like ESLint for the flags oid appends: it reports every TODO comment of `src` (as ESLint JSON with `--format json`) and fixes nothing. */
@@ -438,10 +447,18 @@ Then("the user's copy is on its own branch, at its own commit, with only that un
   assert.equal(git(this.projectDir, "status", "--porcelain"), "M README.md");
 });
 
+/** Reads the marker a fixture runner left at `path`; when it is missing, fails with the exception the runner recorded in `directories` and with what `oid` printed, not with a secondary ENOENT. */
+function readMarker(world: OidWorld, path: string, directories: string[]): string {
+  if (existsSync(path)) return readFileSync(path, "utf8");
+  const errors = directories.map((directory) => join(directory, RUNNER_ERROR)).filter((file) => existsSync(file));
+  const recorded = errors.map((file) => `${file}:\n${readFileSync(file, "utf8")}`).join("\n");
+  throw new Error(`${path} is missing.\nrunner error: ${recorded === "" ? "none recorded" : recorded}\noid exit code: ${world.exitCode}\noid stdout:\n${world.stdout}\noid stderr:\n${world.stderr}`);
+}
+
 Then("both suite commands ran in the worktree and not in the user's copy", function (this: OidWorld) {
   const created = runWorktree(this);
   for (const marker of ["ran-unit.txt", "ran-bdd.txt"]) {
-    assert.ok(existsSync(join(created.path, marker)), `${marker} is missing from the worktree`);
+    readMarker(this, join(created.path, marker), [created.path]);
     assert.ok(!existsSync(this.path(join(PROJECT, marker))), `${marker} was written in the user's copy`);
   }
 });
@@ -585,9 +602,8 @@ Then("the lock file is as it was", function (this: OidWorld) {
 });
 
 Then("the lock held while the suite ran named the process of the run", function (this: OidWorld) {
-  const seen = JSON.parse(readFileSync(this.path("lock-seen.json"), "utf8")) as { lock: string; chain: number[] };
-  assert.ok(seen.chain.includes(Number(seen.lock)), JSON.stringify(seen));
-  assert.equal(Number(seen.lock), process.pid);
+  const seen = JSON.parse(readMarker(this, this.path("lock-seen.json"), [this.path(PROJECT), ...worktrees(this).map(({ path }) => path)])) as { lock: string };
+  assert.equal(Number(seen.lock), this.services!.pid);
 });
 
 Then("the project has no lock", function (this: OidWorld) {

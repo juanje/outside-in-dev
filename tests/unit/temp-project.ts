@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 
+// No git configuration of the machine (user, default branch, signing, hooks path) reaches a test.
+process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+process.env.GIT_CONFIG_NOSYSTEM = "1";
+
 /** The temporary project of the running test; each test gets a fresh, empty one. */
 export let dir: string;
 

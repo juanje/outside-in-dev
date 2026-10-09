@@ -132,7 +132,11 @@ export class OidWorld extends World {
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
-    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.projectDir || this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
+    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.projectDir || this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" }, timeout: CHILD_TIMEOUT_MS, killSignal: "SIGKILL" });
+    if (result.error !== undefined && (result.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
+      throw new Error(`"${commandLine}" did not end within ${CHILD_TIMEOUT_MS / 1000} s and was killed.\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    }
+    if (result.error !== undefined) throw new Error(`"${commandLine}" could not run: ${result.error.message}`);
     this.exitCode = result.status;
     this.stdout = result.stdout;
     this.stderr = result.stderr;
@@ -157,9 +161,20 @@ export class OidWorld extends World {
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => (stderr += chunk));
     const exited = new Promise<number | null>((done) => child.on("close", (code) => done(code)));
-    await new Promise<void>((done) => child.stdout.once("data", () => done()));
-    child.stdout.destroy();
-    this.exitCode = await exited;
+    try {
+      await new Promise<void>((done) => {
+        child.stdout.once("data", () => done());
+        child.once("close", () => done());
+        child.once("error", () => done());
+      });
+      child.stdout.destroy();
+      this.exitCode = await Promise.race([exited, new Promise<never>((_, fail) => setTimeout(() => fail(new Error(`"${commandLine}" did not end within ${CHILD_TIMEOUT_MS / 1000} s after its output was closed.\nstderr:\n${stderr}`)), CHILD_TIMEOUT_MS).unref())]);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGKILL");
+        await exited;
+      }
+    }
     this.stdout = "";
     this.stderr = stderr;
   }
@@ -169,6 +184,8 @@ setWorldConstructor(OidWorld);
 
 /** The scenarios of `oid run` that use the real runners take longer than the 5 seconds a step has by default. */
 const STEP_TIMEOUT_MS = 60_000;
+/** A child process of the harness is stopped below the step limit, so the failure names the command and not just "timed out". */
+const CHILD_TIMEOUT_MS = 50_000;
 setDefaultTimeout(STEP_TIMEOUT_MS);
 
 // oid spawns `git`, `jscpd` and `knip` with the inherited environment. Under a git hook, GIT_* variables
@@ -176,6 +193,9 @@ setDefaultTimeout(STEP_TIMEOUT_MS);
 // NODE_OPTIONS (set to load these steps) would be resolved relative to the scenario's directory and fail.
 BeforeAll(function () {
   for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "NODE_OPTIONS"]) delete process.env[name];
+  // No git configuration of the machine (user, default branch, signing, hooks path) reaches a scenario.
+  process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+  process.env.GIT_CONFIG_NOSYSTEM = "1";
 });
 
 Before(function (this: OidWorld) {
