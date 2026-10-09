@@ -22,10 +22,17 @@
 //                and forbidden patterns are still judged by after-edit, on the content. Writes from Bash (sed,
 //                heredocs, patch) do not go through it. It fails open: if oid is missing or fails in any other
 //                way, or the input has no file_path, the edit is allowed.
+//   overrides    (ADR-045): an `oid verify` or `oid progress step` prefixed with OID_OVERRIDE="<cause>" skips the
+//                integrity and evidence checks, and the human-only exit from bdd_red, only from the main session:
+//                Claude Code marks a subagent's tool call with `agent_id`, and a subagent's override is refused.
+//                Each override is appended to .outside-in/overrides.ndjson with its date, command and cause,
+//                before the command runs: a line is an attempt, and oid may still refuse the command itself. An
+//                override that cannot be recorded is refused.
+//                `oid progress revise` is refused with or without it.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const BLOCK = 2;
@@ -41,6 +48,8 @@ const EVIDENCE_FOR_MOVE = {
 /** Words that run the command that follows them: `oid` behind one of them is still oid. */
 const WRAPPERS = new Set(["env", "command", "exec", "time", "nice", "npx", "rtk", "proxy"]);
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+/** The variable that marks an `oid verify` or `oid progress step` as an override by the orchestrating session (ADR-045); its value is the cause. */
+const OVERRIDE = "OID_OVERRIDE";
 
 const project = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : undefined);
@@ -128,12 +137,16 @@ function commandsOf(text) {
   return commands;
 }
 
-/** The arguments of each `oid` command the line runs, behind any variable assignments and wrappers. */
+/** Each `oid` command the line runs: its arguments, behind any variable assignments and wrappers, and those assignments. */
 function oidCommands(text) {
   return commandsOf(text).flatMap((words) => {
     let at = 0;
-    while (at < words.length && (ASSIGNMENT.test(words[at]) || WRAPPERS.has(words[at]))) at++;
-    return words[at] === "oid" || words[at]?.endsWith("/oid") ? [words.slice(at + 1)] : [];
+    const assignments = {};
+    for (; at < words.length && (ASSIGNMENT.test(words[at]) || WRAPPERS.has(words[at])); at++) {
+      const equals = words[at].indexOf("=");
+      if (ASSIGNMENT.test(words[at])) assignments[words[at].slice(0, equals)] = words[at].slice(equals + 1);
+    }
+    return words[at] === "oid" || words[at]?.endsWith("/oid") ? [{ args: words.slice(at + 1), assignments }] : [];
   });
 }
 
@@ -204,12 +217,13 @@ function requireHumanForReviseExit(id, to) {
 }
 
 function beforeStep(input) {
-  for (const args of oidCommands(input.tool_input?.command ?? "")) {
+  for (const { args, assignments } of oidCommands(input.tool_input?.command ?? "")) {
     if (args.includes("--help") || args.includes("-h")) continue;
     const [command, subcommand, id, to] = args;
     if (command === "progress" && subcommand === "revise") {
       block("`oid progress revise` resets a requirement and is run by the human in their own terminal, not by the agent. For review comments on a done feature, use `oid progress reopen`.");
     }
+    if (OVERRIDE in assignments && overridden(input, args, assignments[OVERRIDE])) continue;
     if (command === "verify" && (subcommand === "red" || subcommand === "green")) {
       requireIntegrity("since the last verification; fix it before verifying again, or the new checkpoint would absorb it");
     }
@@ -218,6 +232,20 @@ function beforeStep(input) {
       requireEvidence(id, to);
     }
   }
+}
+
+/** Whether the main session overrides this command (ADR-045): only `oid verify` and `oid progress step`, with a cause, recorded in .outside-in/overrides.ndjson. A subagent, which Claude Code marks with `agent_id`, is refused. */
+function overridden(input, args, cause) {
+  if (args[0] !== "verify" && !(args[0] === "progress" && args[1] === "step")) return false;
+  if (input.agent_id !== undefined) block(`${OVERRIDE} is only for the orchestrating session (ADR-045): a subagent with no legal move stops and reports to it.`);
+  if (cause.trim() === "") block(`${OVERRIDE} needs the cause of the override (ADR-045): ${OVERRIDE}="<cause>" oid ...`);
+  try {
+    mkdirSync(join(project, ".outside-in"), { recursive: true });
+    appendFileSync(join(project, ".outside-in", "overrides.ndjson"), `${JSON.stringify({ date: new Date().toISOString(), command: ["oid", ...args].join(" "), cause })}\n`);
+  } catch (error) {
+    block(`${OVERRIDE}: the override could not be recorded in .outside-in/overrides.ndjson (${error.message}), so it is refused (ADR-045).`);
+  }
+  return true;
 }
 
 /** Blocks an edit of a file the step of the focused feature does not allow, with oid's own line. Fails open on anything else: after-edit still judges the change afterwards. */

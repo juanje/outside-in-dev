@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
@@ -186,5 +186,56 @@ describe("the before-edit hook", () => {
 
   it("allows the edit when the tool input names no file, without asking oid", () => {
     expect(beforeEditWith(REFUSING_OID, {}).status).toBe(0);
+  });
+});
+
+describe("the before-step hook, on overrides by the orchestrating session (ADR-045)", () => {
+  const overrides = (): unknown[] => readFileSync(join(dir, ".outside-in", "overrides.ndjson"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  const OVERRIDDEN_STEP = { tool_input: { command: 'OID_OVERRIDE="the unit test was fixed by the orchestrator" oid progress step FR-X-01 refactor' } };
+
+  it("lets the main session make a refused move with OID_OVERRIDE and records the cause", () => {
+    verifiedGreen();
+    write("src/a.ts", "export const a = 3;\n");
+    expect(runHook("before-step", OVERRIDDEN_STEP).status).toBe(0);
+    expect(overrides()).toEqual([{ date: expect.any(String), command: "oid progress step FR-X-01 refactor", cause: "the unit test was fixed by the orchestrator" }]);
+  });
+
+  it("refuses an override from a subagent, naming ADR-045, and records nothing", () => {
+    verifiedGreen();
+    write("src/a.ts", "export const a = 3;\n");
+    const { status, stderr } = runHook("before-step", { ...OVERRIDDEN_STEP, agent_id: "a1", agent_type: "general-purpose" });
+    expect({ status, names: stderr.includes("ADR-045"), recorded: existsSync(join(dir, ".outside-in", "overrides.ndjson")) }).toEqual({ status: 2, names: true, recorded: false });
+  });
+
+  it("refuses an override that cannot be recorded, so that no override goes unrecorded", () => {
+    verifiedGreen();
+    write("src/a.ts", "export const a = 3;\n");
+    mkdirSync(join(dir, ".outside-in", "overrides.ndjson"), { recursive: true });
+    const { status, stderr } = runHook("before-step", OVERRIDDEN_STEP);
+    expect({ status, says: stderr.includes("could not be recorded") }).toEqual({ status: 2, says: true });
+  });
+
+  it("refuses an override with no cause", () => {
+    verifiedGreen();
+    write("src/a.ts", "export const a = 3;\n");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: "OID_OVERRIDE= oid progress step FR-X-01 refactor" } });
+    expect({ status, asks: stderr.includes("needs the cause") }).toEqual({ status: 2, asks: true });
+  });
+
+  it("still refuses oid progress revise with an override", () => {
+    const { status, stderr } = runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="cause" oid progress revise FR-X-01' } });
+    expect({ status, human: stderr.includes("run by the human") }).toEqual({ status: 2, human: true });
+  });
+
+  it("lets the main session make the exit from bdd_red to quality_gate with an override", () => {
+    write("progress.json", JSON.stringify({ current_focus: "FR-X-01", features: [{ id: "FR-X-01", title: "X", status: "in_progress", cycle_step: "bdd_red", scenarios: [] }] }));
+    expect(runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="reviewed: no code needed" oid progress step FR-X-01 quality_gate' } }).status).toBe(0);
+  });
+
+  it("frees only the command that carries the override in a line with two oid commands", () => {
+    verifiedGreen();
+    write("src/a.ts", "export const a = 3;\n");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="cause" oid progress reopen FR-X-01 && oid progress step FR-X-01 refactor' } });
+    expect({ status, names: stderr.includes("src/a.ts") }).toEqual({ status: 2, names: true });
   });
 });
