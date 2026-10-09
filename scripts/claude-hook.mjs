@@ -11,8 +11,9 @@
 //                `oid verify red|green` replaces a checkpoint, the changes since the last one must pass
 //                `oid verify integrity`, or a violation would be absorbed.
 //                `oid progress revise` is refused: the human runs it in their own terminal (ADR-039);
-//                `oid progress reopen` is the agent's and is not. So is the move from bdd_red to quality_gate
-//                that ends a revise with no code to write (ADR-041).
+//                `oid progress reopen` is the agent's and is not. The move from bdd_red to quality_gate
+//                that ends a revise with no code to write is refused too, and run by the human (ADR-041).
+//                An `oid` command with `--help` or `-h` runs nothing, so none of these checks apply to it.
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
 // Exit 2 tells Claude Code to show stderr to the agent (and, before a tool call, to block it).
@@ -197,7 +198,9 @@ function requireHumanForReviseExit(id, to) {
 }
 
 function beforeStep(input) {
-  for (const [command, subcommand, id, to] of oidCommands(input.tool_input?.command ?? "")) {
+  for (const args of oidCommands(input.tool_input?.command ?? "")) {
+    if (args.includes("--help") || args.includes("-h")) continue;
+    const [command, subcommand, id, to] = args;
     if (command === "progress" && subcommand === "revise") {
       block("`oid progress revise` resets a requirement and is run by the human in their own terminal, not by the agent. For review comments on a done feature, use `oid progress reopen`.");
     }

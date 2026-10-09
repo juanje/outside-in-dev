@@ -140,3 +140,17 @@ describe("the before-step hook, on revise and reopen", () => {
     expect({ status, names: stderr.includes("human in their own terminal") }).toEqual({ status: 2, names: true });
   });
 });
+
+describe("the before-step hook, on --help", () => {
+  it("lets oid --help or -h through without the integrity or evidence checks, because nothing runs", () => {
+    focusedAt("tdd_green");
+    const commands = ["oid verify green --help", "oid verify red -h", "oid progress step FR-X-01 refactor --help"];
+    expect(commands.map(beforeStepWithFailingIntegrity)).toEqual([0, 0, 0]);
+  });
+
+  it("lets oid progress revise --help and the human-only exit from bdd_red through too, because with --help nothing runs", () => {
+    focusedAt("bdd_red");
+    const commands = ["oid progress revise --help", "oid progress step FR-X-01 quality_gate -h"];
+    expect(commands.map((command) => runHook("before-step", { tool_input: { command } }).status)).toEqual([0, 0]);
+  });
+});
