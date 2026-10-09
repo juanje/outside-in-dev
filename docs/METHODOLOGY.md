@@ -70,6 +70,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 ### 7. Done
 
+- Write anything that goes in the commit besides the code (the bootstrap-log row, notes) **before** the last `oid verify green`: `done` refuses if any file changed after the green.
 - Mark every scenario `pass` and the feature done (`oid progress done FR-…`; it refuses if any scenario is not passing).
 - Commit: `feat(<area>): FR-AREA-NN <title>`.
 
