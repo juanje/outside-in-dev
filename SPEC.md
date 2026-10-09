@@ -37,7 +37,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ## Stack and tools
 
-- **oid itself:** TypeScript on Node.js ≥ 22.19. Pi 1.0.3 (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-agent-core`, `pi-tui`), pinned. Jev through Pi's `classify()`, model `typesafe/jev-1.13` on OpenRouter.
+- **oid itself:** TypeScript on Node.js ≥ 22.19. Pi v1 (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-agent-core`, `pi-tui`), at one exact version in `package.json` (ADR-003). Jev through Pi's `classify()`, model `typesafe/jev-1.13` on OpenRouter.
 - **oid's own tests:** vitest (unit), cucumber-js 13 with tsx (BDD), `tsc --noEmit` (types).
 - **Target projects in the MVP:** TypeScript with vitest and cucumber-js. Detectors bundled with oid: `knip`, `jscpd`, and analyses built on the TypeScript compiler API.
 - **Distribution:** npm package `outside-in-dev`, command `oid`.

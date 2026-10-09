@@ -20,11 +20,12 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Decision.** Embed the Pi SDK in-process and use its built-in tools, wrapped by oid's sandbox. Pi is not the parent: oid's state machine is.
 **Consequences.** Mature tools, sessions and streaming for free. oid depends on Pi's API and must isolate it (`agents/runner.ts`) and test its shapes (ADR-003).
 
-## ADR-003: Pin Pi 1.0.3
+## ADR-003: Pi major v1, exact version in package.json
 
 **Context.** The patterns were learned on Pi 0.84. Buddy's lockfile now resolves `@earendil-works/pi-coding-agent` to 1.0.1, and that tree already passes an explicit `agentDir`, returns `{ block: true, reason }` from `beforeToolCall`, builds `tools` and `customTools` from one array, and calls `session.abort()`. Pi 1.0.0 (October 2026) adds the classifier API used for Jev. All APIs oid relies on were checked in the `v1.0.0` tag: `agent.beforeToolCall`/`afterToolCall`, `DefaultResourceLoader` with `systemPromptOverride`, `excludeTools`, `SessionManager`, `session.abort()`, thinking levels, `tool_execution_*` events, `createAgentSessionRuntime`, `InteractiveMode`, `ModelRuntime.classify()`. The current stable of that line is 1.0.3, on all four packages. What 1.0.1 does not answer, and spike S1 still has to, is a bad API key surfacing as `stopReason: "error"` from `prompt()` and `classify()`, and `SessionManager.create(cwd, dir)` plus `session.abort()` still matching that usage on 1.0.3.
-**Decision.** Pin exact versions of `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui` at 1.0.3. A compatibility test checks every shape oid uses.
+**Decision.** oid depends on Pi major v1. `package.json` keeps `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui` at one exact v1 version, the same for all four: oid is installed from a packed tarball, and a global install does not use oid's lockfile, so a range would give each install a Pi nobody tested. Moving to another v1 version is a routine `chore(deps)` commit: review Pi's changelog against the APIs oid uses, then the type check and the full gate; a changed Pi behaviour oid relies on goes into DOMAIN.md. Only leaving v1, or an update that changes how oid uses Pi, needs a new ADR.
 **Consequences.** Upgrades are deliberate and break the test suite, not a run. S1 does not re-prove isolation or the tool allowlist; Buddy 1.0.1 already did, including the two leaks that came from an SDK default (`modelsPath`, a session directory omitted on `SessionManager.create`). Detail in `docs/BOOTSTRAP.md`, Phase 1.
+**Amended 2026-10-09.** Originally pinned 1.0.3; the version moves within v1 without a new ADR (1.1.0 at the amendment).
 
 ## ADR-004: Jev through Pi's classifier API, behind a thin adapter
 

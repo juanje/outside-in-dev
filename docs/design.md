@@ -544,7 +544,7 @@ Red tests do **not** go into the baseline by default. If the human decides to co
 
 ### 7.1. Creating sessions
 
-Each task is a new session of `@earendil-works/pi-coding-agent`. `oid` pins **Pi 1.0.3**. The calls follow the usage that already works in Buddy (`consolidation-runner.ts`, `reflect-child.ts`, `session-boot.ts`). Those files were written against 0.84; Buddy's lockfile now resolves the package to 1.0.1, and the same tree passes an explicit `agentDir`, blocks in `beforeToolCall`, builds `tools` and `customTools` from one array, and calls `session.abort()` *(Buddy)*. Every API this spec uses exists in the 1.0 line (checked on the `v1.0.0` tag):
+Each task is a new session of `@earendil-works/pi-coding-agent`. `oid` depends on **Pi v1**, at one exact version in `package.json` (ADR-003). The calls follow the usage that already works in Buddy (`consolidation-runner.ts`, `reflect-child.ts`, `session-boot.ts`). Those files were written against 0.84; Buddy's lockfile now resolves the package to 1.0.1, and the same tree passes an explicit `agentDir`, blocks in `beforeToolCall`, builds `tools` and `customTools` from one array, and calls `session.abort()` *(Buddy)*. Every API this spec uses exists in the 1.0 line (checked on the `v1.0.0` tag):
 
 ```typescript
 import {
@@ -607,7 +607,7 @@ Decisions, all learned in Buddy *(Buddy)*:
 - **oid's own system prompt, and nothing the user's Pi would add.** The session is opened with the SDK. `systemPromptOverride` replaces only the preamble of the system prompt: the skills and the `AGENTS.md` (global and project) are sections of their own, which Pi still appends. oid turns them off with `noSkills` and `noContextFiles`, and also sets `noExtensions`, `noPromptTemplates` and `noThemes` (FR-AGENT-01). If the project has an `AGENTS.md`, the orchestrator extracts the relevant style conventions and includes them explicitly.
 - **Clean context, saved transcript.** Each task is a new session, but `SessionManager.create` on `.outside-in/runs/<runId>/sessions/` is used instead of `inMemory()`: the agent sees nothing of earlier sessions, and the human can open the full transcript from the interface (key `d`, §12.2) when something goes wrong.
 - **`excludeTools: ["bash"]` plus an allowlist** for every profile without a shell. Double lock, as in Buddy. The implement and debug profiles keep `bash`, checked by the sandbox (§7.3) before each call.
-- **SDK pinned at 1.0.3.** Exact version in `package.json` for `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui`. 1.0 is the version that includes the classifier API used by §8. The package has already changed scope once (`@mariozechner/*` → `@earendil-works/*`). All SDK usage stays in `agents/runner.ts` and `decisions/pi-classifier.ts`, and a compatibility test checks the shapes `oid` uses on every upgrade (§19).
+- **SDK on Pi v1, pinned exactly.** One exact v1 version in `package.json` for `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui`. 1.0 is the version that includes the classifier API used by §8. The package has already changed scope once (`@mariozechner/*` → `@earendil-works/*`). All SDK usage stays in `agents/runner.ts` and `decisions/pi-classifier.ts`, and every upgrade within v1 reviews Pi's changelog against the shapes `oid` uses and runs the full gate (ADR-003).
 
 ### 7.2. Profiles per state
 

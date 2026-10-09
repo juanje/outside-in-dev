@@ -1,6 +1,6 @@
 # Domain
 
-Context an agent cannot discover from the code: vocabulary, data formats, and how the external systems oid depends on actually behave. Everything under "External behaviour" was observed, not assumed (Pi 1.0.0, cucumber-js 13, vitest 3). The pinned Pi release is 1.0.3. Buddy's lockfile runs 1.0.1 and already confirms session isolation, `beforeToolCall` blocking, the single tool array and `session.abort()` (`docs/BOOTSTRAP.md`, spike S1). S1 on 1.0.3 rechecks the bad-key `stopReason` and the `SessionManager.create(cwd, dir)` signature.
+Context an agent cannot discover from the code: vocabulary, data formats, and how the external systems oid depends on actually behave. Everything under "External behaviour" was observed, not assumed (Pi 1.0.0, cucumber-js 13, vitest 3). Pi is pinned at one exact v1 version in `package.json` (ADR-003); 1.1.0 since 2026-10-09. Buddy's lockfile runs 1.0.1 and already confirms session isolation, `beforeToolCall` blocking, the single tool array and `session.abort()` (`docs/BOOTSTRAP.md`, spike S1). S1 on 1.0.3 rechecks the bad-key `stopReason` and the `SessionManager.create(cwd, dir)` signature.
 
 ## Glossary
 
@@ -131,9 +131,9 @@ All questions of one call share one `state` object. Criteria always carry descri
 
 ## External behaviour
 
-### Pi SDK 1.0.3
+### Pi SDK (v1)
 
-Observed on 1.0.0. Buddy runs 1.0.1 with the same session shape. The pin is 1.0.3; S1 rechecks the bad-key `stopReason` and `SessionManager.create(cwd, dir)` on that pin.
+Observed on 1.0.0. Buddy runs 1.0.1 with the same session shape. S1 rechecked the bad-key `stopReason` and `SessionManager.create(cwd, dir)` on 1.0.3 (ADR-031), and the same checks passed again on 1.1.0: a bad key resolves `prompt()` and `classify()` with `stopReason: "error"` on `message_end` (usage present, cost 0), and the transcript goes to the given directory. From 1.1.0, `usage.cost.total` no longer undercounts long prompts on models with prompt-length pricing tiers, so costs can read higher than on 1.0.3, and Pi itself retries `server_busy` provider errors.
 
 - `await session.prompt(…)` resolves the same way when the model worked and when the provider failed. Errors arrive as an assistant `message_end` with `stopReason: "error"` and `errorMessage`. An empty assistant response is also possible. Neither is success.
 - `classify()` behaves the same: it resolves with `stopReason: "error"` instead of rejecting.
