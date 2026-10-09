@@ -983,15 +983,18 @@ interface InputRequest {
 
 | Limit | Scope | Default |
 |:--|:--|:--|
-| `max_retries` | per state | 3 |
+| `max_retries` | per state, retries after the first attempt; 0 fails fast (ADR-047) | 3 |
 | `max_inner_iterations` | per scenario | 8 |
 | `agent_timeout_s` | per session | 600 |
 | `agent_max_turns` | per session | 40 |
 | `command_timeout_s` | per command oid runs from the configuration (ADR-043) | 600 |
 | `sandbox_denials_abort` | per session | 5 |
-| `cost_limit_usd` | per FR and per run | no limit |
+| `cost_limit_usd` | per run | no limit |
+| `cost_limit_fr_usd` | per FR (each FR starts at 0) | no limit |
 
 Cost is computed by adding up, on every `message_end` event of an assistant message, `usage.cost.total` and `usage.totalTokens`, which is how Buddy's `usage-tracker.ts` does it *(Buddy)*. The cost of Jev calls is added to that. The budget is checked **before every billable call**, not only when the run starts: Buddy added that check after a consolidation cascade already in progress went over the limit (FR-COST-05).
+
+A cost limit is checked before every agent session and after every assistant message that another call will follow, so a session can be stopped half-way. `agent_max_turns` and `agent_timeout_s` abort the session. Reaching any of them asks "Budget exhausted" (§10.1). **Extend** raises a cost limit by its own size again (limit × (1 + extensions), kept in `session.json`); after a turn or time limit it rolls the worktree back to where the call began and runs the task again in a new session with that limit doubled, without counting a retry. **Abort** ends the run with exit 4. Without a terminal the question is saved and the run exits 3.
 
 ---
 
@@ -1310,7 +1313,8 @@ Validated with Zod at startup.
     "agent_max_turns": 40,
     "command_timeout_s": 600,
     "sandbox_denials_abort": 5,
-    "cost_limit_usd": null
+    "cost_limit_usd": 20,
+    "cost_limit_fr_usd": 5
   },
   "dependencies": {
     "policy": "ask",
