@@ -230,3 +230,21 @@ Feature: Verify a unit Red
     And the error output contains "formal greets"
     And the error output contains "informal greets"
     And no checkpoint is recorded
+
+  Scenario: The copies of files that checkpoints keep are not run as tests
+    Given the unit test file "tests/unit/greeting.test.ts" containing:
+      """
+      import { expect, it } from "vitest";
+      import { greet } from "../../src/greeting.js";
+
+      it("greets informally", () => {
+        expect(greet("Ann")).toBe("Hi, Ann");
+      });
+      """
+    When I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
+    And I run "oid verify red \"tests/unit/greeting.test.ts > greets informally\""
+    Then the command needs a decision
+    And the output starts with "red: needs a decision"
+    And the output contains "Hi, Ann"
+    And the output does not contain "cannot be found"
+    And the checkpoint keeps a copy of "tests/unit/greeting.test.ts"

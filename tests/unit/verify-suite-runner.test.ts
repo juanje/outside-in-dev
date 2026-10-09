@@ -7,9 +7,9 @@ useTempDir();
 const ARGV_RUNNER = 'import { writeFileSync } from "node:fs";\nconst out = process.argv.find((a) => a.startsWith("--outputFile=")).slice(13);\nwriteFileSync(out, JSON.stringify({ argv: process.argv.slice(2) }));\nprocess.exit(1);\n';
 
 describe("runUnitSuite", () => {
-  it("runs the configured command with only the report options appended, and returns its exit code and JSON report", () => {
+  it("runs the configured command with the exclusion of oid's own directory and the report options appended, and returns its exit code and JSON report", () => {
     write("runner.mjs", ARGV_RUNNER);
-    expect(runUnitSuite(dir, "node runner.mjs")).toEqual({ exitCode: 1, report: { argv: ["--reporter=json", "--outputFile=.outside-in/verify/unit.json"] } });
+    expect(runUnitSuite(dir, "node runner.mjs")).toEqual({ exitCode: 1, report: { argv: ["--exclude=**/.outside-in/**", "--reporter=json", "--outputFile=.outside-in/verify/unit.json"] } });
   });
 });
 

@@ -1488,6 +1488,10 @@
         {
           "name": "A test file that matches no file is refused",
           "bdd": "pass"
+        },
+        {
+          "name": "The copies of files that checkpoints keep are not run as tests",
+          "bdd": "pass"
         }
       ]
     },

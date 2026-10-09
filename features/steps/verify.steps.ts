@@ -123,6 +123,11 @@ Then("the checkpoint lists the file {string}", function (this: OidWorld, path: s
   assert.ok(path in readCheckpoint(this).snapshot, `the checkpoint does not list ${path}`);
 });
 
+Then("the checkpoint keeps a copy of {string}", function (this: OidWorld, path: string) {
+  const copies = this.loadProgress().current_focus === null ? ".outside-in/checkpoint-files" : `${CHECKPOINTS_DIR}/${this.loadProgress().current_focus}.files`;
+  assert.ok(existsSync(this.path(`${copies}/${path}`)), `no copy of ${path} under ${copies}`);
+});
+
 Then("the checkpoint lists the scenario {string} of {string}", function (this: OidWorld, name: string, feature: string) {
   assert.deepEqual(readCheckpoint(this).scenarios.filter((scenario) => scenario.name === name && scenario.feature === feature), [{ feature, name }]);
 });

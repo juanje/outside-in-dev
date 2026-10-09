@@ -8,6 +8,8 @@ import { readJson, readText } from "./project-json.js";
 /** The directory, relative to the project, that holds the runners' reports; local and git-ignored. */
 const REPORT_DIR = ".outside-in/verify";
 const UNIT_REPORT = `${REPORT_DIR}/unit.json`;
+/** The glob of oid's own directory, which every unit run excludes so the copies of tests that checkpoints keep are never run as tests. */
+const OID_DIR_GLOB = "**/.outside-in/**";
 const BDD_REPORT = `${REPORT_DIR}/bdd.ndjson`;
 
 /** The text quoted for a POSIX shell as one word. */
@@ -20,9 +22,9 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The report options of the unit command, and the file the report is written to. */
+/** The options oid appends to every unit command: the exclusion of its own directory, and the report options with the file the report is written to. */
 function reportOptions(reportPath: string): string {
-  return `--reporter=json --outputFile=${shellQuote(reportPath)}`;
+  return `--exclude=${shellQuote(OID_DIR_GLOB)} --reporter=json --outputFile=${shellQuote(reportPath)}`;
 }
 
 /** The configured unit command with oid's arguments appended: the test file, the test name as the `--testNamePattern=` filter, in one word so a name starting with `-` is not read as an option and the JSON report. */

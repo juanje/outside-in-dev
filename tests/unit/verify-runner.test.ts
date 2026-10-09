@@ -6,9 +6,9 @@ import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.
 useTempDir();
 
 describe("unitRunCommand", () => {
-  it("appends the test file, the escaped test name and the report options to the configured command", () => {
+  it("appends the test file, the escaped test name, the exclusion of oid's own directory and the report options to the configured command", () => {
     expect(unitRunCommand("npx vitest run", { file: "tests/unit/a.test.ts", name: "adds (1 + 1)" }, ".outside-in/verify/unit.json")).toBe(
-      "npx vitest run 'tests/unit/a.test.ts' --testNamePattern='adds \\(1 \\+ 1\\)' --reporter=json --outputFile='.outside-in/verify/unit.json'",
+      "npx vitest run 'tests/unit/a.test.ts' --testNamePattern='adds \\(1 \\+ 1\\)' --exclude='**/.outside-in/**' --reporter=json --outputFile='.outside-in/verify/unit.json'",
     );
   });
 
@@ -23,7 +23,7 @@ describe("runUnitTest", () => {
     const run = runUnitTest(dir, "node runner.mjs", { file: "tests/a.test.ts", name: "adds up" });
     expect(run).toEqual({
       exitCode: 3,
-      report: { argv: ["tests/a.test.ts", "--testNamePattern=adds up", "--reporter=json", "--outputFile=.outside-in/verify/unit.json"] },
+      report: { argv: ["tests/a.test.ts", "--testNamePattern=adds up", "--exclude=**/.outside-in/**", "--reporter=json", "--outputFile=.outside-in/verify/unit.json"] },
     });
   });
 
