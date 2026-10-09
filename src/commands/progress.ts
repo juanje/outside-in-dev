@@ -61,8 +61,11 @@ function forgetRecords(cwd: string, id: string): void {
   clearRevise(cwd, id);
 }
 
-/** The steps a feature can go back to `bdd_red` from, which records a return. */
-const RETURN_FROM: string[] = [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor, CYCLE_STEP.qualityGate];
+/** The steps a feature can go back to a Red from, which records a return: to `bdd_red` for a step (ADR-038), to `tdd_red` for a unit test (ADR-044, where `tdd_red` itself is not a way back). */
+const RETURN_FROM: Record<string, string[]> = {
+  [CYCLE_STEP.bddRed]: [CYCLE_STEP.tddRed, CYCLE_STEP.tddGreen, CYCLE_STEP.refactor, CYCLE_STEP.qualityGate],
+  [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen, CYCLE_STEP.refactor, CYCLE_STEP.qualityGate],
+};
 
 function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
@@ -71,7 +74,7 @@ function stepFeature(progress: Progress, io: Context, id: string, step: string):
   progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step, reviseExit ? [CYCLE_STEP.qualityGate] : []);
   saveProgress(io.cwd, progress, io.paths.progress);
   forgetRecords(io.cwd, id);
-  if (step === CYCLE_STEP.bddRed && RETURN_FROM.includes(feature.cycle_step ?? "") && hasHead(io.cwd)) recordReturn(io.cwd, id, feature.cycle_step!);
+  if (RETURN_FROM[step]?.includes(feature.cycle_step ?? "") && hasHead(io.cwd)) recordReturn(io.cwd, id, feature.cycle_step!);
 }
 
 /** The word of `oid progress scenario` that removes a pending scenario instead of recording a status. */

@@ -73,9 +73,12 @@ function describeChange(cwd: string, config: ProjectConfig, progress: Progress |
   };
 }
 
-/** The files that changed since what the feature in focus is judged against: the return it made to `bdd_red` when it has one, and its checkpoint otherwise. */
+/** The steps a feature can be at with a return recorded. */
+const RED_STEPS_WITH_RETURN: string[] = [CYCLE_STEP.bddRed, CYCLE_STEP.tddRed];
+
+/** The files that changed since what the feature in focus is judged against: the return it made to `bdd_red` or `tdd_red` when it has one, and its checkpoint otherwise. */
 function changedFiles(cwd: string, focus: string | null, step: string): string[] {
-  return step === CYCLE_STEP.bddRed && focus !== null && readReturn(cwd, focus) !== undefined ? changedSinceReturn(cwd, focus) : changedSinceCheckpoint(cwd, focus);
+  return RED_STEPS_WITH_RETURN.includes(step) && focus !== null && readReturn(cwd, focus) !== undefined ? changedSinceReturn(cwd, focus) : changedSinceCheckpoint(cwd, focus);
 }
 
 /** One line for each rule of `step` that the changes since the checkpoint of the feature in focus (since its return, at `bdd_red` after one) break. */

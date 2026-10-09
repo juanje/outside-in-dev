@@ -15,10 +15,10 @@ import { isInsideSource } from "../artifacts/source-roots.js";
 import { withVerifyLock, type VerifyServices } from "../artifacts/verify-lock.js";
 import { CommandTimeoutError, runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
-import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
+import { parseBddTarget, TARGET, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
-import { answerReturn, judgeReturn, moveFeature, moveToUnitRed, passedAtOnce, returnedFeature } from "./verify-return.js";
+import { answerReturn, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
 import { GREEN, runGreen } from "./verify-green.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
@@ -114,7 +114,6 @@ export interface Observation {
 }
 
 /** The unit test or the scenario to verify. */
-const TARGET = { test: "unit_test", scenario: "scenario" } as const;
 type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
 
 /** The scenarios of the project, to look a target up by name; none when the target has the form of a unit test or the project has no configuration. */
@@ -221,6 +220,32 @@ function answerPassed(io: CliIo, config: ProjectConfig, parsed: Target, target: 
   return 0;
 }
 
+/** The answer for what judging a return found, nothing when the cycle has no code, which the usual rules judge. */
+function answerJudged(io: CliIo, config: ProjectConfig, { returned, target, judged }: { returned: string; target: string; judged: Judgement }, kind: ReturnKind): number | undefined {
+  return judged.kind === NO_CODE ? undefined : answerReturn(io, config.paths.progress, returned, target, judged, kind);
+}
+
+/** Why a test that passes is not a Red either without the code of the cycle, run now: nothing when it fails there as a valid Red. */
+function refusalWithoutCode(cwd: string, config: ProjectConfig, test: { file: string; name: string }): string | undefined {
+  const observation = observeUnit(cwd, config, test);
+  if (observation.failure.kind === FAILURE.passed) return "the test passes without this cycle's code";
+  const verdict = classifyObservation(cwd, config, observation);
+  if (verdict.outcome === OUTCOME.valid) return undefined;
+  return verdict.outcome === OUTCOME.decision
+    ? `the test fails without this cycle's code, and the failure needs a decision: ${verdict.reason}`
+    : `the test fails without this cycle's code, but not as a Red (${verdict.class}): ${verdict.reason}`;
+}
+
+/** The answer for a unit test that passes at `tdd_red` after a return, judged as a fix of the test; nothing when it is not that case, which the usual rules judge. */
+function answerFixedTest(io: CliIo, config: ProjectConfig, parsed: Target, target: string, { failure }: Observation): number | undefined {
+  if (parsed.kind !== TARGET.test || failure.kind !== FAILURE.passed) return undefined;
+  const returned = returnedFeature(io.cwd, config.paths.progress, TDD_RED);
+  if (returned === undefined) return undefined;
+  const subject: ReturnSubject = { ...TEST_RETURN, refusalWithoutCode: () => refusalWithoutCode(io.cwd, config, parsed.test) };
+  const judged = judgeReturn(io.cwd, returned, (name) => isInsideSource(config.paths.source, name), () => true, subject);
+  return answerJudged(io, config, { returned, target, judged }, TEST_RETURN);
+}
+
 /** The answer for a scenario verified at `bdd_red` after a return, unless the cycle has no code, which the usual rules judge; nothing for any other target. */
 function answerIfReturned(io: CliIo, config: ProjectConfig, parsed: Target, target: string): number | undefined {
   if (parsed.kind !== TARGET.scenario) return undefined;
@@ -229,7 +254,7 @@ function answerIfReturned(io: CliIo, config: ProjectConfig, parsed: Target, targ
   if (returned === undefined) return undefined;
   const passes = (): boolean => observeBdd(io.cwd, config, scenario).failure.kind === FAILURE.passed;
   const judged = judgeReturn(io.cwd, returned, (name) => isInsideSource(config.paths.source, name), passes);
-  return judged.kind === "no_code" ? undefined : answerReturn(io, config.paths.progress, returned, target, judged);
+  return answerJudged(io, config, { returned, target, judged }, SCENARIO_RETURN);
 }
 
 /** The answer for a target that needs no observation: step files that would not load, or a scenario judged against the return of its feature. Nothing otherwise. */
@@ -271,6 +296,8 @@ function runRed(io: CliIo, args: string[]): number {
   const observation = parsed.kind === TARGET.test ? observeUnit(io.cwd, config, parsed.test) : observeBdd(io.cwd, config, parsed.scenario);
   const passedAtOnce = answerPassed(io, config, parsed, target, observation);
   if (passedAtOnce !== undefined) return passedAtOnce;
+  const fixed = answerFixedTest(io, config, parsed, target, observation);
+  if (fixed !== undefined) return fixed;
   const verdict = classifyObservation(io.cwd, config, observation);
   const message = "message" in observation.failure ? observation.failure.message : "";
   recordObservation(io.cwd, { target, step, message, needsDecision: verdict.outcome === OUTCOME.decision });

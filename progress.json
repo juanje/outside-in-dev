@@ -3000,6 +3000,37 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-VERIFY-08",
+      "title": "Fix a unit test after the code exists",
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A test that passes with no code in this cycle is still not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test fixed after the code exists returns the feature to where it came from",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test that fails after going back is judged as any Red and the feature stays at tdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "Source changed after going back does not return the feature",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test that passes without this cycle's code does not return the feature, and the code is restored",
+          "bdd": "pass"
+        },
+        {
+          "name": "Integrity after going back allows test changes and refuses source changes",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

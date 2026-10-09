@@ -5,25 +5,49 @@ import { cycleCodeFiles, withoutCycleCode } from "../artifacts/cycle-code.js";
 import { requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { CYCLE_STEP, type FeatureProgress, loadProgress, ProgressError, SCENARIO_STATUS, requireFeature, saveProgress } from "../artifacts/progress.js";
 import type { CliIo } from "../cli-io.js";
+import { TARGET } from "../artifacts/verify-target.js";
 import { changedSinceReturn, clearReturn, readReturn } from "../artifacts/return-record.js";
 
 const LIST_SEPARATOR = ", ";
+/** The judgement of a cycle that has no code to remove, which the usual rules judge. */
+export const NO_CODE = "no_code";
+
 /** What judging a scenario at `bdd_red` after a return found. */
-export type Judgement = { kind: "refused"; reason: string } | { kind: "returned"; to: string; files: string[] } | { kind: "no_code" };
+export type Judgement = { kind: "refused"; reason: string } | { kind: "returned"; to: string; files: string[] } | { kind: typeof NO_CODE };
 
 function refuse(reason: string): Judgement {
   return { kind: "refused", reason };
 }
 
-/** Judges a scenario run at `bdd_red` with a return: refused when source changed since the return, without running the scenario, when it does not pass, or when it also passes without the code of the cycle; `passes` runs it. */
-export function judgeReturn(cwd: string, feature: string, isSource: (name: string) => boolean, passes: () => boolean): Judgement {
+/** What is judged after a return: a scenario at `bdd_red` or a unit test at `tdd_red`, and the Red step it is verified at. */
+export interface ReturnKind {
+  noun: string;
+  step: string;
+}
+
+export const SCENARIO_RETURN: ReturnKind = { noun: TARGET.scenario, step: CYCLE_STEP.bddRed };
+export const TEST_RETURN: ReturnKind = { noun: "test", step: CYCLE_STEP.tddRed };
+
+/** What is judged, and how it is run with the code of the cycle removed. */
+export interface ReturnSubject extends ReturnKind {
+  /** Run while the code of the cycle is removed: why the return is refused, or nothing when the subject is as a Red. */
+  refusalWithoutCode: () => string | undefined;
+}
+
+/** A scenario, which has to fail without the code of the cycle: `passes` runs it. */
+function scenarioSubject(passes: () => boolean): ReturnSubject {
+  return { ...SCENARIO_RETURN, refusalWithoutCode: () => (passes() ? "the scenario passes without this cycle's code" : undefined) };
+}
+
+/** Judges a scenario or a test verified with a return: refused when source changed since the return, without running it, when it does not pass, or when it is not a Red without the code of the cycle; `passes` runs it. */
+export function judgeReturn(cwd: string, feature: string, isSource: (name: string) => boolean, passes: () => boolean, subject: ReturnSubject = scenarioSubject(passes)): Judgement {
   const moved = changedSinceReturn(cwd, feature).filter(isSource);
   if (moved.length > 0) return refuse(`${moved.join(LIST_SEPARATOR)} changed since the return`);
   const files = cycleCodeFiles(cwd, feature, isSource);
-  if (files.length === 0) return { kind: "no_code" };
-  if (!passes()) return refuse("the scenario does not pass");
-  if (withoutCycleCode(cwd, feature, isSource, passes)) return refuse("the scenario passes without this cycle's code");
-  return { kind: "returned", to: readReturn(cwd, feature)!.from, files };
+  if (files.length === 0) return { kind: NO_CODE };
+  if (!passes()) return refuse(`the ${subject.noun} does not pass`);
+  const refusal = withoutCycleCode(cwd, feature, isSource, subject.refusalWithoutCode);
+  return refusal === undefined ? { kind: "returned", to: readReturn(cwd, feature)!.from, files } : refuse(refusal);
 }
 
 /** Moves `feature` to `step` by writing the progress directly, which is not a manual transition, and forgets its return. */
@@ -54,21 +78,21 @@ function focusedProgress(cwd: string, progressFile: string): FeatureProgress | u
   return progress.features.find(({ id }) => id === progress.current_focus);
 }
 
-/** The feature in focus when it is at `bdd_red` with a return, which judges the scenarios it verifies. */
-export function returnedFeature(cwd: string, progressFile: string): string | undefined {
+/** The feature in focus when it is at `step` (`bdd_red`, which judges the scenarios it verifies, or `tdd_red`, which judges its tests) with a return. */
+export function returnedFeature(cwd: string, progressFile: string, step: string = CYCLE_STEP.bddRed): string | undefined {
   const focused = focusedProgress(cwd, progressFile);
-  return focused?.cycle_step === CYCLE_STEP.bddRed && readReturn(cwd, focused.id) !== undefined ? focused.id : undefined;
+  return focused?.cycle_step === step && readReturn(cwd, focused.id) !== undefined ? focused.id : undefined;
 }
 
-/** Prints what judging the scenario found and, when the feature returns, records the checkpoint and moves it: exit 0 when it returned, 1 when it did not. */
-export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: "no_code" }>): number {
+/** Prints what judging the scenario or test found and, when the feature returns, records the checkpoint and moves it: exit 0 when it returned, 1 when it did not. */
+export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: typeof NO_CODE }>, subject: ReturnKind = SCENARIO_RETURN): number {
   if (judged.kind === "refused") {
     io.stdout(`red: not returned: ${judged.reason}\n`);
     return 1;
   }
-  recordCheckpoint(io.cwd, { step: CYCLE_STEP.bddRed, feature, verify: { kind: "red", target }, external: false, date: new Date(), returned: true });
+  recordCheckpoint(io.cwd, { step: subject.step, feature, verify: { kind: "red", target }, external: false, date: new Date(), returned: true });
   moveFeature(io.cwd, progressFile, feature, judged.to);
-  io.stdout(`red: returned to ${judged.to}: the scenario passes, src/ is as it was at the return, and it fails without this cycle's code (${judged.files.join(LIST_SEPARATOR)})\n`);
+  io.stdout(`red: returned to ${judged.to}: the ${subject.noun} passes, src/ is as it was at the return, and it fails without this cycle's code (${judged.files.join(LIST_SEPARATOR)})\n`);
   return 0;
 }
 

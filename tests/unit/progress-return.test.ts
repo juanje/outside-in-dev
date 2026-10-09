@@ -41,6 +41,18 @@ describe("oid progress step to bdd_red", () => {
     expect(readReturn(dir, "FR-X-01")?.from).toBe("quality_gate");
   });
 
+  it.each(["tdd_green", "refactor", "quality_gate"])("records a return to tdd_red from %s", async (from) => {
+    startAt(from);
+    expect((await runInProject(["progress", "step", "FR-X-01", "tdd_red"])).exitCode).toBe(0);
+    expect(readReturn(dir, "FR-X-01")?.from).toBe(from);
+  });
+
+  it("records no return when the feature goes on from bdd_red to tdd_red", async () => {
+    startAt("bdd_red");
+    await runInProject(["progress", "step", "FR-X-01", "tdd_red"]);
+    expect(readReturn(dir, "FR-X-01")).toBeUndefined();
+  });
+
   it("keeps the return when the same move back is refused", async () => {
     startAt("refactor");
     await runInProject(["progress", "step", "FR-X-01", "bdd_red"]);

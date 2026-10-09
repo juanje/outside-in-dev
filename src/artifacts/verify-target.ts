@@ -3,6 +3,9 @@ import { ProgressError } from "./progress.js";
 
 const LIST_SEPARATOR = ", ";
 /** What separates the test file from the test name in a unit target. */
+/** The kinds of target `oid verify red` takes: a unit test or a scenario. */
+export const TARGET = { test: "unit_test", scenario: "scenario" } as const;
+
 export const UNIT_SEPARATOR = " > ";
 
 /** Splits `<test file> > <test name>` at the first separator; the name may contain the separator itself. */
