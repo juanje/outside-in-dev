@@ -4,6 +4,7 @@ import type { CliIo } from "./cli-io.js";
 import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
 import type { AbortServices } from "./commands/abort.js";
+import type { DoctorServices } from "./commands/doctor.js";
 import type { SetupServices } from "./commands/setup.js";
 import { packageVersion } from "./version.js";
 
@@ -37,6 +38,12 @@ const COMMANDS: Record<string, CommandHelp> = {
       "--model": "Assign a model of the catalogue to a role: fast, default, strong or spec (repeatable)",
     },
     extra: async () => "\nWithout options, at a terminal, oid setup asks for what it needs. Without a terminal, give options.\n",
+  },
+  doctor: {
+    summary: "Check, without changing anything, that oid can run here: the project's tools, the models of the roles and their credentials",
+    usage: "oid doctor [--connect]",
+    options: { "--connect": "Also make one minimal call to each provider that has a credential (this uses the network)" },
+    extra: async () => "\nOne line for each check: ok, missing (with the command that fixes it) or failed.\n\nExit codes:\n  0  everything is ok\n  1  something is missing or failed\n",
   },
   run: {
     summary: "Start a run: lock, worktree, baseline of the suite and selection of the features",
@@ -83,7 +90,7 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Services = RunServices | VerifyServices | AbortServices | SetupServices;
+type Services = RunServices | VerifyServices | AbortServices | SetupServices | DoctorServices;
 type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
@@ -99,6 +106,7 @@ const RUNNERS: Record<string, Runner> = {
     return exitCode;
   },
   setup: async (rest, io, services) => (await import("./commands/setup.js")).runSetup(io, rest, services as SetupServices),
+  doctor: async (rest, io, services) => (await import("./commands/doctor.js")).runDoctor(io, rest, services as DoctorServices),
   run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services as RunServices),
   verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services as VerifyServices | undefined),
   resume: async (_rest, io, services) => (await import("./commands/resume.js")).runResume(io, services as RunServices),

@@ -20,6 +20,7 @@ import { readText } from "../artifacts/project-json.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { loadUserModels } from "../artifacts/user-config.js";
 import { acquireLock, releaseLock } from "./lock.js";
+import { requireSetup } from "./preflight.js";
 import { detectProject } from "../artifacts/detect-all.js";
 import { isExitCode, type RunEnvironment, STATE, startOfRun, type Started, transition } from "./begin.js";
 import type { RunArgs } from "./run-args.js";
@@ -142,6 +143,7 @@ export async function writeAndReview(started: Started, services: FeatureServices
 /** Runs the states of a run from its start to the review of the feature files, holding the lock until the process ends: returns the exit code of the process. A person's answer that stops the run on the budget ends it with the exit code of the answer. */
 export async function runFeatureCycle(cwd: string, args: RunArgs, environment: Omit<RunEnvironment, "pid">, services: RunServices): Promise<number> {
   const { commands } = loadProjectConfig(cwd);
+  await requireSetup(cwd, services.preflight);
   acquireLock(cwd, services.pid);
   try {
     const started = startOfRun(cwd, args, { ...environment, pid: services.pid, aborted: services.aborted }, commands, services.detect ?? detectProject, runnersOf(services));

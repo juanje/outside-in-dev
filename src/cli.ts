@@ -16,7 +16,14 @@ async function runServices(): Promise<RunServices> {
   process.on("SIGTERM", () => {
     abortRequested = true;
   });
-  return { pid: process.pid, agentDir: oidAgentDir(process.env), configDir: oidConfigDir(process.env), input, aborted: () => abortRequested };
+  const where = { agentDir: oidAgentDir(process.env), configDir: oidConfigDir(process.env) };
+  return { pid: process.pid, ...where, input, aborted: () => abortRequested, preflight: where };
+}
+
+/** What `oid doctor` takes from this process: where the user's configuration and oid's agent directory are. */
+async function doctorServices() {
+  const { oidAgentDir, oidConfigDir } = await import("./artifacts/user-config.js");
+  return { agentDir: oidAgentDir(process.env), configDir: oidConfigDir(process.env) };
 }
 
 /** What `oid setup` and `oid init` (which offers it) take from this process: where the user's configuration is, the terminal, and the standard input. */
@@ -28,6 +35,7 @@ async function setupFromProcess() {
 const SERVICES: Record<string, () => Promise<Parameters<typeof runCli>[2]>> = {
   setup: setupFromProcess,
   init: setupFromProcess,
+  doctor: doctorServices,
   run: runServices,
   resume: runServices,
   verify: async () => ({ pid: process.pid }),

@@ -13,7 +13,7 @@ const OID_DIR_GLOB = "**/.outside-in/**";
 export const BDD_REPORT = `${REPORT_DIR}/bdd.ndjson`;
 
 /** The text quoted for a POSIX shell as one word. */
-function shellQuote(text: string): string {
+export function shellQuote(text: string): string {
   return `'${text.replaceAll("'", "'\\''")}'`;
 }
 

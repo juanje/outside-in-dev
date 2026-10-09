@@ -19,7 +19,7 @@ const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 /** The terminal an in-process run is given: none, or one that answers the review. */
 export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string>; secret?(prompt: string): Promise<string> };
 /** What an in-process `oid run` or `oid setup` is given in place of the real agent, the real terminal, the standard input and the Pi directory. */
-export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; configDir?: string; piAgentDir?: string; readStdin?: () => Promise<string>; detect?: (worktree: string) => FindingDraft[]; runners?: Runners; signal?: (pid: number) => void; aborted?: () => boolean };
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; configDir?: string; piAgentDir?: string; readStdin?: () => Promise<string>; detect?: (worktree: string) => FindingDraft[]; runners?: Runners; preflight?: { configDir: string; agentDir: string; sdk?: PiSdk }; signal?: (pid: number) => void; aborted?: () => boolean };
 
 /** `runCli` as the scenarios call it: with the services of the run. */
 const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;
@@ -143,13 +143,30 @@ export class OidWorld extends World {
     this.stderr = stderr;
   }
 
+  /** The scratch directories a built CLI run uses, removed after the scenario. */
+  scratch: string[] = [];
+
+  /** What the built CLI sees of the user's setup: a scratch configuration directory with models and a dummy key (never the user's real one), and a scratch directory on the path with the executable `t`, the type check command of the fixtures. */
+  builtEnvironment(): Record<string, string> {
+    const root = mkdtempSync(join(tmpdir(), "oid-bdd-user-"));
+    this.scratch.push(root);
+    const config = join(root, "config");
+    mkdirSync(join(config, "agent"), { recursive: true });
+    writeFileSync(join(config, "config.json"), JSON.stringify({ models: { fast: "anthropic/claude-haiku-4-5", default: "anthropic/claude-sonnet-4-5", strong: "anthropic/claude-opus-5" } }));
+    writeFileSync(join(config, "agent", "auth.json"), JSON.stringify({ anthropic: { type: "api_key", key: "sk-scratch-not-a-key" } }), { mode: 0o600 });
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "t"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    return { OID_CONFIG_DIR: config, OID_AGENT_DIR: join(config, "agent"), PATH: `${bin}:${process.env.PATH ?? ""}` };
+  }
+
   /** Runs the command with the built CLI (`dist/cli.js`) in a child process, as a user would, and keeps what it printed and its exit code. */
   runBuilt(commandLine: string): void {
     const args = splitArgs(commandLine);
     if (args[0] === "oid") args.shift();
     this.progressBefore = this.readProgressRaw();
     this.filesBefore = this.snapshotFiles();
-    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.projectDir || this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" }, timeout: CHILD_TIMEOUT_MS, killSignal: "SIGKILL" });
+    const result = spawnSync(process.execPath, [BUILT_CLI, ...args], { cwd: this.projectDir || this.dir, encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "", ...this.builtEnvironment() }, timeout: CHILD_TIMEOUT_MS, killSignal: "SIGKILL" });
     if (result.error !== undefined && (result.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
       throw new Error(`"${commandLine}" did not end within ${CHILD_TIMEOUT_MS / 1000} s and was killed.\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
     }
@@ -230,4 +247,5 @@ After(function (this: OidWorld, { result }) {
   const calls = result?.status === Status.FAILED ? replayCallsText(this.dir) : "";
   if (calls !== "") this.attach(calls, "text/plain");
   rmSync(this.dir, { recursive: true, force: true });
+  for (const directory of this.scratch) rmSync(directory, { recursive: true, force: true });
 });

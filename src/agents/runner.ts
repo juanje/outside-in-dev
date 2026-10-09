@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
-import { AUTH_FILE, MODEL_SEPARATOR } from "../artifacts/user-config.js";
+import { AUTH_FILE, MODEL_SEPARATOR, MODELS_FILE } from "../artifacts/user-config.js";
 import type { CycleState } from "./profiles.js";
 import { collectReport } from "./report-events.js";
 import { ABORTED, checkResponse, EMPTY, PROVIDER_ERROR, type ResponseVerdict } from "./response-check.js";
@@ -17,7 +17,7 @@ export type SessionRequest = { worktree: string; agentDir: string; sessionsDir: 
 
 /** The Pi runtime of oid's agent directory and the model it holds for a `provider/id` name; refused when the runtime has no such model. */
 async function modelOf(sdk: PiSdk, agentDir: string, name: string) {
-  const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(agentDir, AUTH_FILE), modelsPath: join(agentDir, "models.json") });
+  const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(agentDir, AUTH_FILE), modelsPath: join(agentDir, MODELS_FILE) });
   const [provider = "", ...rest] = name.split(MODEL_SEPARATOR);
   const model = modelRuntime.getModel(provider, rest.join(MODEL_SEPARATOR));
   if (model === undefined) throw new Error(`the model "${name}" is not one of the models Pi knows`);

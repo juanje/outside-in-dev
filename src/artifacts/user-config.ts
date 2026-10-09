@@ -12,6 +12,9 @@ const USER_CONFIG_FILE = "config.json";
 /** What separates the provider from the model in a name such as `provider/id`. */
 export const MODEL_SEPARATOR = "/";
 
+/** The file of an agent directory that holds the models its user defined. */
+export const MODELS_FILE = "models.json";
+
 /** The file of an agent directory that holds the credentials, by provider. */
 export const AUTH_FILE = "auth.json";
 
@@ -30,6 +33,12 @@ export function loadUserModels(configDir: string | undefined): Models | undefine
 }
 
 const storedConfigSchema = z.object({ models: z.record(z.string(), z.string()).optional() }).passthrough();
+
+/** The models the user's configuration assigns, whichever roles it leaves out: none without the directory or the file. */
+export function loadAssignedModels(configDir: string): Record<string, string> {
+  const document = readJson(configDir, USER_CONFIG_FILE);
+  return document === undefined ? {} : (storedConfigSchema.parse(document).models ?? {});
+}
 
 /** The roles every run needs a model for. */
 export const REQUIRED_ROLES = Object.entries(modelsSchema.shape).filter(([, schema]) => !schema.isOptional()).map(([role]) => role);

@@ -1,6 +1,7 @@
 import type { Detector } from "../artifacts/detect-all.js";
 import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import type { PiSdk } from "../agents/runner.js";
+import type { DoctorServices } from "../commands/doctor.js";
 
 /** A person at a terminal: chooses one of the actions of a question and answers a line. */
 export type Terminal = { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string> };
@@ -16,5 +17,5 @@ export function runnersOf(services: FeatureServices): Runners {
   return services.runners ?? REAL_RUNNERS;
 }
 
-/** What `oid run` takes from the process that runs it, so that nothing below `src/cli.ts` reads the process: the process id for the lock, and the services of the states. */
-export type RunServices = FeatureServices & { pid: number; aborted?: () => boolean };
+/** What `oid run` and `oid resume` take from the process that runs them, so that nothing below `src/cli.ts` reads the process: the process id for the lock, the services of the states and, when given, where to check the user's setup (the checks of `oid doctor`) before anything starts; a run without it makes no such check. */
+export type RunServices = FeatureServices & { pid: number; aborted?: () => boolean; preflight?: DoctorServices };

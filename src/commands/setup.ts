@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { PiSdk } from "../agents/runner.js";
 import { API_KEY, mergeCredentials, OAUTH, type PiCredential, readPiCredentials } from "../artifacts/pi-credentials.js";
 import { ProgressError } from "../artifacts/progress.js";
-import { AUTH_FILE, loadUserModels, MODEL_SEPARATOR, prepareUserModels } from "../artifacts/user-config.js";
+import { AUTH_FILE, loadUserModels, MODEL_SEPARATOR, MODELS_FILE, prepareUserModels } from "../artifacts/user-config.js";
 import type { CliIo } from "../cli-io.js";
 import type { Terminal } from "../orchestrator/services.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
@@ -33,7 +33,7 @@ function openCredentials(sdk: NonNullable<SetupServices["sdk"]>, agentDir: strin
 
 /** Where oid's agent directory keeps the models its user defined. */
 function modelsFile(agentDir: string): { modelsPath: string } {
-  return { modelsPath: join(agentDir, "models.json") };
+  return { modelsPath: join(agentDir, MODELS_FILE) };
 }
 
 /** Whether the options ask for nothing: setting up then means asking the person. */

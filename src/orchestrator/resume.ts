@@ -7,6 +7,7 @@ import { createEventBus } from "../events/bus.js";
 import { RESUMED } from "../events/types.js";
 import { type Started, STATE } from "./begin.js";
 import { releaseLock, takeOverLock } from "./lock.js";
+import { requireSetup } from "./preflight.js";
 import { type ReviewEntry, writeAndReview } from "./run-features.js";
 import { type LoopResume, runInnerLoop } from "./run-inner-loop.js";
 import type { RedScenario } from "./run-bdd-red.js";
@@ -69,6 +70,7 @@ function doneIn(worktree: string): string[] {
 
 /** Resumes the run the session saved, after a crash, an abort or a question it could not ask: takes the lock (releasing one whose process is gone), returns the worktree to its last checkpoint (the feature files that wait for their review stay) and runs again the state it stopped in. Returns the exit code of the process. */
 export async function resumeRun(cwd: string, environment: { now: Date; write: (text: string) => void }, services: RunServices): Promise<number> {
+  await requireSetup(cwd, services.preflight);
   const saved = resumable(cwd);
   const released = takeOverLock(cwd, services.pid);
   try {

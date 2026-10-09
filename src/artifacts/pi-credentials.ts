@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import type { Credential, CredentialStore } from "@earendil-works/pi-ai";
 import { z } from "zod";
 import { writeFileAtomic } from "./atomic-write.js";
 import { JSON_INDENT } from "./checkpoint.js";
@@ -27,6 +28,17 @@ export function mergeCredentials(agentDir: string, credentials: Record<string, P
   const stored = credentialsSchema.parse(readJson(agentDir, AUTH_FILE) ?? {});
   mkdirSync(agentDir, { recursive: true, mode: PRIVATE_DIRECTORY });
   writeFileAtomic(join(agentDir, AUTH_FILE), `${JSON.stringify({ ...stored, ...credentials }, null, JSON_INDENT)}\n`, PRIVATE_FILE);
+}
+
+/** A credential store of Pi that serves the `auth.json` of an agent directory as it is and never writes (a change is ignored, and answers with what is stored): Pi can then check for credentials without creating or touching the file. */
+export function readOnlyCredentials(agentDir: string): CredentialStore {
+  const stored = () => credentialsSchema.parse(readJson(agentDir, AUTH_FILE) ?? {}) as Record<string, Credential>;
+  return {
+    read: async (providerId) => stored()[providerId],
+    list: async () => Object.entries(stored()).map(([providerId, { type }]) => ({ providerId, type })),
+    modify: async (providerId) => stored()[providerId],
+    delete: async () => undefined,
+  };
 }
 
 /** The credentials, by provider, that the `auth.json` of a Pi agent directory holds. */

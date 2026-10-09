@@ -3295,7 +3295,81 @@
     {
       "id": "FR-INIT-05",
       "title": "Check the setup",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A complete setup does not stop oid run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A complete setup is reported ok, line by line",
+          "bdd": "pass"
+        },
+        {
+          "name": "Doctor changes nothing",
+          "bdd": "pass"
+        },
+        {
+          "name": "A user who has not set up oid is told to run oid setup, and nothing is created",
+          "bdd": "pass"
+        },
+        {
+          "name": "A model that is not in Pi's catalogue is reported with the command that assigns another",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider with no credential is reported with the command that stores one",
+          "bdd": "pass"
+        },
+        {
+          "name": "A credential that comes from the provider's environment variable counts, and its value is never printed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tool that a configured command needs is reported when it is not installed",
+          "bdd": "pass"
+        },
+        {
+          "name": "A directory without the project's configuration is told to run oid init",
+          "bdd": "pass"
+        },
+        {
+          "name": "Without --connect, no provider is called",
+          "bdd": "pass"
+        },
+        {
+          "name": "With --connect, each provider gets one minimal call, however many roles use it",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider that answers with an error is reported with its message and never with the key",
+          "bdd": "pass"
+        },
+        {
+          "name": "A provider with no credential is not called",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid doctor --help shows its usage and its option",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid run refuses to start for a user who has not set up oid, and creates nothing",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid run lists every provider that has no credential, with the command for each, before it starts",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid run refuses to start when a tool of the project is missing",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid resume refuses in the same way, before it looks for a saved run",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }
