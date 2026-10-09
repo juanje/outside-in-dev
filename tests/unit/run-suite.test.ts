@@ -12,10 +12,10 @@ describe("running the existing suite", () => {
   });
   afterEach(() => rmSync(cwd, { recursive: true, force: true }));
 
-  function suite(unit: string, bdd: string, ending: { unit?: string; bdd?: string } = {}) {
+  function suite(unit: string, bdd: string, ending: { unit?: string; bdd?: string } = {}, commands = { unit: "node unit.cjs", bdd: "node bdd.cjs" }) {
     writeFileSync(join(cwd, "unit.cjs"), UNIT_SCRIPT(unit) + (ending.unit ?? ""));
     writeFileSync(join(cwd, "bdd.cjs"), BDD_SCRIPT(bdd) + (ending.bdd ?? ""));
-    return runSuite(cwd, { unit: "node unit.cjs", bdd: "node bdd.cjs" });
+    return runSuite(cwd, commands);
   }
 
   it("lists what failed in each runner from its structured report", () => {
@@ -45,7 +45,7 @@ describe("running the existing suite", () => {
   });
 
   it("counts a runner killed by a signal after a green report as a red suite", () => {
-    expect(suite("passed", "PASSED", { unit: 'process.kill(process.pid, "SIGKILL");' }).unit).toEqual(["unit: the runner exited null but its report names no failing test"]);
+    expect(suite("passed", "PASSED", { unit: 'process.kill(process.pid, "SIGKILL");' }, { unit: "exec node unit.cjs", bdd: "node bdd.cjs" }).unit).toEqual(["unit: the runner exited null but its report names no failing test"]);
   });
 
   it("returns the reports it read, as the runners wrote them", () => {
