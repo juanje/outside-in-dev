@@ -4,7 +4,9 @@ import { loadProjectConfig } from "../../artifacts/project-config.js";
 import { readText } from "../../artifacts/project-json.js";
 import { listLocatedScenarios, readFeatureSources } from "../../artifacts/traceability.js";
 import { parseRequirements } from "../../artifacts/spec.js";
+import { exampleFeatures } from "./example-features.js";
 import { importClosure } from "./import-closure.js";
+import { isDefinitionOf, stepDefinitions, stepTexts } from "./step-definitions.js";
 import { reuseCatalogue } from "./reuse-catalogue.js";
 
 const DOMAIN_FILE = "DOMAIN.md";
@@ -37,14 +39,28 @@ export function fileSection(cwd: string, file: string): string {
   return [`### ${file}`, readText(cwd, file) ?? ""].join(NEWLINE);
 }
 
-/** The heading of the section that holds the step definitions of the project in full, so that a new step reuses an existing one. */
-const STEPS_HEADING = "Step definitions that exist:";
+/** The heading of the list of the step files of the project, which the agent reads when a pattern is not enough to reuse a step. */
+const STEP_FILES_HEADING = "Step definition files (read the one that holds a step you want to reuse):";
 
-/** The prompt of a BDD Red task: the scenario with its location, the step definitions that exist and the public signatures of the project; no unit test, no body of the source and no other scenario. */
+/** The heading of the list of the step definitions that exist, each by its declaration and not its body, so that a new step reuses an existing one. */
+const STEP_PATTERNS_HEADING = "Step definitions that exist (the text or pattern of each):";
+
+/** The heading of the definitions, in full, of the steps the scenario already uses, so that the agent reuses them correctly. */
+const STEPS_USED_HEADING = "Step definitions the scenario already uses:";
+
+/** The prompt of a BDD Red task: the scenario with its location, the step files and the pattern of each step definition that exists, and the public signatures of the project; no unit test, no body of the source and no other scenario. */
 export function bddRedContext(cwd: string, scenario: ScenarioLocation): string {
-  const steps = globSync(loadProjectConfig(cwd).paths.bdd_steps, { cwd }).sort();
+  const files = globSync(loadProjectConfig(cwd).paths.bdd_steps, { cwd }).sort();
+  const defined = files.flatMap((file) => stepDefinitions(readText(cwd, file) ?? "").map((definition) => ({ file, definition })));
+  const steps = stepTexts(readText(cwd, scenario.file) ?? "", scenarioText(cwd, scenario));
+  const used = defined.filter(({ definition }) => steps.some((step) => isDefinitionOf(definition, step)));
   const failure = "The scenario has no step definitions yet.";
-  return [testTaskContext(cwd, { scenario, failure }), [STEPS_HEADING, ...steps.map((file) => fileSection(cwd, file))].join(NEWLINE + NEWLINE)].join(NEWLINE + NEWLINE);
+  return joinSections([
+    [testTaskContext(cwd, { scenario, failure })],
+    [STEP_FILES_HEADING, files.map((file) => `- ${file}`).join(NEWLINE)],
+    [STEP_PATTERNS_HEADING, defined.map(({ definition }) => definition.declaration).join(NEWLINE)],
+    ...(used.length === 0 ? [] : [[STEPS_USED_HEADING, ...used.map(({ file, definition }) => [`### ${file}`, definition.text].join(NEWLINE))]]),
+  ]);
 }
 
 /** The sections of a prompt as text, each one's lines and the sections themselves apart by a blank line. */
@@ -72,20 +88,25 @@ function requirementSection({ id, title, body }: { id: string; title: string; bo
 /** The heading of the list of the design notes of the project, which the agent searches instead of receiving their text. */
 const DESIGN_HEADING = "Design notes (search these files for the terms of the requirement with your read and grep tools):";
 
+/** The heading of the list of every feature file of the project, which the agent reads when the examples do not show enough. */
+const FEATURE_LIST_HEADING = "All the feature files of the project (read any of them with your read tool):";
+
 /** The prompt of a feature-writing task: the whole text of the requirement, the non-functional requirements, the domain notes, the paths of the design notes to search, and the feature files that exist, for style; no code and no test. */
 export function featureWriteContext(cwd: string, task: { fr: string; comment?: string }): string {
   const { paths } = loadProjectConfig(cwd);
   const requirements = parseRequirements(readText(cwd, paths.spec) ?? "");
   const requirement = requirements.filter(({ id }) => id === task.fr);
   const nonFunctional = requirements.filter(({ id }) => id.startsWith("NFR-"));
-  const features = readFeatureSources(cwd, paths.bdd_features).map(({ path, text }) => [`### ${path}`, text].join(NEWLINE));
+  const sources = readFeatureSources(cwd, paths.bdd_features);
+  const features = exampleFeatures(sources, task.fr).map(({ path, text }) => [`### ${path}`, text].join(NEWLINE));
   const designNotes = globSync(paths.design, { cwd }).sort();
   const sections = [
     ["Requirement:", ...requirement.map(requirementSection)],
     ["Non-functional requirements:", ...nonFunctional.map(requirementSection)],
     ["Domain notes:", readText(cwd, DOMAIN_FILE) ?? ""],
     ...(designNotes.length === 0 ? [] : [[DESIGN_HEADING, designNotes.map((file) => `- ${file}`).join(NEWLINE)]]),
-    ["Feature files that exist, for style:", ...features],
+    ["Example feature files, for style:", ...features],
+    [FEATURE_LIST_HEADING, sources.map(({ path }) => `- ${path}`).join(NEWLINE)],
     ...(task.comment === undefined ? [] : [["The person who reviewed your feature files rejected them with this comment:", task.comment]]),
   ];
   return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);

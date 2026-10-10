@@ -5,6 +5,7 @@ import { runSupervised } from "./command-supervisor.js";
 import { ProgressError } from "./progress.js";
 import { CONFIG_FILE, loadCommandTimeoutS } from "./project-config.js";
 import { readJson, readText } from "./project-json.js";
+import { escapeRegExp } from "./regexp.js";
 import { UNIT_SEPARATOR, WORD_SEPARATOR } from "./verify-target.js";
 
 /** The directory, relative to the project, that holds the runners' reports; local and git-ignored. */
@@ -17,11 +18,6 @@ export const BDD_REPORT = `${REPORT_DIR}/bdd.ndjson`;
 /** The text quoted for a POSIX shell as one word. */
 export function shellQuote(text: string): string {
   return `'${text.replaceAll("'", "'\\''")}'`;
-}
-
-/** The text with the characters a regular expression gives a meaning escaped, so it matches itself. */
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** The options oid appends to every unit command: the exclusion of its own directory, and the report options with the file the report is written to. */
