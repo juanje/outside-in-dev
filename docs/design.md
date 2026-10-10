@@ -1204,6 +1204,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 | `oid tidy [--scope PATH…] [--max-items N] [--yes]` | Periodic project cleanup (§14.1). |
 | `oid metrics [--since DATE] [--changed]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
 | `oid verify red <test>` · `green` · `integrity [--step S]` | The Red Gate (§6.4), Green-with-regression (§6.7) and integrity (§6.5) checks as standalone commands. Used by the FSM and, during bootstrap, by an agent guided by instructions (see `docs/BOOTSTRAP.md`). |
+| `oid try <test or scenario> [--dry-run]` | Runs one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict; records nothing. The agents of a run use it to check their own work (FR-VERIFY-09). With `--dry-run`, only lists the undefined steps of a scenario. |
 | `oid run [--fr ID…] [--max-frs N] [--branch NAME]` | Processes pending FRs in order (or only the given ones), with the interface of §12.2. Post-MVP: `--dashboard [--host H] [--port P]`. |
 | `oid resume` | Continues from `session.json`. |
 | `oid status` | State, FR, scenario, budget, pending request, worktree. |
