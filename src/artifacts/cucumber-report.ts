@@ -5,7 +5,7 @@ import { firstLine, NEWLINE } from "./lines.js";
 import type { ScenarioLocation } from "./passing-scenarios.js";
 import { FAILURE, type Failure } from "./red-classification.js";
 
-const gherkinStepSchema = z.object({ id: z.string(), keyword: z.string(), text: z.string(), location: z.object({ line: z.number() }) });
+const gherkinStepSchema = z.object({ id: z.string(), keyword: z.string(), keywordType: z.string().optional(), text: z.string(), location: z.object({ line: z.number() }) });
 const stepsSchema = z.object({ steps: z.array(gherkinStepSchema) });
 
 interface GherkinChild {
@@ -75,14 +75,43 @@ export function normalizeCucumberReport(ndjson: string, only?: { file: string; n
 /** The statuses of a step that has no working definition: the scenario is not a test yet. */
 const NOT_RUN = ["UNDEFINED", "PENDING", "AMBIGUOUS"];
 
+/** A step of a Gherkin document, and whether it sets the scenario up. */
+type GherkinStep = z.infer<typeof gherkinStepSchema> & { setup: boolean };
+
+/** The kinds Cucumber gives the keyword of a step. */
+const KEYWORD_TYPE = { context: "Context", action: "Action", conjunction: "Conjunction" } as const;
+
+/** The English keywords that take the kind of the step before them. */
+const CONJUNCTIONS = ["And", "But", "*"];
+
+/** The kind of a step: the one the report gives its keyword, or, when it gives none, the one of the English keyword. */
+function keywordType({ keyword, keywordType: given }: z.infer<typeof gherkinStepSchema>): string {
+  if (given !== undefined) return given;
+  if (CONJUNCTIONS.includes(keyword.trim())) return KEYWORD_TYPE.conjunction;
+  return keyword.trim() === "Given" ? KEYWORD_TYPE.context : KEYWORD_TYPE.action;
+}
+
+/** The steps with whether each sets the scenario up: a Context step (a Given) does, and a conjunction takes the kind of the step before it. */
+function markSetup(steps: z.infer<typeof gherkinStepSchema>[]): GherkinStep[] {
+  let setting = false;
+  return steps.map((step) => {
+    const type = keywordType(step);
+    if (type !== KEYWORD_TYPE.conjunction) setting = type === KEYWORD_TYPE.context;
+    return { ...step, setup: setting };
+  });
+}
+
 /** The steps of the Gherkin documents of a report by id. */
-function gherkinStepsById(messages: Message[]): Map<string, z.infer<typeof gherkinStepSchema>> {
-  const stepsOf = (child: GherkinChild): z.infer<typeof gherkinStepSchema>[] => [...(child.background?.steps ?? []), ...(child.scenario?.steps ?? []), ...(child.rule?.children.flatMap(stepsOf) ?? [])];
+function gherkinStepsById(messages: Message[]): Map<string, GherkinStep> {
+  const stepsOf = (child: GherkinChild): GherkinStep[] => [...(child.background?.steps ?? []).map((step) => ({ ...step, setup: true })),...markSetup(child.scenario?.steps ?? []), ...(child.rule?.children.flatMap(stepsOf) ?? [])];
   return new Map(messages.flatMap(({ gherkinDocument }) => gherkinDocument?.feature?.children.flatMap(stepsOf) ?? []).map((step) => [step.id, step] as const));
 }
 
-/** How a test step of the scenarios of a report is named: `file:line Keyword text`; the line and the keyword are left out when the report has no Gherkin document. */
-function stepNamer(messages: Message[], only?: { file: string; name: string }): (testStepId: string) => string | undefined {
+/** A test step of the scenarios of a report: how it is named, `file:line Keyword text` (the line and the keyword are left out when the report has no Gherkin document), and whether it sets the scenario up. */
+type NamedStep = { name: string; setup: boolean };
+
+/** How a test step of the scenarios of a report is named, and whether it sets the scenario up. */
+function stepNamer(messages: Message[], only?: { file: string; name: string }): (testStepId: string) => NamedStep | undefined {
   const gherkin = gherkinStepsById(messages);
   const pickleStepOf = new Map(messages.flatMap(({ pickle }) => pickle?.steps.map((step) => [step.id, { uri: pickle.uri, ...step }] as const) ?? []));
   const pickleStepIdOf = new Map(scenarioTestSteps(messages, only).map(({ id, pickleStepId }) => [id, pickleStepId] as const));
@@ -90,16 +119,18 @@ function stepNamer(messages: Message[], only?: { file: string; name: string }): 
     const pickleStep = pickleStepOf.get(pickleStepIdOf.get(testStepId) ?? "");
     if (pickleStep === undefined) return undefined;
     const step = gherkin.get(pickleStep.astNodeIds[0] ?? "");
-    return step === undefined ? `${pickleStep.uri} ${pickleStep.text}` : `${pickleStep.uri}:${step.location.line} ${step.keyword.trim()} ${step.text}`;
+    return step === undefined
+      ? { name: `${pickleStep.uri} ${pickleStep.text}`, setup: false }
+      : { name: `${pickleStep.uri}:${step.location.line} ${step.keyword.trim()} ${step.text}`, setup: step.setup };
   };
 }
 
 /** One line for each step of the scenario that has no working definition: its name and `(STATUS)`. */
 export function unrunSteps(ndjson: string, only?: { file: string; name: string }): string[] {
   const messages = parseMessages(ndjson);
-  const nameOf = stepNamer(messages, only);
+  const namer = stepNamer(messages, only);
   const lines = messages.flatMap(({ testStepFinished }) => {
-    const name = nameOf(testStepFinished?.testStepId ?? "");
+    const name = namer(testStepFinished?.testStepId ?? "")?.name;
     const status = testStepFinished?.testStepResult.status ?? "";
     return name === undefined || !NOT_RUN.includes(status) ? [] : [`${name} (${status})`];
   });
@@ -107,14 +138,15 @@ export function unrunSteps(ndjson: string, only?: { file: string; name: string }
 }
 
 /** The first step of the scenario that failed, named, and the text its run attached: what the failed step attached, and what hooks or the scenario attached; nothing attached by the steps that passed. */
-export function failedStep(ndjson: string, only?: { file: string; name: string }): { step: string; output: string } | undefined {
+export function failedStep(ndjson: string, only?: { file: string; name: string }): { step: string; output: string; setup?: true } | undefined {
   const messages = parseMessages(ndjson);
-  const nameOf = stepNamer(messages, only);
+  const namer = stepNamer(messages, only);
+  const nameOf = (testStepId: string) => namer(testStepId)?.name;
   const failed = messages.flatMap(({ testStepFinished }) => (testStepFinished?.testStepResult.status === "FAILED" && nameOf(testStepFinished.testStepId) !== undefined ? [testStepFinished] : []))[0];
   if (failed === undefined) return undefined;
   const ofRun = messages.flatMap(({ attachment }) => (attachment !== undefined && attachment.testCaseStartedId === failed.testCaseStartedId && attachment.mediaType.startsWith("text/") ? [attachment] : []));
   const output = ofRun.filter(({ testStepId }) => testStepId === failed.testStepId || nameOf(testStepId ?? "") === undefined).map(({ body }) => body);
-  return { step: nameOf(failed.testStepId)!, output: output.join(NEWLINE) };
+  return { step: nameOf(failed.testStepId)!, output: output.join(NEWLINE), ...(namer(failed.testStepId)!.setup ? { setup: true as const } : {}) };
 }
 
 /** What a run of the scenario showed. */

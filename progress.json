@@ -1579,6 +1579,18 @@
         {
           "name": "A scenario with undefined steps names each of them",
           "bdd": "pass"
+        },
+        {
+          "name": "A scenario that fails while setting up in a Given step is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that fails in a step of its Background is not a Red",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that fails in a When step is still judged by its failure",
+          "bdd": "pass"
         }
       ]
     },

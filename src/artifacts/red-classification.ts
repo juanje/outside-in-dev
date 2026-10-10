@@ -22,7 +22,7 @@ export const FAILURE = { passed: "passed", load: "load", error: "error", noTest:
 export type Failure =
   | { kind: typeof FAILURE.passed }
   | { kind: typeof FAILURE.load; message: string }
-  | { kind: typeof FAILURE.error; message: string; step?: string; output?: string }
+  | { kind: typeof FAILURE.error; message: string; step?: string; output?: string; setup?: true }
   | { kind: typeof FAILURE.noTest; name: string; file: string }
   | { kind: typeof FAILURE.noScenario; file: string; line: number }
   | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string }
@@ -76,6 +76,13 @@ function classifyLoad(message: string, context: ClassifyContext): Verdict {
   return { outcome: OUTCOME.decision, reason: "the test file failed to load" };
 }
 
+/** The failure message up to its first stack frame, on one line. */
+function messageBeforeStack(message: string): string {
+  const lines = message.split(NEWLINE);
+  const end = lines.findIndex((line) => /^\s+at /.test(line));
+  return oneLine((end < 0 ? lines : lines.slice(0, end)).filter((line) => line.trim() !== "").join(NEWLINE));
+}
+
 /** A test that ran and failed. */
 function classifyError(message: string, context: ClassifyContext): Verdict {
   if (MISSING_MODULE.test(message)) return classifyLoad(message, context);
@@ -92,6 +99,13 @@ function classifyError(message: string, context: ClassifyContext): Verdict {
   if (symbol === "missing") return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `${name} does not exist yet` };
   const why = symbol === "exists" ? `${name} exists in the project: the test may use it wrongly` : `${name} is not imported from a project module`;
   return { outcome: OUTCOME.decision, reason: why };
+}
+
+/** A run that failed. A step that sets the scenario up is judged apart: only a source module that does not exist yet is a valid Red there, and anything else is a broken scenario. */
+function classifyRun({ message, step, setup }: { message: string; step?: string; setup?: true }, context: ClassifyContext): Verdict {
+  const usual = classifyError(message, context);
+  if (setup !== true || (usual.outcome === OUTCOME.valid && usual.class === RED_CLASS.missingImplementation)) return usual;
+  return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the scenario failed while setting up, at ${step}: ${messageBeforeStack(message)}` };
 }
 
 /** How many characters of the output a scenario recorded are shown to a person: the last ones. */
@@ -118,7 +132,7 @@ export function classifyFailure(failure: Failure, context: ClassifyContext): Ver
     case FAILURE.load:
       return classifyLoad(failure.message, context);
     case FAILURE.error:
-      return classifyError(failure.message, context);
+      return classifyRun(failure, context);
     case FAILURE.notRun:
       return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test did not run (status ${failure.status})${stepList(failure.steps ?? [])}` };
     case FAILURE.noScenario:

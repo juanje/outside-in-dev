@@ -138,6 +138,30 @@ describe("classifyFailure", () => {
     });
   });
 
+  it("rejects a scenario that failed while setting up, naming the step and the failure up to its stack", () => {
+    const failure = {
+      kind: "error" as const,
+      message: "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 3\n\n    at World.<anonymous> (/p/features/steps/a.steps.ts:4:3)",
+      step: "features/a.feature:9 And the agent writes the scenario",
+      setup: true as const,
+    };
+    expect(classifyFailure(failure, context)).toEqual({
+      outcome: "invalid",
+      class: "test_bug",
+      reason: "the scenario failed while setting up, at features/a.feature:9 And the agent writes the scenario: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: 1 !== 3",
+    });
+  });
+
+  it("still accepts a setup step that fails because the source module it uses does not exist yet", () => {
+    const failure = {
+      kind: "error" as const,
+      message: "Cannot find module '../../src/nope.js' imported from '/p/features/steps/a.steps.ts'",
+      step: "features/a.feature:4 Given the cart",
+      setup: true as const,
+    };
+    expect(classifyFailure(failure, context)).toEqual({ outcome: "valid", class: "missing_implementation", reason: "the module ../../src/nope.js does not exist yet" });
+  });
+
   it("names each step that kept a scenario from running, one on each line", () => {
     const steps = ["features/a.feature:5 When it is shouted (UNDEFINED)", "features/a.feature:6 Then it shouts (UNDEFINED)"];
     expect(classifyFailure({ kind: "not_run", status: "UNDEFINED", steps }, context)).toEqual({

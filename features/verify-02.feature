@@ -402,3 +402,96 @@ Feature: Verify a BDD Red
     And the output contains "And it ends with a bang"
     And the output does not contain "Given the greeting"
     And no checkpoint is recorded
+
+  Scenario: A scenario that fails while setting up in a Given step is not a Red
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Scenario: Greet informally
+          Given the greeting
+          And the greeting is informal
+          Then it greets Ann informally
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given, Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the greeting", function () {});
+
+      Given("the greeting is informal", async function () {
+        const { greet } = await import("../../src/greeting.js");
+        assert.equal(greet("Ann"), "Hi, Ann");
+      });
+
+      Then("it greets Ann informally", function () {});
+      """
+    When I run "oid verify red features/greeting.feature:3"
+    Then the command fails
+    And the output starts with "red: not valid (test_bug)"
+    And the output contains "the scenario failed while setting up, at features/greeting.feature:5 And the greeting is informal"
+    And the output contains "Hi, Ann"
+    And no checkpoint is recorded
+
+  Scenario: A scenario that fails in a step of its Background is not a Red
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Background:
+          Given the greeting
+          And the greeting is informal
+
+        Scenario: Greet informally
+          Then it greets Ann informally
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given, Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the greeting", function () {});
+
+      Given("the greeting is informal", async function () {
+        const { greet } = await import("../../src/greeting.js");
+        assert.equal(greet("Ann"), "Hi, Ann");
+      });
+
+      Then("it greets Ann informally", function () {});
+      """
+    When I run "oid verify red features/greeting.feature:7"
+    Then the command fails
+    And the output starts with "red: not valid (test_bug)"
+    And the output contains "the scenario failed while setting up, at features/greeting.feature:5 And the greeting is informal"
+    And the output contains "Hi, Ann"
+    And no checkpoint is recorded
+
+  Scenario: A scenario that fails in a When step is still judged by its failure
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Scenario: Greet informally
+          Given the greeting
+          When it is greeted informally
+          Then it greets Ann informally
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given, When, Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the greeting", function () {});
+
+      When("it is greeted informally", async function () {
+        const { greet } = await import("../../src/greeting.js");
+        assert.equal(greet("Ann"), "Hi, Ann");
+      });
+
+      Then("it greets Ann informally", function () {});
+      """
+    When I run "oid verify red features/greeting.feature:3"
+    Then the command succeeds
+    And the output starts with "red: valid (business_assertion)"
+    And the checkpoint records the step "bdd_red"
