@@ -16,6 +16,9 @@ export const ABORTED = "ABORTED";
 /** The type of the event that reports an agent about to start an attempt. */
 export const AGENT_START = "agent_start";
 
+/** The type of the event that reports an attempt the gate of its state rejected, with the reason. */
+export const ATTEMPT_REJECTED = "attempt_rejected";
+
 /** The type of the event that reports a run resumed by `oid resume`. */
 export const RESUMED = "resumed";
 
@@ -33,6 +36,7 @@ export type OIEventBody =
   | { type: typeof WAITING_INPUT; request: InputRequest }
   | { type: typeof HUMAN_EDIT; file: string }
   | { type: typeof AGENT_START; state: string; role: string; attempt: number; model?: string; thinkingLevel: string }
+  | { type: typeof ATTEMPT_REJECTED; state: string; role: string; attempt: number; reason: string }
   | { type: typeof RESUMED; state: string; discarded: string[]; releasedLock?: number };
 
 /** An event as it is logged and shown: the body plus when and in which run it happened. */

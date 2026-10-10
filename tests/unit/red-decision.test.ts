@@ -46,15 +46,20 @@ describe("the decision about a Red oid cannot classify", () => {
     ]);
   });
 
-  it("ends the run with an error that names the Red when the person says it is a bug, or answers with something that is not an action", async () => {
-    const outcome = async (answer: string) => {
-      const printed: string[] = [];
-      const bus = createEventBus({ cwd: dir, runId: "run-1", write: (text) => printed.push(text), now: () => 0 });
-      const answers = [answer];
-      const result = await decideRed(bus, { isTTY: true, choose: async () => answers.shift() ?? "valid", line: async () => "" }, FAILURE);
-      return { result, printed };
-    };
-    expect(await outcome("bug")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": the failure is a bug in the step definitions, as the person decided\n'] });
-    expect(await outcome("maybe")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "maybe" is not an answer: use valid, bug or trace\n'] });
+  it("ends the run with an error that names the Red when the person answers with something that is not an action", async () => {
+    const printed: string[] = [];
+    const bus = createEventBus({ cwd: dir, runId: "run-1", write: (text) => printed.push(text), now: () => 0 });
+    const result = await decideRed(bus, { isTTY: true, choose: async () => "maybe", line: async () => "" }, FAILURE);
+    expect({ result, printed }).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "maybe" is not an answer: use valid, bug or trace\n'] });
+  });
+
+  it("rejects the attempt, with the person's judgement, the failure up to its stack and the failing step, when the person says it is a bug", async () => {
+    const printed: string[] = [];
+    const bus = createEventBus({ cwd: dir, runId: "run-1", write: (text) => printed.push(text), now: () => 0 });
+    const result = await decideRed(bus, { isTTY: true, choose: async () => "bug", line: async () => "" }, { ...FAILURE, step: "features/a.feature:5 When it is shouted" });
+    expect({ result, printed }).toEqual({
+      result: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the step definitions\nthe failure: Error: boom\nfailing step: features/a.feature:5 When it is shouted' },
+      printed: [],
+    });
   });
 });

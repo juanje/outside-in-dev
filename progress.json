@@ -2629,6 +2629,30 @@
         {
           "name": "A project that configures models is refused before the run starts, and the error names oid setup",
           "bdd": "pass"
+        },
+        {
+          "name": "A rejected attempt is announced with its reason before the next attempt starts",
+          "bdd": "pass"
+        },
+        {
+          "name": "The last rejected attempt is announced too, before the run asks what to do",
+          "bdd": "pass"
+        },
+        {
+          "name": "A retry is told that it starts again from the last checkpoint",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Red that the human judges a bug in the step definitions rejects the attempt, and the retry is told the failure and the step",
+          "bdd": "pass"
+        },
+        {
+          "name": "With no retries allowed, a Red that the human judges a bug ends the run with the failure and the step",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test that the human judges a bug rejects the attempt too",
+          "bdd": "pass"
         }
       ]
     },

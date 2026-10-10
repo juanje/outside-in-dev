@@ -1,4 +1,4 @@
-import { AGENT_START, type OIEventBody } from "../events/types.js";
+import { AGENT_START, ATTEMPT_REJECTED, type OIEventBody } from "../events/types.js";
 import { isObject } from "../artifacts/progress.js";
 import { attemptEffort, type Effort } from "./attempt-effort.js";
 import type { Models } from "../artifacts/user-config.js";
@@ -36,7 +36,7 @@ export function announceAgent(bus: AttemptSpec<unknown>["bus"], { state, role, m
 
 /** Tells an attempt why the one before it was rejected. */
 function noteAbout(attempt: number, reason: string): string {
-  return `This is attempt ${attempt}. The attempt before it was rejected: ${reason}`;
+  return `This is attempt ${attempt}. It starts again from the last checkpoint: the files of the attempt before it were discarded, so write everything this task needs. That attempt was rejected because: ${reason}`;
 }
 
 /** Whether the result of an attempt is a rejection. */
@@ -64,6 +64,7 @@ export async function runAttempts<T>(spec: AttemptSpec<T>): Promise<T | Exhauste
     const effort = announceAgent(spec.bus, { ...spec, attempt });
     const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt }) });
     if (!isRejection(result)) return result;
+    spec.bus.emit({ type: ATTEMPT_REJECTED, state: spec.state, role: spec.role, attempt, reason: result.rejected });
     if (attempt > lastRetry) return { ...result, attempts: attempt };
     spec.restore();
     note = noteAbout(attempt + 1, result.rejected);

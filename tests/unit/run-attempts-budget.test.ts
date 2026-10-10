@@ -14,7 +14,7 @@ describe("runAttempts and the budget", () => {
     const { bus, log } = setup();
     const spec = { bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {} };
     await runAttempts({ ...spec, beforeCall: async () => void log.push("budget"), run: async ({ attempt }) => (log.push("run"), attempt === 1 ? { rejected: "no" } : { value: 2 }) });
-    expect(log).toEqual(["budget", "agent_start:1", "run", "budget", "agent_start:2", "run"]);
+    expect(log).toEqual(["budget", "agent_start:1", "run", "attempt_rejected:1", "budget", "agent_start:2", "run"]);
     log.length = 0;
     const stopped = runAttempts({ ...spec, beforeCall: async () => Promise.reject(new Error("budget")), run: async () => (log.push("run"), { value: 1 }) });
     await expect(stopped).rejects.toThrow("budget");

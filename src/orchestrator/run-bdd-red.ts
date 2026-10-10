@@ -66,14 +66,13 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
       const stopped = agentStop(started, label, outcome);
       if (stopped !== undefined) return stopped;
       const judged = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));
-      return judged.kind === PROBLEM ? { rejected: `${label}: ${judged.problem}` } : judged;
+      if (judged.kind === PROBLEM) return { rejected: `${label}: ${judged.problem}` };
+      if (judged.kind !== OUTCOME.decision) return judged;
+      const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step });
+      return decided === VALID_RED ? judged : decided;
     },
   });
   if (isExitCode(gate)) return gate;
-  if (gate.kind === OUTCOME.decision) {
-    const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: gate.reason, message: gate.message, detail: gate.detail });
-    if (decided !== VALID_RED) return decided;
-  }
   recordRed(workspace.path, fr!, { current: current.name, names });
   checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
   updateSession(cwd, { state: STATE.tddRed, scenarioFailure: gate.message });

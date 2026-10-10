@@ -69,6 +69,13 @@ Given("the test-writing agent writes a unit test that fails with an error that i
   expect(this, { unit: ["unit-red-not-assertion"] });
 });
 
+Given("the test-writing agent's first attempt writes a unit test that fails with an error that is not an assertion, and its second attempt writes the unit test {string}, and it fails because the cart code does not exist yet", function (this: OidWorld, name: string) {
+  const first = writesTest("cart lines > fails with an error");
+  first.test = testId(name);
+  agentOf(this).testRoute.rounds.push(first, writesTest(name));
+  expect(this, { unit: ["unit-red-not-assertion", "unit-red-missing"] });
+});
+
 Given("the coding agent writes the cart code that passes the unit test and the scenario", function (this: OidWorld) {
   agentOf(this).codeRoute.rounds.push(codeRound(CART_CODE.withCount));
   expect(this, { unit: ["unit-green"], bdd: ["bdd-add-line-green"] });

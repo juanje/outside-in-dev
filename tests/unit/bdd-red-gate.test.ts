@@ -61,6 +61,7 @@ describe("the gate of BDD Red", () => {
       reason: "the test failed with an error that is not an assertion",
       message: "Error: the cart could not be built",
       detail: "failing step: features/pay.feature I pay",
+      step: "features/pay.feature I pay",
     });
   });
 

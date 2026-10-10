@@ -7,7 +7,7 @@ import { locatePassingScenarios } from "../artifacts/passing-scenarios.js";
 import { CYCLE_STEP, loadProgress, type Progress } from "../artifacts/progress.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { type ProjectConfig, loadProjectConfig } from "../artifacts/project-config.js";
-import { failureDetail, OUTCOME } from "../artifacts/red-classification.js";
+import { FAILURE, failureDetail, OUTCOME } from "../artifacts/red-classification.js";
 import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { classifyObservation, type Observation, observeBddRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
@@ -17,7 +17,7 @@ import { join } from "node:path";
 export const PROBLEM = "problem";
 
 /** What the gate of BDD Red decided about the steps an agent wrote: a valid Red, a problem that stops the run, or a failure that a person has to classify. */
-export type RedGate = { kind: typeof OUTCOME.valid; reason: string; message: string } | { kind: typeof PROBLEM; problem: string } | { kind: typeof OUTCOME.decision; reason: string; message: string; detail?: string };
+export type RedGate = { kind: typeof OUTCOME.valid; reason: string; message: string } | { kind: typeof PROBLEM; problem: string } | { kind: typeof OUTCOME.decision; reason: string; message: string; detail?: string; step?: string };
 
 /** The scenario the steps are written for: its feature file, the line where it starts and its name. */
 export type CurrentScenario = { file: string; line: number; name: string };
@@ -41,7 +41,8 @@ export function redGate(worktree: string, config: ProjectConfig, observation: Ob
   if (verdict.outcome === OUTCOME.valid) return { kind: OUTCOME.valid, reason: verdict.reason, message };
   if (verdict.outcome === OUTCOME.invalid) return { kind: PROBLEM, problem: `the Red is not valid (${verdict.class}): ${verdict.reason}` };
   const detail = failureDetail(observation.failure);
-  return { kind: OUTCOME.decision, reason: verdict.reason, message, ...(detail === "" ? {} : { detail }) };
+  const step = observation.failure.kind === FAILURE.error ? observation.failure.step : undefined;
+  return { kind: OUTCOME.decision, reason: verdict.reason, message, ...(detail === "" ? {} : { detail }), ...(step === undefined ? {} : { step }) };
 }
 
 /** Judges the steps an agent wrote for the current scenario: the cheap gates first, then one run of the scenario, classified with the Red Gate that `oid verify red` uses. */

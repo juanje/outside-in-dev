@@ -12,10 +12,17 @@ const UNDEFINED_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {})
 const STRAY_CONTENT = "// stray\n";
 const ACTIONS_AFTER_ATTEMPTS = ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"];
 
-type AgentStart = { type: string; state?: string; attempt?: number; model?: string; thinkingLevel?: string };
+const NOT_AN_ASSERTION_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {\n  throw new Error("the cart could not be built");\n});\n`;
+
+type AgentStart = { type: string; state?: string; attempt?: number; model?: string; thinkingLevel?: string; reason?: string };
 
 function agentStarts(world: OidWorld, state: string): AgentStart[] {
   return (eventLog(world) as AgentStart[]).filter((event) => event.type === "agent_start" && event.state === state);
+}
+
+/** Where the event of this type, state and attempt is in the event log, or -1. */
+function positionOf(world: OidWorld, type: string, state: string, attempt: number): number {
+  return (eventLog(world) as AgentStart[]).findIndex((event) => event.type === type && event.state === state && event.attempt === attempt);
 }
 
 Given(/^the project allows (\d+) retr(?:y|ies) for each state$/, function (this: OidWorld, retries: string) {
@@ -38,6 +45,13 @@ Given("the step-writing agent's first attempt writes steps where one step has no
   agentOf(this).stepRounds = [[{ path: STEP_FILE, content: UNDEFINED_STEP }, { path: stray, content: STRAY_CONTENT }], ...STEP_ROUNDS.map((content) => [{ path: STEP_FILE, content }])];
   const plan = planOf(this);
   plan.bdd.unshift("undefined-step");
+  apply(this, plan);
+});
+
+Given("the step-writing agent's first attempt writes steps that fail with an error that is not an assertion, and its second attempt writes steps that fail because the cart code does not exist yet", function (this: OidWorld) {
+  agentOf(this).stepRounds = [[{ path: STEP_FILE, content: NOT_AN_ASSERTION_STEP }], ...STEP_ROUNDS.map((content) => [{ path: STEP_FILE, content }])];
+  const plan = planOf(this);
+  plan.bdd.unshift("not-an-assertion");
   apply(this, plan);
 });
 
@@ -67,6 +81,18 @@ When("I run {string} with a terminal where the human answers {string}, {string} 
 
 Then(/^the event log of the run records an "agent_start" of "([A-Z_]+)" with the attempt (\d+)$/, function (this: OidWorld, state: string, attempt: string) {
   assert.ok(agentStarts(this, state).some((event) => event.attempt === Number(attempt)), JSON.stringify(agentStarts(this, state)));
+});
+
+Then(/^the event log of the run records an "attempt_rejected" of "([A-Z_]+)" with the attempt (\d+) and the reason mentioning "(.+)"$/, function (this: OidWorld, state: string, attempt: string, text: string) {
+  const found = (eventLog(this) as AgentStart[]).find((event) => event.type === "attempt_rejected" && event.state === state && event.attempt === Number(attempt));
+  assert.ok(found, `no "attempt_rejected" of ${state} with the attempt ${attempt} in the event log: ${JSON.stringify(eventLog(this).map((event) => (event as AgentStart).type))}`);
+  assert.ok(found.reason?.includes(text), `the reason was: ${found.reason}`);
+});
+
+Then(/^the event log of the run records the "attempt_rejected" of "([A-Z_]+)" with the attempt (\d+) before the "agent_start" of "([A-Z_]+)" with the attempt (\d+)$/, function (this: OidWorld, state: string, attempt: string, next: string, nextAttempt: string) {
+  const rejected = positionOf(this, "attempt_rejected", state, Number(attempt));
+  const started = positionOf(this, "agent_start", next, Number(nextAttempt));
+  assert.ok(rejected >= 0 && started > rejected, JSON.stringify({ rejected, started }));
 });
 
 Then(/^the event log of the run records no "agent_start" of "([A-Z_]+)" with the attempt (\d+)$/, function (this: OidWorld, state: string, attempt: string) {
