@@ -69,17 +69,22 @@ function requirementSection({ id, title, body }: { id: string; title: string; bo
   return [`### ${id}: ${title}`, ...body].join(NEWLINE).trimEnd();
 }
 
-/** The prompt of a feature-writing task: the whole text of the requirement, the non-functional requirements, the domain notes and the feature files that exist, for style; no code and no test. */
+/** The heading of the list of the design notes of the project, which the agent searches instead of receiving their text. */
+const DESIGN_HEADING = "Design notes (search these files for the terms of the requirement with your read and grep tools):";
+
+/** The prompt of a feature-writing task: the whole text of the requirement, the non-functional requirements, the domain notes, the paths of the design notes to search, and the feature files that exist, for style; no code and no test. */
 export function featureWriteContext(cwd: string, task: { fr: string; comment?: string }): string {
   const { paths } = loadProjectConfig(cwd);
   const requirements = parseRequirements(readText(cwd, paths.spec) ?? "");
   const requirement = requirements.filter(({ id }) => id === task.fr);
   const nonFunctional = requirements.filter(({ id }) => id.startsWith("NFR-"));
   const features = readFeatureSources(cwd, paths.bdd_features).map(({ path, text }) => [`### ${path}`, text].join(NEWLINE));
+  const designNotes = globSync(paths.design, { cwd }).sort();
   const sections = [
     ["Requirement:", ...requirement.map(requirementSection)],
     ["Non-functional requirements:", ...nonFunctional.map(requirementSection)],
     ["Domain notes:", readText(cwd, DOMAIN_FILE) ?? ""],
+    ...(designNotes.length === 0 ? [] : [[DESIGN_HEADING, designNotes.map((file) => `- ${file}`).join(NEWLINE)]]),
     ["Feature files that exist, for style:", ...features],
     ...(task.comment === undefined ? [] : [["The person who reviewed your feature files rejected them with this comment:", task.comment]]),
   ];

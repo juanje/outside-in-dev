@@ -19,4 +19,14 @@ describe("the context of a feature-writing task", () => {
     expect(context).not.toContain("secretCode");
     expect(context).not.toContain("Does one thing.");
   });
+
+  it("lists the design notes of the project by path and tells the agent to search them for the terms of the requirement, without their text", () => {
+    writeMinimalConfig({ paths: { source: ["src/**"], shared: [], unit_tests: [], bdd_features: ["features/**/*.feature"], bdd_steps: [], docs: [], spec: "SPEC.md", design: ["SPEC.md", "docs/design.md", "docs/missing.md"], progress: "progress.json" } });
+    write("SPEC.md", "### FR-A-02: Two\n\nDoes two things.\n");
+    write("docs/design.md", "The option --retries sets the attempts.\n");
+    const context = featureWriteContext(dir, { fr: "FR-A-02" });
+    expect(context).toContain("Design notes (search these files for the terms of the requirement with your read and grep tools):\n\n- SPEC.md\n- docs/design.md");
+    expect(context).not.toContain("docs/missing.md");
+    expect(context).not.toContain("--retries");
+  });
 });

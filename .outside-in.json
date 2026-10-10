@@ -25,7 +25,8 @@
     "design": [
       "SPEC.md",
       "DOMAIN.md",
-      "DECISIONS.md"
+      "DECISIONS.md",
+      "docs/design.md"
     ],
     "progress": "progress.json"
   },
