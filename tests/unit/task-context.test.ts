@@ -19,6 +19,13 @@ describe("task context", () => {
     expect(task).not.toContain("BODY-A");
   });
 
+  it("presents the failure to a test task as its starting point", () => {
+    writeMinimalConfig();
+    write("features/checkout.feature", FEATURE);
+    const task = testTaskContext(dir, { scenario: { file: "features/checkout.feature", line: 2 }, failure: "expected paid" });
+    expect(task).toContain("Current failure of the scenario (your starting point):\n\nexpected paid");
+  });
+
   it("gives a test task the public signatures of the project's exported symbols, with the first documentation line and no body", () => {
     writeMinimalConfig();
     write("features/checkout.feature", FEATURE);
@@ -26,6 +33,13 @@ describe("task context", () => {
     const task = testTaskContext(dir, { scenario: { file: "features/checkout.feature", line: 2 }, failure: "expected paid" });
     for (const included of ["Reuse catalogue", "## src/unrelated.ts", "other(id: string): void", "Does something else."]) expect(task).toContain(included);
     for (const left of ["BODY-OTHER", "Second line.", "voucher"]) expect(task).not.toContain(left);
+  });
+
+  it("presents the failure to an implementation task as its starting point", () => {
+    writeMinimalConfig();
+    write("tests/unit/a.test.ts", "// TEST-BODY\n");
+    const task = implementationContext(dir, { tests: ["tests/unit/a.test.ts"], failure: "a is not a function" });
+    expect(task).toContain("Current failure of the test (your starting point):\n\na is not a function");
   });
 
   it("gives an implementation task the failing test, the failure, the code it imports and the catalogue, and no other source body or scenario", () => {

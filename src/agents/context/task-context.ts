@@ -31,7 +31,7 @@ export const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the proje
 /** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure, and the public signatures of the project; no body of the source and no other scenario. */
 export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
   const { file, line } = task.scenario;
-  return [`Scenario (${file}:${line}):`, scenarioText(cwd, task.scenario), "Failure:", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd)].join(NEWLINE + NEWLINE);
+  return [`Scenario (${file}:${line}):`, scenarioText(cwd, task.scenario), "Current failure of the scenario (your starting point):", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd)].join(NEWLINE + NEWLINE);
 }
 
 /** A file of the project as a section of a prompt: its path and its whole text. */
@@ -73,7 +73,7 @@ export function implementationContext(cwd: string, task: { tests: string[]; fail
   const imported = importClosure(cwd, task.tests, loadProjectConfig(cwd).paths.source);
   const sections = [
     ["Failing tests:", ...task.tests.map((test) => fileSection(cwd, test))],
-    ["Failure:", task.failure],
+    ["Current failure of the test (your starting point):", task.failure],
     ["Source the tests import:", ...imported.map((file) => fileSection(cwd, file))],
     [CATALOGUE_HEADING, reuseCatalogue(cwd)],
   ];
