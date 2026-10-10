@@ -1842,6 +1842,18 @@
         {
           "name": "A rollback is refused on the user's own branch",
           "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint is made although the project's pre-commit hook refuses every commit",
+          "bdd": "pass"
+        },
+        {
+          "name": "A checkpoint runs none of the project's git hooks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A git command that fails at a checkpoint ends the run with an error and leaves it resumable",
+          "bdd": "pass"
         }
       ]
     },

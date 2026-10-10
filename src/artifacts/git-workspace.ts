@@ -28,11 +28,16 @@ export interface StartOptions {
   install?: Installer;
 }
 
-/** Runs `git <command> <extra...>` in `cwd` (the command is split on whitespace) and returns its standard output without the final newline; throws with git's message when it fails. */
+/** A git command that exited with a failure: its message says which command and what git printed. A run ends with it as an error, where any other exception is a bug. */
+export class GitError extends Error {
+  override name = "GitError";
+}
+
+/** Runs `git <command> <extra...>` in `cwd` (the command is split on whitespace) and returns its standard output without the final newline; throws a `GitError` with git's message when it fails. */
 export function git(cwd: string, command: string, ...extra: string[]): string {
   const { GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...env } = process.env;
   const result = spawnSync(GIT, [...command.split(/\s+/), ...extra], { cwd, env });
-  if (result.status !== 0) throw new Error(`${GIT} ${command} failed: ${result.stderr.toString().trim()}`);
+  if (result.status !== 0) throw new GitError(`${GIT} ${command} failed: ${result.stderr.toString().trim()}`);
   return result.stdout.toString().trimEnd();
 }
 

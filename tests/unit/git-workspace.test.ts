@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { removeWorktree, startRun } from "../../src/artifacts/git-workspace.js";
+import { git as runGit, GitError, removeWorktree, startRun } from "../../src/artifacts/git-workspace.js";
 import { committedRepo, gitIn } from "./git-fixture.js";
 import { dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
@@ -59,6 +59,20 @@ describe("startRun", () => {
     expect(workspace).toEqual({ path: repo, branch: "oid/login", startCommit: head });
     expect(git(repo, "branch", "--show-current")).toBe("oid/login");
     expect(existsSync(join(dir, ".oid-worktrees"))).toBe(false);
+  });
+});
+
+describe("git", () => {
+  it("fails with a GitError that carries git's message, so a run can tell a failed git command from a bug", () => {
+    const repo = projectRepo();
+    let failure: unknown;
+    try {
+      runGit(repo, "rev-parse --verify", "no-such-commit");
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toMatchObject({ name: "GitError", message: expect.stringContaining("rev-parse --verify failed") });
+    expect(failure).toBeInstanceOf(GitError);
   });
 });
 

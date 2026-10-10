@@ -18,8 +18,8 @@ const WORD_SEPARATOR = " ";
 /** What `git rev-parse --symbolic-full-name HEAD` prints before the name of the branch checked out (it prints `HEAD` alone when none is). */
 const BRANCH_REF = "refs/heads/";
 
-/** Git options that keep background maintenance from racing with whoever runs next in the repository. */
-const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 commit --quiet --message";
+/** Git options that keep background maintenance from racing with whoever runs next in the repository, and that keep the project's git hooks out of oid's own commits: they are bookkeeping on the run's branch, judged by oid's gates, not by hooks written for the user's commits. */
+const QUIET_COMMIT = "-c maintenance.auto=false -c gc.auto=0 -c core.hooksPath=/dev/null commit --quiet --no-verify --message";
 
 /** Commits everything the step changed on the run's branch and returns the commit; when nothing changed, returns the current one. */
 export function checkpoint(workspace: Workspace, options: CheckpointOptions): string {

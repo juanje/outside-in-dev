@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkpoint, rollback } from "../../src/artifacts/git-checkpoints.js";
@@ -23,6 +23,15 @@ describe("checkpoint", () => {
     expect(hash).toBe(git("rev-parse", "HEAD"));
     expect(git("log", "-1", "--format=%s")).toBe("oid: checkpoint FR-AUTH-01 bdd_red Log in");
     expect(git("show", "--name-only", "--format=", "HEAD")).toBe("src/login.ts");
+  });
+
+  it("commits although a pre-commit hook of the project refuses every commit", () => {
+    const workspace = runWorkspace();
+    writeFileSync(join(dir, ".git", "hooks", "pre-commit"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    write("src/login.ts", "export {};\n");
+    const hash = checkpoint(workspace, { fr: "FR-AUTH-01", state: "bdd_red" });
+    expect(hash).toBe(git("rev-parse", "HEAD"));
+    expect(hash).not.toBe(workspace.startCommit);
   });
 
   it("returns the current commit without making a new one when nothing changed", () => {

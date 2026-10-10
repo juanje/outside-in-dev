@@ -11,6 +11,7 @@ import { requireSetup } from "./preflight.js";
 import { type ReviewEntry, writeAndReview } from "./run-features.js";
 import { type LoopResume, runInnerLoop } from "./run-inner-loop.js";
 import type { RedScenario } from "./run-bdd-red.js";
+import { endOnGitFailure } from "./run-git-failure.js";
 import { RunStopped } from "./run-stopped.js";
 import { readSession, type RunSession, updateSession } from "./session.js";
 import type { RunServices } from "./services.js";
@@ -82,7 +83,7 @@ export async function resumeRun(cwd: string, environment: { write: (text: string
     bus.emit({ type: RESUMED, state: saved.state, discarded, ...(released === undefined ? {} : { releasedLock: released }) });
     const plan = resumePlan(saved, doneIn(workspace.path));
     const started: Started = { cwd, runId: saved.runId, bus, workspace, targets: plan.targets };
-    return "review" in plan ? await writeAndReview(started, services, plan.review) : await runInnerLoop(started, services, saved.featureHashes ?? {}, plan);
+    return await endOnGitFailure(bus, () => ("review" in plan ? writeAndReview(started, services, plan.review) : runInnerLoop(started, services, saved.featureHashes ?? {}, plan)));
   } catch (error) {
     if (error instanceof RunStopped) return error.code;
     throw error;

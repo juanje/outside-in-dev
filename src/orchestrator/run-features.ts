@@ -7,6 +7,7 @@ import { DONE } from "../agents/runner.js";
 import { outcomeProblem } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
 import { settleBudget } from "./budget-settle.js";
+import { endOnGitFailure } from "./run-git-failure.js";
 import { RunStopped } from "./run-stopped.js";
 import { announceAgent } from "./attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
@@ -147,7 +148,7 @@ export async function runFeatureCycle(cwd: string, args: RunArgs, environment: O
   acquireLock(cwd, services.pid);
   try {
     const started = startOfRun(cwd, args, { ...environment, pid: services.pid, aborted: services.aborted }, commands, services.detect ?? detectProject, runnersOf(services));
-    return isExitCode(started) ? started : await writeAndReview(started, services);
+    return isExitCode(started) ? started : await endOnGitFailure(started.bus, () => writeAndReview(started, services));
   } catch (error) {
     if (error instanceof RunStopped) return error.code;
     throw error;
