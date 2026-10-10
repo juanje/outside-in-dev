@@ -5,6 +5,7 @@ import { runSupervised } from "./command-supervisor.js";
 import { ProgressError } from "./progress.js";
 import { CONFIG_FILE, loadCommandTimeoutS } from "./project-config.js";
 import { readJson, readText } from "./project-json.js";
+import { UNIT_SEPARATOR, WORD_SEPARATOR } from "./verify-target.js";
 
 /** The directory, relative to the project, that holds the runners' reports; local and git-ignored. */
 const REPORT_DIR = ".outside-in/verify";
@@ -30,7 +31,8 @@ function reportOptions(reportPath: string): string {
 
 /** The configured unit command with oid's arguments appended: the test file, the test name as the `--testNamePattern=` filter, in one word so a name starting with `-` is not read as an option and the JSON report. */
 export function unitRunCommand(command: string, test: { file: string; name: string }, reportPath: string): string {
-  return `${command} ${shellQuote(test.file)} --testNamePattern=${shellQuote(escapeRegExp(test.name))} ${reportOptions(reportPath)}`;
+  const filter = test.name.split(UNIT_SEPARATOR).join(WORD_SEPARATOR);
+  return `${command} ${shellQuote(test.file)} --testNamePattern=${shellQuote(escapeRegExp(filter))} ${reportOptions(reportPath)}`;
 }
 
 /** The configured BDD command with oid's arguments appended: the location of each scenario and the Cucumber Messages report. */

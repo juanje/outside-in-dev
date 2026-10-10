@@ -8,6 +8,9 @@ export const TARGET = { test: "unit_test", scenario: "scenario" } as const;
 
 export const UNIT_SEPARATOR = " > ";
 
+/** What joins the titles of a test's full name in the runner's own reports and filters. */
+export const WORD_SEPARATOR = " ";
+
 /** Splits `<test file> > <test name>` at the first separator; the name may contain the separator itself. */
 export function parseUnitTarget(target: string): { file: string; name: string } {
   const at = target.indexOf(UNIT_SEPARATOR);

@@ -12,6 +12,10 @@ describe("unitRunCommand", () => {
     );
   });
 
+  it("joins the describe titles of a test named as an agent reports it with spaces, the way the runner's name filter wants them", () => {
+    expect(unitRunCommand("npx vitest run", { file: "a.test.ts", name: "unitRunCommand > adds up" }, "r.json")).toContain("--testNamePattern='unitRunCommand adds up' ");
+  });
+
   it("quotes a single quote of the test name so that the shell passes it on unchanged", () => {
     expect(unitRunCommand("npx vitest run", { file: "a.test.ts", name: "it's" }, "r.json")).toContain("--testNamePattern='it'\\''s' ");
   });

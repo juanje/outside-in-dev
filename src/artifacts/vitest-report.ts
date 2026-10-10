@@ -2,6 +2,7 @@ import { relative } from "node:path";
 import { z } from "zod";
 import { firstLine } from "./lines.js";
 import { ProgressError } from "./progress.js";
+import { WORD_SEPARATOR } from "./verify-target.js";
 
 const LIST_SEPARATOR = ", ";
 
@@ -35,7 +36,6 @@ export function normalizeVitestReport(report: unknown): UnitFileResult[] {
 export type TestSelection = { kind: "found"; test: UnitTestResult } | { kind: "several"; fullNames: string[] } | { kind: "none" };
 
 const DESCRIBE_SEPARATOR = " > ";
-const WORD_SEPARATOR = " ";
 
 /** The tests among `tests` that `name` designates: those whose full name is `name` (or `name` with its describe titles joined by ` > `, as an agent reports it), else those whose title is. */
 function namedTests(tests: UnitTestResult[], name: string): UnitTestResult[] {
