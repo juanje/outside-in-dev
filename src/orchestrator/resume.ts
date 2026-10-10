@@ -69,13 +69,13 @@ function doneIn(worktree: string): string[] {
 }
 
 /** Resumes the run the session saved, after a crash, an abort or a question it could not ask: takes the lock (releasing one whose process is gone), returns the worktree to its last checkpoint (the feature files that wait for their review stay) and runs again the state it stopped in. Returns the exit code of the process. */
-export async function resumeRun(cwd: string, environment: { now: Date; write: (text: string) => void }, services: RunServices): Promise<number> {
+export async function resumeRun(cwd: string, environment: { write: (text: string) => void }, services: RunServices): Promise<number> {
   await requireSetup(cwd, services.preflight);
   const saved = resumable(cwd);
   const released = takeOverLock(cwd, services.pid);
   try {
     if (!existsSync(saved.worktree)) throw new ProgressError(`the worktree of the run ${saved.runId} is gone: ${saved.worktree}`);
-    const bus = createEventBus({ cwd, runId: saved.runId, write: environment.write, now: () => environment.now.getTime(), stopRequested: services.aborted });
+    const bus = createEventBus({ cwd, runId: saved.runId, write: environment.write, stopRequested: services.aborted });
     const workspace = { path: saved.worktree, branch: saved.branch, startCommit: saved.baseCommit };
     const discarded = saved.state === STATE.featureReview ? [] : discardUncommitted(workspace);
     updateSession(cwd, { pendingInput: null });

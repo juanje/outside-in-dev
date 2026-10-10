@@ -90,6 +90,16 @@ Then("the event log of the run records that the run was resumed at {string}", fu
   resumedEvents.set(this, resumed[0]!);
 });
 
+Then("the events of the run from the resume on were stamped with the times they happened, not all the same", function (this: OidWorld) {
+  const events = eventLog(this);
+  const from = events.findIndex((event) => event.type === "resumed");
+  assert.ok(from >= 0, "the run was not resumed");
+  const times = events.slice(from).map((event) => event.ts);
+  assert.ok(times.length > 2, `only ${times.length} events after the resume`);
+  assert.deepEqual(times, [...times].sort((a, b) => a - b), "an event is stamped earlier than the one before it");
+  assert.ok(new Set(times).size > 1, `all ${times.length} events carry the time ${times[0]}`);
+});
+
 function resumedEvent(world: OidWorld): Resumed {
   const found = resumedEvents.get(world);
   assert.ok(found, "no resumed event was found");

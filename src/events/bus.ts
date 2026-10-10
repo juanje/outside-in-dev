@@ -18,7 +18,8 @@ export type EventBusOptions = {
   cwd: string;
   runId: string;
   write: (text: string) => void;
-  now: () => number;
+  /** The clock the events are stamped with, read when each one is emitted; by default the system clock. */
+  now?: () => number;
   /** Whether someone asked the run to stop (`oid abort`); by default nobody does. */
   stopRequested?: () => boolean;
 };
@@ -31,7 +32,7 @@ export function createEventBus(options: EventBusOptions) {
     stopRequested: (): boolean => options.stopRequested?.() ?? false,
     /** Logs and prints the event; returns the exit code the process must end with, if the event ends it. */
     emit(body: OIEventBody): number | undefined {
-      const event: OIEvent = { ts: options.now(), runId: options.runId, ...body };
+      const event: OIEvent = { ts: (options.now ?? Date.now)(), runId: options.runId, ...body };
       mkdirSync(runDir, { recursive: true });
       appendFileSync(join(runDir, "events.jsonl"), `${JSON.stringify(event)}\n`);
       options.write(`${plainLine(event)}\n`);

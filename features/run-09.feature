@@ -146,6 +146,11 @@ Feature: Resume, abort and concurrency
     And the saved session still names the run "earlier-run" with its pending question
     And the project has no lock file
 
+  Scenario: The events of a resumed run carry the time each one happened
+    Given "oid run --fr FR-CART-02" was run without a terminal and saved its question about the feature files
+    When I run "oid resume" with a terminal where the human answers "approve"
+    Then the events of the run from the resume on were stamped with the times they happened, not all the same
+
   @process
   Scenario: oid abort sends a real signal to the process that holds the lock
     Given the lock of the project is held by a process that is running

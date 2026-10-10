@@ -27,6 +27,16 @@ describe("event bus", () => {
     expect(exitCode).toBeUndefined();
   });
 
+  it("stamps each event with the time it is emitted when it is given no clock", () => {
+    const withoutClock = createEventBus({ cwd, runId: "run-1", write: () => undefined });
+    const before = Date.now();
+    withoutClock.emit({ type: "error", message: "first" });
+    const after = Date.now();
+    const [event] = readFileSync(join(cwd, ".outside-in/runs/run-1/events.jsonl"), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+    expect(event.ts).toBeGreaterThanOrEqual(before);
+    expect(event.ts).toBeLessThanOrEqual(after);
+  });
+
   it("saves the session and asks for exit code 3 when a question has no terminal to answer it", () => {
     const request = { id: "request-1", prompt: "Accept the ambiguous Red?", actions: [{ key: "approve", label: "Approve" }] };
     const exitCode = bus().emit({ type: "waiting_input", request });

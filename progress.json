@@ -2672,6 +2672,10 @@
         {
           "name": "oid abort sends a real signal to the process that holds the lock",
           "bdd": "pass"
+        },
+        {
+          "name": "The events of a resumed run carry the time each one happened",
+          "bdd": "pass"
         }
       ]
     },

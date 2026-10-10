@@ -24,7 +24,7 @@ export type Loop = { unit: string[]; typecheck: string | null | (string | null)[
 type Fixture = { requirements: string[]; tracked: Map<string, Status>; suite: Suite; config: boolean; cucumber?: Cucumber; tools: Tools; retries?: number; models?: { fast: string; default: string; strong: string }; budget?: Budget };
 /** The limits of the budget a project sets, as `limits` holds them. */
 export type Budget = { cost_limit_usd?: number; cost_limit_fr_usd?: number; agent_max_turns?: number; agent_timeout_s?: number };
-export type LoggedEvent = { type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
+export type LoggedEvent = { ts: number; type: string; to?: string; reason?: string; message?: string; file?: string; from?: string };
 export type SavedSession = { runId: string; worktree: string; branch: string; baseCommit: string; state: string; targetFrs?: string[]; featureHashes?: Record<string, string>; pendingInput?: { id: string; prompt: string; actions: { key: string }[] } | null; spend?: { usd: number; tokens: number; byFr: Record<string, { usd: number; tokens: number }> }; extensions?: number };
 
 const fixtures = new WeakMap<OidWorld, Fixture>();
