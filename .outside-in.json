@@ -42,5 +42,9 @@
     "entry": [
       "src/cli.ts"
     ]
+  },
+  "limits": {
+    "cost_limit_fr_usd": 5,
+    "cost_limit_usd": 10
   }
 }
