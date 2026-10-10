@@ -268,11 +268,11 @@ Agents cannot edit `package.json` or lockfiles; they ask for a package with a re
 
 ### FR-AGENT-08: Context per task
 
-Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it.
+Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it. The catalogue has a size budget: the modules the task uses and those next to them come first with their signatures, and the rest are listed by path, for the agent to read when it needs them.
 
 ### FR-AGENT-09: A test task receives public signatures
 
-A test task (BDD_RED or TDD_RED) receives the public signatures of the project's exported symbols: the name, the types and the first documentation line, and no body. It still receives no other scenario.
+A test task (BDD_RED or TDD_RED) receives the public signatures of the project's exported symbols: the name, the types and the first documentation line, and no body, within the same budget as the catalogue. It still receives no other scenario.
 
 ## Functional Requirements — Feature cycle
 
