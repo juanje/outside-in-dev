@@ -3438,6 +3438,11 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-VERIFY-09",
+      "title": "Try a change without recording it",
+      "status": "pending"
     }
   ]
 }

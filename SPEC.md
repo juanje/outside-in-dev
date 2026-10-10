@@ -214,6 +214,10 @@ Every command oid runs from the project's configuration (the unit and BDD runner
 
 A unit test found wrong at `tdd_green`, `refactor` or `quality_gate` is fixed by going back to `tdd_red`, never in place (ADR-044). Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. At `tdd_red` with that record, `oid verify red <test>` judges a test that fails as any Red. A test that passes returns the feature to the step it came from only if `src/` has not changed since going back and, with the code written in this cycle removed by oid and restored afterwards, the test fails as a valid Red; otherwise it says which condition failed and the feature stays at `tdd_red`. When the failure without that code needs a decision (ADR-033), it is recorded like any other and `--decide` answers it: a valid class returns the feature, any other leaves it at `tdd_red`.
 
+### FR-VERIFY-09: Try a change without recording it
+
+`oid try <test or scenario>` runs that one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict: what passes, what fails and why, or which steps are undefined (`--dry-run` only lists the undefined steps). It records nothing, so the agents of a run use it to check their own work quickly, and oid's gates still judge the result.
+
 ## Functional Requirements — Git isolation
 
 
