@@ -1,7 +1,7 @@
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createEditTool } from "@earendil-works/pi-coding-agent";
 import { terminalOf } from "../support/terminal.js";
@@ -229,6 +229,7 @@ Given("oid opened an agent session for the step {word}", async function (this: O
     agentDir: oidAgentDir({ HOME: scenario.home }),
     sessionsDir: this.path("sandbox-runs/sessions"),
     ...dependencyOptions(this),
+    ...(tries.get(this) === undefined ? {} : { runners: tries.get(this)!.runners }),
   };
   const session = await openProfileSession(request);
   session.abort = async () => {
@@ -293,8 +294,8 @@ Then("the session offers a shell: {word}", function (this: OidWorld, shell: stri
 });
 
 Then("the session offers the tools: {}", function (this: OidWorld, tools: string) {
-  // The built-in tools only: oid's own `report` tool is offered to every step (agent-04) and `request_dependency` to the steps that write tests or code (agent-07).
-  const builtins = sandboxSession(this).getActiveToolNames().filter((name) => name !== "report" && name !== "request_dependency");
+  // The built-in tools only: oid's own `report` tool is offered to every step (agent-04), `request_dependency` and `try` to the steps that write tests or code (agent-07, and below).
+  const builtins = sandboxSession(this).getActiveToolNames().filter((name) => name !== "report" && name !== "request_dependency" && name !== "try");
   assert.deepEqual([...builtins].sort(), tools.split(", ").sort());
 });
 
@@ -745,7 +746,69 @@ Then("the session offers the request_dependency tool: {word}", function (this: O
   assert.equal(sandboxSession(this).getActiveToolNames().includes("request_dependency"), offered === "yes");
 });
 
-Given("the file {string} holds:", function (this: OidWorld, file: string, text: string) {
+Then("the session offers the try tool: {word}", function (this: OidWorld, offered: string) {
+  assert.equal(sandboxSession(this).getActiveToolNames().includes("try"), offered === "yes");
+});
+
+type TryScenario = { runners: import("../../src/artifacts/verify-runner.js").Runners; unitRuns: number; before: string; answer: string };
+const tries = new WeakMap<OidWorld, TryScenario>();
+
+/** Every file of the worktree with the time it was last changed, apart from git's own directory: what "unchanged" means for a tool that must write nothing. */
+function worktreeState(root: string): string {
+  const lines: string[] = [];
+  const walk = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === ".git") continue;
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else lines.push(`${path} ${statSync(path).mtimeMs} ${statSync(path).size}`);
+    }
+  };
+  walk(root);
+  return lines.sort().join("\n");
+}
+
+Given("the project's unit test and type check pass", async function (this: OidWorld) {
+  const { REAL_RUNNERS } = await import("../../src/artifacts/verify-runner.js");
+  const project = sandboxOf(this).project;
+  const passing = { exitCode: 0, stderr: "", report: { testResults: [{ name: join(project, "tests/unit/cart.test.ts"), status: "passed", message: "", assertionResults: [{ title: "adds a line", fullName: "adds a line", ancestorTitles: [], status: "passed", failureMessages: [] }] }] } };
+  const scenario: TryScenario = { runners: undefined as never, unitRuns: 0, before: "", answer: "" };
+  scenario.runners = {
+    ...REAL_RUNNERS,
+    tryUnitTest: () => {
+      scenario.unitRuns += 1;
+      return passing;
+    },
+    typecheck: () => ({ exitCode: 0, output: "" }),
+  };
+  tries.set(this, scenario);
+});
+
+When("the agent tries {string}", async function (this: OidWorld, target: string) {
+  const scenario = tries.get(this);
+  assert.ok(scenario, "no runners were set up");
+  scenario.before = worktreeState(sandboxOf(this).project);
+  const tool = sandboxSession(this).getToolDefinition("try");
+  assert.ok(tool, "the session does not offer the try tool");
+  const result = await tool.execute("call-1", { target } as never, undefined, undefined, {} as never);
+  scenario.answer = result.content.map((part) => (part.type === "text" ? part.text : "")).join("");
+});
+
+Then("the try tool answers with the verdict {string}", function (this: OidWorld, verdict: string) {
+  assert.ok(tries.get(this)!.answer.trimEnd().endsWith(verdict), `the answer is: ${tries.get(this)!.answer}`);
+});
+
+Then("the try tool refuses, naming the worktree", function (this: OidWorld) {
+  const scenario = tries.get(this)!;
+  assert.ok(scenario.answer.includes("worktree"), `the answer is: ${scenario.answer}`);
+  assert.equal(scenario.unitRuns, 0);
+});
+
+Then("the worktree is as it was before the agent tried", function (this: OidWorld) {
+  assert.equal(worktreeState(sandboxOf(this).project), tries.get(this)!.before);
+});
+
+Given("the file {string} holds:",function (this: OidWorld, file: string, text: string) {
   put(join(sandboxOf(this).project, file), `${text}\n`);
 });
 

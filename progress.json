@@ -1991,6 +1991,18 @@
         {
           "name": "A command the profile allows still runs with ordinary arguments",
           "bdd": "pass"
+        },
+        {
+          "name": "Every step that writes tests or code gets the try tool",
+          "bdd": "pass"
+        },
+        {
+          "name": "The try tool checks one test and changes nothing in the worktree beyond what the agent wrote",
+          "bdd": "pass"
+        },
+        {
+          "name": "The try tool does not run a test outside the worktree",
+          "bdd": "pass"
         }
       ]
     },

@@ -3,7 +3,7 @@ import { openProfileSession } from "../agents/profile-session.js";
 import { ASK, type AgentTask, type AttemptOutcome, BLOCKED, FAILED, type RunContext } from "../agents/runner.js";
 import type { Started } from "./begin.js";
 import { runDirectory } from "./session.js";
-import type { FeatureServices } from "./services.js";
+import { type FeatureServices, runnersOf } from "./services.js";
 
 /** Where the agents of a run work and how their sessions open: in the run's worktree, in oid's agent directory, with the sandbox of their step. */
 export function agentContext({ cwd, runId, workspace }: Started, services: FeatureServices): RunContext {
@@ -11,7 +11,7 @@ export function agentContext({ cwd, runId, workspace }: Started, services: Featu
     worktree: workspace.path,
     agentDir: services.agentDir,
     sessionsDir: join(runDirectory(cwd, runId), "sessions"),
-    openSession: (task: AgentTask, run: RunContext) => openProfileSession({ state: task.state, worktree: run.worktree, agentDir: run.agentDir, sessionsDir: run.sessionsDir, model: task.model, thinkingLevel: task.thinkingLevel }, services.sdk),
+    openSession: (task: AgentTask, run: RunContext) => openProfileSession({ state: task.state, worktree: run.worktree, agentDir: run.agentDir, sessionsDir: run.sessionsDir, model: task.model, thinkingLevel: task.thinkingLevel, runners: runnersOf(services) }, services.sdk),
   };
 }
 

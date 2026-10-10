@@ -15,6 +15,7 @@ export const TOOL_PATH_ARGS: Readonly<Record<string, readonly string[]>> = {
   bash: NO_PATHS,
   report: NO_PATHS,
   request_dependency: NO_PATHS,
+  try: NO_PATHS,
 };
 
 /** The searches that mean the worktree root when they carry no path. */

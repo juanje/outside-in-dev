@@ -19,6 +19,12 @@ describe("pathsOf", () => {
   });
 });
 
+describe("pathsOf the try tool", () => {
+  it("names no path for a call of the try tool, so that the sandbox lets it through", () => {
+    expect(pathsOf("try", { target: "tests/unit/a.test.ts > adds up" })).toEqual([]);
+  });
+});
+
 describe("TOOL_PATH_ARGS", () => {
   it("declares every path-shaped parameter of every tool that Pi offers", () => {
     const tools = [pi.createReadToolDefinition, pi.createWriteToolDefinition, pi.createEditToolDefinition, pi.createGrepToolDefinition, pi.createFindToolDefinition, pi.createLsToolDefinition, pi.createBashToolDefinition].map((create) => create("/"));

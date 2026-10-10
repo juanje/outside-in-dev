@@ -1,6 +1,7 @@
 import * as pi from "@earendil-works/pi-coding-agent";
 import { type Installer, runInstall } from "../artifacts/git-dependencies.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { installEditHints } from "./edit-hints.js";
 import { type CycleState, FEATURE_WRITE, type Profile, profileFor } from "./profiles.js";
 import { openAgentSession, type PiSdk } from "./runner.js";
@@ -8,6 +9,7 @@ import { installSandbox } from "./sandbox.js";
 import { buildToolset } from "./toolset.js";
 import { reportTool } from "./tools/report.js";
 import { type DependencyDecision, type DependencyRequest, requestDependencyTool } from "./tools/request-dependency.js";
+import { tryTool } from "./tools/try.js";
 
 /** What a step's session needs: the step, where it works, oid's agent directory and where its transcript goes. */
 export type ProfileSessionRequest = {
@@ -22,6 +24,8 @@ export type ProfileSessionRequest = {
   approveDependency?: (request: DependencyRequest) => Promise<DependencyDecision>;
   /** How a package manager command runs; by default the real one. */
   installDependency?: Installer;
+  /** How the `try` tool runs the project's tests and checks; by default the real ones. */
+  runners?: Runners;
 };
 
 function systemPromptFor(profile: Profile): string {
@@ -38,7 +42,8 @@ function systemPromptFor(profile: Profile): string {
 export async function openProfileSession(request: ProfileSessionRequest, sdk: PiSdk = pi) {
   const profile = profileFor(request.state, loadProjectConfig(request.worktree));
   const dependencyTools = request.state !== FEATURE_WRITE ? [requestDependencyTool({ worktree: request.worktree, approve: request.approveDependency, install: request.installDependency ?? runInstall })] : [];
-  const toolset = buildToolset(profile, [reportTool, ...dependencyTools]);
+  const tryTools = request.state !== FEATURE_WRITE ? [tryTool({ worktree: request.worktree, runners: request.runners ?? REAL_RUNNERS })] : [];
+  const toolset = buildToolset(profile, [reportTool, ...dependencyTools, ...tryTools]);
   const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset, model: request.model, thinkingLevel: request.thinkingLevel }, sdk);
   installSandbox(session, profile, { worktree: request.worktree, tools: toolset.names });
   if (toolset.names.includes("edit")) installEditHints(session);

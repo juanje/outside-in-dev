@@ -154,3 +154,31 @@ Feature: Tools and paths per step
     Given oid opened an agent session for the step TDD_RED
     Then the session's tool call hook is oid's sandbox
     And a forbidden call made through that hook is blocked
+
+  Scenario Outline: Every step that writes tests or code gets the try tool
+    Given oid opened an agent session for the step <step>
+    Then the session offers the try tool: <offered>
+
+    Examples:
+      | step          | offered |
+      | FEATURE_WRITE | no      |
+      | BDD_RED       | yes     |
+      | TDD_RED       | yes     |
+      | CODE_GREEN    | yes     |
+      | REFACTOR      | yes     |
+      | FR_REFACTOR   | yes     |
+      | QUALITY_FIX   | yes     |
+
+  Scenario: The try tool checks one test and changes nothing in the worktree beyond what the agent wrote
+    Given the project's unit test and type check pass
+    And oid opened an agent session for the step TDD_RED
+    When the agent tries "tests/unit/cart.test.ts > adds a line"
+    Then the try tool answers with the verdict "try: ok"
+    And the worktree is as it was before the agent tried
+
+  Scenario: The try tool does not run a test outside the worktree
+    Given the project's unit test and type check pass
+    And oid opened an agent session for the step TDD_RED
+    When the agent tries "../outside.test.ts > adds a line"
+    Then the try tool refuses, naming the worktree
+    And the worktree is as it was before the agent tried

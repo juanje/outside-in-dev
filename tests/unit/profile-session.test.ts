@@ -20,9 +20,9 @@ describe("openProfileSession", () => {
     await openProfileSession({ ...request, state: "CODE_GREEN" }, sdk);
     await openProfileSession({ ...request, state: "TDD_RED" }, sdk);
 
-    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report", "request_dependency"], excludeTools: [], agentDir: "/oid/agent" });
-    expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }, { name: "request_dependency" }]);
-    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report", "request_dependency"], excludeTools: ["bash"] });
+    expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report", "request_dependency", "try"], excludeTools: [], agentDir: "/oid/agent" });
+    expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }, { name: "request_dependency" }, { name: "try" }]);
+    expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report", "request_dependency", "try"], excludeTools: ["bash"] });
     for (const call of calls) expect(promptOf(call)).toContain("call the report tool");
     for (const call of calls) expect(promptOf(call)).toContain("orchestrator runs git and the tests");
 
