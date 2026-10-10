@@ -127,7 +127,7 @@ describe("writing the feature files of a run", () => {
     expect(printed.filter((line) => line.startsWith("[FEATURE_REVIEW -> FEATURE_WRITE]"))).toHaveLength(1);
   });
 
-  it("gives the agent procedural instructions that end with the report and say that it runs neither git nor tests, before the context", async () => {
+  it("gives the agent procedural instructions that say what oid is and end with the report, before the context", async () => {
     const project = featureProject();
     const agent = new FakeAgent();
     await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
@@ -135,7 +135,7 @@ describe("writing the feature files of a run", () => {
     const instructions = task!.text.slice(0, task!.text.indexOf("Requirement:"));
     expect(instructions).toMatch(/1\. /);
     expect(instructions).toContain("@FR-A-01");
-    expect(instructions).toMatch(/does not run git or tests|do not run git or tests/i);
+    expect(instructions).toMatch(/A program called oid orchestrates it/);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
