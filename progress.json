@@ -1783,6 +1783,10 @@
         {
           "name": "A finished run's worktree can be removed",
           "bdd": "pass"
+        },
+        {
+          "name": "The shared dependencies are never seen by git in the worktree",
+          "bdd": "pass"
         }
       ]
     },

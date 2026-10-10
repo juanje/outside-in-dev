@@ -37,6 +37,13 @@ Feature: Work in an isolated worktree
     When a run starts and is named "login"
     Then the worktree's dependencies are the user's copy's dependencies
 
+  Scenario: The shared dependencies are never seen by git in the worktree
+    Given the project ignores its dependencies with the pattern "node_modules/"
+    And the user's copy has installed dependencies
+    When a run starts and is named "login"
+    Then the worktree's dependencies are the user's copy's dependencies
+    And git reports no untracked files in the worktree
+
   Scenario: A run installs its own dependencies when the lockfile differs
     Given the user's copy has installed dependencies
     And the lockfile of the user's copy has uncommitted differences from the committed one

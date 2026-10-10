@@ -8,15 +8,17 @@ import { countLines, type LineRange, parseChangedLines } from "./changed-lines.j
 export const GIT = "git";
 /** The commit checked out. */
 export const HEAD = "HEAD";
+/** The git command that asks about the repository. */
+export const REV_PARSE = "rev-parse";
 
 /** Whether `cwd` is inside a git work tree; asked only when there is no HEAD, to tell the two reasons apart. */
 function isInsideWorkTree(cwd: string): boolean {
-  return spawnSync(GIT, ["rev-parse", "--is-inside-work-tree"], { cwd, encoding: "utf8" }).status === 0;
+  return spawnSync(GIT, [REV_PARSE, "--is-inside-work-tree"], { cwd, encoding: "utf8" }).status === 0;
 }
 
 /** The lines added or modified in the working tree of `cwd` since `since` (HEAD by default), staged or not, by file path; a file git does not track yet counts as changed in every line. */
 export function readChangedLines(cwd: string, since = HEAD): Map<string, LineRange[]> {
-  const head = spawnSync(GIT, ["rev-parse", "--verify", "--quiet", HEAD], { cwd, encoding: "utf8" });
+  const head = spawnSync(GIT, [REV_PARSE, "--verify", "--quiet", HEAD], { cwd, encoding: "utf8" });
   if (head.status !== 0) throw new ProgressError(isInsideWorkTree(cwd) ? "--changed compares with HEAD, and this git repository has no commits yet" : "--changed needs a git repository, and this directory is not a git repository");
   const diff = spawnSync(GIT, ["diff", "--unified=0", "--no-color", "--relative", since], { cwd, encoding: "utf8" });
   const changed = parseChangedLines(diff.stdout);

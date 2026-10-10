@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { join } from "node:path";
-import { installCommand, runInstall } from "../../src/artifacts/git-dependencies.js";
+import { installCommand, prepareDependencies, runInstall } from "../../src/artifacts/git-dependencies.js";
+import { committedRepo, gitIn } from "./git-fixture.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
@@ -20,6 +21,19 @@ describe("installCommand", () => {
   it("installs a yarn.lock with yarn install --frozen-lockfile", () => {
     write("yarn.lock", "# yarn lockfile v1");
     expect(installCommand(dir)).toEqual(["yarn", "install", "--frozen-lockfile"]);
+  });
+});
+
+describe("prepareDependencies", () => {
+  it("hides the shared node_modules link from git even when the project ignores only directories", () => {
+    const main = committedRepo("main", { "package-lock.json": "lock\n", ".gitignore": "node_modules/\n", "node_modules/dep/index.js": "1\n" });
+    const worktree = join(dir, "wt");
+    gitIn(main, "worktree", "add", "--quiet", "-b", "run", worktree);
+
+    prepareDependencies(main, worktree, () => undefined);
+
+    expect(lstatSync(join(worktree, "node_modules")).isSymbolicLink()).toBe(true);
+    expect(gitIn(worktree, "status", "--porcelain", "--untracked-files=all")).toBe("");
   });
 });
 

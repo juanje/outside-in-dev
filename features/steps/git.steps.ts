@@ -106,6 +106,13 @@ Given("the user's copy has installed dependencies", function (this: OidWorld) {
   writeIn(scenarioOf(this).repo, "node_modules/dep/index.js", "module.exports = 1;\n");
 });
 
+Given("the project ignores its dependencies with the pattern {string}", function (this: OidWorld, pattern: string) {
+  const state = scenarioOf(this);
+  writeIn(state.repo, ".gitignore", `${pattern}\n`);
+  commitEverything(state.repo, "ignore the dependencies");
+  Object.assign(state, observe(state.repo));
+});
+
 Given("the lockfile of the user's copy has uncommitted differences from the committed one", function (this: OidWorld) {
   const state = scenarioOf(this);
   writeIn(state.repo, "package-lock.json", "lock B\n");
@@ -219,6 +226,10 @@ Then("the worktree's dependencies are the user's copy's dependencies", function 
   assert.ok(lstatSync(link).isSymbolicLink(), "node_modules in the worktree is not a symbolic link");
   assert.equal(realpathSync(link), realpathSync(join(repo, "node_modules")));
   assert.deepEqual(scenarioOf(this).installs, []);
+});
+
+Then("git reports no untracked files in the worktree", function (this: OidWorld) {
+  assert.equal(git(workspaceOf(this).path, "status", "--porcelain", "--untracked-files=all"), "");
 });
 
 Then("the worktree's dependencies are installed by {string} in the worktree", function (this: OidWorld, command: string) {
