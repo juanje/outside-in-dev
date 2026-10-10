@@ -42,11 +42,11 @@ type OpenedSession = { agent: { beforeToolCall?: Hook; afterToolCall?: unknown }
 const FR_HEADING = /^### (FR-[A-Z0-9]+-\d+[a-z]?):/m;
 /** The words the identity of the step-writing task says, which tell its route from the feature-writing one. */
 const STEP_TASK_MARKER = "write the step definitions";
-/** The words the identities of the unit-test and the code tasks say, which tell their routes from the others (the first of each is the wording before the prompts were reworked). */
-const TEST_TASK_MARKERS = ["You write one failing unit test", "write the next small unit test"];
-const CODE_TASK_MARKERS = ["You write the minimum code", "write the least code that makes"];
+/** The words the identities of the unit-test and the code tasks say, which tell their routes from the others. */
+const TEST_TASK_MARKER = "write the next small unit test";
+const CODE_TASK_MARKER = "write the least code that makes";
 /** The words the identity of the refactoring task says. */
-const REFACTOR_TASK_MARKERS = ["You fix exactly the findings", "remove the code-health findings"];
+const REFACTOR_TASK_MARKER = "remove the code-health findings";
 /** The words the prompt of a quality fix says, and the owner it names: the unit tests, or the source files. */
 const QUALITY_FIX_MARKER = "lint and type errors listed below";
 const QUALITY_FIX_TESTS = "the unit tests you own";
@@ -188,9 +188,9 @@ export class FakeAgent {
 
   private unitRoute(text: string): Route | undefined {
     if (text.includes(QUALITY_FIX_MARKER)) return text.includes(QUALITY_FIX_TESTS) ? this.testRoute : text.includes(QUALITY_FIX_SOURCE) ? this.codeRoute : undefined;
-    if (TEST_TASK_MARKERS.some((marker) => text.includes(marker))) return this.testRoute;
-    if (REFACTOR_TASK_MARKERS.some((marker) => text.includes(marker))) return this.refactorRoute;
-    return CODE_TASK_MARKERS.some((marker) => text.includes(marker)) ? this.codeRoute : undefined;
+    if (text.includes(TEST_TASK_MARKER)) return this.testRoute;
+    if (text.includes(REFACTOR_TASK_MARKER)) return this.refactorRoute;
+    return text.includes(CODE_TASK_MARKER) ? this.codeRoute : undefined;
   }
 
   /** One round of a unit-test route: with no round left, the agent writes nothing and reports nothing else. */

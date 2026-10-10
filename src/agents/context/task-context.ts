@@ -31,7 +31,8 @@ export const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the proje
 /** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure, and the public signatures of the project; no body of the source and no other scenario. */
 export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
   const { file, line } = task.scenario;
-  return [`Scenario (${file}:${line}):`, scenarioText(cwd, task.scenario), "Current failure of the scenario (your starting point):", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd)].join(NEWLINE + NEWLINE);
+  const scenario = scenarioText(cwd, task.scenario);
+  return [`Scenario (${file}:${line}):`, scenario, "Current failure of the scenario (your starting point):", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd, { mentions: `${scenario}${NEWLINE}${task.failure}` })].join(NEWLINE + NEWLINE);
 }
 
 /** A file of the project as a section of a prompt: its path and its whole text. */

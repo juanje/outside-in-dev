@@ -19,6 +19,17 @@ describe("task context", () => {
     expect(task).not.toContain("BODY-A");
   });
 
+  it("gives a test task, within the budget, the signatures of the modules whose name the scenario or its failure mentions, and lists the other modules by path", () => {
+    writeMinimalConfig();
+    write("features/checkout.feature", "Feature: Checkout\n  Scenario: Show the cart lines\n    When the customer opens the cart\n");
+    const long = "x".repeat(1000);
+    for (let n = 0; n < 40; n++) write(`src/filler${n}.ts`, `/** ${long} */\nexport function filler${n}(): void {}\n`);
+    write("src/zz/cart-lines.ts", `/** Cart lines ${long} */\nexport function cartLines(): string[] {\n  return [];\n}\n`);
+    const task = testTaskContext(dir, { scenario: { file: "features/checkout.feature", line: 2 }, failure: "cartLines is not a function" });
+    expect(task).toContain("- `function cartLines(): string[]` Cart lines x");
+    expect(task).toContain("Other modules (signatures not shown, read the file when you need it):\n- src/filler");
+  });
+
   it("presents the failure to a test task as its starting point", () => {
     writeMinimalConfig();
     write("features/checkout.feature", FEATURE);
