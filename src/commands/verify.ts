@@ -118,7 +118,7 @@ export interface Observation {
 }
 
 /** The unit test or the scenario to verify. */
-type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
+export type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
 
 /** The scenarios of the project, to look a target up by name; none when the target has the form of a unit test or the project has no configuration. */
 function scenariosToName(cwd: string, target: string): LocatedScenario[] {
@@ -127,7 +127,7 @@ function scenariosToName(cwd: string, target: string): LocatedScenario[] {
 }
 
 /** Reads the target as a scenario when it is the location or the name of one, and as a unit test otherwise. */
-function parseTarget(cwd: string, target: string): Target {
+export function parseTarget(cwd: string, target: string): Target {
   const scenario = scenarioTarget(target, scenariosToName(cwd, target));
   const text = scenario !== undefined && parseBddTarget(target) !== undefined ? readText(cwd, scenario.file) : undefined;
   if (scenario !== undefined && text !== undefined) requireScenarioStart(scenario, listLocatedScenarios([{ path: scenario.file.replace(/^\.\//, ""), text }]));
@@ -160,7 +160,7 @@ function changedStepFile(cwd: string, config: ProjectConfig, stderr: string): st
 }
 
 /** What a Cucumber Messages report showed about the scenario; a scenario that did not run names the steps that kept it from running, and one that failed the step and the output it recorded. */
-function observeReport(report: string, target: { file: string; line: number }, only: { file: string; name: string } | undefined): Failure {
+export function observeReport(report: string, target: { file: string; line: number }, only: { file: string; name: string } | undefined): Failure {
   const failure = observeScenario(normalizeCucumberReport(report, only), target);
   if (failure.kind === FAILURE.notRun) return { ...failure, steps: unrunSteps(report, only) };
   return failure.kind === FAILURE.error ? { ...failure, ...failedStep(report, only) } : failure;

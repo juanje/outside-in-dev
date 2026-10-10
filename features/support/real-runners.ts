@@ -5,4 +5,10 @@ export const REAL_RUNNER_SCENARIOS = {
   "FR-RUN-04": "A failing unit test and the code that passes it turn the scenario green, and the run goes on to the next scenario",
   "FR-RUN-05": "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent",
   "FR-RUN-06": "With the real runners, the formatter and the linter fix the code, every check passes and the feature moves on to its commit",
+  /** The three scenarios of FR-VERIFY-09 that run the real vitest and tsc (a unit test), the real cucumber (a scenario) and the real cucumber dry run; the others replay recorded reports. */
+  "FR-VERIFY-09": [
+    "A unit test that passes gives a short verdict, one line for each check",
+    "A scenario that fails names the step and shows why",
+    "A dry run lists the undefined steps and runs no test, no type check and no linter",
+  ],
 } as const;

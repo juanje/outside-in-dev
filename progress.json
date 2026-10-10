@@ -3442,7 +3442,73 @@
     {
       "id": "FR-VERIFY-09",
       "title": "Try a change without recording it",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A unit test that passes gives a short verdict, one line for each check",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test that fails shows its failure message without the stack",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that passes is tried by its location, and by its name",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that fails names the step and shows why",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario with a step that has no definition lists it with its location and text",
+          "bdd": "pass"
+        },
+        {
+          "name": "A dry run lists the undefined steps and runs no test, no type check and no linter",
+          "bdd": "pass"
+        },
+        {
+          "name": "A dry run of a scenario whose steps are all defined passes, though a step would fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "A type error is reported with its file and line, though the test passes",
+          "bdd": "pass"
+        },
+        {
+          "name": "The linter runs only on the files changed since the last checkpoint, tracked or not, never the ignored ones",
+          "bdd": "pass"
+        },
+        {
+          "name": "With no file changed since the last checkpoint, the linter is skipped and says so",
+          "bdd": "pass"
+        },
+        {
+          "name": "A command that does not end is stopped at the limit and the verdict says so",
+          "bdd": "pass"
+        },
+        {
+          "name": "Trying records nothing, and needs no feature in focus",
+          "bdd": "pass"
+        },
+        {
+          "name": "Trying leaves the checkpoint, the focus and the progress of a feature in the middle of its cycle as they were",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test name that matches no test is a failed verdict",
+          "bdd": "pass"
+        },
+        {
+          "name": "A missing target, and a dry run of a unit test, are usage errors",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid try --help shows its usage and its options",
+          "bdd": "pass"
+        }
+      ]
     }
   ]
 }

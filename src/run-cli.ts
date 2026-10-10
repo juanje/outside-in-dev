@@ -4,6 +4,7 @@ import type { CliIo } from "./cli-io.js";
 import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
 import type { AbortServices } from "./commands/abort.js";
+import type { TryServices } from "./commands/try.js";
 import type { DoctorServices } from "./commands/doctor.js";
 import type { SetupServices } from "./commands/setup.js";
 import { packageVersion } from "./version.js";
@@ -64,6 +65,13 @@ const COMMANDS: Record<string, CommandHelp> = {
     },
     extra: async () => "\nExit codes:\n  0  valid Red, or a Green with no problem\n  1  not a valid Red, a Green with problems, or a usage error\n  2  needs a decision: answer with --decide <class>\n\noid verify integrity prints one line for each rule that the changes break (exit 1), or `integrity: ok` (exit 0).\n\noid verify integrity --path <file> answers, before the file is changed, whether the step of the feature in focus allows it: `integrity: ok` (exit 0, also when the path alone cannot tell), or one line naming the file, its kind, the step and the move that would allow it (exit 1).\n",
   },
+  try: {
+    summary: "Try a test or a scenario, the type check and the linter on the changed files, recording nothing",
+    usage: 'oid try "<test file> > <test name>" [--dry-run]\n       oid try <feature file>:<line> [--dry-run]\n       oid try "<scenario name>" [--dry-run]',
+    options: { "--dry-run": "Only list the steps of the scenario that have no definition: run no test, no type check and no linter" },
+    extra: async () =>
+      "\nRuns the one test or scenario with the project's runner, then the type check and the linter on the files changed since the last commit. One line for each check, and a verdict. Nothing is recorded: no checkpoint, no observation, no report in .outside-in. oid's own gates still judge the result.\n\nExit codes:\n  0  everything passed (a dry run: no undefined step)\n  1  something failed or a step is undefined, or a usage error\n",
+  },
   resume: {
     summary: "Resume the run the session saved, at the state it stopped in",
     usage: "oid resume",
@@ -90,7 +98,7 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Services = RunServices | VerifyServices | AbortServices | SetupServices | DoctorServices;
+type Services = RunServices | VerifyServices | AbortServices | SetupServices | DoctorServices | TryServices;
 type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
@@ -109,6 +117,10 @@ const RUNNERS: Record<string, Runner> = {
   doctor: async (rest, io, services) => (await import("./commands/doctor.js")).runDoctor(io, rest, services as DoctorServices),
   run: async (rest, io, services) => (await import("./commands/run.js")).runRun(io, rest, services as RunServices),
   verify: async (rest, io, services) => (await import("./commands/verify.js")).runVerify(io, rest, services as VerifyServices | undefined),
+  try: async (rest, io, services) => {
+    const { REAL_RUNNERS } = await import("./artifacts/verify-runner.js");
+    return (await import("./commands/try.js")).runTry(io, rest, (services as TryServices | undefined)?.runners ?? REAL_RUNNERS);
+  },
   resume: async (_rest, io, services) => (await import("./commands/resume.js")).runResume(io, services as RunServices),
   abort: async (_rest, io, services) => (await import("./commands/abort.js")).runAbort(io, services as AbortServices),
   metrics: async (rest, io) => {

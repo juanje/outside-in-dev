@@ -1,13 +1,16 @@
 import { isAbsolute, relative } from "node:path";
 import { readJson } from "./project-json.js";
+import { shellQuote } from "./verify-runner.js";
 
 /** Which side of a tool oid runs: the one that fixes what it can, or the one that checks and reports what remains. */
 export const TOOL_MODE = { fix: "fix", check: "check" } as const;
 export type ToolMode = (typeof TOOL_MODE)[keyof typeof TOOL_MODE];
 
 /** The flags oid appends for each tool it recognises by name: ESLint reports as JSON, Prettier by its exit code. */
+export const ESLINT = "eslint";
+
 const FLAGS = [
-  { name: "eslint", tool: /\beslint\b/, fix: "--fix", check: "--format json" },
+  { name: ESLINT, tool: /\beslint\b/, fix: "--fix", check: "--format json" },
   { name: "prettier", tool: /\bprettier\b/, fix: "--write", check: "--check" },
 ] as const;
 
@@ -16,7 +19,6 @@ export type ToolName = (typeof FLAGS)[number]["name"];
 
 const NPM_SCRIPT = /^npm run (\S+)/;
 const ARGUMENTS_SEPARATOR = " -- ";
-
 /** The command of the npm script a command runs, when it runs one. */
 function scriptBody(cwd: string, command: string): string | undefined {
   const name = NPM_SCRIPT.exec(command)?.[1];
@@ -38,6 +40,13 @@ export function toolInvocation(cwd: string, command: string, mode: ToolMode): st
   const flags = flagsOf(cwd, command);
   if (flags === undefined) return command;
   return `${command}${NPM_SCRIPT.test(command) && !command.includes(ARGUMENTS_SEPARATOR) ? ARGUMENTS_SEPARATOR.trimEnd() : ""} ${flags[mode]}`;
+}
+
+/** The command line that checks only `files` with the project's linter: the check invocation with the files, quoted, as its last arguments. */
+export function lintInvocation(cwd: string, command: string, files: string[]): string {
+  const invocation = toolInvocation(cwd, command, TOOL_MODE.check);
+  const separator = NPM_SCRIPT.test(invocation) && !invocation.includes(ARGUMENTS_SEPARATOR) ? ARGUMENTS_SEPARATOR.trimEnd() : "";
+  return files.reduce((line, file) => `${line} ${shellQuote(file)}`, `${invocation}${separator}`);
 }
 
 /** An error of the project's linter or type check, located in a file. */

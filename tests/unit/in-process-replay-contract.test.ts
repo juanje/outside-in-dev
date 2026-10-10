@@ -142,6 +142,24 @@ describe("the in-process unit and type check replays answer as the scripts do", 
     }
   }, REAL_PROCESS_TIMEOUT_MS);
 
+  it("answers one unit test and one scenario for oid try as the scripts do, with the report in a directory of its own and nothing made in the project", () => {
+    const bdd: Entry[] = [{ recording: "green", expect: { locations: [LOCATIONS[0]!] } }];
+    const unit: Entry[] = [{ recording: "red", expect: { file: "tests/unit/a.test.ts", name: "adds up" } }];
+    const [byScript, byRunner] = [project("replay-bdd.mjs", "replay.json", bdd), project("replay-bdd.mjs", "replay.json", bdd)];
+    const report = join(byScript, "elsewhere.ndjson");
+    const { status, stderr } = spawnSync(process.execPath, ["run.mjs", LOCATIONS[0]!, "--dry-run", "--format", `message:${report}`], { cwd: byScript, encoding: "utf8" });
+    const answered = inProcessRunners({ bdd: true, unit: false, typecheck: false }).tryBddScenario(byRunner, "ignored", { file: "features/FR-CART-01.feature", line: 3 }, true);
+    expect(answered).toEqual({ exitCode: status, report: readFileSync(report, "utf8"), stderr });
+    expect(existsSync(join(byRunner, ".outside-in/verify"))).toBe(false);
+    const [unitScript, unitRunner] = [project("replay-unit.mjs", "unit.json", unit), project("replay-unit.mjs", "unit.json", unit)];
+    const unitReport = join(unitScript, "elsewhere.json");
+    const unitRun = spawnSync(process.execPath, ["run.mjs", "tests/unit/a.test.ts", "--testNamePattern=adds up", "--reporter=json", `--outputFile=${unitReport}`], { cwd: unitScript, encoding: "utf8" });
+    const unitAnswered = inProcessRunners({ bdd: false, unit: true, typecheck: false }).tryUnitTest(unitRunner, "ignored", { file: "tests/unit/a.test.ts", name: "adds up" });
+    expect(unitAnswered).toEqual({ exitCode: unitRun.status, report: JSON.parse(readFileSync(unitReport, "utf8")), stderr: unitRun.stderr });
+    expect(existsSync(join(unitRunner, ".outside-in/verify"))).toBe(false);
+    expect(read(unitRunner, ".outside-in/replay-calls.ndjson")).toBe(read(unitScript, ".outside-in/replay-calls.ndjson"));
+  }, REAL_PROCESS_TIMEOUT_MS);
+
   it("leaves the other commands to the real runners", () => {
     const runners = inProcessRunners({ bdd: true, unit: true, typecheck: true });
     expect(runners.command).toBe(REAL_RUNNERS.command);

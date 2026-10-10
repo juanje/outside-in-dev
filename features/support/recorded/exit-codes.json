@@ -28,5 +28,14 @@
   "bdd-clear-missing": 1,
   "bdd-clear-green": 0,
   "unit-red-clear": 1,
-  "unit-green-clear": 0
+  "unit-green-clear": 0,
+  "try-unit-pass": 0,
+  "try-unit-fail": 1,
+  "try-unit-none": 0,
+  "try-bdd-pass": 0,
+  "try-bdd-fail": 1,
+  "try-bdd-undefined": 1,
+  "try-bdd-dry-undefined": 0,
+  "try-bdd-dry-defined": 0,
+  "try-typecheck-error": 1
 }

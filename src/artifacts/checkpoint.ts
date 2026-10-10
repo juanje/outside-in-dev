@@ -95,7 +95,7 @@ function gitNames(cwd: string, args: string[]): string[] {
 }
 
 /** The files of the working tree that differ from HEAD: those that exist (modified, added, untracked) and those that were deleted. */
-function changesFromHead(cwd: string): { present: string[]; deleted: string[] } {
+export function changesFromHead(cwd: string): { present: string[]; deleted: string[] } {
   const tokens = gitNames(cwd, [GIT_DIFF, "--name-status", "--no-renames", NUL_SEPARATED, HEAD]);
   const present: string[] = gitNames(cwd, ["ls-files", "--others", "--exclude-standard", NUL_SEPARATED]);
   const deleted: string[] = [];
