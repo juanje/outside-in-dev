@@ -1,6 +1,6 @@
 {
   "name": "outside-in-dev",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "oid — a command-line harness that enforces Outside-In (Spec → BDD → TDD) on AI coding agents",
   "license": "MIT",
   "type": "module",
