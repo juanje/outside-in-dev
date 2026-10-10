@@ -2312,6 +2312,10 @@
         {
           "name": "A unit runner that writes no report is an error",
           "bdd": "pass"
+        },
+        {
+          "name": "The events of a run carry the time each one happened",
+          "bdd": "pass"
         }
       ]
     },

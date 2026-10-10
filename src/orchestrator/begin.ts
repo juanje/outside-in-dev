@@ -92,7 +92,7 @@ export function isExitCode(value: unknown): value is number {
 /** Starts the run with the lock held: returns the exit code of the process when the start ends the run, else what the next states need. A failure once the run has started is an event of the run. */
 export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector, runners: Runners = REAL_RUNNERS): number | Started {
   const runId = newRunId(environment.now, environment.suffix);
-  const bus = createEventBus({ cwd, runId, write: environment.write, now: () => environment.now.getTime(), stopRequested: environment.aborted });
+  const bus = createEventBus({ cwd, runId, write: environment.write, stopRequested: environment.aborted });
   try {
     return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now, detect, runners });
   } catch (error) {

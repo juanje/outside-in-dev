@@ -18,6 +18,10 @@ Feature: Start a run
     Then the output has as many lines as the event log of the run has events
     And no line of the output mentions "undefined"
 
+  Scenario: The events of a run carry the time each one happened
+    When I run "oid run"
+    Then the events of the run were stamped with the times they happened, not all the same
+
   Scenario: A run works in its own worktree on a branch named after the date
     When I run "oid run"
     Then the project has a worktree outside the project directory, on a branch starting with "oid/run-"

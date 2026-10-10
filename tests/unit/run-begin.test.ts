@@ -34,6 +34,14 @@ describe("beginning a run", () => {
     expect(printed).toHaveLength(5);
   });
 
+  it("stamps each event with the time it happens, not with the time the run started", () => {
+    const project = committedRunProject();
+    const before = Date.now();
+    beginRun(project, parseRunArgs([]), environment([]));
+    const log = readFileSync(join(project, ".outside-in/runs/2026-10-02T21-30-00Z-a1b2/events.jsonl"), "utf8").trimEnd().split("\n");
+    expect(log.map((line) => JSON.parse(line).ts >= before)).toEqual(log.map(() => true));
+  });
+
   it("saves a session that names the run, its worktree and branch and the commit it started from", () => {
     const project = committedRunProject();
     beginRun(project, parseRunArgs(["--branch", "login"]), environment([]));

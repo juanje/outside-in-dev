@@ -413,6 +413,18 @@ export function eventLog(world: OidWorld): LoggedEvent[] {
   return readFileSync(log, "utf8").trimEnd().split("\n").map((line) => JSON.parse(line) as LoggedEvent);
 }
 
+/** Asserts that the events carry the time they happened: more than two, never earlier than the one before, and not all the same. */
+export function assertStampedWithTheirTimes(events: LoggedEvent[]): void {
+  const times = events.map((event) => event.ts);
+  assert.ok(times.length > 2, `only ${times.length} events`);
+  assert.deepEqual(times, [...times].sort((a, b) => a - b), "an event is stamped earlier than the one before it");
+  assert.ok(new Set(times).size > 1, `all ${times.length} events carry the time ${times[0]}`);
+}
+
+Then("the events of the run were stamped with the times they happened, not all the same", function (this: OidWorld) {
+  assertStampedWithTheirTimes(eventLog(this));
+});
+
 export function runDirectory(world: OidWorld): string {
   const runs = world.path(join(PROJECT, ".outside-in", "runs"));
   assert.ok(existsSync(runs), "the run left no run directory");
