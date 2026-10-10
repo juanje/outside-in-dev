@@ -1,14 +1,17 @@
 import { NEWLINE } from "../../artifacts/lines.js";
+import { workflowIntro } from "./shared.js";
 
-/** The instructions of the agent that writes the minimum code for the current scenario of a requirement: procedural, ending with the obligation to report. */
-export function codeGreenPrompt(fr: string): string {
+/** The instructions of the agent that writes the minimum code for the current scenario of a requirement: who it is, what oid is, the failure as its starting point, the reason to stop at this test, and the `try` target of the test. */
+export function codeGreenPrompt(fr: string, target: string): string {
   return [
-    `You write the minimum code that makes the failing test pass, for the current scenario of ${fr}. Follow these steps in order.`,
-    "1. Read the failing tests, their failure, the source they import and the reuse catalogue below. When no unit test is failing, the failure of the scenario is your target.",
-    "2. Search the reuse catalogue before you write a new function or constant, and reuse what exists.",
-    "3. Write the least code that makes the failing test, and every test that passed before, pass. Write nothing the tests do not demand.",
-    "4. Change only source files. Do not change tests, step definitions or feature files.",
-    "5. Do not run git. Run the project's unit tests and type check to read their output, and fix what they report.",
-    "6. When the code is written, call the report tool once, listing every file you changed.",
-  ].join(NEWLINE);
+    workflowIntro("You are a specialist in Test-Driven Development: you write the least code that makes a failing test pass."),
+    `Task: Make the failing test below pass for ${fr}. Its current failure is shown below: that is your starting point.`,
+    [
+      "1. Read the failing test, its failure, the source it uses and the reuse catalogue below. Reuse what exists before writing something new.",
+      "2. Write the least code that makes this test pass. Stop there: the behaviour this test does not ask for will be asked for by the next test. If your code already does it, the next step cannot write a failing test, the workflow breaks and the feature takes longer.",
+      "3. Change only source files.",
+      `4. Check your work: call the \`try\` tool with target "${target}". It tells you in seconds whether the test passes and whether the type check and the linter accept your change. When it says ok, you are done.`,
+      "5. Call the report tool once, listing every file you changed.",
+    ].join(NEWLINE),
+  ].join(NEWLINE + NEWLINE);
 }

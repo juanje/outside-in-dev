@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import { codeGreenPrompt } from "../../src/agents/prompts/code-green.js";
 
 describe("the instructions of the agent that writes the minimum code", () => {
-  it("are procedural, name the requirement, tell it to reuse the catalogue and to run the checks, forbid git and tests changes and end with the report", () => {
-    const instructions = codeGreenPrompt("FR-A-02");
-    expect(instructions).toMatch(/^You write the minimum code that makes the failing test pass, for the current scenario of FR-A-02/);
+  it("say who it is and what oid is, start from the failure of the test, give the reason to stop at this test, name the target to try and end with the report", () => {
+    const instructions = codeGreenPrompt("FR-A-02", "tests/unit/cart.test.ts > cart > adds");
+    expect(instructions).toMatch(/^You are a specialist in Test-Driven Development: you write the least code that makes a failing test pass\./);
+    expect(instructions).toMatch(/A program called oid orchestrates it/);
+    expect(instructions).toMatch(/Make the failing test below pass for FR-A-02\. Its current failure is shown below: that is your starting point/);
     expect(instructions).toMatch(/1\. /);
-    expect(instructions).toMatch(/reuse catalogue/i);
-    expect(instructions).toMatch(/do not change tests/i);
-    expect(instructions).toMatch(/do not run git/i);
+    expect(instructions).toMatch(/reuse what exists before writing something new/i);
+    expect(instructions).toMatch(/the next step cannot write a failing test, the workflow breaks/);
+    expect(instructions).toMatch(/change only source files/i);
+    expect(instructions).toContain('call the `try` tool with target "tests/unit/cart.test.ts > cart > adds"');
+    expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 });

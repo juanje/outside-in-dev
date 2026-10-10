@@ -31,7 +31,7 @@ async function writeCode(started: Started, services: FeatureServices, scenario: 
 
 /** Runs Code Green for the current scenario, retrying a rejected attempt from the last checkpoint. Returns the exit code of the process when the run ends, nothing when the code is green. */
 export async function runCodeGreen(started: Started, services: FeatureServices, scenario: RedScenario, red: TddRed): Promise<number | undefined> {
-  const prompt = `${codeGreenPrompt(started.targets[0]!)}${NEWLINE}${NEWLINE}${implementationContext(started.workspace.path, red)}`;
+  const prompt = `${codeGreenPrompt(started.targets[0]!, red.test ?? `${scenario.current.file}:${scenario.current.line}`)}${NEWLINE}${NEWLINE}${implementationContext(started.workspace.path, red)}`;
   const result = await attemptsOf(started, services, { state: CODE_GREEN, role: "coder-agent", label: scenario.label, run: (info) => writeCode(started, services, scenario, attemptTask(CODE_GREEN, prompt, info), info.announce) });
   return result ?? undefined;
 }

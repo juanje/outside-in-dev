@@ -37,6 +37,15 @@ describe("the inner loop of a run", () => {
     });
   }, REAL_PROCESS_TIMEOUT_MS);
 
+  it("gives the coder the unit test the test-writing agent reported as the target of its check, and keeps it in the saved session", async () => {
+    const agent = cartAgent();
+    const { saved } = await approvedRun(loopProject(), agent);
+    expect({
+      target: agent.codeRoute.tasks[0]?.includes('call the `try` tool with target "tests/unit/cart.test.ts > cart > adds"'),
+      session: saved.unitRed?.test,
+    }).toEqual({ target: true, session: "tests/unit/cart.test.ts > cart > adds" });
+  }, REAL_PROCESS_TIMEOUT_MS);
+
   it("commits the only target when its scenarios pass: one commit named after it on the run's branch, and the run is done", async () => {
     const project = loopProject();
     const agent = cartAgent();

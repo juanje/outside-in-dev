@@ -42,8 +42,8 @@ export type RunSession = {
   featureStart?: string;
   /** The failure the current scenario showed last, which TDD Red starts from. */
   scenarioFailure?: string;
-  /** What TDD Red handed to Code Green: the unit test files to make pass and their failure. */
-  unitRed?: { tests: string[]; failure: string };
+  /** What TDD Red handed to Code Green: the unit test files to make pass, their failure and the test as the agent reported it (a session saved before this field has none). */
+  unitRed?: { tests: string[]; failure: string; test?: string };
   /** The checkpoint before the last Code Green, which the refactor compares against. */
   beforeGreen?: string;
   pendingInput?: InputRequest | null;

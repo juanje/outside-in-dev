@@ -17,8 +17,8 @@ import { type FeatureServices, runnersOf } from "./services.js";
 import { recordUnitTest, unitTestsOf, updateSession } from "./session.js";
 import { unitRedGate } from "./unit-red-gate.js";
 
-/** What TDD Red hands to Code Green: the unit test files to make pass and the failure to get rid of. */
-export type TddRed = { tests: string[]; failure: string };
+/** What TDD Red hands to Code Green: the unit test files to make pass, the failure to get rid of and the test as `<file> > <describe> > <name>`, which the coder checks its work with. */
+export type TddRed = { tests: string[]; failure: string; test?: string };
 
 /** The files of some tests, each once. */
 const filesOf = (tests: string[]): string[] => [...new Set(tests.map((test) => parseUnitTarget(test).file))];
@@ -28,7 +28,7 @@ function integrationStep(started: Started, scenario: RedScenario): Rejection | T
   const { cwd, bus } = started;
   const known = unitTestsOf(cwd, scenario.current.name);
   if (known.length === 0) return { rejected: `${scenario.label}: the agent reports that no unit logic is left, but a scenario needs at least one unit test before that` };
-  const unitRed = { tests: filesOf(known), failure: scenario.failure };
+  const unitRed = { tests: filesOf(known), failure: scenario.failure, test: known.at(-1) };
   updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `integration_step: no unit logic is left and the scenario "${scenario.current.name}" is still red`);
   return unitRed;
@@ -60,7 +60,7 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
   if (isExitCode(gate) || isRejection(gate)) return gate;
   recordUnitTest(cwd, current.name, report.test);
   checkpoint(workspace, { fr: fr!, state: STATE.tddRed, scenario: current.name });
-  const unitRed = { tests: [test.file], failure: gate.message };
+  const unitRed = { tests: [test.file], failure: gate.message, test: report.test };
   updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `the unit test "${test.name}" fails validly: ${gate.reason}`);
   return unitRed;
