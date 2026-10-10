@@ -1,4 +1,5 @@
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { NEWLINE } from "./lines.js";
 import { isRelativeSpecifier } from "./source-roots.js";
 
 /** The classes of a failing test. The first two make a valid Red. */
@@ -21,7 +22,7 @@ export const FAILURE = { passed: "passed", load: "load", error: "error", noTest:
 export type Failure =
   | { kind: typeof FAILURE.passed }
   | { kind: typeof FAILURE.load; message: string }
-  | { kind: typeof FAILURE.error; message: string }
+  | { kind: typeof FAILURE.error; message: string; step?: string; output?: string }
   | { kind: typeof FAILURE.noTest; name: string; file: string }
   | { kind: typeof FAILURE.noScenario; file: string; line: number }
   | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string }
@@ -91,6 +92,22 @@ function classifyError(message: string, context: ClassifyContext): Verdict {
   if (symbol === "missing") return { outcome: OUTCOME.valid, class: RED_CLASS.missingImplementation, reason: `${name} does not exist yet` };
   const why = symbol === "exists" ? `${name} exists in the project: the test may use it wrongly` : `${name} is not imported from a project module`;
   return { outcome: OUTCOME.decision, reason: why };
+}
+
+/** How many characters of the output a scenario recorded are shown to a person: the last ones. */
+export const OUTPUT_LIMIT = 2000;
+
+/** The output a scenario recorded, indented under its heading; only its last `OUTPUT_LIMIT` characters, with a note, when it is longer. */
+function outputLines(output: string): string[] {
+  if (output === "") return [];
+  const cut = output.length > OUTPUT_LIMIT;
+  return ["output the scenario recorded:", ...(cut ? ["(earlier output left out)"] : []), ...(cut ? output.slice(-OUTPUT_LIMIT) : output).split(NEWLINE)].map((line, at) => (at === 0 ? line : `  ${line}`));
+}
+
+/** What a person needs to judge a failure besides its message: the step that failed and the output the run recorded. */
+export function failureDetail(failure: Failure): string {
+  if (failure.kind !== FAILURE.error || failure.step === undefined) return "";
+  return [`failing step: ${failure.step}`, ...outputLines(failure.output ?? "")].join(NEWLINE);
 }
 
 /** Classifies a failure with the deterministic rules of the Red Gate. */

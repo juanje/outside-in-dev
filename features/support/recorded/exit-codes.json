@@ -5,6 +5,7 @@
   "passes-at-once": 0,
   "undefined-step": 1,
   "not-an-assertion": 1,
+  "not-an-assertion-with-output": 1,
   "unit-baseline": 0,
   "unit-red-missing": 1,
   "unit-red-not-assertion": 1,

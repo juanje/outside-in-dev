@@ -71,7 +71,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   });
   if (isExitCode(gate)) return gate;
   if (gate.kind === OUTCOME.decision) {
-    const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: gate.reason, message: gate.message });
+    const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: gate.reason, message: gate.message, detail: gate.detail });
     if (decided !== VALID_RED) return decided;
   }
   recordRed(workspace.path, fr!, { current: current.name, names });

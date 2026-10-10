@@ -82,6 +82,11 @@ Given("the step-writing agent writes steps that fail with an error that is not a
   replaying(this, "not-an-assertion");
 });
 
+Given("the step-writing agent writes steps that fail with an error that is not an assertion, and the run of the scenario attached the output of the cart", function (this: OidWorld) {
+  agentOf(this).stepFiles = [stepFile(`When("a line is added", function () {\n  this.attach("the cart refused the line", "text/plain");\n  throw new Error("the cart could not be built");\n});\n\n${COUNT_STEP}`)];
+  replaying(this, "not-an-assertion-with-output");
+});
+
 Given("the step-writing agent writes a step file that imports {string} statically", function (this: OidWorld, specifier: string) {
   agentOf(this).stepFiles = [{ path: STEP_FILE, content: `import { addLine } from "${specifier}";\nimport { When } from "@cucumber/cucumber";\nWhen("a line is added", function () {\n  addLine();\n});\n` }];
 });
@@ -170,7 +175,19 @@ Then("the human was asked twice about the Red of {string}, with the actions {str
   }
 });
 
-Then("the second question about the Red showed the whole failure, with its stack", function (this: OidWorld) {
+Then("the first question about the Red names the step {string} at line {int} of {string}", function (this: OidWorld, step: string, line: number, file: string) {
+  const [first] = redQuestions(this);
+  assert.ok(first, "the Red was not asked");
+  assert.ok(first.prompt.includes(`${file}:${line} ${step}`), first.prompt);
+});
+
+Then("the first question about the Red shows the output {string}", function (this: OidWorld, output: string) {
+  const [first] = redQuestions(this);
+  assert.ok(first, "the Red was not asked");
+  assert.ok(first.prompt.includes(output), first.prompt);
+});
+
+Then("the second question about the Red showed the whole failure, with its stack",function (this: OidWorld) {
   const [first, second] = redQuestions(this);
   assert.ok(second && first, "the Red was not asked twice");
   assert.match(second.prompt, /the cart could not be built/);

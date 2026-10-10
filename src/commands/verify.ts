@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
-import { failingFile, failingFrame, observeScenario, normalizeCucumberReport, unrunSteps } from "../artifacts/cucumber-report.js";
+import { failingFile, failingFrame, observeScenario, normalizeCucumberReport, failedStep, unrunSteps } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { cycleCodeFiles } from "../artifacts/cycle-code.js";
 import { readReturn } from "../artifacts/return-record.js";
@@ -159,10 +159,11 @@ function changedStepFile(cwd: string, config: ProjectConfig, stderr: string): st
   return changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
 }
 
-/** What a Cucumber Messages report showed about the scenario; a scenario that did not run names the steps that kept it from running. */
+/** What a Cucumber Messages report showed about the scenario; a scenario that did not run names the steps that kept it from running, and one that failed the step and the output it recorded. */
 function observeReport(report: string, target: { file: string; line: number }, only: { file: string; name: string } | undefined): Failure {
   const failure = observeScenario(normalizeCucumberReport(report, only), target);
-  return failure.kind === FAILURE.notRun ? { ...failure, steps: unrunSteps(report, only) } : failure;
+  if (failure.kind === FAILURE.notRun) return { ...failure, steps: unrunSteps(report, only) };
+  return failure.kind === FAILURE.error ? { ...failure, ...failedStep(report, only) } : failure;
 }
 
 /** What a run of the BDD runner showed about `scenario`; when the run held other scenarios too, `scenario.name` tells its steps from theirs. */

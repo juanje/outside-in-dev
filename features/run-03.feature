@@ -101,3 +101,9 @@ Feature: BDD Red
     And the event log of the run records an error mentioning "Add a line" and "bug in the step definitions"
     And the run never reaches "TDD_RED"
     And the saved session has the state "BDD_RED"
+
+  Scenario: The question about a failure oid cannot classify names the failing step and shows what the scenario recorded
+    Given the step-writing agent writes steps that fail with an error that is not an assertion, and the run of the scenario attached the output of the cart
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "bug"
+    Then the first question about the Red names the step "When a line is added" at line 5 of "features/FR-CART-02.feature"
+    And the first question about the Red shows the output "the cart refused the line"

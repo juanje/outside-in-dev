@@ -54,6 +54,16 @@ describe("the gate of BDD Red", () => {
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet", message: expect.stringContaining("Cannot find module") });
   });
 
+  it("hands a failure that needs a decision to a person with the step that failed", () => {
+    const repo = project(failingRunner("Error: the cart could not be built"));
+    expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({
+      kind: "decision",
+      reason: "the test failed with an error that is not an assertion",
+      message: "Error: the cart could not be built",
+      detail: "failing step: features/pay.feature I pay",
+    });
+  });
+
   it("stops before running anything when the agent changed source code or an approved feature file, or wrote a step file that cannot load", () => {
     const repo = project("process.exit(9);");
     const approved = `sha256:${createHash("sha256").update("@FR-A-01\nFeature: Pay\n  Scenario: Pay\n    When I pay\n").digest("hex")}`;

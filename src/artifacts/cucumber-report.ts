@@ -1,7 +1,7 @@
 import { relative } from "node:path";
 import { z } from "zod";
 import { ProgressError } from "./progress.js";
-import { firstLine } from "./lines.js";
+import { firstLine, NEWLINE } from "./lines.js";
 import type { ScenarioLocation } from "./passing-scenarios.js";
 import { FAILURE, type Failure } from "./red-classification.js";
 
@@ -25,6 +25,7 @@ const messageSchema = z.object({
     .optional(),
   testCase: z.object({ id: z.string(), pickleId: z.string().optional(), testSteps: z.array(z.object({ id: z.string(), pickleStepId: z.string().optional() })) }).optional(),
   testCaseStarted: z.object({ id: z.string(), testCaseId: z.string() }).optional(),
+  attachment: z.object({ testCaseStartedId: z.string().optional(), testStepId: z.string().optional(), body: z.string(), mediaType: z.string() }).optional(),
   testStepFinished: z
     .object({ testCaseStartedId: z.string().optional(), testStepId: z.string(), testStepResult: z.object({ status: z.string(), message: z.string().optional() }) })
     .optional(),
@@ -80,20 +81,40 @@ function gherkinStepsById(messages: Message[]): Map<string, z.infer<typeof gherk
   return new Map(messages.flatMap(({ gherkinDocument }) => gherkinDocument?.feature?.children.flatMap(stepsOf) ?? []).map((step) => [step.id, step] as const));
 }
 
-/** One line for each step of the scenario that has no working definition: `file:line Keyword text (STATUS)`; the line and the keyword are left out when the report has no Gherkin document. */
-export function unrunSteps(ndjson: string, only?: { file: string; name: string }): string[] {
-  const messages = parseMessages(ndjson);
+/** How a test step of the scenarios of a report is named: `file:line Keyword text`; the line and the keyword are left out when the report has no Gherkin document. */
+function stepNamer(messages: Message[], only?: { file: string; name: string }): (testStepId: string) => string | undefined {
   const gherkin = gherkinStepsById(messages);
   const pickleStepOf = new Map(messages.flatMap(({ pickle }) => pickle?.steps.map((step) => [step.id, { uri: pickle.uri, ...step }] as const) ?? []));
   const pickleStepIdOf = new Map(scenarioTestSteps(messages, only).map(({ id, pickleStepId }) => [id, pickleStepId] as const));
-  const lines = messages.flatMap(({ testStepFinished }) => {
-    const { status } = testStepFinished?.testStepResult ?? {};
-    const pickleStep = pickleStepOf.get(pickleStepIdOf.get(testStepFinished?.testStepId ?? "") ?? "");
-    if (pickleStep === undefined || status === undefined || !NOT_RUN.includes(status)) return [];
+  return (testStepId) => {
+    const pickleStep = pickleStepOf.get(pickleStepIdOf.get(testStepId) ?? "");
+    if (pickleStep === undefined) return undefined;
     const step = gherkin.get(pickleStep.astNodeIds[0] ?? "");
-    return [step === undefined ? `${pickleStep.uri} ${pickleStep.text} (${status})` : `${pickleStep.uri}:${step.location.line} ${step.keyword.trim()} ${step.text} (${status})`];
+    return step === undefined ? `${pickleStep.uri} ${pickleStep.text}` : `${pickleStep.uri}:${step.location.line} ${step.keyword.trim()} ${step.text}`;
+  };
+}
+
+/** One line for each step of the scenario that has no working definition: its name and `(STATUS)`. */
+export function unrunSteps(ndjson: string, only?: { file: string; name: string }): string[] {
+  const messages = parseMessages(ndjson);
+  const nameOf = stepNamer(messages, only);
+  const lines = messages.flatMap(({ testStepFinished }) => {
+    const name = nameOf(testStepFinished?.testStepId ?? "");
+    const status = testStepFinished?.testStepResult.status ?? "";
+    return name === undefined || !NOT_RUN.includes(status) ? [] : [`${name} (${status})`];
   });
   return [...new Set(lines)];
+}
+
+/** The first step of the scenario that failed, named, and the text its run attached: what the failed step attached, and what hooks or the scenario attached; nothing attached by the steps that passed. */
+export function failedStep(ndjson: string, only?: { file: string; name: string }): { step: string; output: string } | undefined {
+  const messages = parseMessages(ndjson);
+  const nameOf = stepNamer(messages, only);
+  const failed = messages.flatMap(({ testStepFinished }) => (testStepFinished?.testStepResult.status === "FAILED" && nameOf(testStepFinished.testStepId) !== undefined ? [testStepFinished] : []))[0];
+  if (failed === undefined) return undefined;
+  const ofRun = messages.flatMap(({ attachment }) => (attachment !== undefined && attachment.testCaseStartedId === failed.testCaseStartedId && attachment.mediaType.startsWith("text/") ? [attachment] : []));
+  const output = ofRun.filter(({ testStepId }) => testStepId === failed.testStepId || nameOf(testStepId ?? "") === undefined).map(({ body }) => body);
+  return { step: nameOf(failed.testStepId)!, output: output.join(NEWLINE) };
 }
 
 /** What a run of the scenario showed. */

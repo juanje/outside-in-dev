@@ -2426,6 +2426,10 @@
         {
           "name": "The human decides that the failure is a bug in the step definitions",
           "bdd": "pass"
+        },
+        {
+          "name": "The question about a failure oid cannot classify names the failing step and shows what the scenario recorded",
+          "bdd": "pass"
         }
       ]
     },

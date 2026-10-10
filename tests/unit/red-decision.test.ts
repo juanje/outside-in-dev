@@ -34,6 +34,18 @@ describe("the decision about a Red oid cannot classify", () => {
     });
   });
 
+  it("shows the detail of the failure after its message in the first question and in the one about the trace", async () => {
+    const bus = createEventBus({ cwd: dir, runId: "run-1", write: () => undefined, now: () => 0 });
+    const answers = ["trace", "valid"];
+    const asked: string[] = [];
+    const input = { isTTY: true as const, choose: async (prompt: string) => (asked.push(prompt), answers.shift()!), line: async () => "" };
+    await decideRed(bus, input, { ...FAILURE, detail: "failing step: features/a.feature:5 When it is shouted\noutput the scenario recorded:\n  the cart refused the line" });
+    expect(asked.map((prompt) => prompt.split("\n").slice(-3))).toEqual([
+      ["failing step: features/a.feature:5 When it is shouted", "output the scenario recorded:", "  the cart refused the line"],
+      ["failing step: features/a.feature:5 When it is shouted", "output the scenario recorded:", "  the cart refused the line"],
+    ]);
+  });
+
   it("ends the run with an error that names the Red when the person says it is a bug, or answers with something that is not an action", async () => {
     const outcome = async (answer: string) => {
       const printed: string[] = [];

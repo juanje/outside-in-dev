@@ -13,12 +13,12 @@ const ACTIONS = [VALID_RED, BUG, TRACE].map((key) => ({ key, label: key }));
 
 const STEP_DEFINITIONS = "step definitions";
 
-/** A Red oid cannot classify: whose it is, why oid cannot tell, the failure message as the runner gave it and what the person would call wrong if it is a bug (the step definitions by default). */
-export type UnclassifiedRed = { label: string; reason: string; message: string; subject?: string };
+/** A Red oid cannot classify: whose it is, why oid cannot tell, the failure message as the runner gave it, what else the run showed about it (the failing step, the output it recorded) and what the person would call wrong if it is a bug (the step definitions by default). */
+export type UnclassifiedRed = { label: string; reason: string; message: string; detail?: string; subject?: string };
 
-/** The question about the Red: what failed, why oid cannot tell, and the failure up to its first stack frame, or all of it. */
-function question({ label, reason, message }: UnclassifiedRed, whole: boolean): string {
-  return [`${label} fails, and oid cannot tell whether it is a valid Red: ${reason}`, whole ? message : trimFailure(message)].join(NEWLINE);
+/** The question about the Red: what failed, why oid cannot tell, the failure up to its first stack frame, or all of it, and what else the run showed. */
+function question({ label, reason, message, detail }: UnclassifiedRed, whole: boolean): string {
+  return [`${label} fails, and oid cannot tell whether it is a valid Red: ${reason}`, whole ? message : trimFailure(message), ...(detail === undefined || detail === "" ? [] : [detail])].join(NEWLINE);
 }
 
 /** Why the run ends when the person does not accept the Red: the person says the steps are wrong, or the answer is not an action. */
