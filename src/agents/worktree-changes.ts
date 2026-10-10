@@ -1,17 +1,27 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { git } from "../artifacts/git-workspace.js";
 
 const NUL = "\0";
 const ABSENT = "absent";
+const DIRECTORY = "directory";
+const LINK_PREFIX = "link:";
 
 /** What a worktree held when an attempt started: the files that differed from HEAD, each with a fingerprint of its content. */
 export type WorktreeSnapshot = Map<string, string>;
 
+function digest(content: string | Buffer): string {
+  return createHash("sha1").update(content).digest("hex");
+}
+
+/** A file by its content, a link by its target (never followed), a directory by a fixed marker, a missing path as absent. */
 function fingerprint(cwd: string, file: string): string {
   const path = join(cwd, file);
-  return existsSync(path) ? createHash("sha1").update(readFileSync(path)).digest("hex") : ABSENT;
+  const stat = lstatSync(path, { throwIfNoEntry: false });
+  if (stat === undefined) return ABSENT;
+  if (stat.isSymbolicLink()) return digest(`${LINK_PREFIX}${readlinkSync(path)}`);
+  return stat.isDirectory() ? DIRECTORY : digest(readFileSync(path));
 }
 
 /** The files that differ from HEAD: tracked ones changed or deleted, staged or not, and untracked ones that are not ignored. */

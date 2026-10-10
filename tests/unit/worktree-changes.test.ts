@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { changesSince, snapshotWorktree } from "../../src/agents/worktree-changes.js";
@@ -25,5 +25,20 @@ describe("changesSince", () => {
     write("src/reverted.ts", "r\n");
 
     expect(changesSince(dir, before)).toEqual(["src/a.ts", "src/b.ts", "src/new/d.ts", "src/reverted.ts"]);
+  });
+
+  it("snapshots an untracked link to a directory by its target, so retargeting it is a change", () => {
+    write("src/a.ts", "a\n");
+    write("one/x.txt", "x\n");
+    write("two/y.txt", "y\n");
+    commitAll();
+    symlinkSync(join(dir, "one"), join(dir, "deps"), "dir");
+    const before = snapshotWorktree(dir);
+    expect(changesSince(dir, before)).toEqual([]);
+
+    rmSync(join(dir, "deps"));
+    symlinkSync(join(dir, "two"), join(dir, "deps"), "dir");
+
+    expect(changesSince(dir, before)).toEqual(["deps"]);
   });
 });
