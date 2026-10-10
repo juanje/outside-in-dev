@@ -26,10 +26,10 @@ describe("openProfileSession", () => {
     for (const call of calls) expect(promptOf(call)).toContain("call the report tool");
     for (const call of calls) expect(promptOf(call)).toContain("orchestrator runs git and the tests");
 
-    expect(promptOf(calls[0])).toContain("quality gate");
-    expect(promptOf(calls[0])).toContain("read its output");
-    for (const command of ["u", "b", "t"]) expect(promptOf(calls[0])).toContain(command);
-    expect(promptOf(calls[1])).not.toContain("quality gate");
+    expect(promptOf(calls[0])).toContain("Check your work with the `try` tool on the test or scenario of your task, and read its answer");
+    expect(promptOf(calls[0])).toContain("oid runs the full suites");
+    expect(promptOf(calls[0])).not.toContain("quality gate");
+    expect(promptOf(calls[1])).not.toContain("`try` tool");
 
     for (const session of sessions as Agented[]) expect(typeof session.agent.beforeToolCall).toBe("function");
     const hook = (sessions[1] as Agented).agent.beforeToolCall as (context: unknown) => Promise<{ block?: boolean } | undefined>;

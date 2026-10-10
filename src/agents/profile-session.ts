@@ -32,7 +32,7 @@ function systemPromptFor(profile: Profile): string {
   const lines = [`You are an oid agent working on the ${profile.state} step of a feature, in the project's worktree. Do only the task you are given.`];
   lines.push("End the task: call the report tool, once, to say whether you finished or are blocked, and list every file you changed. The orchestrator runs git and the tests when you finish; you do not.");
   if (profile.shell) {
-    lines.push(`Before you report the task done, run the project's quality gate and read its output: ${profile.commands.join(" and ")}. Fix what it reports.`);
+    lines.push("Check your work with the `try` tool on the test or scenario of your task, and read its answer: it takes seconds, and oid runs the full suites itself when you finish. Fix what it reports before you report the task done.");
     lines.push("Reuse first: search the reuse catalogue in your task before you write a new function or constant, and reuse what exists.");
   }
   return lines.join("\n\n");
