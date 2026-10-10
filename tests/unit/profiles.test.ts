@@ -19,6 +19,14 @@ const config = parseProjectConfig({
   commands: { bdd: "run-bdd", unit: "run-unit", typecheck: "run-types", format: "run-format", lint: null, coverage: "run-coverage", extra_checks: ["run-extra"] },
 });
 
+describe("profileFor with design notes", () => {
+  it("lets the feature writer read the files the project lists as design notes, and no other step gets them for free", () => {
+    const withDesign = { ...config, paths: { ...config.paths, design: ["docs/design.md", "DECISIONS.md"] } };
+    expect(profileFor("FEATURE_WRITE", withDesign).read).toEqual(expect.arrayContaining(["docs/design.md", "DECISIONS.md"]));
+    expect(profileFor("TDD_RED", withDesign).read).not.toContain("docs/design.md");
+  });
+});
+
 describe("profileFor", () => {
   it("grants each step its tools and its paths from the project's configuration, and a shell only to the steps that implement or debug", () => {
     expect(CYCLE_STATES).toEqual(["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "FR_REFACTOR", "QUALITY_FIX"]);

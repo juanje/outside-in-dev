@@ -47,7 +47,7 @@ function grantFor(state: CycleState, config: ProjectConfig): Grant {
   const { paths } = config;
   switch (state) {
     case FEATURE_WRITE:
-      return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.bdd_features], shell: false };
+      return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.design, ...paths.bdd_features], shell: false };
     case BDD_RED:
       return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN], shell: false };
     case TDD_RED:
