@@ -355,6 +355,27 @@ Feature: Verify a BDD Red
     And the output contains "features/steps/greeting.steps.ts"
     And no checkpoint is recorded
 
+  Scenario: A step file that stops cucumber from starting shows the error the runner printed
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Scenario: Greet by name
+          Given the greeting
+          Then it greets Ann
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given } from "@cucumber/cucumber";
+
+      const = ;
+      Given("the greeting", function () {});
+      """
+    When I run "oid verify red features/greeting.feature:3"
+    Then the command fails
+    And the output contains "features/steps/greeting.steps.ts"
+    And the output contains "ERROR"
+
   Scenario: A step file unchanged since the last commit that stops cucumber from starting is an environment problem
     Given the feature file "features/greeting.feature" containing:
       """

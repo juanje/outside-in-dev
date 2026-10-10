@@ -130,6 +130,15 @@ describe("classifyFailure", () => {
     });
   });
 
+  it("shows the first lines of what the runner printed when it never started, so that the next attempt sees the error", () => {
+    const stderr = ["Error: Transform failed with 1 error:", "/p/features/steps/a.steps.ts:2:6: ERROR: Unexpected \"=\"", "    at failureErrorWithLog (/p/node_modules/esbuild/lib/main.js:1:1)", ""].join("\n");
+    expect(classifyFailure({ kind: "no_report", runner: "BDD", exitCode: 1, changedFile: "features/steps/a.steps.ts", stderr }, context)).toEqual({
+      outcome: "invalid",
+      class: "test_bug",
+      reason: ["the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint:", "  Error: Transform failed with 1 error:", '  /p/features/steps/a.steps.ts:2:6: ERROR: Unexpected "="'].join("\n"),
+    });
+  });
+
   it("treats a run that never started without a changed file to blame as the environment, naming the runner", () => {
     expect(classifyFailure({ kind: "no_report", runner: "BDD", exitCode: 1 }, context)).toEqual({
       outcome: "invalid",

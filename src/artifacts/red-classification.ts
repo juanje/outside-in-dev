@@ -25,7 +25,7 @@ export type Failure =
   | { kind: typeof FAILURE.error; message: string; step?: string; output?: string; setup?: true }
   | { kind: typeof FAILURE.noTest; name: string; file: string }
   | { kind: typeof FAILURE.noScenario; file: string; line: number }
-  | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string }
+  | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string; stderr?: string }
   | { kind: typeof FAILURE.notRun; status: string; steps?: string[] };
 
 /** What the classification needs to know about the project. */
@@ -101,6 +101,17 @@ function classifyError(message: string, context: ClassifyContext): Verdict {
   return { outcome: OUTCOME.decision, reason: why };
 }
 
+const STACK_FRAME = /^\s+at /;
+const MAX_ERROR_LINES = 10;
+
+/** What a runner that never started printed, to tell the author why: after a colon, its first non-empty lines up to the first stack frame, indented; nothing when it printed none. */
+function runnerError(stderr = ""): string {
+  const lines = stderr.split(NEWLINE);
+  const end = lines.findIndex((line) => STACK_FRAME.test(line));
+  const shown = (end < 0 ? lines : lines.slice(0, end)).filter((line) => line.trim() !== "").slice(0, MAX_ERROR_LINES);
+  return shown.length === 0 ? "" : [":", ...shown.map((line) => `  ${line}`)].join(NEWLINE);
+}
+
 /** A run that failed. A step that sets the scenario up is judged apart: only a source module that does not exist yet is a valid Red there, and anything else is a broken scenario. */
 function classifyRun({ message, step, setup }: { message: string; step?: string; setup?: true }, context: ClassifyContext): Verdict {
   const usual = classifyError(message, context);
@@ -140,7 +151,7 @@ export function classifyFailure(failure: Failure, context: ClassifyContext): Ver
     case FAILURE.noReport:
       return failure.changedFile === undefined
         ? { outcome: OUTCOME.invalid, class: RED_CLASS.environment, reason: `the ${failure.runner} runner wrote no report (exit code ${failure.exitCode})` }
-        : { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the ${failure.runner} runner did not start and names ${failure.changedFile}, which changed since the last checkpoint` };
+        : { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the ${failure.runner} runner did not start and names ${failure.changedFile}, which changed since the last checkpoint${runnerError(failure.stderr)}` };
     case FAILURE.noTest:
       return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `no test named "${failure.name}" ran in ${failure.file}` };
   }

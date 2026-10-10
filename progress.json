@@ -1591,6 +1591,10 @@
         {
           "name": "A scenario that fails in a When step is still judged by its failure",
           "bdd": "pass"
+        },
+        {
+          "name": "A step file that stops cucumber from starting shows the error the runner printed",
+          "bdd": "pass"
         }
       ]
     },

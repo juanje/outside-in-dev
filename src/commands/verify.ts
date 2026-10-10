@@ -169,7 +169,7 @@ export function observeReport(report: string, target: { file: string; line: numb
 /** What a run of the BDD runner showed about `scenario`; when the run held other scenarios too, `scenario.name` tells its steps from theirs. */
 export function observeBddRun(cwd: string, config: ProjectConfig, scenario: { file: string; line: number; name?: string }, { exitCode, report, stderr }: BddRun): Observation {
   const only = scenario.name === undefined ? undefined : { file: scenario.file, name: scenario.name };
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile: changedStepFile(cwd, config, stderr) } : observeReport(report, scenario, only);
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile: changedStepFile(cwd, config, stderr), stderr } : observeReport(report, scenario, only);
   return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
 

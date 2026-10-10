@@ -65,7 +65,7 @@ describe("oid verify red <feature>:<line>", () => {
     write("features/steps/a.steps.ts", "const = ;\n");
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: "red: not valid (test_bug): the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint\n",
+      stdout: `red: not valid (test_bug): the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint:\n  Error: Transform failed\n  ${dir}/features/steps/a.steps.ts:2:6: ERROR\n`,
       stderr: "",
     });
   });
