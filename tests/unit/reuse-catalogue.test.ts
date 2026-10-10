@@ -4,6 +4,43 @@ import { dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
 useTempDir();
 
+/** Writes a module that exports one function, whose catalogue entry is about 60 characters long. */
+function module(path: string, name: string): void {
+  write(path, `/** Does ${name}. */\nexport function ${name}(): void {}\n`);
+}
+
+describe("reuse catalogue with a budget", () => {
+  it("gives the signatures of the modules the task uses first, and lists the modules that do not fit by path only", () => {
+    writeMinimalConfig();
+    module("src/a.ts", "alpha");
+    module("src/b.ts", "bravo");
+    module("src/c.ts", "charlie");
+    const catalogue = reuseCatalogue(dir, { used: ["src/c.ts"], budget: 90 });
+    expect(catalogue.indexOf("charlie")).toBeGreaterThan(-1);
+    expect(catalogue).not.toContain("alpha");
+    expect(catalogue).not.toContain("bravo");
+    expect(catalogue).toContain("Other modules (signatures not shown, read the file when you need it):\n- src/a.ts\n- src/b.ts");
+  });
+});
+
+describe("reuse catalogue order", () => {
+  it("puts the modules next to the ones the task uses before the others, and the modules whose name the task mentions after those", () => {
+    writeMinimalConfig();
+    module("src/a/first.ts", "alpha");
+    module("src/b/second.ts", "bravo");
+    module("src/b/third.ts", "charlie");
+    module("src/c/cart-lines.ts", "delta");
+    module("src/c/other.ts", "echo");
+    const catalogue = reuseCatalogue(dir, { used: ["src/b/second.ts"], mentions: "the cart lines are listed", budget: 190 });
+    const shown = catalogue.slice(0, catalogue.indexOf("Other modules"));
+    expect(["bravo", "charlie", "delta"].every((name) => shown.includes(name))).toBe(true);
+    expect(shown).not.toContain("alpha");
+    expect(shown).not.toContain("echo");
+    expect(shown.indexOf("bravo")).toBeLessThan(shown.indexOf("charlie"));
+    expect(shown.indexOf("charlie")).toBeLessThan(shown.indexOf("delta"));
+  });
+});
+
 describe("reuse catalogue", () => {
   it("lists an exported function with its signature and the first line of its JSDoc, without its body or private symbols", () => {
     writeMinimalConfig();

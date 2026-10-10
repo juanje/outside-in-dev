@@ -28,7 +28,7 @@ export function refactorContext(cwd: string, findings: Finding[]): string {
   const sections = [
     ["Findings to fix:", ...findings.map((finding) => findingSection(cwd, finding))],
     ["Files with findings:", ...files.map((file) => fileSection(cwd, file))],
-    [CATALOGUE_HEADING, reuseCatalogue(cwd)],
+    [CATALOGUE_HEADING, reuseCatalogue(cwd, { used: files })],
   ];
   return joinSections(sections);
 }

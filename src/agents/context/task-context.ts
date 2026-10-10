@@ -75,7 +75,7 @@ export function implementationContext(cwd: string, task: { tests: string[]; fail
     ["Failing tests:", ...task.tests.map((test) => fileSection(cwd, test))],
     ["Current failure of the test (your starting point):", task.failure],
     ["Source the tests import:", ...imported.map((file) => fileSection(cwd, file))],
-    [CATALOGUE_HEADING, reuseCatalogue(cwd)],
+    [CATALOGUE_HEADING, reuseCatalogue(cwd, { used: imported, mentions: task.failure })],
   ];
   return joinSections(sections);
 }

@@ -35,6 +35,18 @@ describe("task context", () => {
     for (const left of ["BODY-OTHER", "Second line.", "voucher"]) expect(task).not.toContain(left);
   });
 
+  it("gives an implementation task the signatures of the modules its tests import first, within the budget, and lists the other modules by path", () => {
+    writeMinimalConfig();
+    write("tests/unit/zed.test.ts", 'import { zed } from "../../src/zed.js";\n// TEST-BODY\n');
+    const long = "x".repeat(1000);
+    write("src/zed.ts", `/** Zed ${long} */\nexport function zed(): number {\n  return 1;\n}\n`);
+    for (let n = 0; n < 40; n++) write(`src/filler${n}.ts`, `/** ${long} */\nexport function filler${n}(): void {}\n`);
+    const task = implementationContext(dir, { tests: ["tests/unit/zed.test.ts"], failure: "zed is not a function" });
+    expect(task).toContain("- `function zed(): number` Zed x");
+    expect(task).toContain("Other modules (signatures not shown, read the file when you need it):\n- src/filler");
+    expect(task.length).toBeLessThan(45_000);
+  });
+
   it("presents the failure to an implementation task as its starting point", () => {
     writeMinimalConfig();
     write("tests/unit/a.test.ts", "// TEST-BODY\n");
