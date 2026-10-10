@@ -115,6 +115,19 @@ describe("writing the feature files of a run", () => {
     expect(log.filter((event) => event.type === "human_edit")).toMatchObject([{ file: "features/FR-A-01.feature" }]);
   });
 
+  it("lists the full path of each feature file to edit when the person chooses to edit", async () => {
+    const project = featureProject();
+    let worktree = "";
+    const asked: string[] = [];
+    const input = {
+      isTTY: true as const,
+      choose: async (prompt: string) => ((worktree = /in (\S+)\n/.exec(prompt)![1]!), "edit"),
+      line: async (prompt: string) => (asked.push(prompt), ""),
+    };
+    await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
+    expect(asked).toEqual([`Edit these feature files, then press enter:\n- ${join(worktree, "features/FR-A-01.feature")}\n- ${join(worktree, "features/FR-A-02.feature")}`]);
+  });
+
   it("writes the feature files again with the comment of the person who rejects them, then asks again", async () => {
     const project = featureProject();
     const agent = new FakeAgent();

@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { FEATURE_WRITE } from "../agents/profiles.js";
 import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
@@ -68,7 +69,7 @@ function hashesOf(worktree: string, files: string[]): Record<string, string> {
 /** Waits for the person to edit the files in the worktree, then commits and logs what changed as a human edit. */
 async function acceptHumanEdit({ bus, workspace }: Started, files: string[], input: Terminal): Promise<void> {
   const before = hashesOf(workspace.path, files);
-  await input.line(`Edit the feature files in ${workspace.path}, then press enter`);
+  await input.line(["Edit these feature files, then press enter:", ...files.map((file) => `- ${join(workspace.path, file)}`)].join(NEWLINE));
   const after = hashesOf(workspace.path, files);
   for (const file of files.filter((candidate) => before[candidate] !== after[candidate])) bus.emit({ type: HUMAN_EDIT, file });
   commitAll(workspace, "oid: human edit");
