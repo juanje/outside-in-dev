@@ -31,7 +31,7 @@ describe("BDD Red of a run", () => {
       checkpoint: [`oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`],
       session: ["FR-A-01", { index: 0, name: SCENARIO, location: "features/FR-A-01.feature:4" }],
       progress: [["FR-A-01", "tdd_red", [{ name: SCENARIO, bdd: "fail" }]], ["FR-A-02", "bdd_red", []]],
-      task: "You write the step definitions for the first scenario of FR-A-01. Follow these steps in order.",
+      task: "You are a specialist in Behaviour-Driven Development and test automation: you write the step definitions that turn a Gherkin scenario into an executable test.",
     });
   }, REAL_PROCESS_TIMEOUT_MS);
 

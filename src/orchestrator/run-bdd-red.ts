@@ -56,7 +56,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   const { current, names } = found;
   const label = `${fr} "${current.name}"`;
   updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1 });
-  const prompt = `${bddRedPrompt(fr!)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
+  const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
   const gate = await attemptsOf(started, services, {
     state: BDD_RED,
     role: "bdd-agent",
