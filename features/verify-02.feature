@@ -376,3 +376,29 @@ Feature: Verify a BDD Red
     Then the command fails
     And the output starts with "red: not valid (environment)"
     And no checkpoint is recorded
+
+  Scenario: A scenario with undefined steps names each of them
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Scenario: Shout a greeting
+          Given the greeting
+          When it is shouted at Ann
+          Then it shouts Ann
+          And it ends with a bang
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given } from "@cucumber/cucumber";
+
+      Given("the greeting", function () {});
+      """
+    When I run "oid verify red features/greeting.feature:3"
+    Then the command fails
+    And the output starts with "red: not valid (test_bug)"
+    And the output contains "When it is shouted at Ann"
+    And the output contains "Then it shouts Ann"
+    And the output contains "And it ends with a bang"
+    And the output does not contain "Given the greeting"
+    And no checkpoint is recorded

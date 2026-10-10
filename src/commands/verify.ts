@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
-import { failingFile, failingFrame, observeScenario, normalizeCucumberReport } from "../artifacts/cucumber-report.js";
+import { failingFile, failingFrame, observeScenario, normalizeCucumberReport, unrunSteps } from "../artifacts/cucumber-report.js";
 import { changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { cycleCodeFiles } from "../artifacts/cycle-code.js";
 import { readReturn } from "../artifacts/return-record.js";
@@ -159,10 +159,16 @@ function changedStepFile(cwd: string, config: ProjectConfig, stderr: string): st
   return changedSinceCheckpoint(cwd, focusedFeature(cwd, config)).find((name) => isInsideSource(config.paths.bdd_steps, name) && stderr.includes(name));
 }
 
+/** What a Cucumber Messages report showed about the scenario; a scenario that did not run names the steps that kept it from running. */
+function observeReport(report: string, target: { file: string; line: number }, only: { file: string; name: string } | undefined): Failure {
+  const failure = observeScenario(normalizeCucumberReport(report, only), target);
+  return failure.kind === FAILURE.notRun ? { ...failure, steps: unrunSteps(report, only) } : failure;
+}
+
 /** What a run of the BDD runner showed about `scenario`; when the run held other scenarios too, `scenario.name` tells its steps from theirs. */
 export function observeBddRun(cwd: string, config: ProjectConfig, scenario: { file: string; line: number; name?: string }, { exitCode, report, stderr }: BddRun): Observation {
   const only = scenario.name === undefined ? undefined : { file: scenario.file, name: scenario.name };
-  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile: changedStepFile(cwd, config, stderr) } : observeScenario(normalizeCucumberReport(report, only), scenario);
+  const failure: Failure = report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode, changedFile: changedStepFile(cwd, config, stderr) } : observeReport(report, scenario, only);
   return { failure, importer: failure.kind === FAILURE.error ? failingFile(failure.message, cwd) : undefined };
 }
 

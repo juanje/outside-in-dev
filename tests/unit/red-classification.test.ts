@@ -137,4 +137,13 @@ describe("classifyFailure", () => {
       reason: "the BDD runner wrote no report (exit code 1)",
     });
   });
+
+  it("names each step that kept a scenario from running, one on each line", () => {
+    const steps = ["features/a.feature:5 When it is shouted (UNDEFINED)", "features/a.feature:6 Then it shouts (UNDEFINED)"];
+    expect(classifyFailure({ kind: "not_run", status: "UNDEFINED", steps }, context)).toEqual({
+      outcome: "invalid",
+      class: "test_bug",
+      reason: "the test did not run (status UNDEFINED), because of these steps:\n  - features/a.feature:5 When it is shouted (UNDEFINED)\n  - features/a.feature:6 Then it shouts (UNDEFINED)",
+    });
+  });
 });

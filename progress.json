@@ -1575,6 +1575,10 @@
         {
           "name": "A Red at a line where no scenario starts records no observation and no checkpoint",
           "bdd": "pass"
+        },
+        {
+          "name": "A scenario with undefined steps names each of them",
+          "bdd": "pass"
         }
       ]
     },

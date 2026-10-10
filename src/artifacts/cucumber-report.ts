@@ -5,8 +5,24 @@ import { firstLine } from "./lines.js";
 import type { ScenarioLocation } from "./passing-scenarios.js";
 import { FAILURE, type Failure } from "./red-classification.js";
 
+const gherkinStepSchema = z.object({ id: z.string(), keyword: z.string(), text: z.string(), location: z.object({ line: z.number() }) });
+const stepsSchema = z.object({ steps: z.array(gherkinStepSchema) });
+
+interface GherkinChild {
+  background?: z.infer<typeof stepsSchema>;
+  scenario?: z.infer<typeof stepsSchema>;
+  rule?: { children: GherkinChild[] };
+}
+
+const childSchema: z.ZodType<GherkinChild> = z.lazy(() =>
+  z.object({ background: stepsSchema.optional(), scenario: stepsSchema.optional(), rule: z.object({ children: z.array(childSchema) }).optional() }),
+);
+
 const messageSchema = z.object({
-  pickle: z.object({ id: z.string(), uri: z.string(), name: z.string(), steps: z.array(z.object({ id: z.string(), text: z.string() })) }).optional(),
+  gherkinDocument: z.object({ feature: z.object({ children: z.array(childSchema) }).optional() }).optional(),
+  pickle: z
+    .object({ id: z.string(), uri: z.string(), name: z.string(), steps: z.array(z.object({ id: z.string(), text: z.string(), astNodeIds: z.array(z.string()).default([]) })) })
+    .optional(),
   testCase: z.object({ id: z.string(), pickleId: z.string().optional(), testSteps: z.array(z.object({ id: z.string(), pickleStepId: z.string().optional() })) }).optional(),
   testCaseStarted: z.object({ id: z.string(), testCaseId: z.string() }).optional(),
   testStepFinished: z
@@ -37,12 +53,17 @@ function parseMessages(ndjson: string): Message[] {
   return parsed.flatMap((line) => (line.success ? [line.data] : []));
 }
 
+/** The test steps of the scenarios a report holds, or only those of the scenario `only` names, that run a step of the scenario; the steps of hooks are left out. */
+function scenarioTestSteps(messages: Message[], only?: { file: string; name: string }): { id: string; pickleStepId?: string }[] {
+  const wanted = new Set(messages.flatMap(({ pickle }) => (pickle !== undefined && (only === undefined || (pickle.uri === only.file && pickle.name === only.name)) ? [pickle.id] : [])));
+  const testCases = messages.flatMap(({ testCase }) => (testCase !== undefined && (only === undefined || wanted.has(testCase.pickleId ?? "")) ? [testCase] : []));
+  return testCases.flatMap(({ testSteps }) => testSteps).filter((step) => step.pickleStepId !== undefined);
+}
+
 /** The steps of the scenarios a Cucumber Messages report holds, in the order they finished, or only those of the scenario `only` names; the steps of hooks are left out. */
 export function normalizeCucumberReport(ndjson: string, only?: { file: string; name: string }): ScenarioStep[] {
   const messages = parseMessages(ndjson);
-  const wanted = new Set(messages.flatMap(({ pickle }) => (pickle !== undefined && (only === undefined || (pickle.uri === only.file && pickle.name === only.name)) ? [pickle.id] : [])));
-  const testCases = messages.flatMap(({ testCase }) => (testCase !== undefined && (only === undefined || wanted.has(testCase.pickleId ?? "")) ? [testCase] : []));
-  const scenarioSteps = new Set(testCases.flatMap(({ testSteps }) => testSteps).filter((step) => step.pickleStepId !== undefined).map((step) => step.id));
+  const scenarioSteps = new Set(scenarioTestSteps(messages, only).map((step) => step.id));
   return messages.flatMap(({ testStepFinished }) =>
     testStepFinished !== undefined && scenarioSteps.has(testStepFinished.testStepId)
       ? [{ status: testStepFinished.testStepResult.status, message: testStepFinished.testStepResult.message ?? "" }]
@@ -52,6 +73,28 @@ export function normalizeCucumberReport(ndjson: string, only?: { file: string; n
 
 /** The statuses of a step that has no working definition: the scenario is not a test yet. */
 const NOT_RUN = ["UNDEFINED", "PENDING", "AMBIGUOUS"];
+
+/** The steps of the Gherkin documents of a report by id. */
+function gherkinStepsById(messages: Message[]): Map<string, z.infer<typeof gherkinStepSchema>> {
+  const stepsOf = (child: GherkinChild): z.infer<typeof gherkinStepSchema>[] => [...(child.background?.steps ?? []), ...(child.scenario?.steps ?? []), ...(child.rule?.children.flatMap(stepsOf) ?? [])];
+  return new Map(messages.flatMap(({ gherkinDocument }) => gherkinDocument?.feature?.children.flatMap(stepsOf) ?? []).map((step) => [step.id, step] as const));
+}
+
+/** One line for each step of the scenario that has no working definition: `file:line Keyword text (STATUS)`; the line and the keyword are left out when the report has no Gherkin document. */
+export function unrunSteps(ndjson: string, only?: { file: string; name: string }): string[] {
+  const messages = parseMessages(ndjson);
+  const gherkin = gherkinStepsById(messages);
+  const pickleStepOf = new Map(messages.flatMap(({ pickle }) => pickle?.steps.map((step) => [step.id, { uri: pickle.uri, ...step }] as const) ?? []));
+  const pickleStepIdOf = new Map(scenarioTestSteps(messages, only).map(({ id, pickleStepId }) => [id, pickleStepId] as const));
+  const lines = messages.flatMap(({ testStepFinished }) => {
+    const { status } = testStepFinished?.testStepResult ?? {};
+    const pickleStep = pickleStepOf.get(pickleStepIdOf.get(testStepFinished?.testStepId ?? "") ?? "");
+    if (pickleStep === undefined || status === undefined || !NOT_RUN.includes(status)) return [];
+    const step = gherkin.get(pickleStep.astNodeIds[0] ?? "");
+    return [step === undefined ? `${pickleStep.uri} ${pickleStep.text} (${status})` : `${pickleStep.uri}:${step.location.line} ${step.keyword.trim()} ${step.text} (${status})`];
+  });
+  return [...new Set(lines)];
+}
 
 /** What a run of the scenario showed. */
 export function observeScenario(steps: ScenarioStep[], target: { file: string; line: number }): Failure {

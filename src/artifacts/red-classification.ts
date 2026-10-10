@@ -25,7 +25,7 @@ export type Failure =
   | { kind: typeof FAILURE.noTest; name: string; file: string }
   | { kind: typeof FAILURE.noScenario; file: string; line: number }
   | { kind: typeof FAILURE.noReport; runner: "unit" | "BDD"; exitCode: number | null; changedFile?: string }
-  | { kind: typeof FAILURE.notRun; status: string };
+  | { kind: typeof FAILURE.notRun; status: string; steps?: string[] };
 
 /** What the classification needs to know about the project. */
 export interface ClassifyContext {
@@ -46,6 +46,11 @@ export type Verdict =
 /** The text on one line. */
 function oneLine(text: string): string {
   return text.split(/\n/).map((line) => line.trim()).join(" ");
+}
+
+/** The steps that kept a scenario from running, one on each line; nothing when none is named. */
+function stepList(steps: string[]): string {
+  return steps.length === 0 ? "" : `, because of these steps:${steps.map((step) => `\n  - ${step}`).join("")}`;
 }
 
 /** A module or package the runner could not find: vitest quotes the importer, Node does not. */
@@ -98,7 +103,7 @@ export function classifyFailure(failure: Failure, context: ClassifyContext): Ver
     case FAILURE.error:
       return classifyError(failure.message, context);
     case FAILURE.notRun:
-      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test did not run (status ${failure.status})` };
+      return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the test did not run (status ${failure.status})${stepList(failure.steps ?? [])}` };
     case FAILURE.noScenario:
       return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `no scenario starts at line ${failure.line} of ${failure.file}` };
     case FAILURE.noReport:
