@@ -83,7 +83,7 @@ export async function runInnerLoop(started: Started, services: FeatureServices, 
     from = commitFeature(current, from);
     const [, next] = current.targets;
     updateSession(started.cwd, { state: next === undefined ? STATE.done : STATE.bddRed, featureStart: from });
-    transition(started.bus, STATE.frCommit, next === undefined ? STATE.done : STATE.bddRed, next === undefined ? "every target feature is committed" : `${current.targets[0]} is committed; ${next} is next`);
+    transition(started.bus, STATE.frCommit, next === undefined ? STATE.done : STATE.bddRed, next === undefined ? "finished feature" : `${current.targets[0]} is committed; ${next} is next`, next === undefined ? current.targets[0] : undefined);
   }
   return 0;
 }

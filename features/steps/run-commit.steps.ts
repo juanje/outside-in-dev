@@ -35,6 +35,12 @@ function filesOf(world: OidWorld, commit: string): string[] {
 }
 
 Given("the feature-writing agent writes for {string} the scenario {string}", function (this: OidWorld, id: string, scenario: string) {
+  if (scenario === "Add a line") {
+    assert.equal(id, "FR-CART-02");
+    const content = `@${id}\nFeature: Cart lines\n  Scenario: ${scenario}\n    Given a cart\n    When a line is added\n    Then the cart has 1 line\n`;
+    agentOf(this).filesFor.set(id, () => [{ path: featureFile(id), content }]);
+    return;
+  }
   assert.equal(`${id} ${scenario}`, `FR-CART-03 ${CLEAR_SCENARIO}`);
   agentOf(this).filesFor.set(id, () => [{ path: featureFile(id), content: CLEAR_FEATURE }]);
 });

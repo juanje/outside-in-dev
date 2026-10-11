@@ -56,7 +56,11 @@ function parseMessages(ndjson: string): Message[] {
 
 /** The test steps of the scenarios a report holds, or only those of the scenario `only` names, that run a step of the scenario; the steps of hooks are left out. */
 function scenarioTestSteps(messages: Message[], only?: { file: string; name: string }): { id: string; pickleStepId?: string }[] {
-  const wanted = new Set(messages.flatMap(({ pickle }) => (pickle !== undefined && (only === undefined || (pickle.uri === only.file && pickle.name === only.name)) ? [pickle.id] : [])));
+  const pickles = messages.flatMap(({ pickle }) => (pickle === undefined ? [] : [pickle]));
+  const wanted = new Set(pickles.filter((pickle) => only === undefined || (pickle.uri === only.file && pickle.name === only.name)).map(({ id }) => id));
+  // Some runners report the selected scenario with a rewritten URI (or name). When
+  // there is only one scenario in the report it is unambiguous which steps to inspect.
+  if (only !== undefined && wanted.size === 0 && pickles.length === 1) wanted.add(pickles[0]!.id);
   const testCases = messages.flatMap(({ testCase }) => (testCase !== undefined && (only === undefined || wanted.has(testCase.pickleId ?? "")) ? [testCase] : []));
   return testCases.flatMap(({ testSteps }) => testSteps).filter((step) => step.pickleStepId !== undefined);
 }

@@ -13,6 +13,9 @@ export const STATE_CHANGE = "state_change";
 /** The state a run moves to when a person aborts it. */
 export const ABORTED = "ABORTED";
 
+/** The state a run moves to when all features are complete. */
+export const DONE = "DONE";
+
 /** The type of the event that reports an agent about to start an attempt. */
 export const AGENT_START = "agent_start";
 

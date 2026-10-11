@@ -1,3 +1,4 @@
+import { IGNORE } from "./command-supervisor.js";
 import { CYCLE_STEP } from "./progress.js";
 import type { ProjectConfig } from "./project-config.js";
 
@@ -32,7 +33,7 @@ export interface ForbiddenPatterns {
 const READS_SOURCE_PATTERN = "readFileSync";
 
 // The defaults are assembled from parts so that this file does not hold the very text it forbids in added lines.
-const DEFAULT_FORBIDDEN_IN_SRC = [`@ts-${"ignore"}`, `@ts-${"expect-error"}`, `process.env.${"VITEST"}`, `import.meta.${"vitest"}`, `NODE_ENV === "te${"st"}"`];
+const DEFAULT_FORBIDDEN_IN_SRC = [`@ts-${IGNORE}`, `@ts-${"expect-error"}`, `process.env.${"VITEST"}`, `import.meta.${"vitest"}`, `NODE_ENV === "te${"st"}`];
 const DEFAULT_FORBIDDEN_IN_TESTS = [`.${"only"}(`, `.${"skip"}(`, `.${"todo"}(`];
 
 /** The lists of forbidden patterns of the project: the configured ones, and the defaults for each list it does not give. */

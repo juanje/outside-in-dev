@@ -52,10 +52,19 @@ export function writesTest(name: string): Round {
 
 export const codeRound = (content: string): Round => ({ files: [{ path: CART_FILE, content }] });
 
+function setUpStepRounds(world: OidWorld, contents: readonly string[]): void {
+  agentOf(world).stepRounds = contents.map((content) => [{ path: STEP_FILE, content }]);
+  plans.set(world, { unit: ["unit-baseline"], bdd: [MISSING_IMPLEMENTATION], typecheck: null });
+  apply(world, planOf(world));
+}
+
 Given("the step-writing agent writes the steps of each scenario it is given, and they fail because the cart code does not exist yet", function (this: OidWorld) {
-  agentOf(this).stepRounds = STEP_ROUNDS.map((content) => [{ path: STEP_FILE, content }]);
-  plans.set(this, { unit: ["unit-baseline"], bdd: [MISSING_IMPLEMENTATION], typecheck: null });
-  apply(this, planOf(this));
+  setUpStepRounds(this, STEP_ROUNDS);
+});
+
+Given("the step-writing agent writes the steps of {string}, and they fail because the cart code does not exist yet", function (this: OidWorld, scenario: string) {
+  assert.equal(scenario, "Add a line");
+  setUpStepRounds(this, [STEP_ROUNDS[0]!]);
 });
 
 Given("the test-writing agent writes the unit test {string}, and it fails because the cart code does not exist yet", function (this: OidWorld, name: string) {

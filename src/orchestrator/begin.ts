@@ -8,7 +8,7 @@ import { startRun, type Workspace } from "../artifacts/git-workspace.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { createEventBus } from "../events/bus.js";
-import { ABORTED, ERROR_EVENT, STATE_CHANGE, WAITING_INPUT } from "../events/types.js";
+import { ABORTED, DONE, ERROR_EVENT, STATE_CHANGE, WAITING_INPUT } from "../events/types.js";
 import { BDD_RED, CODE_GREEN, QUALITY_FIX, REFACTOR, TDD_RED } from "../agents/profiles.js";
 import { gateBaseline } from "./gate-baseline.js";
 import type { GateBaseline } from "./gate-checks.js";
@@ -26,7 +26,7 @@ import { RunStopped } from "./run-stopped.js";
 export type RunEnvironment = { pid: number; now: Date; suffix: string; write: (text: string) => void; aborted?: () => boolean };
 
 /** The states of the orchestrator that a start goes through (design section 6.1). */
-export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, refactor: REFACTOR, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", qualityFix: QUALITY_FIX, frCommit: "FR_COMMIT", aborted: ABORTED, done: "DONE" } as const;
+export const STATE = { idle: "IDLE", preflight: "PREFLIGHT", baseline: "BASELINE", specCheck: "SPEC_CHECK", selectFr: "SELECT_FR", featureWrite: "FEATURE_WRITE", featureReview: "FEATURE_REVIEW", bddRed: BDD_RED, tddRed: TDD_RED, codeGreen: CODE_GREEN, refactor: REFACTOR, bddCheck: "BDD_CHECK", qualityGate: "QUALITY_GATE", qualityFix: QUALITY_FIX, frCommit: "FR_COMMIT", aborted: ABORTED, done: DONE } as const;
 
 type Bus = ReturnType<typeof createEventBus>;
 
@@ -34,8 +34,8 @@ type Bus = ReturnType<typeof createEventBus>;
 export type Started = { cwd: string; runId: string; bus: Bus; workspace: Workspace; targets: string[] };
 
 /** Publishes the move of the run from one state to the next. When someone asked the run to stop, a move into a state that does not end the run is followed by the move to ABORTED, and the run stops there (it throws `RunStopped`): the step that was in progress is done and the session names the state that comes next. */
-export function transition(bus: Bus, from: string, to: string, reason: string): number | undefined {
-  const code = bus.emit({ type: STATE_CHANGE, from, to, reason });
+export function transition(bus: Bus, from: string, to: string, reason: string, fr?: string): number | undefined {
+  const code = bus.emit({ type: STATE_CHANGE, from, to, reason, ...(fr === undefined ? {} : { fr }) });
   if (to === STATE.aborted || to === STATE.done || bus.stopRequested?.() !== true) return code;
   throw new RunStopped(bus.emit({ type: STATE_CHANGE, from: to, to: STATE.aborted, reason: "the run was aborted (oid abort) after the step it was in" }) ?? 1);
 }
@@ -90,9 +90,9 @@ export function isExitCode(value: unknown): value is number {
 }
 
 /** Starts the run with the lock held: returns the exit code of the process when the start ends the run, else what the next states need. A failure once the run has started is an event of the run. */
-export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector, runners: Runners = REAL_RUNNERS): number | Started {
+export function startOfRun(cwd: string, args: RunArgs, environment: RunEnvironment, commands: ProjectConfig["commands"], detect?: Detector, runners: Runners = REAL_RUNNERS, notifyCommand?: string): number | Started {
   const runId = newRunId(environment.now, environment.suffix);
-  const bus = createEventBus({ cwd, runId, write: environment.write, stopRequested: environment.aborted });
+  const bus = createEventBus({ cwd, runId, write: environment.write, stopRequested: environment.aborted, notifyCommand });
   try {
     return goThroughStart({ cwd, args, runId, bus, commands, now: environment.now, detect, runners });
   } catch (error) {
@@ -106,7 +106,7 @@ export function beginRun(cwd: string, args: RunArgs, environment: RunEnvironment
   const { commands } = loadProjectConfig(cwd);
   acquireLock(cwd, environment.pid);
   try {
-    const started = startOfRun(cwd, args, environment, commands);
+    const started = startOfRun(cwd, args, environment, commands, undefined, REAL_RUNNERS, loadProjectConfig(cwd).settings?.notify_command);
     return isExitCode(started) ? started : 0;
   } finally {
     releaseLock(cwd);

@@ -31,6 +31,11 @@ describe("parseProjectConfig", () => {
     expect(() => parseProjectConfig({ ...VALID, stack: "python" })).toThrow(/stack/);
   });
 
+  it("accepts the configured notification command", () => {
+    const config = parseProjectConfig({ ...VALID, settings: { notify_command: "node notify.mjs" } });
+    expect(config.settings?.notify_command).toBe("node notify.mjs");
+  });
+
   it("accepts the complexity limits of the refactor section, each one optional", () => {
     const config = parseProjectConfig({ ...VALID, refactor: { detectors: { complexity: { max_cyclomatic: 3 } } } });
     expect(config.refactor?.detectors?.complexity).toEqual({ max_cyclomatic: 3 });

@@ -143,11 +143,11 @@ export async function writeAndReview(started: Started, services: FeatureServices
 
 /** Runs the states of a run from its start to the review of the feature files, holding the lock until the process ends: returns the exit code of the process. A person's answer that stops the run on the budget ends it with the exit code of the answer. */
 export async function runFeatureCycle(cwd: string, args: RunArgs, environment: Omit<RunEnvironment, "pid">, services: RunServices): Promise<number> {
-  const { commands } = loadProjectConfig(cwd);
+  const { commands, settings } = loadProjectConfig(cwd);
   await requireSetup(cwd, services.preflight);
   acquireLock(cwd, services.pid);
   try {
-    const started = startOfRun(cwd, args, { ...environment, pid: services.pid, aborted: services.aborted }, commands, services.detect ?? detectProject, runnersOf(services));
+    const started = startOfRun(cwd, args, { ...environment, pid: services.pid, aborted: services.aborted }, commands, services.detect ?? detectProject, runnersOf(services), settings?.notify_command);
     return isExitCode(started) ? started : await endOnGitFailure(started.bus, () => writeAndReview(started, services));
   } catch (error) {
     if (error instanceof RunStopped) return error.code;

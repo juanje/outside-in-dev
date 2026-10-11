@@ -53,6 +53,7 @@ const projectConfigSchema = z.strictObject({
       worktree_dir: z.string().optional(),
       branch_prefix: z.string().optional(),
       commit_template: z.string().optional(),
+      notify_command: z.string().optional(),
     })
     .optional(),
 });

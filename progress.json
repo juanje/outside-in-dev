@@ -2891,7 +2891,34 @@
     {
       "id": "FR-TUI-06",
       "title": "Notifications",
-      "status": "pending"
+      "status": "in_progress",
+      "cycle_step": "quality_gate",
+      "scenarios": [
+        {
+          "name": "A waiting run invokes the configured notification command with the question",
+          "bdd": "pass"
+        },
+        {
+          "name": "A finished run invokes the configured notification command with the finished features",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failed run invokes the configured notification command with the error",
+          "bdd": "pass"
+        },
+        {
+          "name": "A run without a notification command invokes nothing",
+          "bdd": "pending"
+        },
+        {
+          "name": "A notification command that fails does not stop a waiting run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A notification command that does not exist does not stop a finished run",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-TUI-07",
