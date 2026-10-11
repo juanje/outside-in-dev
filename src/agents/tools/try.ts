@@ -31,7 +31,7 @@ export function tryTool(context: TryContext) {
       if (file !== undefined && !locate(context.worktree, file).inside) return { content: textContent(`"${file}" is outside the worktree: you can try only a test or a scenario of this project.`), details: {} };
       let text = "";
       const io = { cwd: context.worktree, stdout: (part: string) => (text += part), stderr: (part: string) => (text += part) };
-      runTry(io, [params.target, ...(params.dry_run === true ? ["--dry-run"] : [])], context.runners);
+      await runTry(io, [params.target, ...(params.dry_run === true ? ["--dry-run"] : [])], context.runners);
       return { content: textContent(text), details: {} };
     },
   });

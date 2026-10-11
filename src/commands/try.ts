@@ -8,7 +8,7 @@ import type { ProjectConfig } from "../artifacts/project-config.js";
 import { changedCodeFiles } from "../artifacts/try-files.js";
 import { typeErrors } from "../artifacts/tsc-report.js";
 import { loadVerifyConfig } from "../artifacts/verified-checkpoint.js";
-import { CommandTimeoutError, type Runners } from "../artifacts/verify-runner.js";
+import { CommandTimeoutError, type Runners, type TryControl } from "../artifacts/verify-runner.js";
 import { TARGET } from "../artifacts/verify-target.js";
 import { observeReport, observeUnitRun, parseTarget, type Target, trimFailure } from "./verify.js";
 
@@ -19,12 +19,12 @@ export type TryServices = { runners: Runners };
 type Check = { lines: string[]; ok: boolean };
 
 /** Runs the unit test or the scenario the target names and says what the run showed. */
-function observed(cwd: string, config: ProjectConfig, parsed: Target, runners: Runners): { failure: Failure; stderr: string } {
+async function observed(cwd: string, config: ProjectConfig, parsed: Target, runners: Runners, control: TryControl): Promise<{ failure: Failure; stderr: string }> {
   if (parsed.kind === TARGET.test) {
-    const run = runners.tryUnitTest(cwd, config.commands.unit, parsed.test);
+    const run = await runners.tryUnitTest(cwd, config.commands.unit, parsed.test, control);
     return { failure: observeUnitRun(cwd, run, parsed.test).failure, stderr: run.stderr };
   }
-  const { exitCode, report, stderr } = runners.tryBddScenario(cwd, config.commands.bdd, parsed.scenario, false);
+  const { exitCode, report, stderr } = await runners.tryBddScenario(cwd, config.commands.bdd, parsed.scenario, false, control);
   return { failure: report === undefined ? { kind: FAILURE.noReport, runner: "BDD", exitCode } : observeReport(report, parsed.scenario, undefined), stderr };
 }
 
@@ -83,13 +83,13 @@ function printedProblems(cwd: string, command: string, stdout: string): string[]
 }
 
 /** The check of the linter on the files changed since the last checkpoint: skipped when the project has none or nothing changed; otherwise its exit code, and what it printed when it fails. */
-function lintCheck(cwd: string, config: ProjectConfig, runners: Runners): Check {
+async function lintCheck(cwd: string, config: ProjectConfig, runners: Runners, control: TryControl): Promise<Check> {
   const command = config.commands.lint;
   if (command === null) return { lines: ["lint: skipped (commands.lint is null)"], ok: true };
   const { source, shared, unit_tests, bdd_steps } = config.paths;
   const files = changedCodeFiles(cwd, [...source, ...shared, ...unit_tests, ...bdd_steps]);
   if (files.length === 0) return { lines: ["lint: skipped (no file changed since the last checkpoint)"], ok: true };
-  const { exitCode, stdout } = runners.command(cwd, lintInvocation(cwd, command, files));
+  const { exitCode, stdout } = await runners.tryCommand(cwd, lintInvocation(cwd, command, files), control);
   if (exitCode === 0) return { lines: [`lint: ok (${fileCount(files.length)})`], ok: true };
   return { lines: [`lint: failed (${fileCount(files.length)})`, ...listed(printedProblems(cwd, command, stdout))], ok: false };
 }
@@ -98,8 +98,8 @@ function lintCheck(cwd: string, config: ProjectConfig, runners: Runners): Check 
 const DRY_RUN = "--dry-run";
 
 /** The check of a dry run of the scenario: the steps the BDD runner found with no definition. */
-function dryRunChecks(cwd: string, config: ProjectConfig, scenario: { file: string; line: number }, runners: Runners): Check[] {
-  const { report } = runners.tryBddScenario(cwd, config.commands.bdd, scenario, true);
+async function dryRunChecks(cwd: string, config: ProjectConfig, scenario: { file: string; line: number }, runners: Runners, control: TryControl): Promise<Check[]> {
+  const { report } = await runners.tryBddScenario(cwd, config.commands.bdd, scenario, true, control);
   const steps = unrunSteps(report!);
   return [steps.length === 0 ? { lines: ["dry-run: ok (no undefined step)"], ok: true } : { lines: [`dry-run: undefined steps (${steps.length})`, ...steps.map((step) => `  ${step}`)], ok: false }];
 }
@@ -111,9 +111,9 @@ function print(io: CliIo, checks: Check[]): number {
 }
 
 /** Runs one unit test or one scenario with the project's runner, then the type check and the linter on the changed files, and prints a short verdict; nothing is recorded. Exit 0 when everything passes, 1 otherwise, and when a command does not end within its limit. */
-export function runTry(io: CliIo, args: string[], runners: Runners): number {
+export async function runTry(io: CliIo, args: string[], runners: Runners, control: TryControl = {}): Promise<number> {
   try {
-    return tried(io, args, runners);
+    return await tried(io, args, runners, control);
   } catch (error) {
     if (!(error instanceof CommandTimeoutError)) throw error;
     io.stdout(`try: failed: ${error.message}${NEWLINE}`);
@@ -122,13 +122,14 @@ export function runTry(io: CliIo, args: string[], runners: Runners): number {
 }
 
 /** The checks of the target, printed. */
-function tried(io: CliIo, args: string[], runners: Runners): number {
+async function tried(io: CliIo, args: string[], runners: Runners, control: TryControl): Promise<number> {
   const target = args.find((arg) => arg !== DRY_RUN);
   if (target === undefined) throw new ProgressError(`missing test or scenario: oid try "<test file> > <test name>" | <feature file>:<line> | "<scenario name>" [${DRY_RUN}]`);
   const config = loadVerifyConfig(io.cwd);
   const parsed = parseTarget(io.cwd, target);
   if (args.includes(DRY_RUN) && parsed.kind === TARGET.test) throw new ProgressError(`${DRY_RUN} lists the undefined steps of a scenario; ${target} is a unit test`);
-  if (args.includes(DRY_RUN) && parsed.kind === TARGET.scenario) return print(io, dryRunChecks(io.cwd, config, parsed.scenario, runners));
-  const checks = [testCheck(observed(io.cwd, config, parsed, runners)), typesCheck(io.cwd, runners.typecheck(io.cwd, config.commands.typecheck)), lintCheck(io.cwd, config, runners)];
+  if (args.includes(DRY_RUN) && parsed.kind === TARGET.scenario) return print(io, await dryRunChecks(io.cwd, config, parsed.scenario, runners, control));
+  const test = testCheck(await observed(io.cwd, config, parsed, runners, control));
+  const checks = [test, typesCheck(io.cwd, await runners.tryTypecheck(io.cwd, config.commands.typecheck, control)), await lintCheck(io.cwd, config, runners, control)];
   return print(io, [...checks, { lines: [checks.every(({ ok }) => ok) ? "try: ok" : "try: failed"], ok: true }]);
 }

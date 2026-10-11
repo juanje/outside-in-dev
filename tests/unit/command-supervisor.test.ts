@@ -1,23 +1,16 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { runSupervised, supervisorArguments } from "../../src/artifacts/command-supervisor.js";
+import { isRunning, killRecordedProcessesAfterEach, recordedPids, until } from "./process-fixture.js";
 import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
-
-// Registered after the temporary directory's hooks, so it runs before the directory is removed: a failing test leaves no process behind.
-afterEach(() => {
-  for (const pid of recordedPids()) if (isRunning(pid)) process.kill(pid, "SIGKILL");
-});
+killRecordedProcessesAfterEach();
 
 const LIMIT = { timeoutMs: 500, graceMs: 300 };
 // For the tests that need the runner and its child to exist before the limit: starting two node processes can take longer than 500 ms under load.
 const LIMIT_AFTER_START = { timeoutMs: 3000, graceMs: 300 };
 const SECOND_MS = 1000;
-const GONE_WITHIN_MS = 5000;
-const POLL_MS = 25;
 const IGNORE_SIGTERM = "process.on('SIGTERM', () => {});";
 
 /** A runner script that records its own process id and the id of a child it starts (`node` with the given `child` code) in `pids.txt`, then waits for `behaviour`. */
@@ -37,28 +30,6 @@ function runner(name: string, { own = "", child }: { own?: string; child: string
 }
 
 const FOREVER = "setInterval(() => {}, 1000);";
-
-function recordedPids(): number[] {
-  return existsSync(join(dir, "pids.txt")) ? readFileSync(join(dir, "pids.txt"), "utf8").split("\n").filter(Boolean).map(Number) : [];
-}
-
-function isRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-  } catch {
-    return false;
-  }
-  try {
-    return !/^State:\s+Z/m.test(readFileSync(`/proc/${pid}/status`, "utf8"));
-  } catch {
-    return false;
-  }
-}
-
-async function until(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + GONE_WITHIN_MS;
-  while (!condition() && Date.now() < deadline) await new Promise((done) => setTimeout(done, POLL_MS));
-}
 
 describe("runSupervised", () => {
   it("passes the exit code and the output of a command that ends in time through unchanged", () => {

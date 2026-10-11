@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runSupervised } from "./command-supervisor.js";
+import { runSupervised, runSupervisedAsync } from "./command-supervisor.js";
 import { ProgressError } from "./progress.js";
 import { CONFIG_FILE, loadCommandTimeoutS } from "./project-config.js";
 import { readJson, readText } from "./project-json.js";
@@ -62,6 +62,19 @@ export class CommandTimeoutError extends ProgressError {
   }
 }
 
+/** A command that was stopped because the run that waited for it was: the signal it was given aborted. */
+export class CommandAbortedError extends ProgressError {
+  constructor(commandLine: string) {
+    super(`the command "${commandLine}" was stopped because the run that waited for it was stopped`);
+  }
+}
+
+/** What a run of `oid try` hands its commands: the signal whose abort stops the command and its whole process group at once. */
+export type TryControl = { signal?: AbortSignal };
+
+/** A value, or a promise of it: the runners of `oid try` may answer at once or when their command ends. */
+type Eventually<T> = T | Promise<T>;
+
 /** Makes ready for a run that writes `reportPath`: the directory of the reports exists and the report of an earlier run is gone. Every runner that writes a report in the project does it, so a runner that answers without a process leaves the same files; the type check, the other commands and the runs of `oid try` write nothing there. */
 export function clearReport(cwd: string, reportPath?: string): void {
   mkdirSync(join(cwd, REPORT_DIR), { recursive: true });
@@ -72,6 +85,15 @@ export function clearReport(cwd: string, reportPath?: string): void {
 export function runTimed(cwd: string, commandLine: string): { exitCode: number | null; stdout: string; stderr: string } {
   const seconds = loadCommandTimeoutS(cwd);
   const { status, stdout, stderr, timedOut } = runSupervised(cwd, commandLine, { timeoutMs: seconds * MS_PER_SECOND, graceMs: STOP_GRACE_MS });
+  if (timedOut) throw new CommandTimeoutError(commandLine, seconds);
+  return { exitCode: status, stdout, stderr };
+}
+
+/** Runs a command line through the shell in the project as `runTimed` does, without blocking the event loop; throws when it does not end within `limits.command_timeout_s`, and when `control.signal` aborts, with the command and its processes stopped. */
+async function runTimedAsync(cwd: string, commandLine: string, control?: TryControl): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+  const seconds = loadCommandTimeoutS(cwd);
+  const { status, stdout, stderr, timedOut, aborted } = await runSupervisedAsync(cwd, commandLine, { timeoutMs: seconds * MS_PER_SECOND, graceMs: STOP_GRACE_MS }, control?.signal);
+  if (aborted) throw new CommandAbortedError(commandLine);
   if (timedOut) throw new CommandTimeoutError(commandLine, seconds);
   return { exitCode: status, stdout, stderr };
 }
@@ -94,10 +116,10 @@ export function runUnitTest(cwd: string, command: string, test: { file: string; 
 }
 
 /** Runs `use` with the path of a report file in a directory of its own, outside the project, which is removed afterwards. */
-function withTempReport<T>(name: string, use: (reportPath: string) => T): T {
+async function withTempReport<T>(name: string, use: (reportPath: string) => Promise<T>): Promise<T> {
   const directory = mkdtempSync(join(tmpdir(), "oid-try-"));
   try {
-    return use(join(directory, name));
+    return await use(join(directory, name));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -109,19 +131,19 @@ function readReport(reportPath: string): string | undefined {
 }
 
 /** Runs the configured unit command for one test, as `oid try` does: the report goes to a directory outside the project, so nothing is written in it. Returns the exit code, the JSON report the runner wrote, if any, and its stderr. */
-export function tryUnitTest(cwd: string, command: string, test: { file: string; name: string }): { exitCode: number | null; report: unknown; stderr: string } {
-  return withTempReport("unit.json", (reportPath) => {
-    const { exitCode, stderr } = runTimed(cwd, unitRunCommand(command, test, reportPath));
+export function tryUnitTest(cwd: string, command: string, test: { file: string; name: string }, control?: TryControl): Promise<{ exitCode: number | null; report: unknown; stderr: string }> {
+  return withTempReport("unit.json", async (reportPath) => {
+    const { exitCode, stderr } = await runTimedAsync(cwd, unitRunCommand(command, test, reportPath), control);
     const text = readReport(reportPath);
     return { exitCode, report: text === undefined ? undefined : (JSON.parse(text) as unknown), stderr };
   });
 }
 
 /** Runs the configured BDD command for one scenario, as `oid try` does, or only its dry run (the steps without definition, no step run): the report goes to a directory outside the project, so nothing is written in it. Returns the exit code, the Cucumber Messages report the runner wrote, if any, and its stderr. */
-export function tryBddScenario(cwd: string, command: string, scenario: { file: string; line: number }, dryRun: boolean): { exitCode: number | null; report: string | undefined; stderr: string } {
-  return withTempReport("bdd.ndjson", (reportPath) => {
+export function tryBddScenario(cwd: string, command: string, scenario: { file: string; line: number }, dryRun: boolean, control?: TryControl): Promise<{ exitCode: number | null; report: string | undefined; stderr: string }> {
+  return withTempReport("bdd.ndjson", async (reportPath) => {
     const commandLine = dryRun ? bddDryRunCommand(command, scenario, reportPath) : bddRunCommand(command, scenario, reportPath);
-    const { exitCode, stderr } = runTimed(cwd, commandLine);
+    const { exitCode, stderr } = await runTimedAsync(cwd, commandLine, control);
     return { exitCode, report: readReport(reportPath), stderr };
   });
 }
@@ -155,17 +177,27 @@ export function runTypecheck(cwd: string, command: string): { exitCode: number |
   return { exitCode, output: stdout };
 }
 
+/** Runs the configured type check as `oid try` does, without blocking the event loop. */
+async function tryTypecheck(cwd: string, command: string, control?: TryControl): Promise<{ exitCode: number | null; output: string }> {
+  const { exitCode, stdout } = await runTimedAsync(cwd, `${command} --pretty false`, control);
+  return { exitCode, output: stdout };
+}
+
 /** How a run executes the project's tools: the unit suite, some BDD scenarios (all of them when the list is empty), the type check and any other command. `oid run` takes it as a service, so that a caller can answer the calls without a process; `REAL_RUNNERS` is the default, which runs each one through the shell. */
 export type Runners = {
   unitSuite(cwd: string, command: string): { exitCode: number | null; report: unknown };
   bddScenarios(cwd: string, command: string, scenarios: { file: string; line: number }[]): { exitCode: number | null; report: string | undefined; stderr: string };
   typecheck(cwd: string, command: string): { exitCode: number | null; output: string };
   command(cwd: string, commandLine: string): { exitCode: number | null; stdout: string; stderr: string };
-  /** One unit test, for `oid try`: nothing is written in the project. */
-  tryUnitTest(cwd: string, command: string, test: { file: string; name: string }): { exitCode: number | null; report: unknown; stderr: string };
-  /** One scenario, or only its dry run, for `oid try`: nothing is written in the project. */
-  tryBddScenario(cwd: string, command: string, scenario: { file: string; line: number }, dryRun: boolean): { exitCode: number | null; report: string | undefined; stderr: string };
+  /** One unit test, for `oid try`: nothing is written in the project, and the event loop is not blocked. */
+  tryUnitTest(cwd: string, command: string, test: { file: string; name: string }, control?: TryControl): Eventually<{ exitCode: number | null; report: unknown; stderr: string }>;
+  /** One scenario, or only its dry run, for `oid try`: nothing is written in the project, and the event loop is not blocked. */
+  tryBddScenario(cwd: string, command: string, scenario: { file: string; line: number }, dryRun: boolean, control?: TryControl): Eventually<{ exitCode: number | null; report: string | undefined; stderr: string }>;
+  /** The type check, for `oid try`. */
+  tryTypecheck(cwd: string, command: string, control?: TryControl): Eventually<{ exitCode: number | null; output: string }>;
+  /** Any other command (the linter), for `oid try`. */
+  tryCommand(cwd: string, commandLine: string, control?: TryControl): Eventually<{ exitCode: number | null; stdout: string; stderr: string }>;
 };
 
 /** The runners that start a process for each call, under the command timeout. */
-export const REAL_RUNNERS: Runners = { unitSuite: runUnitSuite, bddScenarios: runBddScenarios, typecheck: runTypecheck, command: runCommand, tryUnitTest, tryBddScenario };
+export const REAL_RUNNERS: Runners = { unitSuite: runUnitSuite, bddScenarios: runBddScenarios, typecheck: runTypecheck, command: runCommand, tryUnitTest, tryBddScenario, tryTypecheck, tryCommand: runTimedAsync };

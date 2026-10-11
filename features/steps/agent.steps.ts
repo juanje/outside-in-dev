@@ -779,7 +779,7 @@ Given("the project's unit test and type check pass", async function (this: OidWo
       scenario.unitRuns += 1;
       return passing;
     },
-    typecheck: () => ({ exitCode: 0, output: "" }),
+    tryTypecheck: () => ({ exitCode: 0, output: "" }),
   };
   tries.set(this, scenario);
 });

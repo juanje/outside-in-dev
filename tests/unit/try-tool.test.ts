@@ -18,7 +18,7 @@ function passingRunners(calls: string[] = []): Runners {
       calls.push(`${test.file} > ${test.name}`);
       return { exitCode: 0, report: passingReport(), stderr: "" };
     },
-    typecheck: () => ({ exitCode: 0, output: "" }),
+    tryTypecheck: () => ({ exitCode: 0, output: "" }),
   };
 }
 
