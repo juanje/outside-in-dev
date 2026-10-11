@@ -17,4 +17,11 @@ describe("the instructions of the agent that writes one unit test", () => {
     expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
+
+  it("tell what the agent may read and write and why, so that it does not probe the paths it may not read", () => {
+    const instructions = tddRedPrompt("FR-A-02");
+    expect(instructions).toContain("You may read any file of the unit tests, helpers and fixtures included, the feature files and the step definitions");
+    expect(instructions).toContain("write only unit test files: the code under test is the next agent's job");
+    expect(instructions).toContain("A path you may not read is refused at once; do not search for it.");
+  });
 });

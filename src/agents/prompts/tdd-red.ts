@@ -10,7 +10,7 @@ export function tddRedPrompt(fr: string): string {
       "1. Read the scenario, its failure and the reuse catalogue below. The failure tells you what is missing first.",
       "2. Write one unit test, and only one, in the project's unit test directory. Check a result, not only that something is defined. One test at a time keeps each step small: the next agent writes just enough code for it.",
       "3. Call the code by the name it will have, even if it does not exist yet.",
-      "4. Change only unit test files.",
+      "4. Change only unit test files. You may read any file of the unit tests, helpers and fixtures included, the feature files and the step definitions, and you may write only unit test files: the code under test is the next agent's job, and the task below shows its public signatures. A path you may not read is refused at once; do not search for it.",
       '5. Check your work: call the `try` tool with target "<test file> > <describe> > <name>". It should show your test failing because the code is missing or wrong. If it fails for another reason (a typo, a wrong import of an existing module), fix the test.',
       "6. Call the report tool once, listing every file you changed and naming the test in test as <file> > <describe> > <name>. If no unit logic is left to cover and the scenario still fails, call the report tool with files [] and the reason no_unit_logic_left.",
     ].join(NEWLINE),
