@@ -1,4 +1,5 @@
 import { checkpoint } from "../artifacts/git-checkpoints.js";
+import { NEWLINE } from "../artifacts/lines.js";
 import { advanceStep, CYCLE_STEP, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadInnerIterationLimit } from "../artifacts/project-config.js";
 import { bddCheck, SCENARIO } from "./bdd-check.js";
@@ -53,6 +54,7 @@ export async function runBddCheck(started: Started, services: FeatureServices, s
   const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;
   transition(bus, origin.from, STATE.bddCheck, origin.note === "" ? verdict : `${origin.note}; ${verdict}`);
   if (check.kind === SCENARIO.pass) return scenarioPasses(started, scenario);
-  if (iteration >= loadInnerIterationLimit(workspace.path)) return stuckLoop(bus, services.input ?? { isTTY: false }, { label: scenario.label, iterations: iteration });
-  return anotherIteration(started, scenario, iteration, check.message);
+  if (iteration < loadInnerIterationLimit(workspace.path)) return anotherIteration(started, scenario, iteration, check.message);
+  const stuck = await stuckLoop(bus, services.input ?? { isTTY: false }, { label: scenario.label, iterations: iteration });
+  return typeof stuck === "number" ? stuck : anotherIteration(started, scenario, iteration, `${check.message}${NEWLINE}${NEWLINE}The person who follows the run says: ${stuck.note}`);
 }

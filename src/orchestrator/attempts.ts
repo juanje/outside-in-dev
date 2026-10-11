@@ -61,8 +61,8 @@ export async function runAttempts<T>(spec: AttemptSpec<T>): Promise<T | Exhauste
   const lastRetry = extra === undefined ? spec.retries : extra.attempt - 1;
   for (let attempt = extra?.attempt ?? 1; ; attempt += 1) {
     await spec.beforeCall?.();
-    const effort = announceAgent(spec.bus, { ...spec, attempt });
-    const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt }) });
+    const effort = announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry });
+    const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry }) });
     if (!isRejection(result)) return result;
     spec.bus.emit({ type: ATTEMPT_REJECTED, state: spec.state, role: spec.role, attempt, reason: result.rejected });
     if (attempt > lastRetry) return { ...result, attempts: attempt };

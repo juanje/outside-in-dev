@@ -5,13 +5,15 @@ import { headCommit } from "../artifacts/git-workspace.js";
 import { runCodeGreen } from "./run-code-green.js";
 import { commitFeature } from "./run-commit.js";
 import { runQualityGate } from "./run-quality-gate.js";
+import { REWRITE, Redirect } from "./redirect.js";
+import { rewriteLastTest } from "./run-rewrite.js";
 import { runRefactor } from "./run-refactor.js";
 import { runTddRed, type TddRed } from "./run-tdd-red.js";
 import { updateSession } from "./session.js";
 import type { FeatureServices } from "./services.js";
 
 /** Where a resumed run enters the work of its first target: the state it stopped in and what the session saved for it (the scenario of the inner loop, what TDD Red handed on, the checkpoint before Code Green and the iteration). */
-type LoopEntry = { state: string; red?: RedScenario; unitRed?: TddRed; beforeGreen?: string; iteration?: number };
+export type LoopEntry = { state: string; red?: RedScenario; unitRed?: TddRed; beforeGreen?: string; iteration?: number; note?: string };
 
 /** Where a resumed run enters the inner loop: the commit its first target started from, and the state of that target. */
 export type LoopResume = { featureStart: string; entry: LoopEntry };
@@ -27,7 +29,7 @@ const isPast = (entry: LoopEntry | undefined, state: string): boolean => entry !
 
 /** Runs TDD Red (unless it is past) and Code Green, and saves the checkpoint before the green for the refactor: returns it, or the exit code of the process. */
 async function redToGreen(started: Started, services: FeatureServices, scenario: RedScenario, entry: LoopEntry | undefined): Promise<number | string> {
-  const unitRed = isPast(entry, STATE.tddRed) ? entry!.unitRed! : await runTddRed(started, services, scenario);
+  const unitRed = isPast(entry, STATE.tddRed) ? entry!.unitRed! : await runTddRed(started, services, scenario, entry?.note);
   if (isExitCode(unitRed)) return unitRed;
   const beforeGreen = headCommit(started.workspace.path);
   const stopped = await runCodeGreen(started, services, scenario, unitRed);
@@ -58,18 +60,27 @@ async function innerLoop(started: Started, services: FeatureServices, red: RedSc
   }
 }
 
+/** Runs the next scenario that does not pass: its BDD Red (unless a resumed run is past it) and its inner loop. Returns the exit code of the process when the run ends there, or what follows the scenario. */
+async function runScenario(started: Started, services: FeatureServices, featureHashes: Record<string, string>, resumed?: LoopEntry) {
+  const red = resumed?.red ?? (await runBddRed(started, services, featureHashes));
+  return isExitCode(red) ? red : innerLoop(started, services, red, resumed);
+}
+
 /** Runs the scenarios of the first target one after the other, each through BDD Red and the inner loop, until every one passes, then its quality gate: returns the exit code of the process when the run ends there, nothing when the target is ready to be committed. A resumed run enters at the state it stopped in. */
 async function runFeature(started: Started, services: FeatureServices, featureHashes: Record<string, string>, entry?: LoopEntry): Promise<number | undefined> {
   if (entry?.state === STATE.frCommit) return undefined;
   if (entry?.state === STATE.qualityGate) return runQualityGate(started, services);
   let resumed = entry?.red === undefined ? undefined : entry;
   for (;;) {
-    const red = resumed?.red ?? (await runBddRed(started, services, featureHashes));
-    if (isExitCode(red)) return red;
-    const ended = await innerLoop(started, services, red, resumed);
-    resumed = undefined;
-    if (isExitCode(ended)) return ended;
-    if (ended === AFTER_CHECK.last) return runQualityGate(started, services);
+    try {
+      const ended = await runScenario(started, services, featureHashes, resumed);
+      resumed = undefined;
+      if (isExitCode(ended)) return ended;
+      if (ended === AFTER_CHECK.last) return runQualityGate(started, services);
+    } catch (error) {
+      if (!(error instanceof Redirect) || error.action !== REWRITE) throw error;
+      resumed = rewriteLastTest(started, error);
+    }
   }
 }
 

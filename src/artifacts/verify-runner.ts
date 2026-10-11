@@ -31,10 +31,14 @@ export function unitRunCommand(command: string, test: { file: string; name: stri
   return `${command} ${shellQuote(test.file)} --testNamePattern=${shellQuote(escapeRegExp(filter))} ${reportOptions(reportPath)}`;
 }
 
+/** The tag expression of a run of the whole suite: a skipped scenario is tagged @wip and left out of regression. */
+const WIP_EXCLUDED = "not @wip";
+
 /** The configured BDD command with oid's arguments appended: the location of each scenario and the Cucumber Messages report. */
 function bddScenariosCommand(command: string, scenarios: { file: string; line: number }[], reportPath: string): string {
   const locations = scenarios.map(({ file, line }) => ` ${shellQuote(`${file}:${line}`)}`).join("");
-  return `${command}${locations} --format message:${shellQuote(reportPath)}`;
+  const regression = scenarios.length === 0 ? ` --tags ${shellQuote(WIP_EXCLUDED)}` : "";
+  return `${command}${locations}${regression} --format message:${shellQuote(reportPath)}`;
 }
 
 /** The configured BDD command with oid's arguments appended: the location of the scenario and the Cucumber Messages report. */

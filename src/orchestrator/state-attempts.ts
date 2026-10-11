@@ -1,5 +1,6 @@
-import type { AgentTask, AttemptOutcome } from "../agents/runner.js";
-import { outcomeStop } from "./agent-run.js";
+import { type AgentTask, type AttemptOutcome, BLOCKED } from "../agents/runner.js";
+import { outcomeProblem, outcomeStop } from "./agent-run.js";
+import { Blocked } from "./redirect.js";
 import type { CycleState } from "../agents/profiles.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { rollback } from "../artifacts/git-checkpoints.js";
@@ -10,7 +11,7 @@ import { ERROR_EVENT } from "../events/types.js";
 import { type AttemptInfo, type AttemptSpec, isExhausted, isRejection, type Rejection, runAttempts } from "./attempts.js";
 import { isExitCode, type Started } from "./begin.js";
 import { settleBudget } from "./budget-settle.js";
-import { askAfterAttempts } from "./retries-exhausted.js";
+import { askAboutBlocked, askAfterAttempts } from "./retries-exhausted.js";
 import type { FeatureServices } from "./services.js";
 
 /** The task of an attempt: the prompt with what the attempt is told about the ones before it, and the effort it runs with. */
@@ -20,6 +21,7 @@ export function attemptTask(state: CycleState, prompt: string, { note, effort }:
 
 /** What stops an attempt whose agent did not finish with a report: the rejection of the attempt when the agent failed, the exit code of the process when the agent is blocked or the provider failed; nothing when the agent is done. */
 export function agentStop({ bus }: Started, label: string, outcome: AttemptOutcome): Rejection | number | undefined {
+  if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(label, outcome)!);
   const stopped = outcomeStop(label, outcome);
   if (stopped === undefined || isRejection(stopped)) return stopped;
   return bus.emit({ type: ERROR_EVENT, message: stopped.stop }) ?? 1;
@@ -40,14 +42,27 @@ export function attemptSpec<T>(started: Started, services: FeatureServices, { st
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */
 export async function attemptsOf<T>(started: Started, services: FeatureServices, { state, role, label, run }: StateAttempts<T>): Promise<T | number> {
   const { bus } = started;
-  const spec = attemptSpec<T | number>(started, services, { state, role, run });
-  let result = await runAttempts(spec);
-  while (isExhausted(result)) {
+  const input = services.input ?? { isTTY: false };
+  let current = 0;
+  const spec = attemptSpec<T | number>(started, services, { state, role, run: (info) => ((current = info.attempt), run(info)) });
+  let afterAsking: AttemptSpec<unknown>["afterAsking"];
+  for (;;) {
+    let result: Awaited<ReturnType<typeof runAttempts<T | number>>>;
+    try {
+      result = await runAttempts({ ...spec, afterAsking });
+    } catch (error) {
+      if (!(error instanceof Blocked)) throw error;
+      const answer = await askAboutBlocked(bus, input, { state, label, problem: error.problem });
+      if (isExitCode(answer)) return answer;
+      spec.restore();
+      afterAsking = { attempt: current + 1, note: answer.note };
+      continue;
+    }
+    if (!isExhausted(result)) return result;
     if (spec.retries === 0) return bus.emit({ type: ERROR_EVENT, message: result.rejected }) ?? 1;
-    const answer = await askAfterAttempts(bus, services.input ?? { isTTY: false }, { state, label, attempts: result.attempts, rejected: result.rejected });
+    const answer = await askAfterAttempts(bus, input, { state, label, attempts: result.attempts, rejected: result.rejected });
     if (isExitCode(answer)) return answer;
     spec.restore();
-    result = await runAttempts({ ...spec, afterAsking: { attempt: result.attempts + 1, note: answer.note } });
+    afterAsking = { attempt: result.attempts + 1, note: answer.note };
   }
-  return result;
 }

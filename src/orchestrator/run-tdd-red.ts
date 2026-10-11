@@ -3,6 +3,7 @@ import { TDD_RED } from "../agents/profiles.js";
 import { tddRedPrompt } from "../agents/prompts/tdd-red.js";
 import { type AgentTask, DONE } from "../agents/runner.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
+import { headCommit } from "../artifacts/git-workspace.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { parseUnitTarget } from "../artifacts/verify-target.js";
@@ -67,8 +68,10 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
 }
 
 /** Runs TDD Red for the current scenario, retrying a rejected attempt from the last checkpoint. Returns what Code Green needs, or the exit code of the process. */
-export async function runTddRed(started: Started, services: FeatureServices, scenario: RedScenario): Promise<number | TddRed> {
-  const { workspace, targets } = started;
-  const prompt = `${tddRedPrompt(targets[0]!)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}`;
+export async function runTddRed(started: Started, services: FeatureServices, scenario: RedScenario, note = ""): Promise<number | TddRed> {
+  const { cwd, workspace, targets } = started;
+  updateSession(cwd, { beforeTddRed: { commit: headCommit(workspace.path), tests: unitTestsOf(cwd, scenario.current.name) } });
+  const asked = note === "" ? "" : `${NEWLINE}${NEWLINE}The person who follows the run asks for this unit test to be written again, and says: ${note}`;
+  const prompt = `${tddRedPrompt(targets[0]!)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}${asked}`;
   return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info), info.announce) });
 }

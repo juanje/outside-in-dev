@@ -40,14 +40,13 @@ describe("the question about a scenario that is still red after the last iterati
     });
   });
 
-  it("ends the run with an error that says the action is not implemented yet, for every answer but abort", async () => {
-    const outcome = async (answer: string) => {
-      const printed: string[] = [];
-      const result = await stuckLoop(bus(printed), { isTTY: true, choose: async () => answer, line: async () => "" }, STUCK);
-      return { result, printed };
-    };
-    expect(await outcome("retry")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "retry" is not implemented yet: only abort is possible now\n'] });
-    expect((await outcome("skip_fr")).result).toBe(1);
-    expect((await outcome("maybe")).printed[0]).toContain('"maybe"');
+  it("throws the redirect the person chose, with the reason that the scenario is still red, and ends the run with an error for any other answer", async () => {
+    const redirected = (answer: string) => stuckLoop(bus(), { isTTY: true, choose: async () => answer, line: async () => "a note" }, STUCK).catch((error: unknown) => error);
+    expect(await redirected("rewrite")).toMatchObject({ action: "rewrite", note: "a note", reason: 'FR-A-01 "Pay" is still red after 2 iterations of the inner loop' });
+    expect(await redirected("skip_scenario")).toMatchObject({ action: "skip_scenario", note: "" });
+    expect(await redirected("skip_fr")).toMatchObject({ action: "skip_fr", note: "" });
+    const printed: string[] = [];
+    expect(await stuckLoop(bus(printed), { isTTY: true, choose: async () => "maybe", line: async () => "" }, STUCK)).toBe(1);
+    expect(printed[0]).toContain('"maybe"');
   });
 });

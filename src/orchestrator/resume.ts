@@ -10,7 +10,7 @@ import { releaseLock, takeOverLock } from "./lock.js";
 import { requireSetup } from "./preflight.js";
 import { type ReviewEntry, writeAndReview } from "./run-features.js";
 import { type LoopResume, runInnerLoop } from "./run-inner-loop.js";
-import type { RedScenario } from "./run-bdd-red.js";
+import { savedScenario } from "./saved-scenario.js";
 import { endOnGitFailure } from "./run-git-failure.js";
 import { RunStopped } from "./run-stopped.js";
 import { readSession, type RunSession, updateSession } from "./session.js";
@@ -22,19 +22,9 @@ const START_STATES: string[] = [STATE.idle, STATE.preflight, STATE.baseline, STA
 const LOOP_STATES: string[] = [STATE.tddRed, STATE.codeGreen, STATE.refactor, STATE.bddCheck];
 /** What the rollback of a resumed run cleans: every untracked file that is not ignored. */
 const EVERY_FILE = ["**"];
-/** What separates the feature file from the line in a saved location. */
-const LOCATION_SEPARATOR = ":";
 
 /** Where a resumed run goes on: the review of the feature files (or their writing), or the work of the targets left. */
 export type ResumePlan = ({ review: ReviewEntry } | LoopResume) & { targets: string[] };
-
-/** The scenario of the inner loop as the session saved it, with the failure it showed last. */
-function savedScenario(saved: RunSession): RedScenario {
-  const { scenario, fr } = saved;
-  if (scenario === undefined || fr === undefined) throw new ProgressError(`the session of the run ${saved.runId} names no scenario for ${saved.state}`);
-  const at = scenario.location.lastIndexOf(LOCATION_SEPARATOR);
-  return { current: { file: scenario.location.slice(0, at), line: Number(scenario.location.slice(at + 1)), name: scenario.name }, label: `${fr} "${scenario.name}"`, failure: saved.scenarioFailure ?? "" };
-}
 
 /** Where a run that stopped in `saved.state` goes on, given the target features that are done in its worktree: the targets left (the one being committed stays, since its commit is made again), the commit the first one started from and the state it enters at. A quality fix goes on from the start of the quality gate. */
 export function resumePlan(saved: RunSession, done: string[]): ResumePlan {

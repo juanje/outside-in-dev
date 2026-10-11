@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createEventBus } from "../../src/events/bus.js";
+import { Redirect } from "../../src/orchestrator/redirect.js";
 import { askAfterAttempts } from "../../src/orchestrator/retries-exhausted.js";
 import { dir, useTempDir } from "./temp-project.js";
 
@@ -44,14 +45,24 @@ describe("the question after the retries ran out", () => {
     expect({ result, lines: lines.length }).toEqual({ result: { note: "use countLines" }, lines: 1 });
   });
 
-  it("ends the run with an error that says the action is not implemented yet, for rewrite, skip_scenario, skip_fr and anything else", async () => {
-    const outcome = async (answer: string) => {
-      const printed: string[] = [];
-      const result = await askAfterAttempts(bus(printed), { isTTY: true, choose: async () => answer, line: async () => "" }, EXHAUSTED);
-      return { result, printed };
-    };
-    expect(await outcome("skip_fr")).toEqual({ result: 1, printed: ['error: FR-A-01 "Pay": "skip_fr" is not implemented yet: only retry and abort are possible now\n'] });
-    expect((await outcome("rewrite")).result).toBe(1);
-    expect((await outcome("maybe")).printed[0]).toContain('"maybe"');
+  it("does not offer to write the unit test again while the steps are being written, and refuses that answer", async () => {
+    const asked: string[][] = [];
+    const printed: string[] = [];
+    const input = { isTTY: true as const, choose: async (_prompt: string, actions: string[]) => (asked.push(actions), "rewrite"), line: async () => "" };
+    const result = await askAfterAttempts(bus(printed), input, { ...EXHAUSTED, state: "BDD_RED" });
+    expect({ result, asked }).toEqual({ result: 1, asked: [["retry", "skip_scenario", "skip_fr", "abort"]] });
+    expect(printed[0]).toContain('"rewrite" is not an answer');
+  });
+
+  it("throws the redirect the person chose, with the last reason and, for a rewrite, the note the person gives", async () => {
+    const redirected = (answer: string) => askAfterAttempts(bus(), { isTTY: true, choose: async () => answer, line: async () => "a note" }, EXHAUSTED).catch((error: unknown) => error);
+    const rewrite = await redirected("rewrite");
+    expect(rewrite).toBeInstanceOf(Redirect);
+    expect(rewrite).toMatchObject({ action: "rewrite", note: "a note", reason: "the report names no unit test" });
+    expect(await redirected("skip_scenario")).toMatchObject({ action: "skip_scenario", note: "", reason: "the report names no unit test" });
+    expect(await redirected("skip_fr")).toMatchObject({ action: "skip_fr", note: "", reason: "the report names no unit test" });
+    const printed: string[] = [];
+    expect(await askAfterAttempts(bus(printed), { isTTY: true, choose: async () => "maybe", line: async () => "" }, EXHAUSTED)).toBe(1);
+    expect(printed[0]).toContain('"maybe"');
   });
 });

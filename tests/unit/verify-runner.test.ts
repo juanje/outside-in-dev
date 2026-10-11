@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bddRunCommand, runBddScenario, runUnitTest, unitRunCommand } from "../../src/artifacts/verify-runner.js";
+import { bddRunCommand, runBddScenario, runBddSuite, runUnitTest, unitRunCommand } from "../../src/artifacts/verify-runner.js";
 import { resolve } from "node:path";
 import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.js";
 
@@ -75,5 +75,11 @@ describe("runBddScenario", () => {
   it("returns no report when the command writes none, whatever an earlier run left", () => {
     write(".outside-in/verify/bdd.ndjson", "stale");
     expect(runBddScenario(dir, "node -e 0", SCENARIO)).toEqual({ exitCode: 0, report: undefined, stderr: "" });
+  });
+
+  it("leaves the scenarios tagged @wip out of a run of the whole suite, and out of nothing else", () => {
+    write("runner.mjs", 'import { writeFileSync } from "node:fs";\nconst out = process.argv.find((a) => a.startsWith("message:")).slice(8);\nwriteFileSync(out, process.argv.slice(2).join(" "));\n');
+    expect(runBddSuite(dir, "node runner.mjs").report).toBe("--tags not @wip --format message:.outside-in/verify/bdd.ndjson");
+    expect(runBddScenario(dir, "node runner.mjs", SCENARIO).report).toBe("features/a.feature:12 --format message:.outside-in/verify/bdd.ndjson");
   });
 });

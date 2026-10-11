@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { gitIn } from "./git-fixture.js";
 import type { FakeAgent } from "../../features/support/fake-agent.js";
 import { runCli } from "../../src/run-cli.js";
+import type { ReviewInput } from "../../src/orchestrator/services.js";
 import { runServices, stepsProject } from "./feature-cycle-fixture.js";
 
 /** The BDD runner: the whole suite passes; a scenario asked for by location passes once src/cart.ts exists and fails with a missing module before. */
@@ -56,8 +57,8 @@ export const approve = { isTTY: true as const, choose: async () => "approve", li
 export const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8"));
 
 /** Runs `oid run` (or the command `args`) in the project with the agent and a human who approves the feature files: the exit code, the saved session and the events of the run. */
-export async function approvedRun(project: string, agent: FakeAgent, args: string[] = ["run"]) {
-  const exitCode = await runCli(args, { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(agent.sdk, approve));
+export async function approvedRun(project: string, agent: FakeAgent, args: string[] = ["run"], input: ReviewInput = approve) {
+  const exitCode = await runCli(args, { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(agent.sdk, input));
   const saved = readJson(join(project, ".outside-in/session.json"));
   const [run] = readdirSync(join(project, ".outside-in/runs"));
   const log = readFileSync(join(project, ".outside-in/runs", run!, "events.jsonl"), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));

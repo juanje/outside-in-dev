@@ -96,4 +96,10 @@ describe("runAttempts", () => {
     expect(notes[0]).toContain("use countLines");
     expect(starts(events)).toEqual([{ type: "agent_start", state: "TDD_RED", role: "tdd-agent", attempt: 3, model: "p/large", thinkingLevel: "high" }]);
   });
+
+  it("runs the extra attempt after a block on the strong model even when the project allows more retries", async () => {
+    const { bus, events } = setup();
+    await runAttempts({ bus, state: "CODE_GREEN", role: "coder-agent", retries: 3, models: MODELS, restore: () => {}, afterAsking: { attempt: 2, note: "round it" }, run: async () => ({ value: 1 }) });
+    expect(starts(events)).toEqual([{ type: "agent_start", state: "CODE_GREEN", role: "coder-agent", attempt: 2, model: "p/large", thinkingLevel: "high" }]);
+  });
 });

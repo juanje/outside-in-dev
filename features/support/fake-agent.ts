@@ -4,7 +4,7 @@ import type { PiSdk } from "../../src/agents/runner.js";
 export type AgentFile = { path: string; content: string };
 type Task = { fr: string; text: string };
 /** What an agent of a unit-test step does in one of its rounds: the files it writes through the sandbox, the files it changes without the sandbox noticing, and what it reports. */
-export type Round = { files: AgentFile[]; bypass?: AgentFile[]; test?: string; noUnitLogicLeft?: boolean; dies?: boolean };
+export type Round = { files: AgentFile[]; bypass?: AgentFile[]; test?: string; noUnitLogicLeft?: boolean; dies?: boolean; blocked?: { reason: string; detail: string } };
 
 /** What a round that `dies` throws once its files are written: the process of the run ends there, as a killed process would, with no report and nothing after it. */
 export class ProcessDied extends Error {
@@ -197,6 +197,7 @@ export class FakeAgent {
   private async workRound(session: OpenedSession, cwd: string, route: Route, round: Round | undefined): Promise<Report> {
     for (const path of route.attempts) await this.write(session, cwd, { path, content: "// not allowed\n" }, route.refused);
     if (route.blocked !== undefined) return { status: "blocked", ...route.blocked };
+    if (round?.blocked !== undefined) return { status: "blocked", ...round.blocked };
     if (round === undefined) return { status: "done", files: [], summary: "Nothing to write." };
     for (const file of round.files) await this.write(session, cwd, file, route.refused);
     for (const file of round.bypass ?? []) await createWriteTool(cwd).execute("call-write", { path: file.path, content: file.content });
