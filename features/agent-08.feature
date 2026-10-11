@@ -66,6 +66,57 @@ Feature: Context per task
     And the task does not say "BODY-CHECKOUT"
     And the task does not say "BODY-PRICING"
 
+  Scenario: A test task gets the whole code of the step definition that the failure names, with its file, and not the other steps
+    Given the file "features/steps/checkout.steps.ts" holds:
+      """
+      import assert from "node:assert/strict";
+
+      When("the customer pays by card", function () {
+        this.paid = "BODY-WHEN";
+      });
+
+      Then(/finish|paid|done/i, function () {
+        assert.match(this.notice, /finish|complete|done/i);
+        // BODY-THEN-PAID
+      });
+
+      Then("the voucher is spent", function () {
+        this.spent = "BODY-VOUCHER";
+      });
+      """
+    When oid builds the test task from the scenario "features/checkout.feature:2" and the failure "AssertionError: the notice does not describe a finished feature" raised at line 8 of "features/steps/checkout.steps.ts"
+    Then the task says "features/steps/checkout.steps.ts"
+    And the task says "Then(/finish|paid|done/i, function () {"
+    And the task says "assert.match(this.notice, /finish|complete|done/i);"
+    And the task says "BODY-THEN-PAID"
+    And the task does not say "BODY-WHEN"
+    And the task does not say "BODY-VOUCHER"
+
+  Scenario: A test task whose failure names no step gets the definitions of the Then steps of the scenario
+    Given the file "features/steps/checkout.steps.ts" holds:
+      """
+      import assert from "node:assert/strict";
+
+      When("the customer pays by card", function () {
+        this.paid = "BODY-WHEN";
+      });
+
+      Then(/finish|paid|done/i, function () {
+        assert.match(this.notice, /finish|complete|done/i);
+        // BODY-THEN-PAID
+      });
+
+      Then("the voucher is spent", function () {
+        this.spent = "BODY-VOUCHER";
+      });
+      """
+    When oid builds the test task from the scenario "features/checkout.feature:2" and the failure "expected the order to be paid"
+    Then the task says "features/steps/checkout.steps.ts"
+    And the task says "assert.match(this.notice, /finish|complete|done/i);"
+    And the task says "BODY-THEN-PAID"
+    And the task does not say "BODY-WHEN"
+    And the task does not say "BODY-VOUCHER"
+
   Scenario: An implementation task gets the failing test, the failure, the code it imports and the catalogue
     When oid builds the implementation task from the test "tests/unit/checkout.test.ts" and the failure "checkout is not a function"
     Then the task says "expect(checkout([5])).toBe(5);"

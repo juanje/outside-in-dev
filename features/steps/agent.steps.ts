@@ -826,6 +826,13 @@ When("oid builds the test task from the scenario {string} and the failure {strin
   tasks.set(this, testTaskContext(sandboxOf(this).project, { scenario: { file: file!, line: Number(line) }, failure }));
 });
 
+When("oid builds the test task from the scenario {string} and the failure {string} raised at line {int} of {string}", async function (this: OidWorld, location: string, message: string, line: number, stepFile: string) {
+  const { testTaskContext } = await import("../../src/agents/context/task-context.js");
+  const [file, start] = location.split(":");
+  const failure = `${message}\n    at World.<anonymous> (${join(sandboxOf(this).project, stepFile)}:${line}:10)`;
+  tasks.set(this, testTaskContext(sandboxOf(this).project, { scenario: { file: file!, line: Number(start) }, failure }));
+});
+
 When("oid builds the implementation task from the test {string} and the failure {string}", async function (this: OidWorld, test: string, failure: string) {
   const { implementationContext } = await import("../../src/agents/context/task-context.js");
   tasks.set(this, implementationContext(sandboxOf(this).project, { tests: [test], failure }));

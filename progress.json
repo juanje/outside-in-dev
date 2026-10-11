@@ -2233,6 +2233,14 @@
         {
           "name": "The coder is told to search the catalogue before writing new code",
           "bdd": "pass"
+        },
+        {
+          "name": "A test task gets the whole code of the step definition that the failure names, with its file, and not the other steps",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test task whose failure names no step gets the definitions of the Then steps of the scenario",
+          "bdd": "pass"
         }
       ]
     },

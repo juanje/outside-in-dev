@@ -2,11 +2,12 @@ import { globSync } from "tinyglobby";
 import { NEWLINE } from "../../artifacts/lines.js";
 import { loadProjectConfig } from "../../artifacts/project-config.js";
 import { readText } from "../../artifacts/project-json.js";
+import { failingFrame } from "../../artifacts/cucumber-report.js";
 import { listLocatedScenarios, readFeatureSources } from "../../artifacts/traceability.js";
 import { parseRequirements } from "../../artifacts/spec.js";
 import { exampleFeatures } from "./example-features.js";
 import { importClosure } from "./import-closure.js";
-import { isDefinitionOf, stepDefinitions, stepTexts } from "./step-definitions.js";
+import { definitionAtLine, isDefinitionOf, type StepDefinition, stepDefinitions, stepTexts, thenTexts } from "./step-definitions.js";
 import { reuseCatalogue } from "./reuse-catalogue.js";
 
 const DOMAIN_FILE = "DOMAIN.md";
@@ -28,11 +29,58 @@ function scenarioText(cwd: string, { file, line }: ScenarioLocation): string {
 /** The reuse catalogue as a section of a prompt: the public signatures of the project's exported symbols, without bodies. */
 export const CATALOGUE_HEADING = "Reuse catalogue (exported symbols of the project, without bodies):";
 
-/** The prompt of a test task (BDD_RED or TDD_RED): the scenario with its location and the normalised failure, and the public signatures of the project; no body of the source and no other scenario. */
-export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
+/** The heading of the definition of the step that the failure of the scenario names. */
+const FAILING_STEP_HEADING = "Step definition that fails:";
+
+/** The section of the step definition that holds the line of the first stack frame of the failure, with its file; none when the failure names no line of a step definition. */
+function failingStepSection(cwd: string, failure: string): string[] {
+  const frame = failingFrame(failure, cwd);
+  const definition = frame === undefined ? undefined : definitionAtLine(readText(cwd, frame.file) ?? "", frame.line);
+  return frame === undefined || definition === undefined ? [] : [FAILING_STEP_HEADING, boundedDefinitionSection(frame.file, definition)];
+}
+
+/** A step definition as a section of a prompt: its file and its whole text. */
+function definitionSection(file: string, definition: { text: string }): string {
+  return [`### ${file}`, definition.text].join(NEWLINE);
+}
+
+/** The most lines of a step definition that a test task shows of the step that fails; the others are counted. */
+const MAX_DEFINITION_LINES = 60;
+
+/** A step definition as a section of a prompt, cut after `MAX_DEFINITION_LINES` lines with a note that counts the others, so that a long one does not fill the task. */
+function boundedDefinitionSection(file: string, definition: { text: string }): string {
+  const lines = definition.text.split(NEWLINE);
+  const rest = lines.length - MAX_DEFINITION_LINES;
+  return definitionSection(file, { text: [...lines.slice(0, MAX_DEFINITION_LINES), ...(rest > 0 ? [`(${rest} more lines; read ${file} for the rest)`] : [])].join(NEWLINE) });
+}
+
+/** The step files of the project, sorted, and the step definitions each declares. */
+function projectSteps(cwd: string): { files: string[]; defined: { file: string; definition: StepDefinition }[] } {
+  const files = globSync(loadProjectConfig(cwd).paths.bdd_steps, { cwd }).sort();
+  return { files, defined: files.flatMap((file) => stepDefinitions(readText(cwd, file) ?? "").map((definition) => ({ file, definition }))) };
+}
+
+/** The heading of the definitions of the steps of the scenario that check its outcome, for a failure that names no step definition. */
+const THEN_STEPS_HEADING = "Step definitions of the Then steps of the scenario:";
+
+/** The section of the whole definitions of the Then steps of the scenario, each with its file; none when no definition runs one. */
+function thenStepsSection(cwd: string, scenario: ScenarioLocation): string[] {
+  const steps = thenTexts(scenarioText(cwd, scenario));
+  const outcome = projectSteps(cwd).defined.filter(({ definition }) => steps.some((step) => isDefinitionOf(definition, step)));
+  return outcome.length === 0 ? [] : [THEN_STEPS_HEADING, ...outcome.map(({ file, definition }) => boundedDefinitionSection(file, definition))];
+}
+
+/** The prompt of a test task: the scenario with its location and the failure, the sections about step definitions, and the public signatures of the project. */
+function testContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }, stepSections: string[]): string {
   const { file, line } = task.scenario;
   const scenario = scenarioText(cwd, task.scenario);
-  return [`Scenario (${file}:${line}):`, scenario, "Current failure of the scenario (your starting point):", task.failure, CATALOGUE_HEADING, reuseCatalogue(cwd, { mentions: `${scenario}${NEWLINE}${task.failure}` })].join(NEWLINE + NEWLINE);
+  return [`Scenario (${file}:${line}):`, scenario, "Current failure of the scenario (your starting point):", task.failure, ...stepSections, CATALOGUE_HEADING, reuseCatalogue(cwd, { mentions: `${scenario}${NEWLINE}${task.failure}` })].join(NEWLINE + NEWLINE);
+}
+
+/** The prompt of a TDD Red task: the scenario with its location and the normalised failure, the whole definition of the step the failure names (else those of the scenario's Then steps), and the public signatures of the project; no body of the source and no other scenario. */
+export function testTaskContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }): string {
+  const failing = failingStepSection(cwd, task.failure);
+  return testContext(cwd, task, failing.length > 0 ? failing : thenStepsSection(cwd, task.scenario));
 }
 
 /** A file of the project as a section of a prompt: its path and its whole text. */
@@ -51,16 +99,15 @@ const STEPS_USED_HEADING = "Step definitions the scenario already uses:";
 
 /** The prompt of a BDD Red task: the scenario with its location, the step files and the pattern of each step definition that exists, and the public signatures of the project; no unit test, no body of the source and no other scenario. */
 export function bddRedContext(cwd: string, scenario: ScenarioLocation): string {
-  const files = globSync(loadProjectConfig(cwd).paths.bdd_steps, { cwd }).sort();
-  const defined = files.flatMap((file) => stepDefinitions(readText(cwd, file) ?? "").map((definition) => ({ file, definition })));
+  const { files, defined } = projectSteps(cwd);
   const steps = stepTexts(readText(cwd, scenario.file) ?? "", scenarioText(cwd, scenario));
   const used = defined.filter(({ definition }) => steps.some((step) => isDefinitionOf(definition, step)));
   const failure = "The scenario has no step definitions yet.";
   return joinSections([
-    [testTaskContext(cwd, { scenario, failure })],
+    [testContext(cwd, { scenario, failure }, [])],
     [STEP_FILES_HEADING, files.map((file) => `- ${file}`).join(NEWLINE)],
     [STEP_PATTERNS_HEADING, defined.map(({ definition }) => definition.declaration).join(NEWLINE)],
-    ...(used.length === 0 ? [] : [[STEPS_USED_HEADING, ...used.map(({ file, definition }) => [`### ${file}`, definition.text].join(NEWLINE))]]),
+    ...(used.length === 0 ? [] : [[STEPS_USED_HEADING, ...used.map(({ file, definition }) => definitionSection(file, definition))]]),
   ]);
 }
 
