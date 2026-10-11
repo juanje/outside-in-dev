@@ -16,4 +16,11 @@ describe("the instructions of the agent that writes the feature files", () => {
     expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
+
+  it("states in the last rule before the report what the feature writer may read and write, with the reason", () => {
+    const rules = featureWritePrompt("FR-A-02").split("\n").filter((line) => /^\d\. /.test(line));
+    expect(rules.at(-2)).toBe(
+      "7. You may read the requirement, its design notes, the domain notes and the feature files, and you may write only the feature file: the step definitions, the tests and the code come from the next steps. A path you may not read is refused at once; do not search for it.",
+    );
+  });
 });

@@ -13,7 +13,8 @@ export function featureWritePrompt(fr: string): string {
       "4. Check milestones, not where the whole process ends: a later requirement may make the process go further, and a scenario that asserts its last line would then break.",
       "5. Besides the main behaviour, cover what happens when the feature is not configured, and when the thing it depends on fails. These are the cases users hit first.",
       `6. Tag the Feature line with @${fr}. Use an @NFR tag only for a non-functional requirement listed below.`,
-      "7. Call the report tool once, listing the file you wrote.",
+      "7. You may read the requirement, its design notes, the domain notes and the feature files, and you may write only the feature file: the step definitions, the tests and the code come from the next steps. A path you may not read is refused at once; do not search for it.",
+      "8. Call the report tool once, listing the file you wrote.",
     ].join(NEWLINE),
   ].join(NEWLINE + NEWLINE);
 }
