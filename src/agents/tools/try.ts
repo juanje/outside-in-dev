@@ -1,13 +1,33 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { parseBddTarget, parseUnitTarget, UNIT_SEPARATOR } from "../../artifacts/verify-target.js";
-import type { Runners } from "../../artifacts/verify-runner.js";
+import { CommandAbortedError, type Runners } from "../../artifacts/verify-runner.js";
 import { runTry } from "../../commands/try.js";
 import { locate } from "../containment.js";
 import { textContent } from "../result-text.js";
 
-/** What the tool needs from the orchestrator: where the agent works and how the project's tools run. */
-export type TryContext = { worktree: string; runners: Runners };
+/** How long one call of the tool may take: a small multiple of the slowest check measured in this project (8 s for one scenario or one unit test with the type check), because a long limit hides a hang. */
+export const TRY_LIMIT_MS = 30_000;
+const MS_PER_SECOND = 1000;
+const ABORT_EVENT = "abort";
+const STOPPED_WITH_SESSION = "The check was stopped because the session was stopped.";
+
+/** What the agent is told when its check passed the limit and was stopped: what to do instead. */
+function tookTooLong(limitMs: number): string {
+  const seconds = limitMs / MS_PER_SECOND;
+  return `Your check took longer than ${seconds} ${seconds === 1 ? "second" : "seconds"} and was stopped. Check a smaller target (one test or one scenario) or fix what hangs (a test that never ends, a watch mode), then try again.`;
+}
+
+/** A promise that settles, with nothing, when the signal aborts. */
+function whenAborted(signal: AbortSignal): Promise<undefined> {
+  return new Promise((done) => {
+    if (signal.aborted) done(undefined);
+    signal.addEventListener(ABORT_EVENT, () => done(undefined), { once: true });
+  });
+}
+
+/** What the tool needs from the orchestrator: where the agent works, how the project's tools run, and (for a test) the limit of one call, `TRY_LIMIT_MS` by default. */
+export type TryContext = { worktree: string; runners: Runners; limitMs?: number };
 
 /** The file a target names, when it names one: the test file of `<file> > <name>` or the feature file of `<file>:<line>`; a scenario named by its title names none. */
 function fileOf(target: string): string | undefined {
@@ -26,13 +46,25 @@ export function tryTool(context: TryContext) {
       target: Type.String(),
       dry_run: Type.Optional(Type.Boolean()),
     }),
-    async execute(_id, params) {
+    async execute(_id, params, session) {
       const file = fileOf(params.target);
       if (file !== undefined && !locate(context.worktree, file).inside) return { content: textContent(`"${file}" is outside the worktree: you can try only a test or a scenario of this project.`), details: {} };
       let text = "";
       const io = { cwd: context.worktree, stdout: (part: string) => (text += part), stderr: (part: string) => (text += part) };
-      await runTry(io, [params.target, ...(params.dry_run === true ? ["--dry-run"] : [])], context.runners);
-      return { content: textContent(text), details: {} };
+      const limitMs = context.limitMs ?? TRY_LIMIT_MS;
+      const limit = AbortSignal.timeout(limitMs);
+      const stop = session === undefined ? limit : AbortSignal.any([session, limit]);
+      const finished = runTry(io, [params.target, ...(params.dry_run === true ? ["--dry-run"] : [])], context.runners, { signal: stop }).then(
+        () => text,
+        (error: unknown) => {
+          if (error instanceof CommandAbortedError) return undefined;
+          throw error;
+        },
+      );
+      // The race answers at the stop even from a runner that ignores the signal: a tool that waits for it would hang the session (Pi's abort waits for running tool calls).
+      const verdict = await Promise.race([finished, whenAborted(stop)]);
+      if (verdict !== undefined) return { content: textContent(verdict), details: {} };
+      return { content: textContent(session?.aborted === true ? STOPPED_WITH_SESSION : tookTooLong(limitMs)), details: {} };
     },
   });
 }

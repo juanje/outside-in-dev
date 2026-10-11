@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runSupervisedAsync } from "../../src/artifacts/command-supervisor.js";
-import { isRunning, killRecordedProcessesAfterEach, recordedPids, until } from "./process-fixture.js";
+import { hangingScript, isRunning, killRecordedProcessesAfterEach, recordedPids, until } from "./process-fixture.js";
 import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
@@ -10,21 +10,6 @@ const LIMIT_AFTER_START = { timeoutMs: 3000, graceMs: 300 };
 const NO_LIMIT = { timeoutMs: 60_000, graceMs: 300 };
 /** How long an abort has to wait for the command to be reported stopped: the tool must answer at once, long before the grace of the group. */
 const AT_ONCE_MS = 1500;
-
-/** A script that records its own process id and the id of a child it starts, then waits for ever. */
-function hangingScript(): void {
-  write(
-    "hang.mjs",
-    [
-      `import { spawn } from "node:child_process";`,
-      `import { appendFileSync } from "node:fs";`,
-      `const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000);"], { stdio: "ignore" });`,
-      `appendFileSync("pids.txt", process.pid + "\\n" + child.pid + "\\n");`,
-      `setInterval(() => {}, 1000);`,
-      "",
-    ].join("\n"),
-  );
-}
 
 describe("runSupervisedAsync", () => {
   it("passes the exit code and the output of a command that ends in time through unchanged", async () => {
@@ -42,7 +27,7 @@ describe("runSupervisedAsync", () => {
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("stops a command that passes the limit together with the child it started", async () => {
-    hangingScript();
+    hangingScript("hang.mjs");
     const result = await runSupervisedAsync(dir, "node hang.mjs", LIMIT_AFTER_START);
     await until(() => !recordedPids().some(isRunning));
     const pids = recordedPids();
@@ -50,7 +35,7 @@ describe("runSupervisedAsync", () => {
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("returns at once when the signal is aborted, and the command and its child are gone soon after", async () => {
-    hangingScript();
+    hangingScript("hang.mjs");
     const controller = new AbortController();
     const running = runSupervisedAsync(dir, "node hang.mjs", NO_LIMIT, controller.signal);
     await until(() => recordedPids().length === 2);
@@ -64,7 +49,7 @@ describe("runSupervisedAsync", () => {
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("starts nothing when the signal is already aborted", async () => {
-    hangingScript();
+    hangingScript("hang.mjs");
     const result = await runSupervisedAsync(dir, "node hang.mjs", NO_LIMIT, AbortSignal.abort());
     expect({ aborted: result.aborted, started: recordedPids().length }).toEqual({ aborted: true, started: 0 });
   }, REAL_PROCESS_TIMEOUT_MS);
