@@ -1,8 +1,11 @@
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FakeAgent } from "../../features/support/fake-agent.js";
-import { SCENARIO } from "./feature-cycle-fixture.js";
+import { runServices, SCENARIO } from "./feature-cycle-fixture.js";
+import { runCli } from "../../src/run-cli.js";
 import { gitIn } from "./git-fixture.js";
-import { approvedRun, loopProject } from "./loop-fixture.js";
+import { approve, approvedRun, loopProject, readJson } from "./loop-fixture.js";
 import { useTempDir, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
 useTempDir();
@@ -35,6 +38,42 @@ describe("the inner loop of a run", () => {
       feature: ["quality_gate", [{ name: SCENARIO, bdd: "pass" }]],
       unitTests: { [SCENARIO]: ["tests/unit/cart.test.ts > cart > adds"] },
     });
+  }, REAL_PROCESS_TIMEOUT_MS);
+
+  it("commits the move back to TDD Red when the scenario is still red after the code, so that a rollback or a resume to HEAD keeps it", async () => {
+    const project = loopProject();
+    const runner = join(project, "bdd.cjs");
+    writeFileSync(runner, readFileSync(runner, "utf8").replace('located && !fs.existsSync("src/cart.ts")', "located"));
+    gitIn(project, "commit", "--quiet", "--all", "--message", "the scenario stays red");
+    const { saved } = await approvedRun(project, cartAgent());
+    expect({
+      step: JSON.parse(gitIn(saved.worktree, "show", "HEAD:progress.json")).features[0].cycle_step,
+      uncommitted: gitIn(saved.worktree, "status", "--porcelain"),
+    }).toEqual({ step: "tdd_red", uncommitted: "" });
+  }, REAL_PROCESS_TIMEOUT_MS);
+
+  it("resumes Code Green without an error when the checkpoint already holds the feature at tdd_green", async () => {
+    const project = loopProject();
+    const failing = cartAgent();
+    failing.codeRoute.rounds.length = 0;
+    failing.codeRoute.providerError = "the provider failed";
+    const { saved } = await approvedRun(project, failing);
+    const file = join(saved.worktree, "progress.json");
+    const progress = readJson(file);
+    progress.features[0].cycle_step = "tdd_green";
+    writeFileSync(file, JSON.stringify(progress));
+    gitIn(saved.worktree, "commit", "--quiet", "--all", "--message", "a checkpoint with the step already at tdd_green");
+    const resuming = new FakeAgent();
+    resuming.codeRoute.rounds.push({ files: [{ path: "src/cart.ts", content: "export const cart = 1;\n" }] });
+    let stderr = "";
+    await runCli(["resume"], { cwd: project, stdout: () => undefined, stderr: (text) => (stderr += text) }, runServices(resuming.sdk, approve));
+    const [run] = readdirSync(join(project, ".outside-in/runs"));
+    const log = readFileSync(join(project, ".outside-in/runs", run!, "events.jsonl"), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+    expect({
+      stderr: stderr.split("\n").filter((line) => line.includes("cannot move")),
+      errors: log.filter((event) => event.type === "error").map((event) => event.message).filter((message) => message.includes("FR-A-01")),
+      moves: log.filter((event) => event.type === "state_change" && event.from === "CODE_GREEN").map((event) => `${event.from} > ${event.to}`),
+    }).toEqual({ stderr: [], errors: ['FR-A-01 "Behaviour of FR-A-01": the provider failed: the provider failed'], moves: ["CODE_GREEN > BDD_CHECK"] });
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("gives the coder the unit test the test-writing agent reported as the target of its check, and keeps it in the saved session", async () => {

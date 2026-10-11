@@ -8,7 +8,7 @@ import { fail, type RedScenario } from "./run-bdd-red.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { updateSession } from "./session.js";
 import { stuckLoop } from "./stuck-loop.js";
-import { updateFeature } from "./worktree-progress.js";
+import { moveRunTo, updateFeature } from "./worktree-progress.js";
 
 /** What the check of a scenario after Code Green leads to: another scenario, the end of the requirement's scenarios, or another iteration of the inner loop with the failure that is left. */
 export const AFTER_CHECK = { next: "next", last: "last", again: "again" } as const;
@@ -34,7 +34,8 @@ function scenarioPasses(started: Started, scenario: RedScenario): AfterCheck {
 /** Sends the run back to TDD Red for another iteration of the inner loop, with the failure the scenario still shows. */
 function anotherIteration(started: Started, scenario: RedScenario, iteration: number, failure: string): AfterCheck {
   const { cwd, bus, workspace, targets } = started;
-  updateFeature(workspace.path, targets[0]!, (feature) => advanceStep(feature, CYCLE_STEP.tddRed));
+  updateFeature(workspace.path, targets[0]!, (feature) => moveRunTo(feature, CYCLE_STEP.tddRed));
+  checkpoint(workspace, { fr: targets[0]!, state: STATE.bddCheck, scenario: scenario.current.name });
   updateSession(cwd, { state: STATE.tddRed, innerIteration: iteration + 1, scenarioFailure: failure });
   transition(bus, STATE.bddCheck, STATE.tddRed, `the scenario "${scenario.current.name}" is still red after ${iteration} iterations`);
   return { kind: AFTER_CHECK.again, failure };

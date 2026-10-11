@@ -2537,6 +2537,10 @@
         {
           "name": "An agent that is blocked or whose provider fails stops the run",
           "bdd": "pass"
+        },
+        {
+          "name": "A unit test rejected in the iteration after a scenario was still red does not lose the move back to TDD Red",
+          "bdd": "pass"
         }
       ]
     },

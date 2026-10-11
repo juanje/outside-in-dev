@@ -6,7 +6,7 @@ import { type FindingDraft, numberFindings } from "../artifacts/findings.js";
 import { checkpoint, rollback } from "../artifacts/git-checkpoints.js";
 import { readChangedLines } from "../artifacts/git-changes.js";
 import { git, headCommit } from "../artifacts/git-workspace.js";
-import { advanceStep, CYCLE_STEP } from "../artifacts/progress.js";
+import { CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { loadUserModels } from "../artifacts/user-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
@@ -25,7 +25,7 @@ import type { Origin } from "./run-bdd-check.js";
 import type { RedScenario } from "./run-bdd-red.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { keepPendingFindings, runBaselineFindings, updateSession } from "./session.js";
-import { updateFeature } from "./worktree-progress.js";
+import { moveRunTo, updateFeature } from "./worktree-progress.js";
 
 const REASON_SEPARATOR = "; ";
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
@@ -67,7 +67,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   const behaviour = bddCheck(worktree, scenario.current, undefined, runnersOf(services));
   if (behaviour.kind === PROBLEM) return NO_REFACTOR;
   const green = headCommit(worktree);
-  updateFeature(worktree, fr!, (feature) => advanceStep(feature, CYCLE_STEP.refactor));
+  updateFeature(worktree, fr!, (feature) => moveRunTo(feature, CYCLE_STEP.refactor));
   updateSession(cwd, { state: STATE.refactor });
   transition(bus, STATE.codeGreen, STATE.refactor, `${listed.length} finding${listed.length === 1 ? "" : "s"} on the lines Code Green changed: the agent fixes them`);
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;

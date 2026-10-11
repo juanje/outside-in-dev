@@ -8,7 +8,7 @@ import { git } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
-import { change, session, transitions } from "./run.steps.js";
+import { change, eventLog, session, transitions } from "./run.steps.js";
 
 const MISSING_IMPLEMENTATION = "bdd-missing-implementation";
 const BLOCKED_PATTERN = /^reports that it is blocked with the reason "(.+)"$/;
@@ -162,6 +162,13 @@ Given("the agents write two unit tests and two pieces of cart code, and the scen
   agent.testRoute.rounds.push(writesTest("cart lines > adds a line"), writesTest("cart lines > adds a second line"));
   agent.codeRoute.rounds.push(codeRound(CART_CODE.unitOnly), codeRound(CART_CODE.dedupedUnitOnly));
   expect(this, { unit: ["unit-red-missing", "unit-green", "unit-red-second", "unit-green-second"], bdd: ["bdd-add-line-still-red", "bdd-add-line-still-red"] });
+});
+
+Given("the agents write a unit test and cart code that leave the scenario red, and in the next iteration the first unit test passes at once and the second does not", function (this: OidWorld) {
+  const agent = agentOf(this);
+  agent.testRoute.rounds.push(writesTest("cart lines > adds a line"), TEST_PROBLEMS["its unit test passes at once"]!.round, writesTest("cart lines > adds a second line"));
+  agent.codeRoute.rounds.push(codeRound(CART_CODE.unitOnly), codeRound(CART_CODE.dedupedUnitOnly));
+  expect(this, { unit: ["unit-red-missing", "unit-green", "unit-passes-at-once", "unit-red-second", "unit-green-second"], bdd: ["bdd-add-line-still-red", "bdd-add-line-still-red"] });
 });
 
 Given("the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario", function (this: OidWorld) {
@@ -322,6 +329,15 @@ Then("the event log of the run records no transition from {string} to {string}",
 
 Then("the event log of the run records a transition from {string} to {string} once", function (this: OidWorld, from: string, to: string) {
   assert.equal(transitions(this).filter((event) => event.from === from && event.to === to).length, 1, JSON.stringify(transitions(this)));
+});
+
+Then("the event log of the run records {int} transitions from {string} to {string}", function (this: OidWorld, count: number, from: string, to: string) {
+  assert.equal(transitions(this).filter((event) => event.from === from && event.to === to).length, count, JSON.stringify(transitions(this)));
+});
+
+Then("the event log of the run records no error", function (this: OidWorld) {
+  const errors = eventLog(this).filter((event) => event.type === "error");
+  assert.deepEqual(errors, [], JSON.stringify(errors));
 });
 
 Then("the event log of the run records a transition from {string} to {string} whose reason mentions {string}", function (this: OidWorld, from: string, to: string, text: string) {

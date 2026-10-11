@@ -50,7 +50,7 @@ export function loopProject(): string {
   return project;
 }
 
-const approve = { isTTY: true as const, choose: async () => "approve", line: async () => "" };
+export const approve = { isTTY: true as const, choose: async () => "approve", line: async () => "" };
 
 /** The file as a JSON document. */
 export const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8"));

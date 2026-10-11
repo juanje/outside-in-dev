@@ -132,6 +132,16 @@ Feature: TDD inner loop
     And the run never reaches "CODE_GREEN"
     And the saved session has the state "TDD_RED"
 
+  Scenario: A unit test rejected in the iteration after a scenario was still red does not lose the move back to TDD Red
+    Given the project limits the inner loop to 2 iterations for each scenario
+    And the project allows 1 retry for each state
+    And the agents write a unit test and cart code that leave the scenario red, and in the next iteration the first unit test passes at once and the second does not
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
+    Then the event log of the run records a transition from "BDD_CHECK" to "TDD_RED" once
+    And the event log of the run records 2 transitions from "TDD_RED" to "CODE_GREEN"
+    And the event log of the run records 2 transitions from "CODE_GREEN" to "BDD_CHECK"
+    And the event log of the run records no error
+
   Scenario: A scenario that is still red after the last iteration stops the run to ask what to do
     Given the project limits the inner loop to 2 iterations for each scenario
     And the agents write two unit tests and two pieces of cart code, and the scenario still fails after both

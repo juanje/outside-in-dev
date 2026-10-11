@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GitError } from "../../src/artifacts/git-workspace.js";
+import { ProgressError } from "../../src/artifacts/progress.js";
 import type { OIEventBody } from "../../src/events/types.js";
 import { endOnGitFailure } from "../../src/orchestrator/run-git-failure.js";
 
@@ -14,6 +15,12 @@ describe("a run that meets a failed git command", () => {
     const { bus, events } = recordingBus();
     const code = await endOnGitFailure(bus, () => Promise.reject(new GitError("git commit failed: no identity")));
     expect({ code, events }).toEqual({ code: 1, events: [{ type: "error", message: "git commit failed: no identity" }] });
+  });
+
+  it("ends the same way when the progress file refuses a step, with the message of the refusal", async () => {
+    const { bus, events } = recordingBus();
+    const code = await endOnGitFailure(bus, () => Promise.reject(new ProgressError("cannot move FR-A-01 from tdd_green to tdd_green")));
+    expect({ code, events }).toEqual({ code: 1, events: [{ type: "error", message: "cannot move FR-A-01 from tdd_green to tdd_green" }] });
   });
 
   it("goes on as it was when nothing fails, and lets any other exception through", async () => {
