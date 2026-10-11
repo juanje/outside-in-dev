@@ -78,7 +78,8 @@ export function installSandbox(session: SandboxSession, profile: Profile, option
     const reason = callReason(profile, options, context.toolCall.name, context.args);
     if (reason === undefined) return prior;
     denials += 1;
-    if (denials > limit) await session.abort().catch(() => undefined);
+    // Not awaited: Pi's abort() waits for the running tool calls, and this denial is one of them.
+    if (denials > limit) void session.abort().catch(() => undefined);
     return { block: true, reason };
   };
   const originalAfter = session.agent.afterToolCall;

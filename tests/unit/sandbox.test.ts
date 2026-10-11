@@ -104,6 +104,15 @@ describe("installSandbox", () => {
     await call(session, "write", { path: "src/a.ts" });
     expect(aborts).toHaveLength(1);
   });
+
+  it("answers the denial that passes the limit even when abort never settles", async () => {
+    // Pi's abort() waits for the running tool calls, and this denial is one of them: awaiting it inside the hook never ends.
+    const session: SandboxSession = { agent: {}, abort: () => new Promise<void>(() => undefined) };
+    installSandbox(session, tester, { worktree: dir, tools: tester.builtins, maxDenials: 1 });
+    await call(session, "write", { path: "src/a.ts" });
+    const answer = await Promise.race([call(session, "write", { path: "src/a.ts" }), new Promise<string>((resolve) => setTimeout(() => resolve("the denial was never answered"), 200))]);
+    expect(answer).toMatchObject({ block: true, reason: expect.stringContaining("not writable") });
+  });
 });
 
 describe("installSandbox and secrets", () => {
