@@ -62,4 +62,20 @@ describe("the decision about a Red oid cannot classify", () => {
       printed: [],
     });
   });
+
+  it("asks for a note after a bug and puts the note, trimmed, in the reason of the rejection; an empty note keeps the reason as it was", async () => {
+    const bus = createEventBus({ cwd: dir, runId: "run-1", write: () => undefined, now: () => 0 });
+    const asked: string[] = [];
+    const reasonWith = async (note: string) => {
+      const input = { isTTY: true as const, choose: async () => "bug", line: async (prompt: string) => (asked.push(prompt), note) };
+      return decideRed(bus, input, { ...FAILURE, subject: "unit test" });
+    };
+    const withNote = await reasonWith("  the cart is built with createCart  ");
+    const withoutNote = await reasonWith("   ");
+    expect({ withNote, withoutNote, asked: asked.length }).toEqual({
+      withNote: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test: the cart is built with createCart\nthe failure: Error: boom' },
+      withoutNote: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test\nthe failure: Error: boom' },
+      asked: 2,
+    });
+  });
 });

@@ -14,6 +14,9 @@ const ACTIONS = [VALID_RED, BUG, TRACE].map((key) => ({ key, label: key }));
 
 const STEP_DEFINITIONS = "step definitions";
 
+/** What the person is asked after judging the failure a bug; an empty answer adds nothing. */
+const BUG_NOTE_PROMPT = "What is wrong, for the next attempt? (optional, one line)";
+
 /** A Red oid cannot classify: whose it is, why oid cannot tell, the failure message as the runner gave it, what else the run showed about it (the failing step, the output it recorded) and what the person would call wrong if it is a bug (the step definitions by default). */
 export type UnclassifiedRed = { label: string; reason: string; message: string; detail?: string; step?: string; subject?: string };
 
@@ -27,9 +30,10 @@ function refusal(label: string, answer: string): string {
   return `${label}: "${answer}" is not an answer: use ${VALID_RED}, ${BUG} or ${TRACE}`;
 }
 
-/** The rejection of the attempt when the person judges the failure a bug: what the person judged, the failure up to its stack, and the failing step when there is one. */
-function bugRejection({ label, message, step, subject = STEP_DEFINITIONS }: UnclassifiedRed): Rejection {
-  return { rejected: [`${label}: the person judged the failure to be a bug in the ${subject}`, `the failure: ${trimFailure(message)}`, ...(step === undefined ? [] : [`failing step: ${step}`])].join(NEWLINE) };
+/** The rejection of the attempt when the person judges the failure a bug: what the person judged, with the note of the person when there is one, the failure up to its stack, and the failing step when there is one. */
+function bugRejection({ label, message, step, subject = STEP_DEFINITIONS }: UnclassifiedRed, note: string): Rejection {
+  const judged = `${label}: the person judged the failure to be a bug in the ${subject}`;
+  return { rejected: [note === "" ? judged : `${judged}: ${note}`,`the failure: ${trimFailure(message)}`, ...(step === undefined ? [] : [`failing step: ${step}`])].join(NEWLINE) };
 }
 
 /** Puts the Red to the person who can classify it: returns "valid" when it is, the rejection of the attempt when the person judges it a bug, or the exit code of the process when the run ends. */
@@ -39,7 +43,7 @@ export async function decideRed(bus: Started["bus"], input: ReviewInput, red: Un
   for (;;) {
     const answer = await input.choose(question(red, whole), ACTIONS.map(({ key }) => key));
     if (answer === VALID_RED) return VALID_RED;
-    if (answer === BUG) return bugRejection(red);
+    if (answer === BUG) return bugRejection(red, (await input.line(BUG_NOTE_PROMPT)).trim());
     if (answer !== TRACE) return bus.emit({ type: ERROR_EVENT, message: refusal(red.label, answer) }) ?? 1;
     whole = true;
   }
