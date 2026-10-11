@@ -340,3 +340,10 @@ A quality-gate command the agent runs is feedback for that attempt. It does not 
 - `.outside-in.json` has no `models` key; a project that has one gets an error that names `oid setup`.
 - `oid setup` writes this configuration; `oid init` offers it when it is missing; `oid doctor` only checks; `oid run` and `oid resume` check the same before they start and refuse with what is missing.
 **Consequences.** A project runs with whatever account each user has. FR-RUN-08's `models` in `.outside-in.json` moves to the user configuration (a revise of FR-RUN-08: its scenarios say "the project configures the models"). Jev becomes one more role, sharing the credential store.
+
+## ADR-049: A scenario that passes at once can be accepted by the human as a guard
+
+**Context.** Some scenarios describe what must not happen (no command configured, so nothing is invoked). Their steps pass before any code exists, so there is no Red, and no evidence can show that they check something; the agent reports that it is blocked, and in the first `oid run` of FR-TUI-06 the scenario was skipped.
+**Options.** (1) Ask the agent for an assertion that fails without the code: rejected, it forces an implementation-specific check. (2) Skip it as `@wip`: rejected, the feature can then never be done. (3) Let the human accept it: chosen.
+**Decision.** In `oid run`, a scenario that passes at BDD Red with no code of this cycle is put to the human with its step definitions. The human can accept it as a guard, with a reason: it is recorded as passing, with the reason as its evidence, and needs no unit test. Otherwise the existing actions apply. The agent can never accept it; the last sentence of ADR-038 still holds for every other case.
+**Consequences.** The steps of a guard are checked only by the human's review; the reason is in the event log and the bootstrap log, for audit.

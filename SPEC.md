@@ -288,11 +288,11 @@ An agent writes the feature files for the requirement; a human approves, edits o
 
 ### FR-RUN-03: BDD Red
 
-An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario still passes. Approved feature files cannot change.
+An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario still passes. Approved feature files cannot change. A scenario that passes at once is put to the human, who can accept it as a guard (ADR-049).
 
 ### FR-RUN-04: TDD inner loop
 
-An agent writes one failing unit test, then another agent writes the minimum code to make it pass, until the scenario passes. Every scenario needs at least one unit test. The loop has an iteration limit.
+An agent writes one failing unit test, then another agent writes the minimum code to make it pass, until the scenario passes. Every scenario, except an accepted guard, needs at least one unit test. The loop has an iteration limit.
 
 ### FR-RUN-05: Refactor after each Green
 
@@ -320,7 +320,7 @@ Limits on time, turns, iterations and cost are checked before each billable call
 
 ### FR-RUN-11: Rewrite or skip when retries run out or an agent is blocked
 
-When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
+When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays, as ADR-038 sets out), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
 
 ## Functional Requirements — Terminal interface
 
