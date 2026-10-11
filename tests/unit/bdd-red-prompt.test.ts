@@ -17,4 +17,13 @@ describe("the instructions of the agent that writes step definitions", () => {
     expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
+
+  it("state in rule 4 what the step writer may read and write, with the reason for the writing limit", () => {
+    const rule = bddRedPrompt("FR-A-02", "features/a.feature:12")
+      .split("\n")
+      .find((line) => line.startsWith("4. "));
+    expect(rule).toBe(
+      "4. Change only step definition files. You may read the feature files, the step definitions and their support files, and the domain notes, and you may write only step definition files: the code the steps call does not exist yet, and writing it is the next agent's job. A path you may not read is refused at once; do not search for it.",
+    );
+  });
 });

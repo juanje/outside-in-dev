@@ -10,7 +10,7 @@ export function bddRedPrompt(fr: string, target: string): string {
       "1. Read the scenario, the step definitions that exist and the reuse catalogue below.",
       "2. Reuse an existing step definition only when its text matches the step exactly. A step that only looks similar needs a new definition: changing a shared step to fit yours breaks the scenarios that already use it, and oid will reject the attempt.",
       "3. Write each new step with a real assertion, never empty or pending. Import code that does not exist yet dynamically inside the step, not at the top of the file, so the file still loads.",
-      "4. Change only step definition files.",
+      "4. Change only step definition files. You may read the feature files, the step definitions and their support files, and the domain notes, and you may write only step definition files: the code the steps call does not exist yet, and writing it is the next agent's job. A path you may not read is refused at once; do not search for it.",
       `5. Check your work: call the \`try\` tool with target "${target}" and \`dry_run\` true to list any step that still has no definition, in seconds. Then call the \`try\` tool with target "${target}": it should fail in a Then step, because the feature is missing. A failure in a Given or in the Background means your setup is wrong, not that the feature is missing.`,
       "6. Call the report tool once, listing every file you changed.",
     ].join(NEWLINE),
