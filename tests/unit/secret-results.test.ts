@@ -19,12 +19,12 @@ function walk(root: string, folder = root): string[] {
 }
 
 /** What the agent is shown after `tool` returned `result` for `args`, through the sandbox's after-tool-call hook. */
-async function shown(tool: string, args: Record<string, unknown>, result: Result): Promise<{ text: string; details: unknown }> {
+async function shown(tool: string, args: Record<string, unknown>, result: Result, isError = false): Promise<{ text: string; details: unknown }> {
   const session: SandboxSession = { agent: {}, abort: async () => undefined };
   installSandbox(session, coder, { worktree: dir, tools: coder.builtins });
   const after = session.agent.afterToolCall;
   if (!after) throw new Error("no after-tool-call hook installed");
-  const changed = await after({ toolCall: { type: "toolCall", id: "1", name: tool, arguments: args }, args, result, isError: false } as never);
+  const changed = await after({ toolCall: { type: "toolCall", id: "1", name: tool, arguments: args }, args, result, isError } as never);
   const content = changed?.content ?? result.content;
   return { text: content.map((part) => (part.type === "text" ? part.text : "")).join(""), details: "details" in (changed ?? {}) ? changed?.details : result.details };
 }
@@ -58,5 +58,11 @@ describe("the result of a search tool", () => {
     const odd = await shown("grep", { pattern: "x" }, { content: [{ type: "text", text: "src/a.ts:1: ok\nsomething unexpected hunter2" }], details: undefined });
     expect(odd.text).not.toContain("hunter2");
     expect(odd.text).toContain("blocked");
+  });
+
+  it("shows the agent the error of a search that failed, which holds no file lines to check", async () => {
+    const error = "rg: regex parse error:\n    (?:runServices()\n    ^\nerror: unclosed group";
+    const failed = await shown("grep", { pattern: "runServices(" }, { content: [{ type: "text", text: error }], details: undefined }, true);
+    expect(failed.text).toBe(error);
   });
 });

@@ -86,7 +86,8 @@ export function installSandbox(session: SandboxSession, profile: Profile, option
   session.agent.afterToolCall = async (context, signal) => {
     const prior = await originalAfter?.(context, signal);
     const name = context.toolCall.name;
-    if (!LISTING_TOOLS.has(name)) return prior;
+    // A failed search answers with the error of ripgrep or fd, which has no file lines to attribute.
+    if (!LISTING_TOOLS.has(name) || context.isError) return prior;
     const given = (context.args as { path?: unknown } | undefined)?.path;
     const directory = isText(given) ? given : CURRENT;
     const parts = prior?.content ?? context.result.content;
