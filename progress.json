@@ -2007,6 +2007,10 @@
         {
           "name": "The try tool does not run a test outside the worktree",
           "bdd": "pass"
+        },
+        {
+          "name": "A test-writing step reads the helpers of the unit tests but writes only tests",
+          "bdd": "pass"
         }
       ]
     },

@@ -69,6 +69,29 @@ describe("profileFor", () => {
   });
 });
 
+describe("profileFor unit test area", () => {
+  it("lets the test writer read every file under the directories of the unit tests, and write only the tests", () => {
+    const tests = profileFor("TDD_RED", config);
+    expect(tests.read).toContain("spec/**");
+    expect(tests.write).toEqual(["spec/**/*.spec.ts"]);
+  });
+
+  it("does not widen the directory of tests that sit next to the source: it would grant the source", () => {
+    const together = { ...config, paths: { ...config.paths, source: ["lib/**/*.ts"], unit_tests: ["lib/**/*.spec.ts"] } };
+    const { read } = profileFor("TDD_RED", together);
+    expect(read).toContain("lib/**/*.spec.ts");
+    expect(read).not.toContain("lib/**");
+  });
+
+  it("does not widen a glob that starts with a wildcard: it would grant the whole worktree", () => {
+    const anywhere = { ...config, paths: { ...config.paths, unit_tests: ["**/*.spec.ts"] } };
+    const { read } = profileFor("TDD_RED", anywhere);
+    expect(read).toContain("**/*.spec.ts");
+    expect(read).not.toContain("**");
+    expect(read).not.toContain("/**");
+  });
+});
+
 describe("profileFor deny list", () => {
   it("denies every package manager's manifest and lockfile to every step", () => {
     for (const state of CYCLE_STATES) {

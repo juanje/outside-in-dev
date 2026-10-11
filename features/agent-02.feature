@@ -12,6 +12,14 @@ Feature: Tools and paths per step
     Then the call is blocked
     And the reason names the writable paths "tests/unit/**/*.test.ts"
 
+  Scenario: A test-writing step reads the helpers of the unit tests but writes only tests
+    Given oid opened an agent session for the step TDD_RED
+    When the agent calls "read" on "tests/unit/cart-fixture.ts"
+    Then the call is allowed
+    When the agent calls "write" on "tests/unit/cart-fixture.ts"
+    Then the call is blocked
+    And the reason names the writable paths "tests/unit/**/*.test.ts"
+
   Scenario: A test-writing step cannot read source
     Given oid opened an agent session for the step TDD_RED
     When the agent calls "read" on "src/cart.ts"

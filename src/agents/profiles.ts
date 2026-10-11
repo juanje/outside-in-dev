@@ -41,6 +41,28 @@ function gateCommands(config: ProjectConfig): string[] {
   return [unit, bdd, typecheck, format, lint, ...extra_checks].filter((command): command is string => command !== null);
 }
 
+const SLASH = "/";
+const WILDCARD = /[*?[]/;
+
+/** The directory a glob starts in: what comes before its first wildcard segment, or the folder of a glob that names one file. */
+function directoryOf(glob: string): string {
+  const segments = glob.split(SLASH);
+  const wild = segments.findIndex((segment) => WILDCARD.test(segment));
+  return segments.slice(0, wild < 0 ? -1 : wild).join(SLASH);
+}
+
+/** Whether two directories are the same or one holds the other. */
+function overlap(first: string, second: string): boolean {
+  return `${first}${SLASH}`.startsWith(`${second}${SLASH}`) || `${second}${SLASH}`.startsWith(`${first}${SLASH}`);
+}
+
+/** Everything under the directory each test glob starts in (the helpers and fixtures next to the tests, not only the files that match the glob), except a directory that is, holds or lies in the source's, and a glob that starts with a wildcard. */
+function wholeDirectories(globs: string[], source: string[]): string[] {
+  const sourceDirectories = source.map(directoryOf);
+  const directories = globs.map(directoryOf).filter((directory) => directory !== "" && !sourceDirectories.some((other) => overlap(directory, other)));
+  return directories.map((directory) => `${directory}${SLASH}**`);
+}
+
 type Grant = { write: string[]; read: string[]; shell: boolean };
 
 function grantFor(state: CycleState, config: ProjectConfig): Grant {
@@ -51,7 +73,7 @@ function grantFor(state: CycleState, config: ProjectConfig): Grant {
     case BDD_RED:
       return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN], shell: false };
     case TDD_RED:
-      return { write: paths.unit_tests, read: [...paths.unit_tests, ...paths.bdd_features, ...paths.bdd_steps], shell: false };
+      return { write: paths.unit_tests, read: [...paths.unit_tests, ...wholeDirectories(paths.unit_tests, paths.source), ...paths.bdd_features, ...paths.bdd_steps], shell: false };
     case CODE_GREEN:
     case REFACTOR:
       return { write: paths.source, read: WHOLE_REPO, shell: true };
