@@ -43,11 +43,35 @@ function turningSession({ turns, hangs = false, cost = 0 }: { turns: number; han
   return { session, state };
 }
 
-function run(session: ReturnType<typeof turningSession>["session"], limits: Limits) {
+function run(session: Awaited<ReturnType<Parameters<typeof runAgent>[1]["openSession"]>>, limits: Limits) {
   return runAgent({ state: "CODE_GREEN", prompt: "Do the task." }, { worktree: dir, agentDir: "/oid/agent", sessionsDir: `${dir}/sessions`, openSession: async () => session, limits });
 }
 
+/** A Pi session whose prompt never settles, and whose abort does nothing and never settles either: Pi's behaviour when a tool call ignores the abort signal. */
+function deafSession() {
+  const state = { aborts: 0, disposed: 0 };
+  const session = {
+    subscribe: () => () => undefined,
+    prompt: () => new Promise<void>(() => {}),
+    abort: () => {
+      state.aborts += 1;
+      return new Promise<void>(() => {});
+    },
+    dispose: () => {
+      state.disposed += 1;
+    },
+  };
+  return { session, state };
+}
+
 describe("runAgent limits", () => {
+  it("ends with the time limit when the session never settles, not even after the abort, and disposes it", async () => {
+    const { session, state } = deafSession();
+    const outcome = await run(session, { timeoutMs: 20 });
+    expect(outcome).toEqual({ status: "limit", limit: "timeout", detail: "the session ran longer than 0.02 s" });
+    expect(state).toEqual({ aborts: 1, disposed: 1 });
+  });
+
   it("aborts the session when the turn limit is reached and another call would follow, and says so", async () => {
     const { session, state } = turningSession({ turns: 5 });
     const outcome = await run(session, { maxTurns: 2 });

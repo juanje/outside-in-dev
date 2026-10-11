@@ -115,10 +115,13 @@ const MS_PER_SECOND = 1000;
 function watchLimits(limits: SessionLimits, abort: () => void) {
   let turns = 0;
   let hit: LimitHit | undefined;
-  const stop = (reached: LimitHit): void => {
+  let announce: () => void = () => undefined;
+  const reached = new Promise<void>((resolve) => (announce = resolve));
+  const stop = (limit: LimitHit): void => {
     if (hit !== undefined) return;
-    hit = reached;
+    hit = limit;
     abort();
+    announce();
   };
   const timer = limits.timeoutMs === undefined ? undefined : setTimeout(() => stop({ limit: "timeout", detail: `the session ran longer than ${limits.timeoutMs! / MS_PER_SECOND} s` }), limits.timeoutMs);
   return {
@@ -133,22 +136,39 @@ function watchLimits(limits: SessionLimits, abort: () => void) {
     },
     end: () => clearTimeout(timer),
     hit: () => hit,
+    reached,
   };
 }
 
-/** Opens a session, runs the task in it and returns the events it emitted, and the limit that stopped it, if one did. The session is always ended; a prompt that rejects ends as a provider error. */
+/** Asks the session to stop; whether it does, or whether `abort` itself ever settles, is not waited for (Pi's `abort` hangs when a tool call ignores the signal). */
+function abortQuietly(session: RunnableSession): void {
+  try {
+    void session.abort?.()?.catch(() => undefined);
+  } catch {
+    // A session that cannot be aborted is abandoned by the caller.
+  }
+}
+
+/** Runs the prompt and ends when it settles; a prompt that rejects is recorded as a provider error. */
+async function promptSettled(session: RunnableSession, text: string, events: unknown[]): Promise<void> {
+  try {
+    await session.prompt(text);
+  } catch (error) {
+    events.push(rejectedPrompt(error));
+  }
+}
+
+/** Opens a session, runs the task in it and returns the events it emitted, and the limit that stopped it, if one did. The session is always ended: when a limit is reached the call ends with it, whether or not the prompt ever settles after the abort (its late end is ignored). */
 async function promptOnce(task: AgentTask, context: RunContext): Promise<{ events: unknown[]; hit?: LimitHit }> {
   const session = await context.openSession(task, context);
   const events: unknown[] = [];
-  const watch = watchLimits(context.limits ?? {}, () => void session.abort?.());
+  const watch = watchLimits(context.limits ?? {}, () => abortQuietly(session));
   const unsubscribe = session.subscribe((event) => {
     events.push(event);
     watch.see(event);
   });
   try {
-    await session.prompt(task.prompt);
-  } catch (error) {
-    events.push(rejectedPrompt(error));
+    await Promise.race([promptSettled(session, task.prompt, events), watch.reached]);
   } finally {
     watch.end();
     unsubscribe();

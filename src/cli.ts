@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import type { RunServices } from "./orchestrator/services.js";
 import { runCli } from "./run-cli.js";
+import { watchUnsettled } from "./unsettled-exit.js";
 
 // The reader closed stdout early (for example `oid progress status | head -1`): stop writing quietly
 // and keep the exit code the command computed.
@@ -42,14 +43,20 @@ const SERVICES: Record<string, () => Promise<Parameters<typeof runCli>[2]>> = {
   abort: async () => ({ signal: (pid: number) => process.kill(pid, "SIGTERM") }),
 };
 
+const ARGUMENT_SEPARATOR = " ";
 const args = process.argv.slice(2);
+const unsettled = watchUnsettled(process, args.join(ARGUMENT_SEPARATOR));
 
-process.exitCode = await runCli(
-  args,
-  {
-    cwd: process.cwd(),
-    stdout: (text) => process.stdout.write(text),
-    stderr: (text) => process.stderr.write(text),
-  },
-  await SERVICES[args[0] ?? ""]?.(),
-);
+try {
+  process.exitCode = await runCli(
+    args,
+    {
+      cwd: process.cwd(),
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    },
+    await SERVICES[args[0] ?? ""]?.(),
+  );
+} finally {
+  unsettled.settled();
+}
