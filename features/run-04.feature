@@ -173,7 +173,5 @@ Feature: TDD inner loop
 
     Examples:
       | agent        | problem                                                                          | reason                              | next        | state      |
-      | test-writing | reports that it is blocked with the reason "the cart needs a payment service"    | the cart needs a payment service    | CODE_GREEN  | TDD_RED    |
-      | coding       | reports that it is blocked with the reason "the cart needs a payment service"    | the cart needs a payment service    | BDD_CHECK   | CODE_GREEN |
       | test-writing | cannot reach its provider                                                        | the provider failed                 | CODE_GREEN  | TDD_RED    |
       | coding       | cannot reach its provider                                                        | the provider failed                 | BDD_CHECK   | CODE_GREEN |

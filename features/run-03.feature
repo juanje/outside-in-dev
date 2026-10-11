@@ -73,10 +73,10 @@ Feature: BDD Red
 
   Scenario: An agent that is blocked stops the run
     Given the step-writing agent reports that it is blocked with the reason "the scenario needs a payment service"
-    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "the scenario needs a payment service"
-    And the saved session has the state "BDD_RED"
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
+    Then the human was asked once what to do about the blocked agent of "Add a line" at "BDD_RED", with the actions "retry", "skip_scenario", "skip_fr" and "abort"
+    And the question about the blocked agent mentions "the scenario needs a payment service"
+    And the event log of the run records a transition from "BDD_RED" to "ABORTED"
     And the worktree is kept
 
   Scenario: A report that does not match the changed files stops the run

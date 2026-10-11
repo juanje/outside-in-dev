@@ -3340,6 +3340,30 @@
         {
           "name": "Skipping the only feature of the run leaves the branch as it started and ends the run",
           "bdd": "pass"
+        },
+        {
+          "name": "A blocked feature-writing agent puts its reason to the human, without the actions that need a scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human retries a blocked feature-writing agent with a note, and the note goes to the next attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "Skipping the feature after a blocked feature-writing agent leaves it pending and ends the run",
+          "bdd": "pass"
+        },
+        {
+          "name": "A blocked agent that fixes a quality gate error puts its reason to the human, offering only what fits the gate",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human retries a blocked fix agent with a note, and the fix is accepted on the next attempt",
+          "bdd": "pass"
+        },
+        {
+          "name": "Skipping the feature after a blocked fix agent discards its changes and puts it back to pending",
+          "bdd": "pass"
         }
       ]
     },

@@ -72,6 +72,8 @@ export class FakeAgent {
   /** Files the agent writes and leaves out of its report. */
   unreported: AgentFile[] = [];
   blocked: { reason: string; detail: string } | undefined;
+  /** What the feature-writing agent reports in its first attempt, before it writes. */
+  blockedFirst: { reason: string; detail: string } | undefined;
   /** The error the provider answers every request with, instead of a turn. */
   providerError: string | undefined;
   /** The step-writing route (BDD Red): the files its agent writes through the sandbox, what it also tries to write, and what it does outside the sandbox or without reporting. */
@@ -226,6 +228,11 @@ export class FakeAgent {
     this.rounds.set(fr, round);
     for (const path of this.attempts) await this.write(session, cwd, { path, content: "// not allowed\n" });
     if (this.blocked !== undefined) return { status: "blocked", ...this.blocked };
+    if (this.blockedFirst !== undefined) {
+      const first = this.blockedFirst;
+      this.blockedFirst = undefined;
+      return { status: "blocked", ...first };
+    }
     const files = this.filesFor.get(fr)?.(round) ?? [{ path: `features/${fr}.feature`, content: validFeature(fr, round) }];
     for (const file of [...files, ...this.unreported]) await this.write(session, cwd, file);
     const paths = files.map((file) => file.path);

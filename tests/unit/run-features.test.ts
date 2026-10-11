@@ -25,14 +25,14 @@ describe("writing the feature files of a run", () => {
     expect({ exitCode, state: saved.state, actions: saved.pendingInput.actions.map((action: { key: string }) => action.key) }).toEqual({ exitCode: 3, state: "FEATURE_REVIEW", actions: ["approve", "edit", "reject"] });
   }, REAL_PROCESS_TIMEOUT_MS);
 
-  it("ends with an error that names the requirement, the reason and the detail when the agent is blocked", async () => {
+  it("saves the question that names the requirement, the reason and the detail when the agent is blocked and the person cannot be asked", async () => {
     const project = featureProject();
     const agent = new FakeAgent();
     agent.blocked = { reason: "spec_conflict", detail: "FR-A-01 contradicts FR-A-02" };
     const printed: string[] = [];
     const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
     const saved = readJson(join(project, ".outside-in/session.json"));
-    expect({ exitCode, state: saved.state, last: printed.at(-1) }).toEqual({ exitCode: 1, state: "FEATURE_WRITE", last: "error: FR-A-01: the agent is blocked (spec_conflict): FR-A-01 contradicts FR-A-02\n" });
+    expect({ exitCode, state: saved.state, last: printed.at(-1) }).toEqual({ exitCode: 3, state: "FEATURE_WRITE", last: "waiting for input: FEATURE_WRITE: FR-A-01: the agent is blocked (spec_conflict): FR-A-01 contradicts FR-A-02 [retry, skip_fr, abort]\n" });
   });
 
   it("ends with an error that gives the reason when the attempt of the agent fails", async () => {

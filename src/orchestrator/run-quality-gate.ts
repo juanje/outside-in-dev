@@ -7,10 +7,12 @@ import { loadProgress } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { ERROR_EVENT } from "../events/types.js";
-import { outcomeStop } from "./agent-run.js";
+import { BLOCKED } from "../agents/runner.js";
+import { outcomeProblem, outcomeStop } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
-import { type AttemptInfo, isRejection, type Rejection, runAttempts } from "./attempts.js";
-import { type Started, STATE, transition } from "./begin.js";
+import { type AttemptInfo, type Exhausted, isRejection, type Rejection } from "./attempts.js";
+import { isExitCode, type Started, STATE, transition } from "./begin.js";
+import { Blocked } from "./redirect.js";
 import { autofix } from "./gate-autofix.js";
 import { gateChecks, type GateOutcome, OUTCOME } from "./gate-checks.js";
 import { type GateAsk, gateQuestion } from "./gate-question.js";
@@ -18,7 +20,7 @@ import { fixGroups } from "./fix-owners.js";
 import { qualityFixContext, errorLine } from "./quality-fix-context.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { runGateBaseline, updateSession } from "./session.js";
-import { attemptSpec, attemptTask } from "./state-attempts.js";
+import { attemptsOf, attemptTask } from "./state-attempts.js";
 
 const AUTOFIX = "autofix";
 const LIST_SEPARATOR = " and ";
@@ -56,6 +58,7 @@ async function qualityFix(started: Started, services: FeatureServices, config: P
     const forbidden = stopped === undefined ? integrityProblems(worktree, config, loadProgress(worktree, config.paths.progress), step) : [];
     if (stopped !== undefined || forbidden.length > 0) {
       rollback(workspace, before, [...config.paths.source, ...config.paths.unit_tests, ...config.paths.bdd_steps]);
+      if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(fr!, outcome)!);
       return stopped ?? { rejected: forbidden.join(NEWLINE) };
     }
     checkpoint(workspace, { fr: fr!, state: STATE.qualityFix });
@@ -64,7 +67,7 @@ async function qualityFix(started: Started, services: FeatureServices, config: P
 }
 
 /** What the attempts to fix the errors of a check came to: the checks after the accepted fix, or the question for the person when the retries ran out or no agent can fix them. */
-type Fixed = { checked: GateOutcome } | { ask: GateAsk };
+type Fixed = { checked: GateOutcome } | { ask: GateAsk } | { exit: number };
 
 /** Has the errors of a check fixed, retrying a fix that is rejected, or that leaves errors after the checks run again, from the last checkpoint. The checks that run after an accepted fix are the ones the gate goes on with. */
 async function fixWithRetries(started: Started, services: FeatureServices, config: ProjectConfig, outcome: FixOutcome, check: () => GateOutcome): Promise<Fixed> {
@@ -73,8 +76,12 @@ async function fixWithRetries(started: Started, services: FeatureServices, confi
   transition(bus, STATE.qualityGate, STATE.qualityFix, `${describeErrors(outcome.errors)}: the agents that own the files fix them`);
   let asked: GateAsk | undefined;
   let leftErrors = false;
-  const result = await runAttempts<GateOutcome | FixStop>({
-    ...attemptSpec<GateOutcome | FixStop>(started, services, { state: STATE.qualityFix, role: "fix-agent", run: async (info) => {
+  const result = await attemptsOf<GateOutcome | FixStop, Exhausted>(started, services, {
+    state: STATE.qualityFix,
+    role: "fix-agent",
+    label: started.targets[0]!,
+    whenExhausted: (exhausted) => exhausted,
+    run: async (info) => {
       const fix = await qualityFix(started, services, config, outcome.errors, info);
       leftErrors = false;
       if (fix !== undefined) {
@@ -86,8 +93,9 @@ async function fixWithRetries(started: Started, services: FeatureServices, confi
       leftErrors = true;
       asked = questionFor(checked.errors, checked.output);
       return { rejected: describeErrors(checked.errors) };
-    } }),
+    },
   });
+  if (isExitCode(result)) return { exit: result };
   updateSession(cwd, { state: STATE.qualityGate });
   if ("stop" in result) {
     transition(bus, STATE.qualityFix, STATE.qualityGate, `the fix is rejected: ${result.stop}`);
@@ -117,6 +125,7 @@ export async function runQualityGate(started: Started, services: FeatureServices
     if (outcome.kind === OUTCOME.ask) return gateQuestion(bus, services.input ?? { isTTY: false }, outcome);
     if (outcome.kind === OUTCOME.fix) {
       const fixed = await fixWithRetries(started, services, config, outcome, check);
+      if ("exit" in fixed) return fixed.exit;
       if ("ask" in fixed) return gateQuestion(bus, services.input ?? { isTTY: false }, fixed.ask);
       outcome = fixed.checked;
       continue;

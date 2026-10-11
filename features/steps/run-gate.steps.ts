@@ -18,7 +18,7 @@ const QUESTION_ACTIONS = ["view", "edit", "abort"];
 const UNTIDY_CODE = CART_CODE.withRemove.replace("return lines.length;", "return lines.length; ");
 /** What the coding agent writes when it is asked to fix the lint error and leaves one: the report matches the files it changed, and a TODO comment is still there. */
 const STILL_THERE = "// TODO: still here\n";
-const TODO_CODE = `${CART_CODE.withRemove}${TODO_LINE}`;
+export const TODO_CODE =`${CART_CODE.withRemove}${TODO_LINE}`;
 
 type Baseline = { lint?: string[]; types?: string[]; traceability?: string[] };
 

@@ -6,12 +6,20 @@ import type { ReviewInput } from "./services.js";
 /** The actions the person has when a state cannot go on by itself. */
 const STUCK_ACTIONS = [RETRY, REWRITE, SKIP_SCENARIO, SKIP_FR, ABORT].map((key) => ({ key, label: key }));
 
+/** The actions a state does not offer: there is no unit test to rewrite while the steps are written, and no unit test or scenario of its own while the feature files are written or the quality gate fixes errors. */
+const NOT_OFFERED: Record<string, string[]> = {
+  [STATE.bddRed]: [REWRITE],
+  [STATE.featureWrite]: [REWRITE, SKIP_SCENARIO],
+  [STATE.qualityFix]: [REWRITE, SKIP_SCENARIO],
+};
+
 /** A state that cannot go on: the question's id, its text, the state, whose it is and why it cannot (what a redirect carries). */
 export type StuckState = { id: string; prompt: string; state: string; label: string; reason: string };
 
 /** Puts a state that cannot go on to the person: returns the exit code the process ends with, or the note of the person who has the agent try once more; the other actions throw a `Redirect` for whoever owns the scenario or the feature. */
 export async function askWhatNext(bus: Started["bus"], input: ReviewInput, { id, prompt, state, label, reason }: StuckState): Promise<number | { note: string }> {
-  const actions = state === STATE.bddRed ? STUCK_ACTIONS.filter(({ key }) => key !== REWRITE) : STUCK_ACTIONS;
+  const left = NOT_OFFERED[state] ?? [];
+  const actions = STUCK_ACTIONS.filter(({ key }) => !left.includes(key));
   if (!input.isTTY) return bus.emit({ type: WAITING_INPUT, request: { id, prompt, actions } }) ?? 1;
   const answer = await input.choose(prompt, actions.map(({ key }) => key));
   if (!actions.some(({ key }) => key === answer)) return bus.emit({ type: ERROR_EVENT, message: `${label}: "${answer}" is not an answer: ${prompt}` }) ?? 1;

@@ -22,4 +22,14 @@ describe("the question about an agent that is blocked", () => {
       actions: ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"],
     });
   });
+
+  it("offers neither the rewrite of a unit test nor the skip of a scenario in the states that have no scenario or unit test of their own", async () => {
+    const offered: Record<string, string[]> = {};
+    for (const state of ["FEATURE_WRITE", "QUALITY_FIX"]) {
+      await askAboutBlocked(bus(), { isTTY: false }, { ...BLOCKED, state });
+      const pending = JSON.parse(readFileSync(join(dir, ".outside-in/session.json"), "utf8")).pendingInput;
+      offered[state] = pending.actions.map((action: { key: string }) => action.key);
+    }
+    expect(offered).toEqual({ FEATURE_WRITE: ["retry", "skip_fr", "abort"], QUALITY_FIX: ["retry", "skip_fr", "abort"] });
+  });
 });

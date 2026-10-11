@@ -4,13 +4,14 @@ import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { featureWriteContext } from "../agents/context/task-context.js";
-import { DONE } from "../agents/runner.js";
+import { BLOCKED, DONE } from "../agents/runner.js";
 import { outcomeProblem } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
-import { settleBudget } from "./budget-settle.js";
 import { endOnGitFailure } from "./run-git-failure.js";
 import { RunStopped } from "./run-stopped.js";
-import { announceAgent } from "./attempts.js";
+import type { AttemptInfo } from "./attempts.js";
+import { Blocked, Redirect, SKIP_FR } from "./redirect.js";
+import { attemptsOf, attemptTask } from "./state-attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { runInnerLoop } from "./run-inner-loop.js";
 import { featureProblem } from "./feature-gates.js";
@@ -20,45 +21,61 @@ import { advanceStep, CYCLE_STEP, loadProgress, saveProgress } from "../artifact
 import { parseRequirements } from "../artifacts/spec.js";
 import { readText } from "../artifacts/project-json.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
-import { loadUserModels } from "../artifacts/user-config.js";
 import { acquireLock, releaseLock } from "./lock.js";
 import { requireSetup } from "./preflight.js";
 import { detectProject } from "../artifacts/detect-all.js";
 import { isExitCode, type RunEnvironment, STATE, startOfRun, type Started, transition } from "./begin.js";
 import type { RunArgs } from "./run-args.js";
-import { updateSession } from "./session.js";
+import { readSession, updateSession } from "./session.js";
 import { ERROR_EVENT, HUMAN_EDIT, WAITING_INPUT } from "../events/types.js";
 import { LIST_SEPARATOR } from "../ui/plain.js";
 import { type FeatureServices, type ReviewInput, type RunServices, runnersOf, type Terminal } from "./services.js";
 
-/** What the feature writing came to: what stopped it, or the feature files of all the targets. */
-type Written = { problem: string } | { files: string[] };
+/** A target feature the person skipped while its feature files were written, and why. */
+type Skipped = { fr: string; reason: string };
 
-/** Has the feature-writing agent run once for each target feature. */
-async function writeFeatures(started: Started, services: FeatureServices, comment?: string): Promise<Written> {
+/** What the feature writing came to: what stopped it, or the feature files of the targets that were not skipped and the ones that were. */
+type Written = { problem: string } | { files: string[]; skipped: Skipped[] };
+
+/** One attempt of the feature-writing agent for a target feature: the feature files it wrote, or what stopped the run. An agent that is blocked throws `Blocked`. */
+async function writeFeature(started: Started, services: FeatureServices, { fr, comment, knownIds }: { fr: string; comment?: string; knownIds: string[] }, info: AttemptInfo): Promise<{ problem: string } | { files: string[] }> {
+  const { workspace } = started;
+  const prompt = `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`;
+  const outcome = await runBillable(started, services, attemptTask(FEATURE_WRITE, prompt, info), { fr, announce: info.announce });
+  if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(fr, outcome)!);
+  const stopped = outcomeProblem(fr, outcome);
+  if (stopped !== undefined) return { problem: stopped };
+  if (outcome.status !== DONE || outcome.report.status !== DONE) return { files: [] };
+  const problem = featureProblem(workspace.path, fr, outcome.report.files, knownIds);
+  return problem === undefined ? { files: outcome.report.files } : { problem: `${fr}: ${problem}` };
+}
+
+/** Has the feature-writing agent run once for each target feature. An agent that is blocked is put to the person, who can have it retry with a note, skip the feature or abort. Returns the exit code of the process when the person's answer ends the run. */
+async function writeFeatures(started: Started, services: FeatureServices, comment?: string): Promise<Written | number> {
   const { workspace, targets } = started;
   const config = loadProjectConfig(workspace.path);
   const knownIds = parseRequirements(readText(workspace.path, config.paths.spec) ?? "").map(({ id }) => id);
   const files: string[] = [];
+  const skipped: Skipped[] = [];
   for (const fr of targets) {
-    const announce = () => announceAgent(started.bus, { state: FEATURE_WRITE, role: "bdd-agent", models: loadUserModels(services.configDir) });
-    await settleBudget(started, services, FEATURE_WRITE, fr);
-    const effort = announce();
-    const outcome = await runBillable(started, services, { state: FEATURE_WRITE, prompt: `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr, announce: () => void announce() });
-    const stopped = outcomeProblem(fr, outcome);
-    if (stopped !== undefined) return { problem: stopped };
-    if (outcome.status !== DONE || outcome.report.status !== DONE) continue;
-    const problem = featureProblem(workspace.path, fr, outcome.report.files, knownIds);
-    if (problem !== undefined) return { problem: `${fr}: ${problem}` };
-    files.push(...outcome.report.files);
+    try {
+      const written = await attemptsOf(started, services, { state: FEATURE_WRITE, role: "bdd-agent", label: fr, run: (info) => writeFeature(started, services, { fr, comment, knownIds }, info) });
+      if (isExitCode(written)) return written;
+      if (PROBLEM in written) return written;
+      files.push(...written.files);
+    } catch (error) {
+      if (!(error instanceof Redirect) || error.action !== SKIP_FR) throw error;
+      skipped.push({ fr, reason: error.reason });
+    }
   }
-  return { files };
+  return { files, skipped };
 }
 
 const APPROVE = "approve";
 const EDIT = "edit";
 const REJECT = "reject";
 const WORD_SEPARATOR = " ";
+const REASON_SEPARATOR = "; ";
 const REVIEW_ACTIONS = names(`${APPROVE} ${EDIT} ${REJECT}`).map((key) => ({ key, label: key }));
 
 /** The hash of each file as the session records it. */
@@ -118,19 +135,37 @@ async function askForReview(started: Started, files: string[], input: ReviewInpu
   return started.bus.emit({ type: WAITING_INPUT, request: { id: "feature-review", prompt, actions: REVIEW_ACTIONS } }) ?? 0;
 }
 
+/** Takes the targets the person skipped out of the run and records them in the session: the run without them, and the sentence that says why each was left (empty when none was; otherwise it starts with a separator). */
+function leaveSkipped(started: Started, skipped: Skipped[]): { started: Started; reason: string } {
+  if (skipped.length === 0) return { started, reason: "" };
+  const targets = started.targets.filter((fr) => !skipped.some((skip) => skip.fr === fr));
+  updateSession(started.cwd, { targetFrs: targets, leftFrs: [...(readSession(started.cwd)?.leftFrs ?? []), ...skipped.map(({ fr }) => fr)] });
+  const reason = skipped.map((skip) => `${skip.fr} is skipped (the person chose skip_fr) and stays pending: ${skip.reason}`).join(REASON_SEPARATOR);
+  return { started: { ...started, targets }, reason: `${REASON_SEPARATOR}${reason}` };
+}
+
 /** Where the feature writing starts: the comment of a rejection to write them again, or the files already written to review them. */
 export type ReviewEntry = { comment?: string; files?: string[] };
 
 /** Has the feature files written and reviewed until they are approved, then runs the inner loop: returns the exit code of the process. A resumed run enters with the files to review again, or with the comment of the rejection. */
-export async function writeAndReview(started: Started, services: FeatureServices, entry: ReviewEntry = {}): Promise<number> {
+export async function writeAndReview(whole: Started, services: FeatureServices, entry: ReviewEntry = {}): Promise<number> {
   let { comment, files } = entry;
+  let started = whole;
   for (;;) {
     if (files === undefined) {
       const written = await writeFeatures(started, services, comment);
+      if (isExitCode(written)) return written;
       if (PROBLEM in written) return started.bus.emit({ type: ERROR_EVENT, message: written.problem }) ?? 1;
       files = written.files;
+      const left = leaveSkipped(started, written.skipped);
+      started = left.started;
+      if (started.targets.length === 0) {
+        updateSession(started.cwd, { state: STATE.done });
+        transition(started.bus, STATE.featureWrite, STATE.done, left.reason.slice(REASON_SEPARATOR.length));
+        return 0;
+      }
       updateSession(started.cwd, { state: STATE.featureReview, featureFiles: files });
-      transition(started.bus, STATE.featureWrite, STATE.featureReview, "the feature files are written");
+      transition(started.bus, STATE.featureWrite, STATE.featureReview, `the feature files are written${left.reason}`);
     }
     const review = await askForReview(started, files, services.input ?? { isTTY: false });
     if (isExitCode(review)) return review;

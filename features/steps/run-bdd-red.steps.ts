@@ -14,7 +14,7 @@ const STEP_FILE = "features/steps/cart-lines.steps.ts";
 const CART_FILE = "features/steps/cart.steps.ts";
 const FEATURE_FIRST_LINE = 3;
 
-const CART_LINES_FEATURE = (id: string, first: string, second: string): string =>
+export const CART_LINES_FEATURE =(id: string, first: string, second: string): string =>
   `@${id}\nFeature: Cart lines\n  Scenario: ${first}\n    Given a cart\n    When a line is added\n    Then the cart has 1 line\n\n  Scenario: ${second}\n    Given a cart with 1 line\n    When the line is removed\n    Then the cart has 0 lines\n`;
 
 const IMPORTS = `import assert from "node:assert/strict";\nimport { Then, When } from "@cucumber/cucumber";\n`;

@@ -81,10 +81,10 @@ Feature: Write and review feature files
 
   Scenario: An agent that is blocked stops the run
     Given the feature-writing agent reports that it is blocked with the reason "FR-CART-02 contradicts FR-CART-03"
-    When I run "oid run" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "FR-CART-02 contradicts FR-CART-03"
-    And the saved session has the state "FEATURE_WRITE"
+    When I run "oid run" with a terminal where the human answers "abort"
+    Then the human was asked once what to do about the blocked agent of "FR-CART-02" at "FEATURE_WRITE", with the actions "retry", "skip_fr" and "abort"
+    And the question about the blocked agent mentions "FR-CART-02 contradicts FR-CART-03"
+    And the event log of the run records a transition from "FEATURE_WRITE" to "ABORTED"
     And the worktree is kept
 
   Scenario: A report that does not match the changed files stops the run
