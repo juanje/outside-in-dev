@@ -22,6 +22,10 @@ export type AttemptSpec<T> = {
   restore: () => void;
   /** Set when the person asked for one more attempt after the retries ran out: its number and what the person said. */
   afterAsking?: { attempt: number; note: string };
+  /** Set when the state was interrupted after a rejection: the attempt to start at and the reason the attempt before it was rejected. */
+  from?: { attempt: number; reason: string };
+  /** Called with the attempt and the reason when an attempt is rejected and another follows. */
+  onRejected?: (attempt: number, reason: string) => void;
   /** Settles the budget before an attempt is announced; it rejects when the budget stops the run. */
   beforeCall?: () => Promise<void>;
   run: (info: AttemptInfo) => Promise<T | Rejection>;
@@ -57,15 +61,17 @@ function noteFromPerson({ attempt, note }: { attempt: number; note: string }): s
 /** Runs the attempts of a state until one is accepted or the retries are used; with `afterAsking`, only the one extra attempt that the person asked for. */
 export async function runAttempts<T>(spec: AttemptSpec<T>): Promise<T | Exhausted> {
   const extra = spec.afterAsking;
-  let note = extra === undefined ? "" : noteFromPerson(extra);
+  const from = extra === undefined ? spec.from : undefined;
+  let note = extra !== undefined ? noteFromPerson(extra) : from === undefined ? "" : noteAbout(from.attempt, from.reason);
   const lastRetry = extra === undefined ? spec.retries : extra.attempt - 1;
-  for (let attempt = extra?.attempt ?? 1; ; attempt += 1) {
+  for (let attempt = extra?.attempt ?? from?.attempt ?? 1; ; attempt += 1) {
     await spec.beforeCall?.();
     const effort = announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry });
     const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry }) });
     if (!isRejection(result)) return result;
     spec.bus.emit({ type: ATTEMPT_REJECTED, state: spec.state, role: spec.role, attempt, reason: result.rejected });
     if (attempt > lastRetry) return { ...result, attempts: attempt };
+    spec.onRejected?.(attempt, result.rejected);
     spec.restore();
     note = noteAbout(attempt + 1, result.rejected);
   }

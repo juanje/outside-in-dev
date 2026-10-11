@@ -6,6 +6,7 @@ import { headCommit } from "../artifacts/git-workspace.js";
 import { rollback } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { loadProjectConfig, loadRetryLimit } from "../artifacts/project-config.js";
+import { attemptsUsedBy, clearAttemptsUsed, recordAttemptsUsed } from "./session.js";
 import { loadUserModels } from "../artifacts/user-config.js";
 import { ERROR_EVENT } from "../events/types.js";
 import { type AttemptInfo, type AttemptSpec, type Exhausted, isExhausted, isRejection, type Rejection, runAttempts } from "./attempts.js";
@@ -52,13 +53,29 @@ async function answerExhausted({ bus }: Started, services: FeatureServices, retr
   return askAfterAttempts(bus, services.input ?? { isTTY: false }, exhausted);
 }
 
+/** What the saved session says about the attempts of this state and label (where an interrupted state continues, and the note of the person who asked for one more attempt), and how the attempts record themselves there. */
+function savedAttempts(cwd: string, state: string, label: string) {
+  const resumed = attemptsUsedBy(cwd, state, label);
+  const next = resumed === undefined ? undefined : resumed.used + 1;
+  return {
+    afterAsking: resumed?.person ? { attempt: next!, note: resumed.reason } : undefined,
+    from: resumed === undefined || resumed.person ? undefined : { attempt: next!, reason: resumed.reason },
+    onRejected: (attempt: number, reason: string) => recordAttemptsUsed(cwd, { state, label, used: attempt, reason }),
+    rememberNote: (attempt: number, note: string) => recordAttemptsUsed(cwd, { state, label, used: attempt - 1, reason: note, person: true }),
+    forget: () => clearAttemptsUsed(cwd),
+  };
+}
+
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */
 export async function attemptsOf<T, R = never>(started: Started, services: FeatureServices, { state, role, label, run, whenExhausted }: StateAttempts<T, R>): Promise<T | R | number> {
   const { bus } = started;
   const input = services.input ?? { isTTY: false };
   let current = 0;
   const spec = attemptSpec<T | number>(started, services, { state, role, run: (info) => ((current = info.attempt), run(info)) });
-  let afterAsking: AttemptSpec<unknown>["afterAsking"];
+  const saved = savedAttempts(started.cwd, state, label);
+  let afterAsking = saved.afterAsking;
+  Object.assign(spec, { from: saved.from, onRejected: saved.onRejected });
+  const remember = (attempt: number, note: string) => ((afterAsking = { attempt, note }), saved.rememberNote(attempt, note));
   for (;;) {
     let result: Awaited<ReturnType<typeof runAttempts<T | number>>>;
     try {
@@ -68,14 +85,15 @@ export async function attemptsOf<T, R = never>(started: Started, services: Featu
       const answer = await askAboutBlocked(bus, input, { state, label, problem: error.problem });
       if (isExitCode(answer)) return answer;
       spec.restore();
-      afterAsking = { attempt: current + 1, note: answer.note };
+      remember(current + 1, answer.note);
       continue;
     }
-    if (!isExhausted(result)) return result;
+    if (!isExhausted(result)) return isExitCode(result) ? result : (saved.forget(), result);
+    saved.forget();
     if (whenExhausted !== undefined) return whenExhausted(result);
     const answer = await answerExhausted(started, services, spec.retries, { state, label, ...result });
     if (isExitCode(answer)) return answer;
     spec.restore();
-    afterAsking = { attempt: result.attempts + 1, note: answer.note };
+    remember(result.attempts + 1, answer.note);
   }
 }

@@ -54,8 +54,13 @@ export type RunSession = {
   beforeTddRed?: { commit: string; tests: string[] };
   /** The checkpoint before the last Code Green, which the refactor compares against. */
   beforeGreen?: string;
+  /** The state in progress and the scenario or feature it works on, when an attempt of it was rejected: the attempts judged so far and what the next one is told. A session without it resumes at attempt 1. */
+  attemptsUsed?: AttemptsUsed;
   pendingInput?: InputRequest | null;
 };
+
+/** The attempts of a state that were judged and rejected, with the reason (or, with `person`, the note of the person who asked for one more attempt). The attempt that was running when the process died was never judged, so it is not counted. */
+export type AttemptsUsed = { state: string; label: string; used: number; reason: string; person?: boolean };
 
 /** The session the last run saved; undefined when no run saved one. */
 export function readSession(cwd: string): RunSession | undefined {
@@ -140,4 +145,23 @@ export function runBaselineFindings(cwd: string, runId: string): string[] {
 export function runGateBaseline(cwd: string, runId: string): GateBaseline {
   const recorded = readJson(cwd, `${OUTSIDE_IN_DIR}/runs/${runId}/baseline.json`) as Partial<GateBaseline>;
   return { lint: recorded.lint ?? [], types: recorded.types ?? [], traceability: recorded.traceability ?? [] };
+}
+
+/** Records the attempts a state used, for the attempt that follows. */
+export function recordAttemptsUsed(cwd: string, attempts: AttemptsUsed): void {
+  updateSession(cwd, { attemptsUsed: attempts });
+}
+
+/** The attempts the saved session records for this state and label; undefined when it records none for them. */
+export function attemptsUsedBy(cwd: string, state: string, label: string): AttemptsUsed | undefined {
+  const recorded = (readJson(cwd, SESSION_FILE) as Partial<RunSession> | undefined)?.attemptsUsed;
+  return recorded?.state === state && recorded.label === label ? recorded : undefined;
+}
+
+/** Forgets the attempts a state used: the state was accepted or left. */
+export function clearAttemptsUsed(cwd: string): void {
+  const saved = readJson(cwd, SESSION_FILE);
+  if (!isObject(saved) || !("attemptsUsed" in saved)) return;
+  const { attemptsUsed: _gone, ...rest } = saved;
+  writeSession(cwd, rest);
 }

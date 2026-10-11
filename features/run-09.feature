@@ -76,6 +76,23 @@ Feature: Resume, abort and concurrency
     And the saved session records the unit test "tests/unit/cart-lines.test.ts > cart lines > adds a line" for the scenario "Add a line"
     And the saved session records the cost of the run as 0.01 dollars and 1000 tokens for each agent session that the event log shows started
 
+  Scenario: A state that died after a rejected attempt resumes at the next attempt, with the reason of the rejection and the effort of that attempt
+    Given the project allows 2 retries for each state
+    And the user's setup assigns the models "fake/fast", "fake/default" and "fake/strong"
+    And the test-writing agent writes no unit test in its first attempt
+    And the test-writing agent writes the file "tests/unit/half-done.test.ts" in its second attempt and then the process dies
+    And the test-writing agent then writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
+    And the coding agent writes the cart code that passes the unit test and the scenario
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", and the process dies while the test-writing agent works
+    Then the saved session records that "TDD_RED" of "Add a line" used 1 attempt, rejected because "the report names no unit test"
+    When I run "oid resume" without a terminal
+    Then the event log of the run records that the run was resumed at "TDD_RED"
+    And the "agent_start" events of "TDD_RED" in the event log have the attempts 1, 2 and 2
+    And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 2, the model "fake/default" and the thinking level "high"
+    And the third task of the test-writing agent includes "the report names no unit test"
+    And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
+    And the saved session records no attempts used by a state
+
   Scenario: oid abort signals the process that holds the lock, and the run stops after its current step, at the checkpoint that step made
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the test-writing agent runs "oid abort" while it works

@@ -2764,6 +2764,10 @@
         {
           "name": "The events of a resumed run carry the time each one happened",
           "bdd": "pass"
+        },
+        {
+          "name": "A state that died after a rejected attempt resumes at the next attempt, with the reason of the rejection and the effort of that attempt",
+          "bdd": "pass"
         }
       ]
     },

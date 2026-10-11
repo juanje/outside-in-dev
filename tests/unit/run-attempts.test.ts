@@ -109,4 +109,34 @@ describe("runAttempts", () => {
     await runAttempts({ bus, state: "CODE_GREEN", role: "coder-agent", retries: 3, models: MODELS, restore: () => {}, afterAsking: { attempt: 2, note: "round it" }, run: async () => ({ value: 1 }) });
     expect(starts(events)).toEqual([{ type: "agent_start", state: "CODE_GREEN", role: "coder-agent", attempt: 2, model: "p/large", thinkingLevel: "high" }]);
   });
+
+  it("starts from a saved attempt, with the effort of that attempt and the reason of the one before it, and reports each rejection that is retried", async () => {
+    const { bus, events } = setup();
+    const told: { attempt: number; note: string }[] = [];
+    const rejections: { attempt: number; reason: string }[] = [];
+    const result = await runAttempts({
+      bus,
+      state: "TDD_RED",
+      role: "tdd-agent",
+      retries: 2,
+      models: MODELS,
+      restore: () => {},
+      from: { attempt: 2, reason: "the report names no unit test" },
+      onRejected: (attempt, reason) => void rejections.push({ attempt, reason }),
+      run: async ({ attempt, note }) => (told.push({ attempt, note }), attempt === 2 ? { rejected: "still no test" } : { value: "done" }),
+    });
+    expect(result).toEqual({ value: "done" });
+    expect(told.map(({ attempt }) => attempt)).toEqual([2, 3]);
+    expect(told[0]!.note).toContain("attempt 2");
+    expect(told[0]!.note).toContain("the report names no unit test");
+    expect(starts(events).map((event) => [(event as { attempt: number }).attempt, (event as { model: string }).model, (event as { thinkingLevel: string }).thinkingLevel])).toEqual([[2, "p/medium", "high"], [3, "p/large", "high"]]);
+    expect(rejections).toEqual([{ attempt: 2, reason: "still no test" }]);
+  });
+
+  it("does not report the last rejection, since no attempt follows it", async () => {
+    const { bus } = setup();
+    const rejections: number[] = [];
+    const result = await runAttempts({ bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {}, onRejected: (attempt) => void rejections.push(attempt), run: async () => ({ rejected: "no" }) });
+    expect({ result, rejections }).toEqual({ result: { rejected: "no", attempts: 2 }, rejections: [1] });
+  });
 });

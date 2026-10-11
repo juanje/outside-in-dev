@@ -9,7 +9,7 @@ import { terminalOf } from "../support/terminal.js";
 import { type OidWorld, splitArgs } from "../support/world.js";
 import { runCli } from "../../src/run-cli.js";
 import { agentOf, runWithTerminal, worktreePath, worktreeText } from "./run-features.steps.js";
-import { codeRound, expect } from "./run-loop.steps.js";
+import { codeRound, expect, writesTest } from "./run-loop.steps.js";
 import { assertStampedWithTheirTimes, eventLog, holdLockOfDeadProcess, lockedBy, lockHolder, lockText, PROJECT, session } from "./run.steps.js";
 
 /** The event a resumed run logs first: the state it resumes at, the files it discarded and the process whose lock it released. */
@@ -175,4 +175,41 @@ Then("the process that holds the lock was stopped by the signal {string}", async
   const ended = holder.exitCode !== null || holder.signalCode !== null ? Promise.resolve() : new Promise<void>((done) => holder.once("exit", () => done()));
   await Promise.race([ended, new Promise<void>((done) => setTimeout(done, SIGNAL_WAIT_MS).unref())]);
   assert.equal(holder.signalCode, signal, `the holder ended with ${holder.exitCode ?? "no exit code"} and ${holder.signalCode ?? "no signal"}`);
+});
+
+Given("the test-writing agent writes no unit test in its first attempt", function (this: OidWorld) {
+  assert.equal(agentOf(this).testRoute.rounds.length, 0);
+  agentOf(this).testRoute.rounds.push({ files: [] });
+});
+
+Given("the test-writing agent writes the file {string} in its second attempt and then the process dies", function (this: OidWorld, file: string) {
+  agentOf(this).testRoute.rounds.push({ files: [{ path: file, content: "// half done\n" }], dies: true });
+});
+
+Given("the test-writing agent then writes the unit test {string}, and it fails because the cart code does not exist yet", function (this: OidWorld, name: string) {
+  agentOf(this).testRoute.rounds.push(writesTest(name));
+  expect(this, { unit: ["unit-red-missing"] });
+});
+
+Then("the saved session records that {string} of {string} used {int} attempt, rejected because {string}", function (this: OidWorld, state: string, label: string, used: number, reason: string) {
+  const recorded = session(this).attemptsUsed;
+  assert.ok(recorded, "the saved session records no attempts used");
+  assert.deepEqual([recorded.state, recorded.used], [state, used]);
+  assert.ok(recorded.label.includes(label), recorded.label);
+  assert.ok(recorded.reason.includes(reason), recorded.reason);
+});
+
+Then("the {string} events of {string} in the event log have the attempts {int}, {int} and {int}", function (this: OidWorld, type: string, state: string, first: number, second: number, third: number) {
+  const attempts = (eventLog(this) as { type: string; state?: string; attempt?: number }[]).filter((event) => event.type === type && event.state === state).map((event) => event.attempt);
+  assert.deepEqual(attempts, [first, second, third]);
+});
+
+Then("the third task of the test-writing agent includes {string}", function (this: OidWorld, text: string) {
+  const task = agentOf(this).testRoute.tasks[2];
+  assert.ok(task, `the test-writing agent was asked ${agentOf(this).testRoute.tasks.length} time(s)`);
+  assert.ok(task.includes(text), `the third task does not include "${text}":\n${task}`);
+});
+
+Then("the saved session records no attempts used by a state", function (this: OidWorld) {
+  assert.equal(session(this).attemptsUsed, undefined);
 });
