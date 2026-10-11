@@ -318,9 +318,9 @@ Only one run per repository. `oid resume` continues from the last checkpoint aft
 
 Limits on time, turns, iterations and cost are checked before each billable call. Reaching one stops and asks.
 
-### FR-RUN-11: Rewrite or skip when retries run out
+### FR-RUN-11: Rewrite or skip when retries run out or an agent is blocked
 
-When the retries of a scenario run out, the human can also have the last unit test rewritten from the checkpoint before it, skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). The reason is recorded in the event log.
+When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
 
 ## Functional Requirements — Terminal interface
 

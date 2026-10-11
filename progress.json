@@ -3298,7 +3298,7 @@
     },
     {
       "id": "FR-RUN-11",
-      "title": "Rewrite or skip when retries run out",
+      "title": "Rewrite or skip when retries run out or an agent is blocked",
       "status": "pending"
     },
     {
