@@ -3,13 +3,15 @@ import { AFTER_CHECK, type AfterCheck, type Origin, runBddCheck } from "./run-bd
 import { runBddRed, type RedScenario } from "./run-bdd-red.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { runCodeGreen } from "./run-code-green.js";
-import { commitFeature } from "./run-commit.js";
+import { commitFeature, skippedOf } from "./run-commit.js";
 import { runQualityGate } from "./run-quality-gate.js";
-import { REWRITE, Redirect } from "./redirect.js";
+import { REWRITE, Redirect, SKIP_FR } from "./redirect.js";
+import { skipFeature } from "./run-skip-fr.js";
+import { skipScenario } from "./run-skip-scenario.js";
 import { rewriteLastTest } from "./run-rewrite.js";
 import { runRefactor } from "./run-refactor.js";
 import { runTddRed, type TddRed } from "./run-tdd-red.js";
-import { updateSession } from "./session.js";
+import { readSession, updateSession } from "./session.js";
 import type { FeatureServices } from "./services.js";
 
 /** Where a resumed run enters the work of its first target: the state it stopped in and what the session saved for it (the scenario of the inner loop, what TDD Red handed on, the checkpoint before Code Green and the iteration). */
@@ -60,9 +62,13 @@ async function innerLoop(started: Started, services: FeatureServices, red: RedSc
   }
 }
 
+/** What `redirected` returns when no scenario is left to do and the quality gate is next, and `runTarget` returns when the person skipped the feature. */
+const GATE = "gate";
+const SKIPPED = "skipped";
+
 /** Runs the next scenario that does not pass: its BDD Red (unless a resumed run is past it) and its inner loop. Returns the exit code of the process when the run ends there, or what follows the scenario. */
 async function runScenario(started: Started, services: FeatureServices, featureHashes: Record<string, string>, resumed?: LoopEntry) {
-  const red = resumed?.red ?? (await runBddRed(started, services, featureHashes));
+  const red = resumed?.red ?? (await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes));
   return isExitCode(red) ? red : innerLoop(started, services, red, resumed);
 }
 
@@ -78,10 +84,41 @@ async function runFeature(started: Started, services: FeatureServices, featureHa
       if (isExitCode(ended)) return ended;
       if (ended === AFTER_CHECK.last) return runQualityGate(started, services);
     } catch (error) {
-      if (!(error instanceof Redirect) || error.action !== REWRITE) throw error;
-      resumed = rewriteLastTest(started, error);
+      const next = redirected(started, error);
+      if (next === GATE) return runQualityGate(started, services);
+      resumed = next;
     }
   }
+}
+
+/** What follows when the person chose to write the last unit test again, or to skip the scenario, instead of retrying: where the inner loop re-enters, nothing when the next scenario is next, or the quality gate when no scenario is left. Any other error is thrown again. */
+function redirected(started: Started, error: unknown): LoopEntry | typeof GATE | undefined {
+  if (!(error instanceof Redirect) || error.action === SKIP_FR) throw error;
+  if (error.action === REWRITE) return rewriteLastTest(started, error);
+  return skipScenario(started, error) ? undefined : GATE;
+}
+
+/** Runs the first target, or skips it when the person chose to: returns what `runFeature` returns, or `SKIPPED`. */
+async function runTarget(current: Started, services: FeatureServices, featureHashes: Record<string, string>, from: string, entry?: LoopEntry): Promise<number | undefined | typeof SKIPPED> {
+  try {
+    return await runFeature(current, services, featureHashes, entry);
+  } catch (error) {
+    if (!(error instanceof Redirect) || error.action !== SKIP_FR) throw error;
+    skipFeature(current, from, error);
+    return SKIPPED;
+  }
+}
+
+/** Commits the first target (a feature with skipped scenarios stays in progress, in a `wip` commit), saves where the run goes on and logs the move out of FR_COMMIT. Returns the commit the next target starts from. */
+function commitTarget(started: Started, current: Started, from: string): string {
+  const [fr, next] = current.targets as [string, string | undefined];
+  const commit = commitFeature(current, from);
+  const parked = skippedOf(started.cwd, fr).length > 0;
+  const state = next === undefined ? STATE.done : STATE.bddRed;
+  updateSession(started.cwd, { state, featureStart: commit, ...(parked ? { leftFrs: [...(readSession(started.cwd)?.leftFrs ?? []), fr] } : {}) });
+  const stays = parked ? `; ${fr} stays in progress: it has skipped scenarios` : "";
+  transition(started.bus, STATE.frCommit, state, `${next === undefined ? "every target feature is committed" : `${fr} is committed; ${next} is next`}${stays}`);
+  return commit;
 }
 
 /** Runs the target features one after the other, each through its scenarios, its quality gate and its commit: returns the exit code of the process. A resumed run enters its first target at the state it stopped in, from the commit that target started at. */
@@ -89,12 +126,10 @@ export async function runInnerLoop(started: Started, services: FeatureServices, 
   let from = resume?.featureStart ?? started.workspace.startCommit;
   for (let done = 0; done < started.targets.length; done += 1) {
     const current = { ...started, targets: started.targets.slice(done) };
-    const stopped = await runFeature(current, services, featureHashes, done === 0 ? resume?.entry : undefined);
+    const stopped = await runTarget(current, services, featureHashes, from, done === 0 ? resume?.entry : undefined);
+    if (stopped === SKIPPED) continue;
     if (stopped !== undefined) return stopped;
-    from = commitFeature(current, from);
-    const [, next] = current.targets;
-    updateSession(started.cwd, { state: next === undefined ? STATE.done : STATE.bddRed, featureStart: from });
-    transition(started.bus, STATE.frCommit, next === undefined ? STATE.done : STATE.bddRed, next === undefined ? "every target feature is committed" : `${current.targets[0]} is committed; ${next} is next`);
+    from = commitTarget(started, current, from);
   }
   return 0;
 }

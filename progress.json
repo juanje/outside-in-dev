@@ -1,5 +1,5 @@
 {
-  "current_focus": "FR-RUN-11",
+  "current_focus": null,
   "features": [
     {
       "id": "FR-PROG-01",
@@ -3299,8 +3299,7 @@
     {
       "id": "FR-RUN-11",
       "title": "Rewrite or skip when retries run out or an agent is blocked",
-      "status": "in_progress",
-      "cycle_step": "quality_gate",
+      "status": "done",
       "scenarios": [
         {
           "name": "A blocked coding agent puts its reason to the human, with the actions to go on",
@@ -3320,6 +3319,22 @@
         },
         {
           "name": "When the attempts to write a unit test run out, a rewrite starts the test writing again with the note",
+          "bdd": "pass"
+        },
+        {
+          "name": "Skipping a scenario tags it @wip, keeps its partial work under a ref of the run, and the run goes on with the next scenario",
+          "bdd": "pass"
+        },
+        {
+          "name": "A feature with a skipped scenario goes through the quality gate and stays in progress, never done",
+          "bdd": "pass"
+        },
+        {
+          "name": "Skipping a feature discards its changes, puts it back to pending and goes on with the next one",
+          "bdd": "pass"
+        },
+        {
+          "name": "Skipping the only feature of the run leaves the branch as it started and ends the run",
           "bdd": "pass"
         }
       ]

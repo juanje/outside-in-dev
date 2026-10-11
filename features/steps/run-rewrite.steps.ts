@@ -32,9 +32,10 @@ Then("the question about the blocked agent mentions {string}", function (this: O
   assert.ok(blockedQuestions(this)[0]?.prompt.includes(text), JSON.stringify(blockedQuestions(this)));
 });
 
-Then(/^the event log of the run records a transition from "([A-Z_]+)" to "([A-Z_]+)" whose reason mentions "(.+)" and "(.+)"$/, function (this: OidWorld, from: string, to: string, first: string, second: string) {
+Then(/^the event log of the run records a transition from "([A-Z_]+)" to "([A-Z_]+)" whose reason mentions ("[^"]*"(?:, "[^"]*")* and "[^"]*")$/, function (this: OidWorld, from: string, to: string, texts: string) {
   const found = transitions(this).filter((event) => event.from === from && event.to === to);
-  assert.ok(found.some((event) => event.reason?.includes(first) && event.reason.includes(second)), JSON.stringify(found));
+  const wanted = [...texts.matchAll(/"([^"]*)"/g)].map(([, text]) => text!);
+  assert.ok(found.some((event) => wanted.every((text) => event.reason?.includes(text))), JSON.stringify(found));
 });
 
 Then("the second task of the test-writing agent includes {string}", function (this: OidWorld, text: string) {

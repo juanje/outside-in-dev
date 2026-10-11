@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { rollback } from "../artifacts/git-checkpoints.js";
+import { EVERY_FILE, rollback } from "../artifacts/git-checkpoints.js";
 import { headCommit, uncommittedFiles, type Workspace } from "../artifacts/git-workspace.js";
 import { FEATURE_STATUS, loadProgress, ProgressError } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
@@ -20,8 +20,6 @@ import type { RunServices } from "./services.js";
 const START_STATES: string[] = [STATE.idle, STATE.preflight, STATE.baseline, STATE.specCheck, STATE.selectFr];
 /** The states of the inner loop, which need the scenario the session saved. */
 const LOOP_STATES: string[] = [STATE.tddRed, STATE.codeGreen, STATE.refactor, STATE.bddCheck];
-/** What the rollback of a resumed run cleans: every untracked file that is not ignored. */
-const EVERY_FILE = ["**"];
 
 /** Where a resumed run goes on: the review of the feature files (or their writing), or the work of the targets left. */
 export type ResumePlan = ({ review: ReviewEntry } | LoopResume) & { targets: string[] };
@@ -32,7 +30,7 @@ export function resumePlan(saved: RunSession, done: string[]): ResumePlan {
   const all = saved.targetFrs ?? [];
   if (state === STATE.featureWrite) return { targets: all, review: { comment: saved.reviewComment } };
   if (state === STATE.featureReview) return { targets: all, review: { files: saved.featureFiles } };
-  const targets = all.filter((fr) => !done.includes(fr) || (state === STATE.frCommit && fr === saved.fr));
+  const targets = all.filter((fr) => !(saved.leftFrs ?? []).includes(fr) && (!done.includes(fr) || (state === STATE.frCommit && fr === saved.fr)));
   const featureStart = saved.featureStart ?? saved.baseCommit;
   if (!LOOP_STATES.includes(state)) return { targets, featureStart, entry: { state: state === STATE.qualityFix ? STATE.qualityGate : state } };
   return { targets, featureStart, entry: { state, red: savedScenario(saved), unitRed: saved.unitRed, beforeGreen: saved.beforeGreen, iteration: saved.innerIteration } };

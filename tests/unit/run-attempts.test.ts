@@ -97,6 +97,13 @@ describe("runAttempts", () => {
     expect(starts(events)).toEqual([{ type: "agent_start", state: "TDD_RED", role: "tdd-agent", attempt: 3, model: "p/large", thinkingLevel: "high" }]);
   });
 
+  it("tells the extra attempt that the earlier ones did not get through, whether they were rejected or blocked", async () => {
+    const { bus } = setup();
+    const notes: string[] = [];
+    await runAttempts({ bus, state: "CODE_GREEN", role: "coder-agent", retries: 3, models: MODELS, restore: () => {}, afterAsking: { attempt: 2, note: "round it" }, run: async ({ note }) => (notes.push(note), { value: 1 }) });
+    expect(notes).toEqual(["This is attempt 2. The earlier attempts did not get through, and the person who follows the run says: round it"]);
+  });
+
   it("runs the extra attempt after a block on the strong model even when the project allows more retries", async () => {
     const { bus, events } = setup();
     await runAttempts({ bus, state: "CODE_GREEN", role: "coder-agent", retries: 3, models: MODELS, restore: () => {}, afterAsking: { attempt: 2, note: "round it" }, run: async () => ({ value: 1 }) });

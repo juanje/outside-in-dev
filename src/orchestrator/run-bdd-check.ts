@@ -9,6 +9,7 @@ import { fail, type RedScenario } from "./run-bdd-red.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { updateSession } from "./session.js";
 import { stuckLoop } from "./stuck-loop.js";
+import { scenariosLeft } from "./wip-tag.js";
 import { moveRunTo, updateFeature } from "./worktree-progress.js";
 
 /** What the check of a scenario after Code Green leads to: another scenario, the end of the requirement's scenarios, or another iteration of the inner loop with the failure that is left. */
@@ -22,7 +23,7 @@ function scenarioPasses(started: Started, scenario: RedScenario): AfterCheck {
   let moreToDo = false;
   updateFeature(workspace.path, fr!, (feature) => {
     const recorded = recordScenario(feature, scenario.current.name, SCENARIO_STATUS.pass);
-    moreToDo = (recorded.scenarios ?? []).some(({ bdd }) => bdd !== SCENARIO_STATUS.pass);
+    moreToDo = scenariosLeft(workspace.path, recorded);
     return advanceStep(recorded, moreToDo ? CYCLE_STEP.bddRed : CYCLE_STEP.qualityGate);
   });
   checkpoint(workspace, { fr: fr!, state: STATE.bddCheck, scenario: scenario.current.name });

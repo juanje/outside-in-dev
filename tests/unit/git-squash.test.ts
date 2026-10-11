@@ -33,6 +33,22 @@ describe("squashFeature", () => {
   });
 });
 
+describe("squashFeature for a feature with skipped scenarios", () => {
+  it("is a wip commit that lists the passing scenarios and, for each skipped one, its reason and the ref that holds its partial work", () => {
+    const workspace = finishedFeature();
+    squashFeature(workspace, {
+      startCommit: workspace.startCommit,
+      id: "FR-AUTH-01",
+      title: "Log in",
+      type: "wip",
+      scenarios: ["Log in"],
+      skipped: [{ name: "Wrong password", reason: "the report names no unit test", ref: "refs/oid/wip/run-1/FR-AUTH-01/1" }],
+    });
+    expect(git("log", "-1", "--format=%s")).toBe("wip(auth): FR-AUTH-01 Log in");
+    expect(git("log", "-1", "--format=%b")).toBe("- Log in\n- Wrong password (skipped: the report names no unit test; partial work: refs/oid/wip/run-1/FR-AUTH-01/1)");
+  });
+});
+
 describe("squashFeature with nothing to squash", () => {
   it("refuses, saying so, and leaves the branch as it was", () => {
     const workspace = finishedFeature();

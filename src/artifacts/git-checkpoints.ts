@@ -34,6 +34,24 @@ export function commitAll(workspace: Workspace, message: string, allowEmpty = fa
   return headCommit(workspace.path);
 }
 
+/** What a rollback cleans to leave nothing of the run's work behind: every untracked file that is not ignored. */
+export const EVERY_FILE = ["**"];
+
+/** Where the run keeps some work it set aside, and the commit to go back to: everything since that commit. */
+export interface ShelvedWork {
+  to: string;
+  ref: string;
+  message: string;
+}
+
+/** Keeps everything done since `to` in one commit, with `message`, under `ref` (so that no branch holds it and nothing collects it), then returns the run's branch and files to `to`. Returns the commit. */
+export function shelveWork(workspace: Workspace, { to, ref, message }: ShelvedWork): string {
+  const kept = commitAll(workspace, message, true);
+  git(workspace.path, "update-ref", ref, kept);
+  rollback(workspace, to, EVERY_FILE);
+  return kept;
+}
+
 /** Refuses to touch a checkout that is not this run's: its branch must be a run's branch and the workspace's own, its directory the workspace's, and the run's start must be in its history. The user's work and another run's are never committed to or reset. */
 export function requireRunBranch(workspace: Workspace): void {
   const [top = "", head = ""] = git(workspace.path, "rev-parse --show-toplevel --symbolic-full-name HEAD").split(NEWLINE);

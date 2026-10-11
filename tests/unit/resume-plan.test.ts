@@ -40,6 +40,10 @@ describe("where a resumed run goes on", () => {
     expect(resumePlan({ ...BASE, state: "FR_COMMIT", fr: "FR-A-01", featureStart: "base" }, ["FR-A-01"])).toEqual({ targets: ["FR-A-01", "FR-A-02"], featureStart: "base", entry: { state: "FR_COMMIT" } });
   });
 
+  it("leaves out the features the run is done with and did not finish, the skipped ones and those with a skipped scenario", () => {
+    expect(resumePlan({ ...BASE, state: "BDD_RED", featureStart: "feat-a-01", leftFrs: ["FR-A-01"] }, [])).toEqual({ targets: ["FR-A-02"], featureStart: "feat-a-01", entry: { state: "BDD_RED" } });
+  });
+
   it("puts the written feature files to the review again, or writes them again with the comment of the rejection", () => {
     expect(resumePlan({ ...BASE, state: "FEATURE_REVIEW", featureFiles: ["features/a.feature"] }, [])).toEqual({ targets: ["FR-A-01", "FR-A-02"], review: { files: ["features/a.feature"] } });
     expect(resumePlan({ ...BASE, state: "FEATURE_WRITE", reviewComment: "Cover the empty cart" }, [])).toEqual({ targets: ["FR-A-01", "FR-A-02"], review: { comment: "Cover the empty cart" } });

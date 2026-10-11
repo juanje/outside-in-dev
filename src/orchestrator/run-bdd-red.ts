@@ -3,6 +3,7 @@ import { BDD_RED } from "../agents/profiles.js";
 import { bddRedPrompt } from "../agents/prompts/bdd-red.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
+import { headCommit } from "../artifacts/git-workspace.js";
 import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
@@ -16,6 +17,7 @@ import { decideRed, VALID_RED } from "./red-decision.js";
 import { updateSession } from "./session.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { updateFeature } from "./worktree-progress.js";
+import { unfinishedScenarios } from "./wip-tag.js";
 
 /** The first scenario of the requirement in file order that does not pass yet, with the names of all its scenarios; none when all pass. A name that two scenarios share is a problem. */
 function currentScenario(worktree: string, fr: string): { current: CurrentScenario; names: string[] } | { problem: string } | undefined {
@@ -25,7 +27,7 @@ function currentScenario(worktree: string, fr: string): { current: CurrentScenar
   const twice = names.find((name, at) => names.indexOf(name) !== at);
   if (twice !== undefined) return { problem: `${fr}: the scenario "${twice}" is defined twice, and scenarios are told apart by their names` };
   const passing = loadProgress(worktree, paths.progress).features.find(({ id }) => id === fr)?.scenarios?.filter(({ bdd }) => bdd === SCENARIO_STATUS.pass).map(({ name }) => name) ?? [];
-  const first = own.find(({ name }) => !passing.includes(name));
+  const [first] = unfinishedScenarios(own, fr, passing);
   return first === undefined ? undefined : { current: { file: first.file, line: first.line, name: first.name }, names };
 }
 
@@ -55,7 +57,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   if ("problem" in found) return fail(started, found.problem);
   const { current, names } = found;
   const label = `${fr} "${current.name}"`;
-  updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1 });
+  updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1, scenarioStart: headCommit(workspace.path) });
   const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
   const gate = await attemptsOf(started, services, {
     state: BDD_RED,

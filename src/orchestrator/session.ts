@@ -44,6 +44,12 @@ export type RunSession = {
   scenarioFailure?: string;
   /** What TDD Red handed to Code Green: the unit test files to make pass, their failure and the test as the agent reported it (a session saved before this field has none). */
   unitRed?: { tests: string[]; failure: string; test?: string };
+  /** The features the run is done with and did not finish: the skipped ones and those with a skipped scenario; a resumed run leaves them out. */
+  leftFrs?: string[];
+  /** The scenarios the run skipped: the feature, the scenario, why, and the ref that holds its partial work. */
+  skippedScenarios?: { fr: string; name: string; reason: string; ref: string }[];
+  /** The commit the current scenario started from (before its BDD Red): skipping the scenario returns the run to it. */
+  scenarioStart?: string;
   /** Where the last TDD Red started: the commit, and the unit tests the scenario had then; a rewrite of the last unit test goes back to it. */
   beforeTddRed?: { commit: string; tests: string[] };
   /** The checkpoint before the last Code Green, which the refactor compares against. */

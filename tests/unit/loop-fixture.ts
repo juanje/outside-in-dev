@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gitIn } from "./git-fixture.js";
-import type { FakeAgent } from "../../features/support/fake-agent.js";
+import { FakeAgent } from "../../features/support/fake-agent.js";
 import { runCli } from "../../src/run-cli.js";
 import type { ReviewInput } from "../../src/orchestrator/services.js";
 import { runServices, stepsProject } from "./feature-cycle-fixture.js";
@@ -52,6 +52,26 @@ export function loopProject(): string {
 }
 
 export const approve = { isTTY: true as const, choose: async () => "approve", line: async () => "" };
+
+/** A human at a terminal who gives these answers one after the other, and the same note whenever asked for a line. */
+export function answering(answers: string[], note = "") {
+  const left = [...answers];
+  return { isTTY: true as const, choose: async () => left.shift() ?? "", line: async () => note };
+}
+
+/** A project whose only scenario stays red, with one iteration at most, and the agent that writes a unit test and the cart code for it. */
+export function stuckProject() {
+  const project = loopProject();
+  const runner = join(project, "bdd.cjs");
+  writeFileSync(runner, readFileSync(runner, "utf8").replace('located && !fs.existsSync("src/cart.ts")', "located"));
+  const config = join(project, ".outside-in.json");
+  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, "utf8")), limits: { max_inner_iterations: 1 } }));
+  gitIn(project, "commit", "--quiet", "--all", "--message", "the scenario stays red, one iteration at most");
+  const agent = new FakeAgent();
+  agent.testRoute.rounds.push({ files: [{ path: "tests/unit/cart.test.ts", content: "// the test\n" }], test: "tests/unit/cart.test.ts > cart > adds" });
+  agent.codeRoute.rounds.push({ files: [{ path: "src/cart.ts", content: "export const cart = 1;\n" }] });
+  return { project, agent };
+}
 
 /** The file as a JSON document. */
 export const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8"));

@@ -51,7 +51,7 @@ export function isExhausted(result: unknown): result is Exhausted {
 
 /** Tells the one extra attempt what the person said. */
 function noteFromPerson({ attempt, note }: { attempt: number; note: string }): string {
-  return `This is attempt ${attempt}. The earlier attempts were rejected, and the person who follows the run says: ${note}`;
+  return `This is attempt ${attempt}. The earlier attempts did not get through, and the person who follows the run says: ${note}`;
 }
 
 /** Runs the attempts of a state until one is accepted or the retries are used; with `afterAsking`, only the one extra attempt that the person asked for. */
