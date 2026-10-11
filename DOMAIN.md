@@ -145,6 +145,7 @@ Observed on 1.0.0. Buddy runs 1.0.1 with the same session shape. S1 rechecked th
 - Usage per assistant message: `message.usage.totalTokens` and `message.usage.cost.total` on `message_end`.
 - `InteractiveMode` (exported) takes an `AgentSessionRuntime` and calls `process.exit` when the user quits. Inside it, the runtime can replace the active session (`/new`), dropping hooks installed by hand; extensions survive.
 - `session.abort()` does not end a tool call that ignores the abort signal: the tool's promise stays pending, `prompt()` never settles and `abort()` itself never resolves (observed on 1.1.0 with a custom tool that never returns). A caller that must end a session (a time or cost limit) cannot wait for `prompt()` or `abort()`: it races them against its own limit and abandons the session (`runAgent` does).
+- Calling `abort()` from inside `beforeToolCall` or `afterToolCall` and awaiting it never settles: the hook is a running tool call that `abort()` waits for (observed on 1.1.0). Start it without awaiting (`installSandbox` does).
 
 ### cucumber-js 13
 
