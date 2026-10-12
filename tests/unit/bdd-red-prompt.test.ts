@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bddRedPrompt } from "../../src/agents/prompts/bdd-red.js";
+import { expectNoSharedTrait } from "./fix-at-cause-sentences.js";
 import { expectAccessRule, profileOf } from "./prompt-profile.js";
 
 describe("the instructions of the agent that writes step definitions", () => {
@@ -24,6 +25,10 @@ describe("the instructions of the agent that writes step definitions", () => {
     expect(instructions).toContain("Import only code the feature itself needs: a function that exists only so your step can observe something is not part of the feature, and the next agents would have to invent it.");
     expect(instructions).toContain("6. If the scenario passes as soon as its steps exist, because what it describes already holds without new code (for example, nothing happens when nothing is configured), that is a correct result, not a mistake to fix. Do not make it fail: a step that needs code which does not exist, or a check written so that it fails, sends the next agents to write code that serves only your step. Call the report tool as done; oid then asks the person whether to keep the scenario as a guard against regressions.");
     expect(instructions).toContain("7. Call the report tool once, listing every file you changed.");
+  });
+
+  it("do not hold the fix-at-cause trait of the agents that change code", () => {
+    expectNoSharedTrait(bddRedPrompt("FR-A-02", "features/a.feature:12", profileOf("BDD_RED")));
   });
 
   it("state in rule 4 the globs its profile lets it write and read, the conventions files included, with the reason for the writing limit", () => {

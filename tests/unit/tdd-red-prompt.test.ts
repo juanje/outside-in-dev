@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tddRedPrompt } from "../../src/agents/prompts/tdd-red.js";
+import { expectNoSharedTrait } from "./fix-at-cause-sentences.js";
 import { expectAccessRule, profileOf } from "./prompt-profile.js";
 
 describe("the instructions of the agent that writes one unit test", () => {
@@ -22,6 +23,10 @@ describe("the instructions of the agent that writes one unit test", () => {
   it("tell the writer to assert that what the code must produce exists before checking its content, and why", () => {
     const instructions = tddRedPrompt("FR-A-02", profileOf("TDD_RED"));
     expect(instructions).toContain("When the test reads something the code must produce (a file, a record, a message, a call), first assert that it exists, then check its content. A missing behaviour then fails as an assertion, which oid accepts as a valid Red by itself; an error such as a missing file has to be put to the person, and the run waits for their answer.");
+  });
+
+  it("do not hold the fix-at-cause trait of the agents that change code", () => {
+    expectNoSharedTrait(tddRedPrompt("FR-A-02", profileOf("TDD_RED")));
   });
 
   it("state in rule 4 the globs its profile lets it write and read, the conventions files included, with the reason for the writing limit", () => {
