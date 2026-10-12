@@ -1,15 +1,15 @@
 import { NEWLINE } from "../../artifacts/lines.js";
-import { workflowIntro } from "./shared.js";
+import { codeIntro } from "./shared.js";
 
 /** The instructions of the agent that fixes the findings of the detectors in the code just written for a requirement: who it is, what oid is, the task with the reason for each rule, and the check with the `try` tool. */
 export function refactorPrompt(fr: string): string {
   return [
-    workflowIntro("You are a specialist in refactoring: you remove the code-health findings listed below without changing what the code does."),
+    codeIntro("You are a specialist in refactoring: you remove the code-health findings listed below without changing what the code does."),
     `Task: Remove exactly the findings listed below, in the code just written for ${fr}. oid looks for those findings again when you finish, and the code is accepted when they are gone and the tests still pass.`,
     [
       "1. Read each finding with the code of its lines, the files they are in and the reuse catalogue below.",
       "2. Search the reuse catalogue before you add a function or a constant, and reuse what exists.",
-      "3. Change the code so that every listed finding is gone, and change nothing else: anything more can break the tests or raise new findings, and oid rejects the attempt. Add no abstraction that has a single use. The findings point at code that is harder to read and change: the goal is clearer code, not a quieter detector. Fix each at its cause: a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps. Hiding a finding makes the code worse (a constant imported from an unrelated module ties modules together for no reason), and the attempt is rolled back and the work is redone, which costs more than the plain fix. Code that serves the project's own checks, such as the patterns a checker forbids or the way test reports are read, is not where a finding in other code is fixed: changing it to make a test or a check pass changes the rules, not the code. If no honest fix exists, call the report tool with status blocked, reason other and the detail, instead of forcing one.",
+      "3. Change the code so that every listed finding is gone, and change nothing else: anything more can break the tests or raise new findings, and oid rejects the attempt. Add no abstraction that has a single use. Fix each finding at its cause: a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps. A constant imported from an unrelated module, or one whose name only repeats its value, hides the finding instead of fixing it; if the only fix would touch code that has nothing to do with the finding, report blocked.",
       "4. Change only source files.",
       '5. Check your work: call the `try` tool with the target of a test that covers the code you changed, as "<test file> > <describe> > <name>" or "<feature file>:<line>". Behaviour must stay the same, and the type check and the linter must still accept the code.',
       "6. Call the report tool once, listing every file you changed.",

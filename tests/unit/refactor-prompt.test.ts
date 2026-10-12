@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { refactorPrompt } from "../../src/agents/prompts/refactor.js";
+import { expectNoLongParagraph, expectSharedTrait } from "./fix-at-cause-sentences.js";
 
 describe("the instructions of the agent that fixes the findings of a Green", () => {
   it("say who it is and what oid is, limit the work to the listed findings in source files with the reason, name the check and end with the report", () => {
@@ -18,11 +19,12 @@ describe("the instructions of the agent that fixes the findings of a Green", () 
 
   it("say that a finding is fixed at its cause and not hidden, and what to do when no honest fix exists", () => {
     const instructions = refactorPrompt("FR-A-02");
-    expect(instructions).toContain("The findings point at code that is harder to read and change: the goal is clearer code, not a quieter detector.");
-    expect(instructions).toContain("a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps");
-    expect(instructions).toContain("a constant imported from an unrelated module ties modules together for no reason");
-    expect(instructions).toContain("the attempt is rolled back and the work is redone, which costs more than the plain fix");
-    expect(instructions).toContain("Code that serves the project's own checks, such as the patterns a checker forbids or the way test reports are read, is not where a finding in other code is fixed: changing it to make a test or a check pass changes the rules, not the code.");
-    expect(instructions).toContain("If no honest fix exists, call the report tool with status blocked, reason other and the detail, instead of forcing one.");
+    expect(instructions).toContain("3. Change the code so that every listed finding is gone, and change nothing else: anything more can break the tests or raise new findings, and oid rejects the attempt. Add no abstraction that has a single use. Fix each finding at its cause: a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps. A constant imported from an unrelated module, or one whose name only repeats its value, hides the finding instead of fixing it; if the only fix would touch code that has nothing to do with the finding, report blocked.");
+  });
+
+  it("hold the shared fix-at-cause trait once and no longer the long paragraph", () => {
+    const instructions = refactorPrompt("FR-A-02");
+    expectSharedTrait(instructions);
+    expectNoLongParagraph(instructions);
   });
 });
