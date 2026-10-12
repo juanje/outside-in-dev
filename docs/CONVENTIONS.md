@@ -8,6 +8,7 @@ These are the rules this project's reviews keep correcting, with the reason for 
 - **vitest reports a missing export as `TypeError: (0 , name) is not a function`**, not as an import error. That failure means the function does not exist yet.
 - **cucumber-js 13 has no `json` or `junit` formatter.** Reports are read from `--format message:<file>`.
 - **A failing test is never rewritten to fit the code** (`not.toThrow`, a weaker assertion, a deleted check). If the test is wrong, say so in your report.
+- **A test that writes a program to disk (a fake command, a small script) holds code inside code, and escapes are easy to get wrong.** Write that program as a template literal with real line breaks, not as lines joined with "\n": one escape too many writes a backslash and an "n" instead of a line break, the script is invalid, it records nothing, and the test then fails exactly as if the code were missing. It looks like a valid Red that no code can ever make pass.
 
 ## This project
 
@@ -21,6 +22,7 @@ These are the rules this project's reviews keep correcting, with the reason for 
 
 ### Unit tests and code
 
+- **A command that records how it was run (a fake notification command, for example) comes from `createRecordingCommand` in `features/support/recording-command.ts`**, for unit tests and steps alike: it records the arguments and the environment of each run and can fail with a given exit code, so no test needs to write that script again.
 - **Nothing outside `src/cli.ts` reads `process` globals** (`process.env`, `process.cwd()`, `process.exit`, `process.stdout`). They come in as arguments, so the code runs in-process in the tests.
 - **Pi's `prompt()` and `classify()` resolve even when the provider failed.** Check `stopReason` on `message_end`.
 - **Pi's `tools` and `customTools` come from one array.** A custom tool missing from the allowlist is never offered, and nothing reports it.
