@@ -268,7 +268,7 @@ Agents cannot edit `package.json` or lockfiles; they ask for a package with a re
 
 ### FR-AGENT-08: Context per task
 
-Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it. The catalogue has a size budget: the modules the task uses and those next to them come first with their signatures, and the rest are listed by path, for the agent to read when it needs them.
+Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it. The catalogue has a size budget: the modules the task uses and those next to them come first with their signatures, and the rest are listed by path, for the agent to read when it needs them. Every task that writes feature files, step definitions, unit tests or code also receives the project's conventions files (`paths.conventions`, ADR-051), within a budget of their own.
 
 ### FR-AGENT-09: A test task receives public signatures
 

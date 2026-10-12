@@ -1,0 +1,27 @@
+# Conventions of this project
+
+These are the rules this project's reviews keep correcting, with the reason for each. They come before any general guidance where the two differ. The first part holds for any project on this stack (TypeScript, cucumber-js, vitest); the second is particular to this project.
+
+## Stack: TypeScript, cucumber-js and vitest
+
+- **A step definition imports code that does not exist yet with a dynamic `import()` inside the step**, never at the top of the file. A static import of a missing module stops cucumber before any scenario runs, so every other scenario fails too.
+- **vitest reports a missing export as `TypeError: (0 , name) is not a function`**, not as an import error. That failure means the function does not exist yet.
+- **cucumber-js 13 has no `json` or `junit` formatter.** Reports are read from `--format message:<file>`.
+- **A failing test is never rewritten to fit the code** (`not.toThrow`, a weaker assertion, a deleted check). If the test is wrong, say so in your report.
+
+## This project
+
+### Feature files and step definitions
+
+- **A scenario that runs `oid run` or `oid resume` starts from the run fixture.** Its Background is the one of `features/run-09.feature` and most other `run-*` features: a git project with a green suite whose BDD scenario "Add to cart" passes, the cart requirements `FR-CART-01` (done) and `FR-CART-02` (pending) in `SPEC.md` and `progress.json`, and scripted agents ("the feature-writing agent writes …", "the step-writing agent writes …", "the test-writing agent writes …", "the coding agent writes …"). The agents of a run are scripted and the test runners replay recorded reports, so a scenario of a run takes seconds and costs nothing. A scenario that invents its own run setup needs a new fixture that nobody has.
+- **A scenario of a run checks a milestone, not where the run ends.** A milestone is a transition in the event log, a checkpoint commit, a value in the saved session, a file in the worktree or a value a command received. The exit code, the last line of the output and the final state are where the run ends, and a later requirement that makes the run go further changes them, which breaks the scenario for no reason. Some older scenarios still check the exit code; do not copy that.
+- **A failure that must end the run at once sets the retries to 0** ("the project allows 0 retries for each state"). Otherwise the run retries the failing state and then asks the human, and the scenario sees the question instead of the failure.
+- **A scenario runs in-process.** Tag a single scenario `@process` only when it needs a real process (a signal, a real exit, a terminal); never tag the Feature. A real process costs seconds per scenario.
+- **One real test runner per run state; the other scenarios replay a recorded report.** A replay names the request it answers (the test file and name, or the scenario locations) and fails on an unexpected request or when its sequence runs out; an entry answers more than once only with `repeat: true`. The scenarios that use a real runner are listed in `features/support/real-runners.ts`, and a unit test checks that each still exists: renaming one means updating that list.
+
+### Unit tests and code
+
+- **Nothing outside `src/cli.ts` reads `process` globals** (`process.env`, `process.cwd()`, `process.exit`, `process.stdout`). They come in as arguments, so the code runs in-process in the tests.
+- **Pi's `prompt()` and `classify()` resolve even when the provider failed.** Check `stopReason` on `message_end`.
+- **Pi's `tools` and `customTools` come from one array.** A custom tool missing from the allowlist is never offered, and nothing reports it.
+- **Every Pi session is given oid's `agentDir`.** Without it Pi reads the user's personal settings.
