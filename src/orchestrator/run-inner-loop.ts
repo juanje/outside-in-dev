@@ -1,11 +1,12 @@
 import { type Started, isExitCode, STATE, transition } from "./begin.js";
 import { AFTER_CHECK, type AfterCheck, type Origin, runBddCheck } from "./run-bdd-check.js";
-import { runBddRed, type RedScenario } from "./run-bdd-red.js";
+import { runBddRed, type RedScenario, type StepsRewrite } from "./run-bdd-red.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { runCodeGreen } from "./run-code-green.js";
 import { commitFeature, skippedOf } from "./run-commit.js";
 import { runQualityGate } from "./run-quality-gate.js";
-import { REWRITE, Redirect, SKIP_FR } from "./redirect.js";
+import { REWRITE, REWRITE_STEPS, Redirect, SKIP_FR } from "./redirect.js";
+import { rewriteSteps } from "./run-rewrite-steps.js";
 import { skipFeature } from "./run-skip-fr.js";
 import { skipScenario } from "./run-skip-scenario.js";
 import { rewriteLastTest } from "./run-rewrite.js";
@@ -15,7 +16,7 @@ import { readSession, updateSession } from "./session.js";
 import type { FeatureServices } from "./services.js";
 
 /** Where a resumed run enters the work of its first target: the state it stopped in and what the session saved for it (the scenario of the inner loop, what TDD Red handed on, the checkpoint before Code Green and the iteration). */
-export type LoopEntry = { state: string; red?: RedScenario; unitRed?: TddRed; beforeGreen?: string; iteration?: number; note?: string };
+export type LoopEntry = { state: string; red?: RedScenario; unitRed?: TddRed; beforeGreen?: string; iteration?: number; note?: string; origin?: Origin; steps?: StepsRewrite };
 
 /** Where a resumed run enters the inner loop: the commit its first target started from, and the state of that target. */
 export type LoopResume = { featureStart: string; entry: LoopEntry };
@@ -44,7 +45,7 @@ async function redToGreen(started: Started, services: FeatureServices, scenario:
 async function iterate(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number, entry: LoopEntry | undefined): Promise<number | AfterCheck> {
   const beforeGreen = isPast(entry, STATE.codeGreen) ? entry!.beforeGreen! : await redToGreen(started, services, scenario, entry);
   if (isExitCode(beforeGreen)) return beforeGreen;
-  const origin = isPast(entry, STATE.refactor) ? RESUMED_CHECK : await runRefactor(started, services, scenario, beforeGreen);
+  const origin = isPast(entry, STATE.refactor) ? (entry!.origin ?? RESUMED_CHECK) : await runRefactor(started, services, scenario, beforeGreen);
   return runBddCheck(started, services, scenario, iteration, origin);
 }
 
@@ -66,8 +67,18 @@ async function innerLoop(started: Started, services: FeatureServices, red: RedSc
 const GATE = "gate";
 const SKIPPED = "skipped";
 
+/** Writes the steps of the current scenario again, as the person asked: when code exists for the scenario and the new steps pass with it and fail without it, the inner loop goes on at the BDD Check, which says where the run came from; with no code, the scenario starts again from TDD Red. Returns the exit code of the process when the run ends there, or what follows the scenario. */
+async function runRewrittenSteps(started: Started, services: FeatureServices, featureHashes: Record<string, string>, entry: LoopEntry & { steps: StepsRewrite }) {
+  const red = await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes, entry.steps);
+  if (isExitCode(red)) return red;
+  if (entry.steps.base === undefined) return innerLoop(started, services, red);
+  const origin = { from: STATE.bddRed, note: `the steps of "${red.current.name}" were written again: the scenario passes with the code and fails without it` };
+  return innerLoop(started, services, red, { state: STATE.bddCheck, red, iteration: entry.iteration, origin });
+}
+
 /** Runs the next scenario that does not pass: its BDD Red (unless a resumed run is past it) and its inner loop. Returns the exit code of the process when the run ends there, or what follows the scenario. */
 async function runScenario(started: Started, services: FeatureServices, featureHashes: Record<string, string>, resumed?: LoopEntry) {
+  if (resumed?.steps !== undefined) return runRewrittenSteps(started, services, featureHashes, { ...resumed, steps: resumed.steps });
   const red = resumed?.red ?? (await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes));
   return isExitCode(red) ? red : innerLoop(started, services, red, resumed);
 }
@@ -95,6 +106,7 @@ async function runFeature(started: Started, services: FeatureServices, featureHa
 function redirected(started: Started, error: unknown): LoopEntry | typeof GATE | undefined {
   if (!(error instanceof Redirect) || error.action === SKIP_FR) throw error;
   if (error.action === REWRITE) return rewriteLastTest(started, error);
+  if (error.action === REWRITE_STEPS) return rewriteSteps(started, error);
   return skipScenario(started, error) ? undefined : GATE;
 }
 

@@ -13,7 +13,7 @@ function bus(printed: string[] = []) {
   return createEventBus({ cwd: dir, runId: "run-1", write: (text) => printed.push(text), now: () => 0 });
 }
 
-const FIVE_ACTIONS = ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"];
+const FIVE_ACTIONS = ["retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr", "abort"];
 
 describe("the question about a scenario that is still red after the last iteration", () => {
   it("asks with the five actions and moves the run to ABORTED, with exit code 2, when the person aborts", async () => {
@@ -43,6 +43,7 @@ describe("the question about a scenario that is still red after the last iterati
   it("throws the redirect the person chose, with the reason that the scenario is still red, and ends the run with an error for any other answer", async () => {
     const redirected = (answer: string) => stuckLoop(bus(), { isTTY: true, choose: async () => answer, line: async () => "a note" }, STUCK).catch((error: unknown) => error);
     expect(await redirected("rewrite")).toMatchObject({ action: "rewrite", note: "a note", reason: 'FR-A-01 "Pay" is still red after 2 iterations of the inner loop' });
+    expect(await redirected("rewrite_steps")).toMatchObject({ action: "rewrite_steps", note: "a note", reason: 'FR-A-01 "Pay" is still red after 2 iterations of the inner loop' });
     expect(await redirected("skip_scenario")).toMatchObject({ action: "skip_scenario", note: "" });
     expect(await redirected("skip_fr")).toMatchObject({ action: "skip_fr", note: "" });
     const printed: string[] = [];

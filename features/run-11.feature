@@ -13,7 +13,7 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent reports that it is blocked with the reason "the unit test expects a rounding the spec does not define"
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
-    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the question about the blocked agent mentions "the unit test expects a rounding the spec does not define"
     And the event log of the run records a transition from "CODE_GREEN" to "ABORTED"
     And the process exits with code 2
@@ -32,7 +32,7 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     And the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent reports that it is blocked in its first attempt with the reason "the unit test expects a rounding the spec does not define", then writes the cart code that passes the unit test and the scenario
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "retry" and "abort", and gives the note "round to the nearest cent"
-    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records an "agent_start" of "CODE_GREEN" with the attempt 2, the model "fake/strong" and the thinking level "high"
     And the second task of the coding agent includes "attempt 2" and "round to the nearest cent"
     And the event log of the run records a transition from "CODE_GREEN" to "BDD_CHECK"
@@ -42,7 +42,7 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     And the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent reports that it is blocked in its first attempt with the reason "the unit test expects a rounding the spec does not define", then writes the cart code that passes the unit test and the scenario
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "rewrite" and "abort", and gives the note "do not test the rounding"
-    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "CODE_GREEN" to "TDD_RED" whose reason mentions "written again" and "the unit test expects a rounding the spec does not define"
     And the second task of the test-writing agent includes "do not test the rounding"
     And the run's branch holds the commit "oid: checkpoint FR-CART-02 TDD_RED Add a line" once
@@ -55,7 +55,7 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     And the test-writing agent writes no unit test in its first two attempts, then writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent writes the cart code that passes the unit test and the scenario
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "rewrite" and "abort", and gives the note "write the test for countLines of src/lines.ts"
-    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "TDD_RED" to "TDD_RED" whose reason mentions "written again" and "the report names no unit test"
     And the third task of the test-writing agent includes "write the test for countLines of src/lines.ts" and "Add a line"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"

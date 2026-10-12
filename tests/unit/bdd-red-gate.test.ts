@@ -1,13 +1,11 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { bddRedGate } from "../../src/orchestrator/bdd-red-gate.js";
+import { COMMANDS, PATHS } from "./bdd-gate-fixture.js";
 import { committedRepo } from "./git-fixture.js";
 import { useTempDir, write } from "./temp-project.js";
 
 useTempDir();
-
-const PATHS = { source: ["src/**"], shared: [], unit_tests: ["tests/unit/**"], bdd_features: ["features/**/*.feature"], bdd_steps: ["features/steps/**/*.ts"], docs: [], spec: "SPEC.md", design: [], progress: "progress.json" };
-const COMMANDS = { bdd: "node bdd.cjs", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] };
 
 /** A BDD runner that writes the report of one scenario whose step fails with `message`. */
 const failingRunner = (message: string) => `

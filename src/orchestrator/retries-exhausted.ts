@@ -1,16 +1,22 @@
 import { ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
 import { type Started, STATE, transition } from "./begin.js";
-import { ABORT, REWRITE, Redirect, type RedirectAction, RETRY, SKIP_FR, SKIP_SCENARIO } from "./redirect.js";
+import { ABORT, REWRITE, REWRITE_STEPS, Redirect, type RedirectAction, RETRY, SKIP_FR, SKIP_SCENARIO } from "./redirect.js";
 import type { ReviewInput } from "./services.js";
 
 /** The actions the person has when a state cannot go on by itself. */
-const STUCK_ACTIONS = [RETRY, REWRITE, SKIP_SCENARIO, SKIP_FR, ABORT].map((key) => ({ key, label: key }));
+const STUCK_ACTIONS = [RETRY, REWRITE, REWRITE_STEPS, SKIP_SCENARIO, SKIP_FR, ABORT].map((key) => ({ key, label: key }));
 
-/** The actions a state does not offer: there is no unit test to rewrite while the steps are written, and no unit test or scenario of its own while the feature files are written or the quality gate fixes errors. */
+/** The actions a state does not offer: there is no unit test to rewrite, and its retry already writes the steps again, while the steps are written; and no unit test, steps or scenario of its own while the feature files are written or the quality gate fixes errors. */
 const NOT_OFFERED: Record<string, string[]> = {
-  [STATE.bddRed]: [REWRITE],
-  [STATE.featureWrite]: [REWRITE, SKIP_SCENARIO],
-  [STATE.qualityFix]: [REWRITE, SKIP_SCENARIO],
+  [STATE.bddRed]: [REWRITE, REWRITE_STEPS],
+  [STATE.featureWrite]: [REWRITE, REWRITE_STEPS, SKIP_SCENARIO],
+  [STATE.qualityFix]: [REWRITE, REWRITE_STEPS, SKIP_SCENARIO],
+};
+
+/** What the person is asked for after choosing an action that sends the work back to a writer: the note for the writer of the unit test or of the steps. */
+const NOTE_PROMPTS: Record<string, string> = {
+  [REWRITE]: "What should the next test writer know?",
+  [REWRITE_STEPS]: "What should the next step writer know?",
 };
 
 /** A state that cannot go on: the question's id, its text, the state, whose it is and why it cannot (what a redirect carries). */
@@ -24,7 +30,7 @@ export async function askWhatNext(bus: Started["bus"], input: ReviewInput, { id,
   const answer = await input.choose(prompt, actions.map(({ key }) => key));
   if (!actions.some(({ key }) => key === answer)) return bus.emit({ type: ERROR_EVENT, message: `${label}: "${answer}" is not an answer: ${prompt}` }) ?? 1;
   if (answer === RETRY) return { note: await input.line("What should the agent know for one more attempt?") };
-  if (answer !== ABORT) throw new Redirect(answer as RedirectAction, reason, answer === REWRITE ? await input.line("What should the next test writer know?") : "");
+  if (answer !== ABORT) throw new Redirect(answer as RedirectAction, reason, answer in NOTE_PROMPTS ? await input.line(NOTE_PROMPTS[answer]!) : "");
   return transition(bus, state, STATE.aborted, `${label}: the person chose to ${ABORT}`) ?? 1;
 }
 

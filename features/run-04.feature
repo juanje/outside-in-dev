@@ -146,7 +146,7 @@ Feature: TDD inner loop
     Given the project limits the inner loop to 2 iterations for each scenario
     And the agents write two unit tests and two pieces of cart code, and the scenario still fails after both
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
-    Then the human was asked once what to do with "Add a line", after 2 iterations, with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 iterations, with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "BDD_CHECK" to "TDD_RED" once
     And the event log of the run records a transition from "BDD_CHECK" to "ABORTED"
     And the process exits with code 2

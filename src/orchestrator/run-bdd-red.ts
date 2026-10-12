@@ -6,6 +6,7 @@ import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { clearReturn } from "../artifacts/return-record.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { ERROR_EVENT } from "../events/types.js";
@@ -14,6 +15,7 @@ import { bddRedGate, type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
+import { rewrittenStepsGate } from "./rewritten-steps-gate.js";
 import { updateSession } from "./session.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { updateFeature } from "./worktree-progress.js";
@@ -48,8 +50,23 @@ export function fail({ bus }: Started, message: string): number {
 /** A scenario whose steps fail validly: the scenario, how to name it in a message, and the failure the runner showed. */
 export type RedScenario = { current: CurrentScenario; label: string; failure: string };
 
-/** Runs BDD Red for the first scenario of the first target that does not pass: the agent writes its steps, the gate judges them and a valid Red is checkpointed. Returns the scenario that failed validly, or the exit code of the process. */
-export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>): Promise<number | RedScenario> {
+/** The person asked for the steps of the scenario to be written again: what they said, the failure the scenario showed, and the commit the scenario started from when code was written for it since (the steps must then pass with that code and fail without it). */
+export type StepsRewrite = { note: string; failure: string; base?: string };
+
+/** What the step writer is told when its steps are written again: why, what the scenario showed, and whether code for it exists. */
+function rewriteContext({ note, failure, base }: StepsRewrite): string {
+  return [
+    "The person who follows the run asked for these steps to be written again: the steps that exist did not lead to a working feature, and fixing them now saves everybody the time of a longer detour later.",
+    note === "" ? "They gave no note." : `They say: ${note}`,
+    base === undefined
+      ? "No code exists for this scenario yet: write steps that fail because the feature is missing, as for a new scenario."
+      : "Code for this scenario already exists and stays as it is. Write steps that pass with that code and would fail without it: oid runs the scenario with the code and again with the code taken out, and rejects steps that pass in both runs. You may not change the source code.",
+    `The scenario last showed this:${NEWLINE}${failure}`,
+  ].join(NEWLINE);
+}
+
+/** Runs BDD Red for the first scenario of the first target that does not pass: the agent writes its steps, the gate judges them and a valid Red is checkpointed. Returns the scenario that failed validly, or the exit code of the process. With `rewrite`, the steps are written again for a scenario the run already worked on: the scenario's start and iteration are kept, and when code exists for it the gate judges the steps with and without that code and the run does not go on to TDD Red. */
+export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>, rewrite?: StepsRewrite): Promise<number | RedScenario> {
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const found = currentScenario(workspace.path, fr!);
@@ -57,8 +74,9 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   if ("problem" in found) return fail(started, found.problem);
   const { current, names } = found;
   const label = `${fr} "${current.name}"`;
-  updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, innerIteration: 1, scenarioStart: headCommit(workspace.path) });
-  const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`)}${NEWLINE}${NEWLINE}${bddRedContext(workspace.path, current)}`;
+  updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, ...(rewrite === undefined ? { innerIteration: 1, scenarioStart: headCommit(workspace.path) } : {}) });
+  const context = `${bddRedContext(workspace.path, current)}${rewrite === undefined ? "" : `${NEWLINE}${NEWLINE}${rewriteContext(rewrite)}`}`;
+  const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`)}${NEWLINE}${NEWLINE}${context}`;
   const gate = await attemptsOf(started, services, {
     state: BDD_RED,
     role: "bdd-agent",
@@ -67,7 +85,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
       const outcome = await runBillable(started, services, attemptTask(BDD_RED, prompt, info), { fr: fr!, announce: info.announce });
       const stopped = agentStop(started, label, outcome);
       if (stopped !== undefined) return stopped;
-      const judged = bddRedGate(workspace.path, current, featureHashes, runnersOf(services));
+      const judged = rewrite?.base === undefined ? bddRedGate(workspace.path, current, featureHashes, runnersOf(services)) : rewrittenStepsGate(workspace.path, current, featureHashes, rewrite.base, runnersOf(services));
       if (judged.kind === PROBLEM) return { rejected: `${label}: ${judged.problem}` };
       if (judged.kind !== OUTCOME.decision) return judged;
       const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step });
@@ -75,6 +93,12 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
     },
   });
   if (isExitCode(gate)) return gate;
+  clearReturn(workspace.path, fr!);
+  if (rewrite?.base !== undefined) {
+    updateFeature(workspace.path, fr!, (feature) => advanceStep(feature, CYCLE_STEP.tddGreen, [CYCLE_STEP.tddGreen]));
+    checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
+    return { current, label, failure: rewrite.failure };
+  }
   recordRed(workspace.path, fr!, { current: current.name, names });
   checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
   updateSession(cwd, { state: STATE.tddRed, scenarioFailure: gate.message });

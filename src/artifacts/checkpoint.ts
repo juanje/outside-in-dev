@@ -94,9 +94,9 @@ function gitNames(cwd: string, args: string[]): string[] {
   return spawnSync(GIT, args, { cwd }).stdout.toString().split(NUL).filter((name) => name !== "");
 }
 
-/** The files of the working tree that differ from HEAD: those that exist (modified, added, untracked) and those that were deleted. */
-export function changesFromHead(cwd: string): { present: string[]; deleted: string[] } {
-  const tokens = gitNames(cwd, [GIT_DIFF, "--name-status", "--no-renames", NUL_SEPARATED, HEAD]);
+/** The files of the working tree that differ from `base` (HEAD unless a commit is given): those that exist (modified, added, untracked) and those that were deleted. */
+export function changesFromHead(cwd: string, base: string = HEAD): { present: string[]; deleted: string[] } {
+  const tokens = gitNames(cwd, [GIT_DIFF, "--name-status", "--no-renames", NUL_SEPARATED, base]);
   const present: string[] = gitNames(cwd, ["ls-files", "--others", "--exclude-standard", NUL_SEPARATED]);
   const deleted: string[] = [];
   for (let at = 0; at < tokens.length; at += NAME_STATUS_FIELDS) (tokens[at] === "D" ? deleted : present).push(tokens[at + 1]!);
@@ -197,7 +197,12 @@ export function changedSince(cwd: string, last: TreeState): string[] {
 function contentAt(cwd: string, name: string, { snapshot, files }: { snapshot: Record<string, string>; files: string | undefined }): string | undefined {
   const kept = files === undefined ? undefined : join(cwd, files, name);
   if (name in snapshot && kept !== undefined && existsSync(kept)) return readFileSync(kept).toString();
-  const shown = runGit(cwd, ["show", `${HEAD}:${name}`]);
+  return contentAtCommit(cwd, HEAD, name);
+}
+
+/** The content of `name` in the commit `commit`; undefined when the commit has no such file. */
+export function contentAtCommit(cwd: string, commit: string, name: string): string | undefined {
+  const shown = runGit(cwd, ["show", `${commit}:${name}`]);
   return shown.ok ? shown.text : undefined;
 }
 

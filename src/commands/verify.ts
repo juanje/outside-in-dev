@@ -187,7 +187,7 @@ function isOnAddedTestLine(cwd: string, config: ProjectConfig, message: string):
 }
 
 /** The message of a failure, empty when it has none. */
-function failureMessage(failure: Failure): string {
+export function failureMessage(failure: Failure): string {
   return "message" in failure ? failure.message : "";
 }
 

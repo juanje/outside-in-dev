@@ -10,7 +10,6 @@ import { change, eventLog } from "./run.steps.js";
 const STEP_IMPORTS = `import assert from "node:assert/strict";\nimport { Then, When } from "@cucumber/cucumber";\n`;
 const UNDEFINED_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {});\n`;
 const STRAY_CONTENT = "// stray\n";
-const ACTIONS_AFTER_ATTEMPTS = ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"];
 
 const NOT_AN_ASSERTION_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {\n  throw new Error("the cart could not be built");\n});\n`;
 
@@ -125,19 +124,21 @@ Then("the commit {string} does not hold {string}", function (this: OidWorld, mes
 });
 
 function attemptQuestions(world: OidWorld) {
-  return terminalOf(world).choices.filter((choice) => choice.actions.includes("rewrite"));
+  return terminalOf(world).choices.filter((choice) => choice.prompt.includes(" attempts of "));
 }
 
-Then("the human was asked once what to do with {string}, after {int} attempts of {string}, with the actions {string}, {string}, {string}, {string} and {string}", function (this: OidWorld, scenario: string, attempts: number, state: string, a1: string, a2: string, a3: string, a4: string, a5: string) {
-  const actions = [a1, a2, a3, a4, a5];
-  const asked = attemptQuestions(this).filter((question) => question.prompt.includes(scenario));
+Then(/^the human was asked once what to do with "([^"]+)", after (\d+) attempts of "([A-Z_]+)", with the actions (".+")$/, function (this: OidWorld, scenario: string, attempts: string, state: string, listed: string) {
+  const actions = [...listed.matchAll(/"([a-z_]+)"/g)].map(([, action]) => action);
+  const asked = attemptQuestions(this).filter((question) => question.prompt.includes(scenario) && question.prompt.includes(`${attempts} attempts of ${state}`));
   assert.equal(asked.length, 1, JSON.stringify(attemptQuestions(this)));
-  assert.ok(asked[0]!.prompt.includes(scenario), asked[0]!.prompt);
-  assert.ok(asked[0]!.prompt.includes(`${attempts} attempts of ${state}`), asked[0]!.prompt);
   assert.deepEqual(asked[0]!.actions, actions);
-  assert.deepEqual(actions, ACTIONS_AFTER_ATTEMPTS);
 });
 
 Then("the question about the attempts mentions {string}", function (this: OidWorld, text: string) {
   assert.ok(attemptQuestions(this)[0]?.prompt.includes(text), JSON.stringify(attemptQuestions(this)));
+});
+
+Then("the question about the attempts of {string} mentions {string}", function (this: OidWorld, state: string, text: string) {
+  const asked = attemptQuestions(this).find((question) => question.prompt.includes(` attempts of ${state}`));
+  assert.ok(asked?.prompt.includes(text), JSON.stringify(attemptQuestions(this)));
 });

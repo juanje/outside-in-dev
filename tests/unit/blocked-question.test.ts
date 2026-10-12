@@ -19,7 +19,7 @@ describe("the question about an agent that is blocked", () => {
       result: 3,
       id: "agent-blocked",
       prompt: `CODE_GREEN: ${BLOCKED.problem}`,
-      actions: ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"],
+      actions: ["retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr", "abort"],
     });
   });
 

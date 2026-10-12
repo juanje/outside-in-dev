@@ -3368,6 +3368,18 @@
         {
           "name": "Skipping the feature after a blocked fix agent discards its changes and puts it back to pending",
           "bdd": "pass"
+        },
+        {
+          "name": "After code exists, the human has the steps rewritten with a note, and the run goes on once they pass with the code and fail without it",
+          "bdd": "pass"
+        },
+        {
+          "name": "Steps that also pass without the code of the scenario are rejected, and the retries of BDD Red run out",
+          "bdd": "pass"
+        },
+        {
+          "name": "Before any code, rewriting the steps restarts the scenario: its unit tests are gone and TDD Red follows once the steps fail validly",
+          "bdd": "pass"
         }
       ]
     },

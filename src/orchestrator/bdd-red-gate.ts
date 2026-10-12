@@ -9,7 +9,7 @@ import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceabil
 import { type ProjectConfig, loadProjectConfig } from "../artifacts/project-config.js";
 import { FAILURE, failureDetail, OUTCOME } from "../artifacts/red-classification.js";
 import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
-import { classifyObservation, type Observation, observeBddRun } from "../commands/verify.js";
+import { type BddRun, classifyObservation, type Observation, observeBddRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { join } from "node:path";
 
@@ -45,15 +45,27 @@ export function redGate(worktree: string, config: ProjectConfig, observation: Ob
   return { kind: OUTCOME.decision, reason: verdict.reason, message, ...(detail === "" ? {} : { detail }), ...(step === undefined ? {} : { step }) };
 }
 
-/** Judges the steps an agent wrote for the current scenario: the cheap gates first, then one run of the scenario, classified with the Red Gate that `oid verify red` uses. */
-export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners = REAL_RUNNERS): RedGate {
+/** The kind of a result that ran the scenario. */
+const RAN = "ran";
+
+/** What the cheap gates and a run of the scenario with the scenarios that passed came to: a problem, or the configuration, the run and a way to make the same run again. */
+export type ScenarioRuns = { kind: typeof PROBLEM; problem: string } | { kind: typeof RAN; config: ProjectConfig; first: BddRun; again: () => BddRun };
+
+/** The cheap gates first, then one run of the scenario together with the scenarios that passed: a scenario that passed and no longer does is a problem. */
+export function runScenarioChecked(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners): ScenarioRuns {
   const config = loadProjectConfig(worktree);
   const progress = loadProgress(worktree, config.paths.progress);
   const early = problemsBeforeRun(worktree, config, progress, featureHashes);
   if (early.length > 0) return { kind: PROBLEM, problem: early.join(NEWLINE) };
   const passing = locatePassingScenarios(progress, listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features))).found;
-  const run = runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
-  const broken = run.report === undefined ? [] : bddProblems(run.report, passing);
-  if (broken.length > 0) return { kind: PROBLEM, problem: ["scenarios that passed no longer pass:", ...broken].join(NEWLINE) };
-  return redGate(worktree, config, observeBddRun(worktree, config, scenario, run));
+  const again = () => runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
+  const first = again();
+  const broken = first.report === undefined ? [] : bddProblems(first.report, passing);
+  return broken.length > 0 ? { kind: PROBLEM, problem: ["scenarios that passed no longer pass:", ...broken].join(NEWLINE) } : { kind: RAN, config, first, again };
+}
+
+/** Judges the steps an agent wrote for the current scenario: the cheap gates first, then one run of the scenario, classified with the Red Gate that `oid verify red` uses. */
+export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners = REAL_RUNNERS): RedGate {
+  const runs = runScenarioChecked(worktree, scenario, featureHashes, runners);
+  return runs.kind === PROBLEM ? runs : redGate(worktree, runs.config, observeBddRun(worktree, runs.config, scenario, runs.first));
 }

@@ -61,7 +61,7 @@ Feature: Retries and escalation
     Given the project allows 1 retry for each state
     And the test-writing agent writes no unit test in any attempt
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
-    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the question about the attempts mentions "the report names no unit test"
     And the event log of the run records a transition from "TDD_RED" to "ABORTED"
     And the process exits with code 2
@@ -73,7 +73,7 @@ Feature: Retries and escalation
     And the test-writing agent writes no unit test in its first two attempts, then writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent writes the cart code that passes the unit test and the scenario
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "retry" and "abort", and gives the note "write the test for countLines of src/lines.ts"
-    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 3, the model "fake/strong" and the thinking level "high"
     And the third task of the test-writing agent includes "attempt 3" and "write the test for countLines of src/lines.ts"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
@@ -100,7 +100,7 @@ Feature: Retries and escalation
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
     Then the event log of the run records an "attempt_rejected" of "TDD_RED" with the attempt 2 and the reason mentioning "the report names no unit test"
     And the output contains "[TDD_RED] attempt 2 rejected: FR-CART-02"
-    And the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    And the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
 
   Scenario: A retry is told that it starts again from the last checkpoint
     Given the project allows 2 retries for each state

@@ -9,7 +9,7 @@ import { dir, useTempDir } from "./temp-project.js";
 useTempDir();
 
 const EXHAUSTED = { state: "TDD_RED", label: 'FR-A-01 "Pay"', attempts: 3, rejected: "the report names no unit test" };
-const FIVE_ACTIONS = ["retry", "rewrite", "skip_scenario", "skip_fr", "abort"];
+const FIVE_ACTIONS = ["retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr", "abort"];
 
 const bus = (printed: string[] = []) => createEventBus({ cwd: dir, runId: "run-1", write: (text) => void printed.push(text), now: () => 1 });
 
@@ -54,11 +54,26 @@ describe("the question after the retries ran out", () => {
     expect(printed[0]).toContain('"rewrite" is not an answer');
   });
 
+  it("asks what the next step writer should know when the person has the steps written again, and offers that only where a scenario and code may exist", async () => {
+    const lines: string[] = [];
+    const input = { isTTY: true as const, choose: async () => "rewrite_steps", line: async (prompt: string) => (lines.push(prompt), "n") };
+    await askAfterAttempts(bus(), input, EXHAUSTED).catch(() => undefined);
+    const offered: Record<string, boolean> = {};
+    for (const state of ["BDD_RED", "FEATURE_WRITE", "QUALITY_FIX", "TDD_RED", "CODE_GREEN", "REFACTOR", "BDD_CHECK"]) {
+      await askAfterAttempts(bus(), { ...input, choose: async (_prompt: string, actions: string[]) => (offered[state] = actions.includes("rewrite_steps"), "abort") }, { ...EXHAUSTED, state });
+    }
+    expect({ lines, offered }).toEqual({
+      lines: ["What should the next step writer know?"],
+      offered: { BDD_RED: false, FEATURE_WRITE: false, QUALITY_FIX: false, TDD_RED: true, CODE_GREEN: true, REFACTOR: true, BDD_CHECK: true },
+    });
+  });
+
   it("throws the redirect the person chose, with the last reason and, for a rewrite, the note the person gives", async () => {
     const redirected = (answer: string) => askAfterAttempts(bus(), { isTTY: true, choose: async () => answer, line: async () => "a note" }, EXHAUSTED).catch((error: unknown) => error);
     const rewrite = await redirected("rewrite");
     expect(rewrite).toBeInstanceOf(Redirect);
     expect(rewrite).toMatchObject({ action: "rewrite", note: "a note", reason: "the report names no unit test" });
+    expect(await redirected("rewrite_steps")).toMatchObject({ action: "rewrite_steps", note: "a note", reason: "the report names no unit test" });
     expect(await redirected("skip_scenario")).toMatchObject({ action: "skip_scenario", note: "", reason: "the report names no unit test" });
     expect(await redirected("skip_fr")).toMatchObject({ action: "skip_fr", note: "", reason: "the report names no unit test" });
     const printed: string[] = [];

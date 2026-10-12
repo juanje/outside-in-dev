@@ -51,7 +51,7 @@ export async function runBddCheck(started: Started, services: FeatureServices, s
   const { cwd, bus, workspace } = started;
   const check = bddCheck(workspace.path, scenario.current, undefined, runnersOf(services));
   if (check.kind === PROBLEM) return fail(started, `${scenario.label}: ${check.problem}`);
-  updateSession(cwd, { state: STATE.bddCheck });
+  updateSession(cwd, { state: STATE.bddCheck, ...(check.kind === SCENARIO.red ? { scenarioFailure: check.message } : {}) });
   const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;
   transition(bus, origin.from, STATE.bddCheck, origin.note === "" ? verdict : `${origin.note}; ${verdict}`);
   if (check.kind === SCENARIO.pass) return scenarioPasses(started, scenario);

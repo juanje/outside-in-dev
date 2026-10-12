@@ -344,10 +344,10 @@ Then("the event log of the run records a transition from {string} to {string} wh
   assert.ok(transitions(this).some((event) => event.from === from && event.to === to && event.reason?.includes(text)), JSON.stringify(transitions(this)));
 });
 
-Then("the human was asked once what to do with {string}, after {int} iterations, with the actions {string}, {string}, {string}, {string} and {string}", function (this: OidWorld, scenario: string, iterations: number, first: string, second: string, third: string, fourth: string, fifth: string) {
-  const asked = terminalOf(this).choices.filter((choice) => choice.actions.includes("rewrite"));
+Then(/^the human was asked once what to do with "([^"]+)", after (\d+) iterations, with the actions (".+")$/, function (this: OidWorld, scenario: string, iterations: string, listed: string) {
+  const asked = terminalOf(this).choices.filter((choice) => choice.prompt.includes(" iterations of the inner loop"));
   assert.equal(asked.length, 1);
   assert.ok(asked[0]!.prompt.includes(scenario), asked[0]!.prompt);
   assert.ok(asked[0]!.prompt.includes(`${iterations} iterations`), asked[0]!.prompt);
-  assert.deepEqual(asked[0]!.actions, [first, second, third, fourth, fifth]);
+  assert.deepEqual(asked[0]!.actions, [...listed.matchAll(/"([a-z_]+)"/g)].map(([, action]) => action));
 });

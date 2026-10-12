@@ -13,7 +13,7 @@ Feature: Skip a scenario or a feature when retries run out or an agent is blocke
     Given the project limits the inner loop to 2 iterations for each scenario
     And the agents write two unit tests and two pieces of cart code, and the scenario still fails after both
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "skip_scenario"
-    Then the human was asked once what to do with "Add a line", after 2 iterations, with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 iterations, with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "BDD_CHECK" to "BDD_RED" whose reason mentions "Add a line", "@wip" and "still red after 2 iterations"
     And in the feature file "features/FR-CART-02.feature" of the worktree the scenario "Add a line" is tagged "@wip" and the scenario "Remove a line" is not
     And the ref "refs/oid/wip/" of the run for "FR-CART-02" holds the commit "wip(cart): FR-CART-02 Add a line" with the unit test and the cart code
@@ -30,7 +30,7 @@ Feature: Skip a scenario or a feature when retries run out or an agent is blocke
     And the step-writing agent's steps for "Remove a line" fail because the cart code does not exist yet
     And the detectors find nothing
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "skip_scenario"
-    Then the human was asked once what to do with "Remove a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Remove a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "TDD_RED" to "QUALITY_GATE" whose reason mentions "Remove a line", "@wip" and "the report names no unit test"
     And the event log of the run records a transition from "QUALITY_GATE" to "FR_COMMIT"
     And the run's branch holds no commit named "feat(cart): FR-CART-02 Feature FR-CART-02"
@@ -46,7 +46,7 @@ Feature: Skip a scenario or a feature when retries run out or an agent is blocke
     And the project allows 1 retry for each state
     And the test-writing agent writes no unit test in any attempt
     When I run "oid run --fr FR-CART-02 FR-CART-03" with a terminal where the human answers "approve", "skip_fr" and "abort"
-    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "skip_scenario", "skip_fr" and "abort"
+    Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "TDD_RED" to "BDD_RED" whose reason mentions "FR-CART-02", "skipped", "the report names no unit test" and "FR-CART-03"
     And in the progress file of the worktree "FR-CART-02" is pending, with no cycle step and no scenarios
     And the worktree has no "features/FR-CART-02.feature" and has "features/FR-CART-03.feature"
