@@ -28,7 +28,10 @@
       "DECISIONS.md",
       "docs/design.md"
     ],
-    "progress": "progress.json"
+    "progress": "progress.json",
+    "conventions": [
+      "docs/CONVENTIONS.md"
+    ]
   },
   "commands": {
     "bdd": "npm run build && NODE_OPTIONS=\"--import tsx\" npx cucumber-js",
