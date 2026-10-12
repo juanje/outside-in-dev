@@ -15,4 +15,14 @@ describe("the instructions of the agent that fixes the findings of a Green", () 
     expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
+
+  it("say that a finding is fixed at its cause and not hidden, and what to do when no honest fix exists", () => {
+    const instructions = refactorPrompt("FR-A-02");
+    expect(instructions).toContain("The findings point at code that is harder to read and change: the goal is clearer code, not a quieter detector.");
+    expect(instructions).toContain("a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps");
+    expect(instructions).toContain("a constant imported from an unrelated module ties modules together for no reason");
+    expect(instructions).toContain("the attempt is rolled back and the work is redone, which costs more than the plain fix");
+    expect(instructions).toContain("Code that serves the project's own checks, such as the patterns a checker forbids or the way test reports are read, is not where a finding in other code is fixed: changing it to make a test or a check pass changes the rules, not the code.");
+    expect(instructions).toContain("If no honest fix exists, call the report tool with status blocked, reason other and the detail, instead of forcing one.");
+  });
 });
