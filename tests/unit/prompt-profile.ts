@@ -1,3 +1,4 @@
+import { expect } from "vitest";
 import { type CycleState, type Profile, profileFor } from "../../src/agents/profiles.js";
 import { parseProjectConfig } from "../../src/artifacts/project-config.js";
 
@@ -21,6 +22,16 @@ const config = parseProjectConfig({
   },
   commands: { bdd: "run-bdd", unit: "run-unit", typecheck: "run-types", format: null, lint: null, coverage: null, extra_checks: [] },
 });
+
+/** Asserts that rule 4 of the prompt a step builds from its real profile says what the profile grants (the globs it may write and read, the conventions file among them, and that a refused path is refused at once) and also the given sentences, which are the reason for the limit. */
+export function expectAccessRule(state: CycleState, promptOf: (profile: Profile) => string, reason: string[]): void {
+  const profile = profileOf(state);
+  const rule = promptOf(profile)
+    .split("\n")
+    .find((line) => line.startsWith("4. "));
+  const grant = [`You may write: ${profile.write.join(", ")}.`, `You may read: ${profile.read.join(", ")}.`, CONVENTIONS_FILE, "A path you may not read is refused at once; do not search for it."];
+  for (const sentence of [...reason, ...grant]) expect(rule).toContain(sentence);
+}
 
 /** The real profile of a step in a project that lists a conventions file, which the prompt of the step is built from. */
 export function profileOf(state: CycleState): Profile {

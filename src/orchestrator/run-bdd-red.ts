@@ -1,5 +1,5 @@
 import { bddRedContext } from "../agents/context/task-context.js";
-import { BDD_RED } from "../agents/profiles.js";
+import { BDD_RED, profileFor } from "../agents/profiles.js";
 import { bddRedPrompt } from "../agents/prompts/bdd-red.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
@@ -97,7 +97,8 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   const label = `${fr} "${current.name}"`;
   updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, ...(rewrite === undefined ? { innerIteration: 1, scenarioStart: headCommit(workspace.path) } : {}) });
   const context = `${bddRedContext(workspace.path, current)}${rewrite === undefined ? "" : `${NEWLINE}${NEWLINE}${rewriteContext(rewrite)}`}`;
-  const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`)}${NEWLINE}${NEWLINE}${context}`;
+  const profile = profileFor(BDD_RED, loadProjectConfig(workspace.path));
+  const prompt = `${bddRedPrompt(fr!, `${current.file}:${current.line}`, profile)}${NEWLINE}${NEWLINE}${context}`;
   const gate = await attemptsOf(started, services, {
     state: BDD_RED,
     role: "bdd-agent",
