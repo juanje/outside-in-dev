@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { expectFixAtItsCause } from "./fix-at-cause-sentences.js";
+import { expectNoLongParagraph, expectSharedTrait } from "./fix-at-cause-sentences.js";
 import { qualityFixPrompt } from "../../src/agents/prompts/quality-fix.js";
 
 describe("the instructions of the agent that fixes the errors of the quality gate", () => {
   it("say that an error is fixed at its cause and not hidden, and what to do when no honest fix exists", () => {
     const instructions = qualityFixPrompt("FR-A-02", "unit tests");
-    expect(instructions).toContain("The errors point at code that is harder to read and change: the goal is clearer, correct code, not a quieter checker.");
-    expect(instructions).toContain("the attempt is rejected and the work is redone, which costs more than the plain fix");
-    expect(instructions).toContain("is not where an error in other code is fixed");
-    expectFixAtItsCause(instructions);
+    expect(instructions).toContain("2. Change the code so that every listed error is gone, and change nothing else. Do not change what the code does. Fix each error at its cause: a repeated value becomes a named constant where it belongs, or the repetition is removed; a long function is split along its steps. A constant imported from an unrelated module, or one whose name only repeats its value, hides the error instead of fixing it; if the only fix would touch code that has nothing to do with the error, report blocked.");
+  });
+
+  it("hold the shared fix-at-cause trait once and no longer the long paragraph", () => {
+    const instructions = qualityFixPrompt("FR-A-02", "unit tests");
+    expectSharedTrait(instructions);
+    expectNoLongParagraph(instructions);
   });
 
   it("say who it is and what oid is, name the requirement and the files it owns, give the reason to change nothing else, name the check and end with the report", () => {
