@@ -40,6 +40,16 @@ function isName(node: ts.Node): boolean {
   return ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || (ts.isPropertyAssignment(parent) && parent.name === node);
 }
 
+const EQUALITY_OPERATORS = new Set([ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken]);
+
+/** Whether the string is one side of an equality comparison whose other side is a `typeof` expression: it names a type, not a magic value. */
+function isTypeofComparison(node: ts.Node): boolean {
+  const { parent } = node;
+  if (!ts.isBinaryExpression(parent) || !EQUALITY_OPERATORS.has(parent.operatorToken.kind)) return false;
+  const other = parent.left === node ? parent.right : parent.left;
+  return ts.isTypeOfExpression(other);
+}
+
 /** The numeric literals of a source text that are not in `ignored`. */
 export function findMagicNumbers(text: string, ignored: number[]): MagicValue[] {
   const file = ts.createSourceFile("source.ts", text, ts.ScriptTarget.Latest, true);
@@ -71,7 +81,7 @@ function stringsOf(text: string): (LineRange & { value: string })[] {
   const found: (LineRange & { value: string })[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isLiteralTypeNode(node)) return;
-    if (ts.isStringLiteral(node) && node.text !== "" && !ENCODING_NAMES.has(node.text) && !isName(node) && !isNamedConstant(node)) found.push({ value: node.text, ...linesOf(file, node) });
+    if (ts.isStringLiteral(node) && node.text !== "" && !ENCODING_NAMES.has(node.text) && !isName(node) && !isNamedConstant(node) && !isTypeofComparison(node)) found.push({ value: node.text, ...linesOf(file, node) });
     ts.forEachChild(node, visit);
   };
   visit(file);

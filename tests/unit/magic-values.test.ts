@@ -39,6 +39,18 @@ describe("findMagicNumbers", () => {
 });
 
 describe("findRepeatedStrings", () => {
+  it("leaves out a string compared with the result of typeof, on either side and with any equality operator, but not other repeated strings", () => {
+    const text = [
+      'export const a = (v: unknown) => typeof v === "string" || "string" == typeof v;',
+      'export const b = (v: unknown) => typeof v !== "string" && "string" != typeof v && (v ? "tag" : "string");',
+      'export const c = ["tag", "tag"];',
+      "",
+    ].join("\n");
+    expect(findRepeatedStrings([{ file: "src/a.ts", text }], 3)).toEqual([
+      expect.objectContaining({ file: "src/a.ts", range: { start: 2, end: 2 }, detail: 'string "tag" repeated 3 times' }),
+    ]);
+  });
+
   it("reports a string that repeats enough times once, at its first occurrence, with the other occurrences", () => {
     const files = [
       { file: "src/b.ts", text: 'export const isIdle = (s: string) => s !== "pending";\nexport const isOpen = (s: string) => s === "pending";\n' },

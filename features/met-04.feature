@@ -178,3 +178,22 @@ Feature: Detect magic values
     When I run "oid metrics"
     Then the command succeeds
     And the output contains "magic_value src/a.ts:2-2 string \"pending\" repeated 2 times, also src/a.ts:2-2"
+
+  Scenario: A string compared with the result of typeof is not a repeated string
+    Given a project file "src/kinds.ts" containing:
+      """
+      export function isText(value: unknown): boolean {
+        return typeof value === "string" || "string" == typeof value;
+      }
+      export function isOther(value: unknown): boolean {
+        return typeof value !== "string" && "string" != typeof value && typeof value === "string";
+      }
+      export function label(value: unknown): string {
+        return value ? "tag" : "tag" + "tag";
+      }
+      """
+    When I run "oid metrics"
+    Then the command succeeds
+    And the output contains "string \"tag\" repeated 3 times"
+    And the magic_value findings do not mention "string \"string\""
+    And the summary counts magic_value 1

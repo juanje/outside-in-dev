@@ -1212,6 +1212,10 @@
         {
           "name": "The minimum number of string repeats comes from refactor.detectors.magic_value.min_string_repeats",
           "bdd": "pass"
+        },
+        {
+          "name": "A string compared with the result of typeof is not a repeated string",
+          "bdd": "pass"
         }
       ]
     },
