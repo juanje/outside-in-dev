@@ -2385,10 +2385,6 @@
           "bdd": "pass"
         },
         {
-          "name": "An agent that is blocked stops the run",
-          "bdd": "pass"
-        },
-        {
           "name": "A report that does not match the changed files stops the run",
           "bdd": "pass"
         },
@@ -2430,6 +2426,10 @@
         },
         {
           "name": "Without a terminal the review waits for an answer",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent that is blocked asks the human what to do",
           "bdd": "pass"
         }
       ]

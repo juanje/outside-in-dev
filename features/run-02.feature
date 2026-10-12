@@ -78,7 +78,7 @@ Feature: Write and review feature files
     And the run never reaches "BDD_RED"
     And the human was not asked
 
-  Scenario: An agent that is blocked stops the run
+  Scenario: An agent that is blocked asks the human what to do
     Given the feature-writing agent reports that it is blocked with the reason "FR-CART-02 contradicts FR-CART-03"
     When I run "oid run" with a terminal where the human answers "abort"
     Then the human was asked once what to do about the blocked agent of "FR-CART-02" at "FEATURE_WRITE", with the actions "retry", "skip_fr" and "abort"
