@@ -19,6 +19,11 @@ describe("the instructions of the agent that writes one unit test", () => {
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
+  it("tell the writer to assert that what the code must produce exists before checking its content, and why", () => {
+    const instructions = tddRedPrompt("FR-A-02", profileOf("TDD_RED"));
+    expect(instructions).toContain("When the test reads something the code must produce (a file, a record, a message, a call), first assert that it exists, then check its content. A missing behaviour then fails as an assertion, which oid accepts as a valid Red by itself; an error such as a missing file has to be put to the person, and the run waits for their answer.");
+  });
+
   it("state in rule 4 the globs its profile lets it write and read, the conventions files included, with the reason for the writing limit", () => {
     expectAccessRule("TDD_RED", (profile) => tddRedPrompt("FR-A-02", profile), ["Change only unit test files", "the code under test is the next agent's job"]);
   });
