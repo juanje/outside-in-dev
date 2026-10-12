@@ -1,3 +1,4 @@
 node_modules/
 dist/
 .outside-in/
+*.tgz

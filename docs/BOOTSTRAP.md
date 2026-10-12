@@ -98,10 +98,10 @@ Built with Claude Code following `docs/METHODOLOGY.md`. The order matters: each 
 
 ```
 git checkout <tag> && npm ci && npm run build && npm pack
-npm install -g ./outside-in-dev-<version>.tgz
+scripts/install-release.sh ./outside-in-dev-<version>.tgz
 ```
 
-Keep the previous tarball: if a release misbehaves, reinstall it.
+`npm install -g` straight from the tarball would resolve the dependencies again (ADR-052). Keep the previous release directory: if a release misbehaves, reinstall it with `npm install -g <its directory>`.
 
 ### 2.1 Progress — FR-PROG-01 … FR-PROG-07
 

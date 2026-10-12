@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
     "test:bdd": "npm run build && NODE_OPTIONS=\"--import tsx\" cucumber-js",
-    "test": "npm run test:unit && npm run test:bdd"
+    "test": "npm run test:unit && npm run test:bdd",
+    "prepack": "node -e \"require('node:fs').copyFileSync('package-lock.json', 'npm-shrinkwrap.json')\"",
+    "postpack": "node -e \"require('node:fs').rmSync('npm-shrinkwrap.json', { force: true })\""
   },
   "dependencies": {
     "@cucumber/gherkin": "42.0.1",

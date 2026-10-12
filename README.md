@@ -4,11 +4,11 @@
 
 The commands below are what oid can do on its own. [docs/METHODOLOGY.md](docs/METHODOLOGY.md) is how a feature is implemented in this repository. [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md) is the order of the work that is still ahead.
 
-The command to run is an installed build, not this working tree. `npm pack` prints the tarball name:
+The command to run is an installed build, not this working tree. `npm pack` prints the tarball name, and `scripts/install-release.sh` installs it with the exact dependencies it was tested with (ADR-052):
 
 ```
 npm ci && npm run build && npm pack
-npm install -g ./outside-in-dev-*.tgz
+scripts/install-release.sh ./outside-in-dev-*.tgz
 ```
 
 `oid --help` lists the commands. `oid <command> --help` lists one.
