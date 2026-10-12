@@ -56,7 +56,7 @@ describe("the inner loop of a run", () => {
     const project = loopProject();
     const failing = cartAgent();
     failing.codeRoute.rounds.length = 0;
-    failing.codeRoute.providerError = "the provider failed";
+    failing.codeRoute.providerError = "401 the provider rejected the key";
     const { saved } = await approvedRun(project, failing);
     const file = join(saved.worktree, "progress.json");
     const progress = readJson(file);
@@ -73,7 +73,7 @@ describe("the inner loop of a run", () => {
       stderr: stderr.split("\n").filter((line) => line.includes("cannot move")),
       errors: log.filter((event) => event.type === "error").map((event) => event.message).filter((message) => message.includes("FR-A-01")),
       moves: log.filter((event) => event.type === "state_change" && event.from === "CODE_GREEN").map((event) => `${event.from} > ${event.to}`),
-    }).toEqual({ stderr: [], errors: ['FR-A-01 "Behaviour of FR-A-01": the provider failed: the provider failed'], moves: ["CODE_GREEN > BDD_CHECK"] });
+    }).toEqual({ stderr: [], errors: ['FR-A-01 "Behaviour of FR-A-01": the provider failed: 401 the provider rejected the key'], moves: ["CODE_GREEN > BDD_CHECK"] });
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("gives the coder the unit test the test-writing agent reported as the target of its check, and keeps it in the saved session", async () => {

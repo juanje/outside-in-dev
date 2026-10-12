@@ -35,6 +35,14 @@ Feature: Detect provider failures
     Then the attempt succeeds
     And oid opened 2 agent sessions
 
+  Scenario: A dropped connection is retried in a new session and the retry succeeds
+    Given the agent changes "src/cart.ts"
+    And the agent ends by reporting done with the files "src/cart.ts"
+    And the provider fails the first request with the error "WebSocket closed 1000"
+    When oid runs the agent for the step CODE_GREEN
+    Then the attempt succeeds
+    And oid opened 2 agent sessions
+
   Scenario: A provider that keeps failing with a transient error stops and asks after three retries
     Given the provider answers every request with the error "503 Service Unavailable"
     When oid runs the agent for the step CODE_GREEN

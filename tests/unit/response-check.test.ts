@@ -21,6 +21,12 @@ describe("checkResponse", () => {
     }
   });
 
+  it("classifies an error it does not know as transient, since only the known permanent ones are worth stopping for", () => {
+    for (const errorMessage of ["WebSocket closed 1000", "stream ended unexpectedly", ""]) {
+      expect(checkResponse([assistantEnd({ stopReason: "error", errorMessage })]), errorMessage).toMatchObject({ kind: "error", transient: true });
+    }
+  });
+
   it("classifies quota, billing, authentication and unknown model errors as not transient, even behind a 429", () => {
     const messages = [
       "429 You exceeded your current quota, please check your plan and billing details",

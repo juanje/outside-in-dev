@@ -2144,6 +2144,10 @@
         {
           "name": "A provider error is never success, even when the agent had reported done",
           "bdd": "pass"
+        },
+        {
+          "name": "A dropped connection is retried in a new session and the retry succeeds",
+          "bdd": "pass"
         }
       ]
     },
