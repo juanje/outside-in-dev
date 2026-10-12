@@ -733,7 +733,7 @@ Built with deterministic code (AST, tags, IDs). Each package has a size cap; if 
 
 | Task | Receives | Does not receive |
 |:--|:--|:--|
-| `FEATURE_WRITE` | Full FR, NFRs, excerpt of `DOMAIN.md`, the project's existing `.feature` files (style), the human's comment if it is a rejection | code, tests |
+| `FEATURE_WRITE` | Full FR, NFRs, excerpt of `DOMAIN.md`, the paths of the design notes, the existing `.feature` files closest to the requirement (style; chosen by the terms they share with the FR and its design passages), the step catalogue (patterns of the existing steps), the list of all feature files, the human's comment if it is a rejection | code, tests |
 | `BDD_RED` | current scenario, existing (reusable) steps, public signatures | bodies of `src/`, unit tests |
 | `TDD_RED` | scenario, normalised BDD failure, names/signatures of unit tests, public signatures | bodies of `src/`, other FRs |
 | `CODE_GREEN` | the red test(s) in full, normalised failure, `src/` files the test imports (transitive, capped), **reuse catalogue**, NFRs, relevant ADRs | other scenarios, earlier attempts, raw output |
@@ -742,6 +742,8 @@ Built with deterministic code (AST, tags, IDs). Each package has a size cap; if 
 | `QUALITY_FIX` | list of errors, affected files | everything else |
 
 **Reuse catalogue.** It compensates for the side effect of context isolation: the agent sees little code, so it does not know what already exists. The catalogue lists every exported symbol of the project (functions, classes, constants and types) with its signature and the first line of its JSDoc, grouped by module, without bodies. It is extracted with the TypeScript compiler API and costs few tokens. In large projects it is trimmed by priority: the same directory as the test's files, the shared modules (`shared/`, `utils/`, `lib/` or those given in `paths.shared`), and then the rest. The coder-agent's prompt includes the procedural instruction to search the catalogue before writing a new function or constant.
+
+**Project conventions.** The files in `paths.conventions` (none by default) are given, under "Project conventions", to `FEATURE_WRITE`, `BDD_RED`, `TDD_RED`, `CODE_GREEN`, `REFACTOR` and `QUALITY_FIX`, within their own budget (§11). They are the project's own rules and take precedence over the generic guidance of the prompts where the two differ (ADR-051).
 
 Human notes (free text from a `WAITING_INPUT`) are added to the next affected task.
 
@@ -991,6 +993,8 @@ interface InputRequest {
 | `sandbox_denials_abort` | per session | 5 |
 | `cost_limit_usd` | per run | no limit |
 | `cost_limit_fr_usd` | per FR (each FR starts at 0) | no limit |
+| conventions text (not configurable) | per task, over all the `paths.conventions` files; past it the rest is left out and the prompt names the file to read (ADR-051) | 8,000 characters |
+| step catalogue (not configurable) | per `FEATURE_WRITE` task; the patterns closest to the requirement and the example features come first | 8,000 characters |
 
 Cost is computed by adding up, on every `message_end` event of an assistant message, `usage.cost.total` and `usage.totalTokens`, which is how Buddy's `usage-tracker.ts` does it *(Buddy)*. The cost of Jev calls is added to that. The budget is checked **before every billable call**, not only when the run starts: Buddy added that check after a consolidation cascade already in progress went over the limit (FR-COST-05).
 
