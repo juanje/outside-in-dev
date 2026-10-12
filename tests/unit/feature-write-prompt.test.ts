@@ -17,6 +17,23 @@ describe("the instructions of the agent that writes the feature files", () => {
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
+  it("says plainly that the exit code, the last line and the final state are where the process ends, and asks for the observable fact that proves the behaviour", () => {
+    const rule = featureWritePrompt("FR-A-02").split("\n").find((line) => /^4\. /.test(line))!;
+    expect(rule).toContain("Check milestones, not where the whole process ends");
+    expect(rule).toMatch(/exit code, the last line of the output and the final state/);
+    expect(rule).toMatch(/a recorded event or transition, a file, a saved value or a received message/);
+  });
+
+  it("shows a good and a bad scenario in a neutral domain, with the cost of the bad one, and says what the project examples are for", () => {
+    const instructions = featureWritePrompt("FR-A-02");
+    expect(instructions).toContain("Example in a neutral domain (a library loan), only to show the shape; do not copy it:");
+    expect(instructions).toContain('Good:\n  Scenario: A loan is recorded when a member borrows a book\n    Given a member with no loans\n    When the member borrows "Dune"\n    Then the loans of the member list "Dune"\n    And a "loan_created" event is recorded');
+    expect(instructions).toContain('Bad:\n  Scenario: Borrowing works\n    Given the system is set up\n    When the system handles the loan\n    Then the command exits with code 0\n    And the last line says "done"');
+    expect(instructions).toContain("Why the bad one costs you: its steps cannot be turned into a test, and it checks where the process ends, so it breaks when a later requirement makes the process go further.");
+    expect(instructions).toContain("The example feature files and the step definitions below show the vocabulary and the setup of the project to reuse; your scenarios describe your requirement, not theirs.");
+    expect(instructions).not.toMatch(/outside-in|vitest|cucumber|tsc/i);
+  });
+
   it("tells the writer to prefer the step definitions that exist, with the reason in terms of the work saved, and to write a new step only for what none of them says", () => {
     const instructions = featureWritePrompt("FR-A-02");
     expect(instructions).toContain("Prefer the step definitions that exist, listed below");
