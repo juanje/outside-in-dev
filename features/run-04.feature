@@ -142,7 +142,7 @@ Feature: TDD inner loop
     And the event log of the run records 2 transitions from "CODE_GREEN" to "BDD_CHECK"
     And the event log of the run records no error
 
-  Scenario: A scenario that is still red after the last iteration stops the run to ask what to do
+  Scenario: A scenario that is still red after the last iteration asks the human what to do
     Given the project limits the inner loop to 2 iterations for each scenario
     And the agents write two unit tests and two pieces of cart code, and the scenario still fails after both
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
@@ -159,7 +159,7 @@ Feature: TDD inner loop
     And the saved session records the unit test "tests/unit/cart-lines.test.ts > cart lines > adds a line" for the scenario "Add a line"
     And the saved session records the unit test "tests/unit/cart-lines.test.ts > cart lines > removes a line" for the scenario "Remove a line"
 
-  Scenario Outline: An agent that is blocked or whose provider fails stops the run
+  Scenario Outline: An agent whose provider fails stops the run
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the <agent> agent <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"

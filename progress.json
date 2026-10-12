@@ -2551,15 +2551,7 @@
           "bdd": "pass"
         },
         {
-          "name": "A scenario that is still red after the last iteration stops the run to ask what to do",
-          "bdd": "pass"
-        },
-        {
           "name": "When every scenario of the requirement passes, each has its checkpoint and the progress file records them",
-          "bdd": "pass"
-        },
-        {
-          "name": "An agent that is blocked or whose provider fails stops the run",
           "bdd": "pass"
         },
         {
@@ -2568,6 +2560,14 @@
         },
         {
           "name": "A unit test that passes at once tells the next attempt to test a behaviour the code lacks",
+          "bdd": "pass"
+        },
+        {
+          "name": "A scenario that is still red after the last iteration asks the human what to do",
+          "bdd": "pass"
+        },
+        {
+          "name": "An agent whose provider fails stops the run",
           "bdd": "pass"
         }
       ]
