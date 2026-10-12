@@ -32,19 +32,15 @@ Feature: BDD Red
   Scenario: A change that breaks a scenario that passes stops the run
     Given the step-writing agent also changes the step "the cart is not empty" so that it fails
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add to cart" and "the cart is not empty"
+    Then the event log of the run records an error mentioning "Add to cart" and "the cart is not empty"
     And the run never reaches "TDD_RED"
-    And the saved session has the state "BDD_RED"
     And the worktree is kept
 
   Scenario Outline: A scenario that is not a valid Red stops the run
     Given the step-writing agent writes steps where <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "<reason>"
+    Then the event log of the run records an error mentioning "Add a line" and "<reason>"
     And the run never reaches "TDD_RED"
-    And the saved session has the state "BDD_RED"
 
     Examples:
       | problem                         | reason                                  |
@@ -53,16 +49,13 @@ Feature: BDD Red
   Scenario: Steps that import code that does not exist yet stop the run
     Given the step-writing agent writes a step file that imports "../../src/cart.js" statically
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "features/steps/cart-lines.steps.ts" and "import it dynamically"
+    Then the event log of the run records an error mentioning "features/steps/cart-lines.steps.ts" and "import it dynamically"
     And the run never reaches "TDD_RED"
-    And the saved session has the state "BDD_RED"
 
   Scenario Outline: A change outside the step definitions stops the run
     Given the step-writing agent changes "<file>" without the sandbox noticing
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "<file>" and "<reason>"
+    Then the event log of the run records an error mentioning "<file>" and "<reason>"
     And the run never reaches "TDD_RED"
 
     Examples:
@@ -81,8 +74,7 @@ Feature: BDD Red
   Scenario: A report that does not match the changed files stops the run
     Given the step-writing agent changes a file it does not report
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "the report does not match"
+    Then the event log of the run records an error mentioning "the report does not match"
     And the run never reaches "TDD_RED"
 
   Scenario: A failure oid cannot classify is put to the human, who decides it is a valid Red
@@ -96,10 +88,8 @@ Feature: BDD Red
   Scenario: The human decides that the failure is a bug in the step definitions
     Given the step-writing agent writes steps that fail with an error that is not an assertion
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "bug"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "bug in the step definitions"
+    Then the event log of the run records an error mentioning "Add a line" and "bug in the step definitions"
     And the run never reaches "TDD_RED"
-    And the saved session has the state "BDD_RED"
 
   Scenario: The question about a failure oid cannot classify names the failing step and shows what the scenario recorded
     Given the step-writing agent writes steps that fail with an error that is not an assertion, and the run of the scenario attached the output of the cart

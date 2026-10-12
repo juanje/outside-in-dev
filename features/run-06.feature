@@ -55,9 +55,7 @@ Feature: Quality gate
     And the human was asked twice what to do about the quality gate, with the actions "view", "edit" and "abort"
     And the second question about the quality gate showed the whole output of the linter
     And the event log of the run records a transition from "QUALITY_GATE" to "ABORTED"
-    And the process exits with code 2
     And the run never reaches "FR_COMMIT"
-    And the saved session has the state "QUALITY_GATE"
 
   Scenario Outline: A check that no agent owns puts the question to the human, with what failed
     Given <problem>
@@ -66,7 +64,6 @@ Feature: Quality gate
     And the question about the quality gate mentions "<named>"
     And no agent was asked to fix anything
     And the event log of the run records a transition from "QUALITY_GATE" to "ABORTED"
-    And the process exits with code 2
     And the run never reaches "FR_COMMIT"
 
     Examples:

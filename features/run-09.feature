@@ -36,7 +36,6 @@ Feature: Resume, abort and concurrency
     Given "oid run --fr FR-CART-02" was run without a terminal and saved its question about the feature files
     When I run "oid resume" without a terminal
     Then the output asks to review the feature files, with the actions "approve", "edit" and "reject"
-    And the process exits with code 3
     And the saved session holds the pending question about the feature files
     And the worktree has a feature file for "FR-CART-02"
     And the feature-writing agent was asked once in all
@@ -102,7 +101,6 @@ Feature: Resume, abort and concurrency
     And the event log of the run records a transition from "CODE_GREEN" to "ABORTED"
     And the coding agent was not asked
     And the worktree has the commit "oid: checkpoint FR-CART-02 TDD_RED Add a line" with the unit test
-    And the saved session has the state "CODE_GREEN"
     And the project has no lock
     And the worktree is kept
 

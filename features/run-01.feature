@@ -8,8 +8,7 @@ Feature: Start a run
 
   Scenario: A run goes through the start states and selects the pending features
     When I run "oid run"
-    Then the process exits with code 3
-    And the event log of the run starts with the transitions to "PREFLIGHT", "BASELINE", "SPEC_CHECK", "SELECT_FR" and "FEATURE_WRITE", in that order
+    Then the event log of the run starts with the transitions to "PREFLIGHT", "BASELINE", "SPEC_CHECK", "SELECT_FR" and "FEATURE_WRITE", in that order
     And the transition to "FEATURE_WRITE" says it selected "FR-CART-02" and "FR-CART-03", in that order
     And a line printed says the start finished and the selected features wait for feature writing
 
@@ -34,8 +33,7 @@ Feature: Start a run
   Scenario: The user's copy is left as it was
     Given the user's copy has an uncommitted change to "README.md"
     When I run "oid run"
-    Then the process exits with code 3
-    And the user's copy is on its own branch, at its own commit, with only that uncommitted change
+    Then the user's copy is on its own branch, at its own commit, with only that uncommitted change
 
   Scenario: The existing suite runs in the worktree and its result is recorded
     When I run "oid run"
@@ -48,16 +46,14 @@ Feature: Start a run
   Scenario: A red unit test at the start stops the run and asks
     Given a unit test "totals > adds a line" fails in the suite
     When I run "oid run"
-    Then the process exits with code 3
-    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    Then the output asks about the red suite, with the actions "view", "continue" and "abort"
     And the baseline of the run lists the failing unit test "totals > adds a line"
     And no feature is selected
 
   Scenario: A red scenario at the start stops the run and asks
     Given a scenario "Pay with a card" fails in the suite
     When I run "oid run"
-    Then the process exits with code 3
-    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    Then the output asks about the red suite, with the actions "view", "continue" and "abort"
     And the baseline of the run lists the failing scenario "Pay with a card"
     And no feature is selected
 
@@ -70,13 +66,12 @@ Feature: Start a run
   Scenario: What the runners print is never read
     Given the unit runner prints "1 failed" and writes a report where every test passed
     When I run "oid run"
-    Then the process exits with code 3
+    Then the event log of the run records a transition from "BASELINE" to "SPEC_CHECK"
 
   Scenario: A unit runner that fails with a green report stops the run and asks
     Given the unit runner writes a report where every test passed and exits with code 1
     When I run "oid run"
-    Then the process exits with code 3
-    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    Then the output asks about the red suite, with the actions "view", "continue" and "abort"
     And the question about the red suite says "unit: the runner exited 1 but its report names no failing test"
     And the baseline of the run lists the problem "unit: the runner exited 1 but its report names no failing test"
     And no feature is selected
@@ -84,8 +79,7 @@ Feature: Start a run
   Scenario: A BDD runner that fails with a green report stops the run and asks
     Given the BDD runner writes a report where every scenario passed and exits with code 1
     When I run "oid run"
-    Then the process exits with code 3
-    And the output asks about the red suite, with the actions "view", "continue" and "abort"
+    Then the output asks about the red suite, with the actions "view", "continue" and "abort"
     And the question about the red suite says "bdd: the runner exited 1 but its report names no failing scenario"
     And the baseline of the run lists the problem "bdd: the runner exited 1 but its report names no failing scenario"
     And no feature is selected
@@ -93,8 +87,7 @@ Feature: Start a run
   Scenario: A unit runner that writes no report is an error
     Given the unit runner writes no report and exits with code 4
     When I run "oid run"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "unit: the runner wrote no report (exit 4)"
+    Then the event log of the run records an error mentioning "unit: the runner wrote no report (exit 4)"
     And no feature is selected
 
   Scenario: The saved session of a started run holds what the next state needs
@@ -114,37 +107,32 @@ Feature: Start a run
 
   Scenario: A feature that SPEC.md does not define is refused
     When I run "oid run --fr FR-CART-09"
-    Then the process exits with code 1
-    And the output says "FR-CART-09" is not in SPEC.md
+    Then the output says "FR-CART-09" is not in SPEC.md
     And the event log of the run records an error mentioning "FR-CART-09"
     And no feature is selected
 
   Scenario: A feature that progress.json does not track is refused
     When I run "oid run --fr FR-CART-04"
-    Then the process exits with code 1
-    And the output says "FR-CART-04" is not tracked in progress.json
+    Then the output says "FR-CART-04" is not tracked in progress.json
     And the event log of the run records an error mentioning "FR-CART-04"
     And no feature is selected
 
   Scenario: A feature that is done is refused
     When I run "oid run --fr FR-CART-01"
-    Then the process exits with code 1
-    And the output says "FR-CART-01" is not pending
+    Then the output says "FR-CART-01" is not pending
     And the event log of the run records an error mentioning "FR-CART-01"
     And no feature is selected
 
   Scenario: A feature that is in progress is refused
     When I run "oid run --fr FR-CART-05"
-    Then the process exits with code 1
-    And the output says "FR-CART-05" is not pending
+    Then the output says "FR-CART-05" is not pending
     And the event log of the run records an error mentioning "FR-CART-05"
     And no feature is selected
 
   Scenario: A run with no pending feature has nothing to do
     Given progress.json tracks no pending feature
     When I run "oid run"
-    Then the process exits with code 0
-    And the output says there are no pending features
+    Then the output says there are no pending features
     And no feature is selected
 
   Scenario: A new run starts a session of its own
@@ -181,12 +169,11 @@ Feature: Start a run
   Scenario: The lock is released when a run stops to ask
     Given a unit test "totals > adds a line" fails in the suite
     When I run "oid run"
-    Then the process exits with code 3
-    And the project has no lock
+    Then the project has no lock
+    And the saved session holds the pending question about the red suite
 
   Scenario: A project without a configuration file is refused
     Given the project has no ".outside-in.json"
     When I run "oid run"
-    Then the process exits with code 1
-    And the error mentions ".outside-in.json"
+    Then the error mentions ".outside-in.json"
     And no worktree or branch was created

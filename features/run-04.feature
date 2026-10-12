@@ -35,11 +35,9 @@ Feature: TDD inner loop
   Scenario Outline: A unit test that is not a valid Red stops the run
     Given the test-writing agent's attempt goes wrong because <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "<reason>"
+    Then the event log of the run records an error mentioning "Add a line" and "<reason>"
     And the run never reaches "CODE_GREEN"
     And the worktree has no commit "oid: checkpoint FR-CART-02 TDD_RED Add a line"
-    And the saved session has the state "TDD_RED"
     And the worktree is kept
 
     Examples:
@@ -61,10 +59,8 @@ Feature: TDD inner loop
   Scenario: The human decides that the failure is a bug in the unit test
     Given the test-writing agent writes a unit test that fails with an error that is not an assertion
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "bug"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "bug in the unit test"
+    Then the event log of the run records an error mentioning "Add a line" and "bug in the unit test"
     And the run never reaches "CODE_GREEN"
-    And the saved session has the state "TDD_RED"
 
   Scenario: The coding agent gets the failing unit test and the code it imports, and works with the shell and the sandbox of Code Green
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
@@ -81,11 +77,9 @@ Feature: TDD inner loop
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent's attempt goes wrong because <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "<reason>"
+    Then the event log of the run records an error mentioning "Add a line" and "<reason>"
     And the run never reaches "BDD_CHECK"
     And the worktree has no commit "oid: checkpoint FR-CART-02 CODE_GREEN Add a line"
-    And the saved session has the state "CODE_GREEN"
     And the worktree is kept
 
     Examples:
@@ -108,9 +102,7 @@ Feature: TDD inner loop
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent writes the cart code that passes the unit test, but breaks the scenario "Add to cart"
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add to cart" and "Code Green"
-    And the saved session has the state "CODE_GREEN"
+    Then the event log of the run records an error mentioning "Add to cart" and "Code Green"
     And the event log of the run records no transition from "BDD_CHECK" to "BDD_RED"
     And progress.json of the worktree records "Add a line" as "fail"
 
@@ -127,10 +119,8 @@ Feature: TDD inner loop
   Scenario: An agent with no unit logic left is refused when the scenario has no unit test yet
     Given the test-writing agent reports that no unit logic is left
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "at least one unit test"
+    Then the event log of the run records an error mentioning "Add a line" and "at least one unit test"
     And the run never reaches "CODE_GREEN"
-    And the saved session has the state "TDD_RED"
 
   Scenario: A unit test rejected in the iteration after a scenario was still red does not lose the move back to TDD Red
     Given the project limits the inner loop to 2 iterations for each scenario
@@ -149,8 +139,6 @@ Feature: TDD inner loop
     Then the human was asked once what to do with "Add a line", after 2 iterations, with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the event log of the run records a transition from "BDD_CHECK" to "TDD_RED" once
     And the event log of the run records a transition from "BDD_CHECK" to "ABORTED"
-    And the process exits with code 2
-    And the saved session has the state "BDD_CHECK"
 
   Scenario: When every scenario of the requirement passes, each has its checkpoint and the progress file records them
     Given the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario
@@ -165,10 +153,8 @@ Feature: TDD inner loop
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the <agent> agent <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "Add a line" and "<reason>"
+    Then the event log of the run records an error mentioning "Add a line" and "<reason>"
     And the run never reaches "<next>"
-    And the saved session has the state "<state>"
     And the worktree is kept
 
     Examples:

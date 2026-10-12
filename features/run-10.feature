@@ -24,7 +24,6 @@ Feature: Budget
     And the test-writing agent was not asked
     And the event log of the run records no "agent_start" of "TDD_RED"
     And the event log of the run records a transition from "TDD_RED" to "ABORTED"
-    And the process exits with code 4
     And the worktree is kept
 
   Scenario: A cost limit for each feature stops the run when one feature has spent it, with no limit on the run

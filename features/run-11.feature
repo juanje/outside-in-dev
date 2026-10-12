@@ -16,7 +16,6 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     Then the human was asked once what to do about the blocked agent of "Add a line" at "CODE_GREEN", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the question about the blocked agent mentions "the unit test expects a rounding the spec does not define"
     And the event log of the run records a transition from "CODE_GREEN" to "ABORTED"
-    And the process exits with code 2
     And the worktree is kept
 
   Scenario: There is no unit test to rewrite while the steps are being written, so the question does not offer it

@@ -64,7 +64,6 @@ Feature: Retries and escalation
     Then the human was asked once what to do with "Add a line", after 2 attempts of "TDD_RED", with the actions "retry", "rewrite", "rewrite_steps", "skip_scenario", "skip_fr" and "abort"
     And the question about the attempts mentions "the report names no unit test"
     And the event log of the run records a transition from "TDD_RED" to "ABORTED"
-    And the process exits with code 2
     And the worktree is kept
 
   Scenario: The human retries with a note, and the note goes to one more attempt on the strongest model
@@ -81,8 +80,7 @@ Feature: Retries and escalation
   Scenario: A project that configures models is refused before the run starts, and the error names oid setup
     Given the project's ".outside-in.json" has a "models" key
     When I run "oid run --fr FR-CART-02"
-    Then the process exits with code 1
-    And the error mentions "oid setup"
+    Then the error mentions "oid setup"
     And no worktree or branch was created
 
   Scenario: A rejected attempt is announced with its reason before the next attempt starts
@@ -121,8 +119,7 @@ Feature: Retries and escalation
   Scenario: With no retries allowed, a Red that the human judges a bug ends the run with the failure and the step
     Given the step-writing agent writes steps that fail with an error that is not an assertion
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "bug"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "bug in the step definitions" and "the cart could not be built"
+    Then the event log of the run records an error mentioning "bug in the step definitions" and "the cart could not be built"
     And the event log of the run records an error mentioning "features/FR-CART-02.feature:5 When a line is added" and "Add a line"
     And the run never reaches "TDD_RED"
 

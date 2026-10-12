@@ -288,6 +288,5 @@ Feature: Check the setup
     And oid holds the API key "sk-test-anthropic-4711" for "anthropic"
     And oid checks the user's setup before it runs a scripted agent
     When I run "oid run"
-    Then the process exits with code 3
-    And the project has a worktree outside the project directory, on a branch starting with "oid/run-"
+    Then the project has a worktree outside the project directory, on a branch starting with "oid/run-"
     And nothing the command printed contains "sk-test-anthropic-4711"

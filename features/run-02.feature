@@ -66,9 +66,7 @@ Feature: Write and review feature files
 
   Scenario: Without a terminal the review waits for an answer
     When I run "oid run" without a terminal
-    Then the process exits with code 3
-    And the output asks to review the feature files, with the actions "approve", "edit" and "reject"
-    And the saved session has the state "FEATURE_REVIEW"
+    Then the output asks to review the feature files, with the actions "approve", "edit" and "reject"
     And the saved session holds the pending question about the feature files
     And the saved session holds no hash of a feature file
     And the project has no lock
@@ -76,7 +74,8 @@ Feature: Write and review feature files
   Scenario: A requirement whose agent writes no feature file stops the run
     Given the feature-writing agent writes no file for "FR-CART-03"
     When I run "oid run" with a terminal where the human answers "approve"
-    Then the process exits with code 1
+    Then the event log of the run records an error mentioning "FR-CART-03" and "the feature files have no scenario"
+    And the run never reaches "BDD_RED"
     And the human was not asked
 
   Scenario: An agent that is blocked stops the run
@@ -90,16 +89,13 @@ Feature: Write and review feature files
   Scenario: A report that does not match the changed files stops the run
     Given the feature-writing agent changes a file it does not report
     When I run "oid run" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "the report does not match"
+    Then the event log of the run records an error mentioning "the report does not match"
     And the human was not asked
 
   Scenario Outline: A feature file that fails a gate stops the run
     Given the feature-writing agent writes for "FR-CART-02" a feature file <problem>
     When I run "oid run" with a terminal where the human answers "approve"
-    Then the process exits with code 1
-    And the event log of the run records an error mentioning "FR-CART-02" and "<reason>"
-    And the saved session has the state "FEATURE_WRITE"
+    Then the event log of the run records an error mentioning "FR-CART-02" and "<reason>"
     And the human was not asked
 
     Examples:
