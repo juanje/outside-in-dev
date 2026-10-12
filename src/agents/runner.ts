@@ -76,7 +76,8 @@ export type AttemptOutcome = ({ status: typeof LIMIT } & LimitHit) | { status: t
 
 const NOTHING_PRODUCED = "the agent produced nothing: its response had no content";
 const TURN_ABORTED = "the turn was aborted before the agent finished";
-const NO_REPORT = "the agent ended without calling the report tool: no report";
+const NO_REPORT =
+  "the agent ended without calling the report tool: no report (call the report tool once when you finish; if the task cannot be finished honestly with the files you may change, call it with status blocked and say why in reason and detail)";
 
 const PART_SEPARATOR = "; ";
 const FILE_SEPARATOR = ", ";

@@ -62,6 +62,18 @@ describe("runAgent", () => {
     expect(state.subscribers()).toBe(0);
   });
 
+  it("tells an agent that ended without a report to call the report tool once, and to report blocked with a reason when the task cannot be finished", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const { session } = fakeSession(() => write("src/a.ts", "changed\n"));
+    const outcome = await run(session);
+    const reason = outcome.status === "failed" ? outcome.reason : "";
+    expect(reason).toContain("the agent ended without calling the report tool");
+    expect(reason).toContain("call the report tool once when you finish");
+    expect(reason).toContain("status blocked");
+    expect(reason).toContain("say why");
+  });
+
   it("succeeds with the report when the files it names are exactly the files the agent changed, added or deleted", async () => {
     write("src/a.ts", "a\n");
     write("src/old.ts", "old\n");
