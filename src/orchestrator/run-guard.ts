@@ -10,6 +10,9 @@ import { moveRunTo, updateFeature } from "./worktree-progress.js";
 /** What follows a guard: another scenario, or the quality gate when none is left. */
 export const AFTER_GUARD = { next: "next", last: "last" } as const;
 
+/** A full stop and the spaces after a person's reason, which would read badly before the "; ..." that follows it in the transition. */
+const TRAILING_STOP = /\.?\s*$/;
+
 /** Records a scenario that a person accepted as a guard (ADR-049): it passes, with their reason, and needs no unit test, so the run goes on with the next scenario, or with the quality gate, and never to TDD Red for this one. The steps are checkpointed and the reason goes to the event log. */
 export function acceptGuard(started: Started, scenario: { name: string; names: string[]; reason: string }): typeof AFTER_GUARD[keyof typeof AFTER_GUARD] {
   const { cwd, bus, workspace, targets } = started;
@@ -27,6 +30,6 @@ export function acceptGuard(started: Started, scenario: { name: string; names: s
   bus.emit({ type: GUARD_ACCEPTED, fr, scenario: scenario.name, reason: scenario.reason });
   const next = moreToDo ? STATE.bddRed : STATE.qualityGate;
   updateSession(cwd, { state: next });
-  transition(bus, STATE.bddRed, next, `the scenario "${scenario.name}" passes before any code and the person accepted it as a guard: ${scenario.reason}${moreToDo ? "; the next scenario is next" : `; every scenario of ${fr} passes, the quality gate is next`}`);
+  transition(bus, STATE.bddRed, next, `the scenario "${scenario.name}" passes before any code and the person accepted it as a guard: ${scenario.reason.replace(TRAILING_STOP, "")}${moreToDo ? "; the next scenario is next" : `; every scenario of ${fr} passes, the quality gate is next`}`);
   return moreToDo ? AFTER_GUARD.next : AFTER_GUARD.last;
 }
