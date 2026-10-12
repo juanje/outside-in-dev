@@ -32,8 +32,9 @@ export interface ForbiddenPatterns {
 const READS_SOURCE_PATTERN = "readFileSync";
 
 // The defaults are assembled from parts so that this file does not hold the very text it forbids in added lines.
-const DEFAULT_FORBIDDEN_IN_SRC = [`@ts-${"ignore"}`, `@ts-${"expect-error"}`, `process.env.${"VITEST"}`, `import.meta.${"vitest"}`, `NODE_ENV === "te${"st"}"`];
-const DEFAULT_FORBIDDEN_IN_TESTS = [`.${"only"}(`, `.${"skip"}(`, `.${"todo"}(`];
+const TS_SUPPRESSIONS = [`@ts-${"ignore"}`, `@ts-${"expect-error"}`];
+const DEFAULT_FORBIDDEN_IN_SRC = [...TS_SUPPRESSIONS, `process.env.${"VITEST"}`, `import.meta.${"vitest"}`, `NODE_ENV === "te${"st"}"`];
+const DEFAULT_FORBIDDEN_IN_TESTS = [`.${"only"}(`, `.${"skip"}(`, `.${"todo"}(`, ...TS_SUPPRESSIONS];
 
 /** The lists of forbidden patterns of the project: the configured ones, and the defaults for each list it does not give. */
 export function forbiddenPatterns({ integrity }: ProjectConfig): ForbiddenPatterns {

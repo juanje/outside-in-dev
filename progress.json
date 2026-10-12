@@ -1756,6 +1756,10 @@
         {
           "name": "With no feature focused, or for a file of no kind, the path cannot be judged and is allowed",
           "bdd": "pass"
+        },
+        {
+          "name": "Type-check suppressions in a step definition or a unit test are forbidden patterns",
+          "bdd": "pass"
         }
       ]
     },

@@ -62,6 +62,32 @@ Feature: Check the integrity of a change
     And the output does not contain "tests/unit/greeting.test.ts:5"
     And the output does not contain "integrity: ok"
 
+  Scenario: Type-check suppressions in a step definition or a unit test are forbidden patterns
+    Given a started feature "FR-GREETING-01" at step "bdd_red"
+    And the focus is on "FR-GREETING-01"
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given } from "@cucumber/cucumber";
+      // @ts-expect-error the module does not exist yet
+      import { shout } from "../../src/shout.js";
+
+      Given("the greeting for Ann", function () {});
+      """
+    And the unit test file "tests/unit/greeting.test.ts" containing:
+      """
+      import { expect, it } from "vitest";
+      import { greet } from "../../src/greeting.js";
+
+      it("greets by name", () => {
+        // @ts-ignore
+        expect(greet(1)).toBe("Hello, 1");
+      });
+      """
+    When I run "oid verify integrity"
+    Then the command fails
+    And the output contains "features/steps/greeting.steps.ts:2 forbidden pattern \"@ts-expect-error\" in a test"
+    And the output contains "tests/unit/greeting.test.ts:5 forbidden pattern \"@ts-ignore\" in a test"
+
   Scenario: While writing code, a change to tests, steps or features and forbidden patterns in added lines are violations
     Given a started feature "FR-GREETING-01" at step "tdd_green"
     And the focus is on "FR-GREETING-01"

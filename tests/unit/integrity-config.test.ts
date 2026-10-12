@@ -17,10 +17,14 @@ describe("forbiddenPatterns", () => {
   it("is the default lists without an integrity block, and the configured list for each list given", () => {
     const defaults = forbiddenPatterns(configWith());
     expect(defaults.source).toHaveLength(5);
-    expect(defaults.tests).toHaveLength(4);
+    expect(defaults.tests).toHaveLength(6);
     expect(defaults.tests).toContain("readFileSync");
     expect(forbiddenPatterns(configWith({ forbidden_in_src: ["XYZ"] }))).toEqual({ source: ["XYZ"], tests: defaults.tests });
     expect(forbiddenPatterns(configWith({ forbidden_in_tests: [] }))).toEqual({ source: defaults.source, tests: [] });
+  });
+
+  it("forbids type-check suppressions in tests by default", () => {
+    expect(forbiddenPatterns(configWith()).tests).toEqual(expect.arrayContaining([`@ts-${"expect-error"}`, `@ts-${"ignore"}`]));
   });
 
   it("refuses a field of the integrity block that does not exist", () => {
