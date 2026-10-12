@@ -1,6 +1,6 @@
 import { type AgentTask, type AttemptOutcome, BLOCKED } from "../agents/runner.js";
 import { outcomeProblem, outcomeStop } from "./agent-run.js";
-import { Blocked } from "./redirect.js";
+import { Blocked, TryAgain } from "./redirect.js";
 import type { CycleState } from "../agents/profiles.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { rollback } from "../artifacts/git-checkpoints.js";
@@ -13,7 +13,7 @@ import { type AttemptInfo, type AttemptSpec, type Exhausted, isExhausted, isReje
 import { isExitCode, type Started } from "./begin.js";
 import { settleBudget } from "./budget-settle.js";
 import { askAboutBlocked, askAfterAttempts, type ExhaustedAttempts } from "./retries-exhausted.js";
-import type { FeatureServices } from "./services.js";
+import type { FeatureServices, ReviewInput } from "./services.js";
 
 /** The task of an attempt: the prompt with what the attempt is told about the ones before it, and the effort it runs with. */
 export function attemptTask(state: CycleState, prompt: string, { note, effort }: AttemptInfo): AgentTask {
@@ -66,6 +66,13 @@ function savedAttempts(cwd: string, state: string, label: string) {
   };
 }
 
+/** What an attempt that stopped by throwing leads to: the note of the person who has the agent try once more (an agent that is blocked is put to the person; a retry with a note is the person's own answer), or the exit code of the process. Any other error is thrown again. */
+async function answerStop(error: unknown, bus: Started["bus"], input: ReviewInput, { state, label }: { state: string; label: string }): Promise<number | { note: string }> {
+  if (error instanceof TryAgain) return { note: error.note };
+  if (!(error instanceof Blocked)) throw error;
+  return askAboutBlocked(bus, input, { state, label, problem: error.problem });
+}
+
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */
 export async function attemptsOf<T, R = never>(started: Started, services: FeatureServices, { state, role, label, run, whenExhausted }: StateAttempts<T, R>): Promise<T | R | number> {
   const { bus } = started;
@@ -81,8 +88,7 @@ export async function attemptsOf<T, R = never>(started: Started, services: Featu
     try {
       result = await runAttempts({ ...spec, afterAsking });
     } catch (error) {
-      if (!(error instanceof Blocked)) throw error;
-      const answer = await askAboutBlocked(bus, input, { state, label, problem: error.problem });
+      const answer = await answerStop(error, bus, input, { state, label });
       if (isExitCode(answer)) return answer;
       spec.restore();
       remember(current + 1, answer.note);

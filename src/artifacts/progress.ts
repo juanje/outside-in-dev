@@ -4,9 +4,15 @@ import { writeFileAtomic } from "./atomic-write.js";
 
 export const PROGRESS_FILE = "progress.json";
 
+/** A scenario that passed before any code and that a person accepted as a guard, with the reason (ADR-049). */
+interface Guard {
+  reason: string;
+}
+
 interface ScenarioProgress {
   name: string;
   bdd: string;
+  guard?: Guard;
 }
 
 export interface FeatureProgress {
@@ -112,6 +118,12 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
   return { ...feature, scenarios };
 }
 
+/** Returns the feature with the scenario recorded as passing because a person accepted it as a guard, with their reason; the input is not modified. */
+export function recordGuard(feature: FeatureProgress, name: string, reason: string): FeatureProgress {
+  const passing = recordScenario(feature, name, SCENARIO_STATUS.pass);
+  return { ...passing, scenarios: passing.scenarios!.map((scenario) => (scenario.name === name ? { ...scenario, guard: { reason } } : scenario)) };
+}
+
 /** Returns the feature back at `bdd_red` with every scenario pending, or the same feature when it is already at `bdd_red`; the input is not modified. */
 export function reviseFeature(feature: FeatureProgress): FeatureProgress {
   if (feature.cycle_step === CYCLE_STEP.bddRed) return feature;
@@ -154,7 +166,7 @@ const FEATURE_ID_PATTERN = new RegExp(`^${FR_ID_SOURCE}$`);
 const FEATURE_STATUSES: string[] = Object.values(FEATURE_STATUS);
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 export const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
-export const SCENARIO_FIELDS = ["name", "bdd"];
+export const SCENARIO_FIELDS = ["name", "bdd", "guard"];
 
 /** Whether the value is a JSON object: not null, not a list. */
 export function isObject(value: unknown): value is object {
@@ -183,6 +195,20 @@ function validateScenario(scenario: unknown, path: string): string[] {
   if (!SCENARIO_STATUSES.includes(bdd)) {
     violations.push(`${path}.bdd: invalid value "${bdd}" (allowed: ${SCENARIO_STATUSES.join(", ")})`);
   }
+  if ("guard" in scenario) violations.push(...validateGuard(scenario as ScenarioProgress, path));
+  return violations;
+}
+
+const TEXT_TYPE = "string";
+
+/** The violations of a guard: it needs a reason that is not empty, and only a passing scenario can be one. */
+function validateGuard({ guard, bdd }: ScenarioProgress, path: string): string[] {
+  if (!isObject(guard)) return [notAnObject(`${path}.guard`)];
+  const violations = unknownFields(guard, ["reason"], `${path}.guard.`);
+  const { reason } = guard as Guard;
+  if (typeof reason !== TEXT_TYPE) violations.push(`${path}.guard.reason: wrong type (expected string)`);
+  else if (reason === "") violations.push(`${path}.guard.reason: must not be empty`);
+  if (bdd !== PASSING) violations.push(`${path}.guard: only a passing scenario can be a guard`);
   return violations;
 }
 

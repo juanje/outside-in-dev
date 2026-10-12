@@ -2486,6 +2486,18 @@
         {
           "name": "The question about a failure oid cannot classify names the failing step and shows what the scenario recorded",
           "bdd": "pass"
+        },
+        {
+          "name": "A scenario that passes at once is put to the human, who accepts it as a guard",
+          "bdd": "pass"
+        },
+        {
+          "name": "A guard that is the last scenario of the feature lets the feature be done",
+          "bdd": "pass"
+        },
+        {
+          "name": "The human answers retry with a note and the step writer gets the note",
+          "bdd": "pass"
         }
       ]
     },

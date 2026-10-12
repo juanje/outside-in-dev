@@ -19,6 +19,12 @@ export const PROBLEM = "problem";
 /** What the gate of BDD Red decided about the steps an agent wrote: a valid Red, a problem that stops the run, or a failure that a person has to classify. */
 export type RedGate = { kind: typeof OUTCOME.valid; reason: string; message: string } | { kind: typeof PROBLEM; problem: string } | { kind: typeof OUTCOME.decision; reason: string; message: string; detail?: string; step?: string };
 
+/** The kind of a result for a scenario that passes before any code: a possible guard, which only a person can accept (ADR-049). */
+export const GUARD = "guard";
+
+/** What the gate of BDD Red decides: what a Red Gate decides, or that the scenario passes before any code. */
+export type BddRedGate = RedGate | { kind: typeof GUARD; reason: string };
+
 /** The scenario the steps are written for: its feature file, the line where it starts and its name. */
 export type CurrentScenario = { file: string; line: number; name: string };
 
@@ -65,7 +71,9 @@ export function runScenarioChecked(worktree: string, scenario: CurrentScenario, 
 }
 
 /** Judges the steps an agent wrote for the current scenario: the cheap gates first, then one run of the scenario, classified with the Red Gate that `oid verify red` uses. */
-export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners = REAL_RUNNERS): RedGate {
+export function bddRedGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners = REAL_RUNNERS): BddRedGate {
   const runs = runScenarioChecked(worktree, scenario, featureHashes, runners);
-  return runs.kind === PROBLEM ? runs : redGate(worktree, runs.config, observeBddRun(worktree, runs.config, scenario, runs.first));
+  if (runs.kind === PROBLEM) return runs;
+  const observation = observeBddRun(worktree, runs.config, scenario, runs.first);
+  return observation.failure.kind === FAILURE.passed ? { kind: GUARD, reason: "the scenario passes before any code exists for it" } : redGate(worktree, runs.config, observation);
 }

@@ -22,6 +22,9 @@ export const ATTEMPT_REJECTED = "attempt_rejected";
 /** The type of the event that reports a run resumed by `oid resume`. */
 export const RESUMED = "resumed";
 
+/** The type of the event that reports a scenario a person accepted as a guard, with their reason (ADR-049). */
+export const GUARD_ACCEPTED = "guard_accepted";
+
 /** A question that needs a person's answer, with the actions the person can choose. */
 export type InputRequest = {
   id: string;
@@ -37,6 +40,7 @@ export type OIEventBody =
   | { type: typeof HUMAN_EDIT; file: string }
   | { type: typeof AGENT_START; state: string; role: string; attempt: number; model?: string; thinkingLevel: string }
   | { type: typeof ATTEMPT_REJECTED; state: string; role: string; attempt: number; reason: string }
+  | { type: typeof GUARD_ACCEPTED; fr: string; scenario: string; reason: string }
   | { type: typeof RESUMED; state: string; discarded: string[]; releasedLock?: number };
 
 /** An event as it is logged and shown: the body plus when and in which run it happened. */

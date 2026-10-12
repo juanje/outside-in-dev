@@ -48,7 +48,6 @@ Feature: BDD Red
 
     Examples:
       | problem                         | reason                                  |
-      | the scenario passes at once     | passes without new implementation       |
       | one step has no definition      | did not run (status UNDEFINED)          |
 
   Scenario: Steps that import code that does not exist yet stop the run
@@ -107,3 +106,38 @@ Feature: BDD Red
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "bug"
     Then the first question about the Red names the step "When a line is added" at line 5 of "features/FR-CART-02.feature"
     And the first question about the Red shows the output "the cart refused the line"
+
+  Scenario: A scenario that passes at once is put to the human, who accepts it as a guard
+    Given the step-writing agent writes the steps of "Add a line" so that they pass at once, with no cart code
+    And limits.max_retries is 1
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and "accept_guard", and gives the reason "nothing is invoked when no line is added"
+    Then the human was asked once about the scenario "Add a line" passing before any code, with the actions "accept_guard", "retry", "skip_scenario", "skip_fr" and "abort"
+    And that question mentions "passes before any code" and shows the step file the step-writing agent wrote
+    And the step-writing agent was asked once for "Add a line"
+    And the worktree has the commit "oid: checkpoint FR-CART-02 BDD_RED Add a line" with the step definitions and the progress update
+    And in the commit "oid: checkpoint FR-CART-02 BDD_RED Add a line" progress.json records "Add a line" as "pass" and "Remove a line" as "pending"
+    And in that commit progress.json records "Add a line" as a guard with the reason "nothing is invoked when no line is added"
+    And the event log of the run records the guard "Add a line" accepted by the human with the reason "nothing is invoked when no line is added"
+    And the run never reaches "TDD_RED" for "Add a line"
+    And the step-writing agent was asked for "Remove a line" next
+
+  Scenario: A guard that is the last scenario of the feature lets the feature be done
+    Given the feature-writing agent writes for "FR-CART-02" only the scenario "Add a line"
+    And the step-writing agent writes the steps of "Add a line" so that they pass at once, with no cart code
+    And limits.max_retries is 1
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and "accept_guard", and gives the reason "nothing is invoked when no line is added"
+    Then the event log of the run records a transition from "BDD_RED" to "QUALITY_GATE"
+    And the event log of the run records a transition from "QUALITY_GATE" to "FR_COMMIT"
+    And the run never reaches "TDD_RED"
+    And no agent writes a unit test
+    And "FR-CART-02" is done in the progress file of the worktree
+    And the progress file of the worktree still records "Add a line" as a guard with the reason "nothing is invoked when no line is added"
+
+  Scenario: The human answers retry with a note and the step writer gets the note
+    Given the step-writing agent writes the steps of "Add a line" so that they pass at once, with no cart code, and then, when it is told a note, steps that fail because the cart code does not exist yet
+    And limits.max_retries is 1
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and "retry", and gives the note "assert that the cart has a line"
+    Then the human was asked once about the scenario "Add a line" passing before any code, with the actions "accept_guard", "retry", "skip_scenario", "skip_fr" and "abort"
+    And the second task of the step-writing agent includes "assert that the cart has a line"
+    And no guard is recorded for "Add a line"
+    And the event log of the run records a transition from "BDD_RED" to "TDD_RED"

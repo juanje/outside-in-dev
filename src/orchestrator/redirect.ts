@@ -5,6 +5,15 @@ export const REWRITE_STEPS = "rewrite_steps";
 export const SKIP_SCENARIO = "skip_scenario";
 export const SKIP_FR = "skip_fr";
 export const ABORT = "abort";
+/** The answer that accepts a scenario that passes before any code as a guard; only a person gives it (ADR-049). */
+export const ACCEPT_GUARD = "accept_guard";
+
+/** Thrown out of an attempt when the person has the agent try once more with a note: the attempt is discarded and one more is granted, whatever the retries the project allows, because the person grants it. */
+export class TryAgain extends Error {
+  constructor(readonly note: string) {
+    super(note);
+  }
+}
 
 /** What a person chose, other than retrying or aborting, when a state could not go on: the work moves somewhere else, and whoever runs the scenario or the feature takes it from there. */
 export type RedirectAction = typeof REWRITE | typeof REWRITE_STEPS | typeof SKIP_SCENARIO | typeof SKIP_FR;

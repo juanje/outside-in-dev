@@ -11,12 +11,16 @@ import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
 import { ERROR_EVENT } from "../events/types.js";
 import { runBillable } from "./budget-call.js";
-import { bddRedGate, type CurrentScenario, PROBLEM } from "./bdd-red-gate.js";
+import { bddRedGate, type CurrentScenario, GUARD, PROBLEM } from "./bdd-red-gate.js";
+import { askAboutGuard } from "./guard-question.js";
+import { guardSteps } from "./guard-steps.js";
+import { AFTER_GUARD, acceptGuard } from "./run-guard.js";
+import { TryAgain } from "./redirect.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { decideRed, VALID_RED } from "./red-decision.js";
 import { rewrittenStepsGate } from "./rewritten-steps-gate.js";
-import { updateSession } from "./session.js";
+import { readSession, updateSession } from "./session.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { updateFeature } from "./worktree-progress.js";
 import { unfinishedScenarios } from "./wip-tag.js";
@@ -65,8 +69,25 @@ function rewriteContext({ note, failure, base }: StepsRewrite): string {
   ].join(NEWLINE);
 }
 
+const ACCEPTED_GUARD = "accepted_guard";
+
+/** A scenario that passes before any code and that the person accepted as a guard, with their reason. */
+type AcceptedGuard = { kind: typeof ACCEPTED_GUARD; reason: string };
+
+/** What BDD Red hands on when the scenario is a guard: the run goes on with the next scenario or, with none left, with the quality gate. */
+export type GuardAccepted = { guardAccepted: (typeof AFTER_GUARD)[keyof typeof AFTER_GUARD] };
+
+/** Puts a scenario that passes before any code to the person, with the step definitions the agent wrote: returns the guard they accept, or the exit code of the process; a retry with a note throws `TryAgain`. */
+async function askAboutPassingScenario(started: Started, services: FeatureServices, label: string): Promise<number | AcceptedGuard> {
+  const steps = guardSteps(started.workspace.path, readSession(started.cwd)?.scenarioStart ?? headCommit(started.workspace.path));
+  const answer = await askAboutGuard(started.bus, services.input ?? { isTTY: false }, { label, steps });
+  if (isExitCode(answer)) return answer;
+  if ("note" in answer) throw new TryAgain(answer.note);
+  return { kind: ACCEPTED_GUARD, reason: answer.guard };
+}
+
 /** Runs BDD Red for the first scenario of the first target that does not pass: the agent writes its steps, the gate judges them and a valid Red is checkpointed. Returns the scenario that failed validly, or the exit code of the process. With `rewrite`, the steps are written again for a scenario the run already worked on: the scenario's start and iteration are kept, and when code exists for it the gate judges the steps with and without that code and the run does not go on to TDD Red. */
-export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>, rewrite?: StepsRewrite): Promise<number | RedScenario> {
+export async function runBddRed(started: Started, services: FeatureServices, featureHashes: Record<string, string>, rewrite?: StepsRewrite): Promise<number | RedScenario | GuardAccepted> {
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const found = currentScenario(workspace.path, fr!);
@@ -87,12 +108,14 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
       if (stopped !== undefined) return stopped;
       const judged = rewrite?.base === undefined ? bddRedGate(workspace.path, current, featureHashes, runnersOf(services)) : rewrittenStepsGate(workspace.path, current, featureHashes, rewrite.base, runnersOf(services));
       if (judged.kind === PROBLEM) return { rejected: `${label}: ${judged.problem}` };
+      if (judged.kind === GUARD) return askAboutPassingScenario(started, services, label);
       if (judged.kind !== OUTCOME.decision) return judged;
       const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step });
       return decided === VALID_RED ? judged : decided;
     },
   });
   if (isExitCode(gate)) return gate;
+  if (gate.kind === ACCEPTED_GUARD) return { guardAccepted: acceptGuard(started, { name: current.name, names, reason: gate.reason }) };
   clearReturn(workspace.path, fr!);
   if (rewrite?.base !== undefined) {
     updateFeature(workspace.path, fr!, (feature) => advanceStep(feature, CYCLE_STEP.tddGreen, [CYCLE_STEP.tddGreen]));

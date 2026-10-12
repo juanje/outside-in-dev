@@ -1,6 +1,7 @@
 import { type Started, isExitCode, STATE, transition } from "./begin.js";
 import { AFTER_CHECK, type AfterCheck, type Origin, runBddCheck } from "./run-bdd-check.js";
-import { runBddRed, type RedScenario, type StepsRewrite } from "./run-bdd-red.js";
+import { type GuardAccepted, runBddRed, type RedScenario, type StepsRewrite } from "./run-bdd-red.js";
+import { AFTER_GUARD } from "./run-guard.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { runCodeGreen } from "./run-code-green.js";
 import { commitFeature, skippedOf } from "./run-commit.js";
@@ -71,6 +72,7 @@ const SKIPPED = "skipped";
 async function runRewrittenSteps(started: Started, services: FeatureServices, featureHashes: Record<string, string>, entry: LoopEntry & { steps: StepsRewrite }) {
   const red = await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes, entry.steps);
   if (isExitCode(red)) return red;
+  if ("guardAccepted" in red) return afterGuard(red);
   if (entry.steps.base === undefined) return innerLoop(started, services, red);
   const origin = { from: STATE.bddRed, note: `the steps of "${red.current.name}" were written again: the scenario passes with the code and fails without it` };
   return innerLoop(started, services, red, { state: STATE.bddCheck, red, iteration: entry.iteration, origin });
@@ -80,7 +82,13 @@ async function runRewrittenSteps(started: Started, services: FeatureServices, fe
 async function runScenario(started: Started, services: FeatureServices, featureHashes: Record<string, string>, resumed?: LoopEntry) {
   if (resumed?.steps !== undefined) return runRewrittenSteps(started, services, featureHashes, { ...resumed, steps: resumed.steps });
   const red = resumed?.red ?? (await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes));
-  return isExitCode(red) ? red : innerLoop(started, services, red, resumed);
+  if (isExitCode(red)) return red;
+  return "guardAccepted" in red ? afterGuard(red) : innerLoop(started, services, red, resumed);
+}
+
+/** What follows a scenario that the person accepted as a guard: the same as what follows a scenario whose check passed. */
+function afterGuard({ guardAccepted }: GuardAccepted): typeof AFTER_CHECK.next | typeof AFTER_CHECK.last {
+  return guardAccepted === AFTER_GUARD.next ? AFTER_CHECK.next : AFTER_CHECK.last;
 }
 
 /** Runs the scenarios of the first target one after the other, each through BDD Red and the inner loop, until every one passes, then its quality gate: returns the exit code of the process when the run ends there, nothing when the target is ready to be committed. A resumed run enters at the state it stopped in. */

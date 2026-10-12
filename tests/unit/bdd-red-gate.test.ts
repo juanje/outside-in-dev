@@ -52,6 +52,11 @@ describe("the gate of BDD Red", () => {
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet", message: expect.stringContaining("Cannot find module") });
   });
 
+  it("hands a scenario that passes before any code to a person as a possible guard, not as a problem", () => {
+    const repo = project(scenariosRunner([{ uri: "features/pay.feature", name: "Pay", status: "PASSED" }]));
+    expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "guard", reason: "the scenario passes before any code exists for it" });
+  });
+
   it("hands a failure that needs a decision to a person with the step that failed", () => {
     const repo = project(failingRunner("Error: the cart could not be built"));
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({

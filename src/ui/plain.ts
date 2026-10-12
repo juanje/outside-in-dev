@@ -1,4 +1,4 @@
-import { AGENT_START, ATTEMPT_REJECTED, ERROR_EVENT, HUMAN_EDIT, RESUMED, WAITING_INPUT, type OIEvent } from "../events/types.js";
+import { AGENT_START, ATTEMPT_REJECTED, ERROR_EVENT, GUARD_ACCEPTED, HUMAN_EDIT, RESUMED, WAITING_INPUT, type OIEvent } from "../events/types.js";
 
 /** What separates the items of a list in a line of text. */
 export const LIST_SEPARATOR = ", ";
@@ -21,8 +21,19 @@ function resumedLine(event: Extract<OIEvent, { type: typeof RESUMED }>): string 
   ].join(PART_SEPARATOR);
 }
 
+/** The events that record what a person did. */
+type PersonEvent = Extract<OIEvent, { type: typeof HUMAN_EDIT | typeof GUARD_ACCEPTED }>;
+
+const isPersonEvent = (event: OIEvent): event is PersonEvent => event.type === HUMAN_EDIT || event.type === GUARD_ACCEPTED;
+
+/** The line of an event that records what a person did: a file they edited, or a scenario they accepted as a guard with their reason. */
+function personLine(event: PersonEvent): string {
+  return event.type === HUMAN_EDIT ? `human edit: ${event.file}` : `guard accepted: ${event.fr} "${event.scenario}": ${oneLine(event.reason)}`;
+}
+
 /** One line of plain text for an event, for output that is not a terminal. */
 export function plainLine(event: OIEvent): string {
+  if (isPersonEvent(event)) return personLine(event);
   switch (event.type) {
     case ERROR_EVENT:
       return `error: ${oneLine([event.message, event.detail].filter((part) => part !== undefined).join(PART_SEPARATOR))}`;
@@ -32,8 +43,6 @@ export function plainLine(event: OIEvent): string {
       return `[${event.state}] ${event.role} attempt ${event.attempt} (${event.model === undefined ? "" : `model ${event.model}, `}thinking ${event.thinkingLevel})`;
     case ATTEMPT_REJECTED:
       return `[${event.state}] attempt ${event.attempt} rejected: ${bounded(oneLine(event.reason))}`;
-    case HUMAN_EDIT:
-      return `human edit: ${event.file}`;
     case RESUMED:
       return resumedLine(event);
     case "state_change":
