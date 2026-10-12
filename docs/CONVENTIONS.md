@@ -19,6 +19,7 @@ These are the rules this project's reviews keep correcting, with the reason for 
 - **A failure that must end the run at once sets the retries to 0** ("the project allows 0 retries for each state"). Otherwise the run retries the failing state and then asks the human, and the scenario sees the question instead of the failure.
 - **A scenario runs in-process.** Tag a single scenario `@process` only when it needs a real process (a signal, a real exit, a terminal); never tag the Feature. A real process costs seconds per scenario.
 - **One real test runner per run state; the other scenarios replay a recorded report.** A replay names the request it answers (the test file and name, or the scenario locations) and fails on an unexpected request or when its sequence runs out; an entry answers more than once only with `repeat: true`. The scenarios that use a real runner are listed in `features/support/real-runners.ts`, and a unit test checks that each still exists: renaming one means updating that list.
+- **A Then step checks what it names, not that nothing else happened**, unless its text says "only" or "nothing else". "The event log records an error" means an error is among the events; a step that checks the error is the only event breaks as soon as another step of the same scenario needs a second event, and the scenario can then never pass. Before you copy an existing step that checks an exact list, read the other Then steps of your scenario.
 
 ### Unit tests and code
 
