@@ -29,6 +29,17 @@ describe("the review at a terminal", () => {
     expect(shown().includes("sk-typed-hidden-5")).toBe(false);
   });
 
+  it("shows a free-text question followed by exactly one space, so the typed answer does not stick to it", async () => {
+    const { input, stdin, shown } = terminal();
+    const first = input.line("Why is this scenario a guard?");
+    stdin.write("Nothing is configured\n");
+    expect(await first).toBe("Nothing is configured");
+    const second = input.line("Provider to log in to: ");
+    stdin.write("openai\n");
+    await second;
+    expect(shown()).toBe("Why is this scenario a guard? Provider to log in to: ");
+  });
+
   it("returns an empty answer when the input ends before a line is typed", async () => {
     const { input, stdin } = terminal();
     const answer = input.choose("Review the feature files", ["approve", "edit", "reject"]);

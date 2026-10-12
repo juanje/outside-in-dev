@@ -35,6 +35,6 @@ export function terminalInput(stdin: Readable, stdout: Writable): Terminal & { s
     isTTY: true,
     secret: askHidden,
     choose: async (prompt, actions) => (await ask(`${prompt}\n\nAnswer ${sentence(actions)}: `)).trim().toLowerCase(),
-    line: ask,
+    line: (prompt) => ask(`${prompt.trimEnd()} `),
   };
 }
