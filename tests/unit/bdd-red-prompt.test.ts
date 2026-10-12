@@ -19,6 +19,13 @@ describe("the instructions of the agent that writes step definitions", () => {
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
+  it("ask for imports of only what the feature needs, and tell the writer to report a scenario that already passes instead of making it fail", () => {
+    const instructions = bddRedPrompt("FR-A-02", "features/a.feature:12", profileOf("BDD_RED"));
+    expect(instructions).toContain("Import only code the feature itself needs: a function that exists only so your step can observe something is not part of the feature, and the next agents would have to invent it.");
+    expect(instructions).toContain("6. If the scenario passes as soon as its steps exist, because what it describes already holds without new code (for example, nothing happens when nothing is configured), that is a correct result, not a mistake to fix. Do not make it fail: a step that needs code which does not exist, or a check written so that it fails, sends the next agents to write code that serves only your step. Call the report tool as done; oid then asks the person whether to keep the scenario as a guard against regressions.");
+    expect(instructions).toContain("7. Call the report tool once, listing every file you changed.");
+  });
+
   it("state in rule 4 the globs its profile lets it write and read, the conventions files included, with the reason for the writing limit", () => {
     const limit = "Change only step definition files";
     const reason = "the code the steps call does not exist yet, and writing it is the next agent's job";
