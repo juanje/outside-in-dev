@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { FEATURE_WRITE } from "../agents/profiles.js";
+import { FEATURE_WRITE, profileFor } from "../agents/profiles.js";
 import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
 import { NEWLINE } from "../artifacts/lines.js";
@@ -40,7 +40,8 @@ type Written = { problem: string } | { files: string[]; skipped: Skipped[] };
 /** One attempt of the feature-writing agent for a target feature: the feature files it wrote, or what stopped the run. An agent that is blocked throws `Blocked`. */
 async function writeFeature(started: Started, services: FeatureServices, { fr, comment, knownIds }: { fr: string; comment?: string; knownIds: string[] }, info: AttemptInfo): Promise<{ problem: string } | { files: string[] }> {
   const { workspace } = started;
-  const prompt = `${featureWritePrompt(fr)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`;
+  const profile = profileFor(FEATURE_WRITE, loadProjectConfig(workspace.path));
+  const prompt = `${featureWritePrompt(fr, profile)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`;
   const outcome = await runBillable(started, services, attemptTask(FEATURE_WRITE, prompt, info), { fr, announce: info.announce });
   if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(fr, outcome)!);
   const stopped = outcomeProblem(fr, outcome);

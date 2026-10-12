@@ -1,8 +1,9 @@
 import { NEWLINE } from "../../artifacts/lines.js";
-import { featureIntro } from "./shared.js";
+import type { Profile } from "../profiles.js";
+import { accessStatement, featureIntro } from "./shared.js";
 
-/** The instructions of the agent that writes the feature file of a requirement: who it is, what oid is, and the task with the reason for each rule. */
-export function featureWritePrompt(fr: string): string {
+/** The instructions of the agent that writes the feature file of a requirement: who it is, what oid is, the task with the reason for each rule, and what its profile lets it read and write. */
+export function featureWritePrompt(fr: string, profile: Profile): string {
   return [
     featureIntro("You are a specialist in Behaviour-Driven Development: you write Gherkin feature files that describe, in the language of the user, what a requirement must do."),
     `Task: Write the feature file for ${fr}. Every scenario will later be turned into an executable test, and code will be written to make it pass, so each scenario is a promise about behaviour someone can observe.`,
@@ -33,7 +34,7 @@ export function featureWritePrompt(fr: string): string {
       "4. Check milestones, not where the whole process ends. The exit code, the last line of the output and the final state all show where it ends: a later requirement may make the process go further, and a scenario that asserts one of them would then break. Check the observable fact that proves the behaviour: a recorded event or transition, a file, a saved value or a received message.",
       "5. Besides the main behaviour, cover what happens when the feature is not configured, and when the thing it depends on fails. These are the cases users hit first.",
       `6. Tag the Feature line with @${fr}. Use an @NFR tag only for a non-functional requirement listed below.`,
-      "7. You may read the requirement, its design notes, the domain notes and the feature files, and you may write only the feature file: the step definitions, the tests and the code come from the next steps. A path you may not read is refused at once; do not search for it.",
+      `7. Change only the feature file: the step definitions, the tests and the code come from the next steps. ${accessStatement(profile)}`,
       "8. Call the report tool once, listing the file you wrote.",
     ].join(NEWLINE),
   ].join(NEWLINE + NEWLINE);
