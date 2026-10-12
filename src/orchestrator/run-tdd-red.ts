@@ -1,10 +1,11 @@
 import { testTaskContext } from "../agents/context/task-context.js";
-import { TDD_RED } from "../agents/profiles.js";
+import { profileFor, TDD_RED } from "../agents/profiles.js";
 import { tddRedPrompt } from "../agents/prompts/tdd-red.js";
 import { type AgentTask, DONE } from "../agents/runner.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { parseUnitTarget } from "../artifacts/verify-target.js";
 import { runBillable } from "./budget-call.js";
@@ -72,6 +73,7 @@ export async function runTddRed(started: Started, services: FeatureServices, sce
   const { cwd, workspace, targets } = started;
   updateSession(cwd, { beforeTddRed: { commit: headCommit(workspace.path), tests: unitTestsOf(cwd, scenario.current.name) } });
   const asked = note === "" ? "" : `${NEWLINE}${NEWLINE}The person who follows the run asks for this unit test to be written again, and says: ${note}`;
-  const prompt = `${tddRedPrompt(targets[0]!)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}${asked}`;
+  const profile = profileFor(TDD_RED, loadProjectConfig(workspace.path));
+  const prompt = `${tddRedPrompt(targets[0]!, profile)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}${asked}`;
   return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info), info.announce) });
 }

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { tddRedPrompt } from "../../src/agents/prompts/tdd-red.js";
+import { CONVENTIONS_FILE, profileOf } from "./prompt-profile.js";
 
 describe("the instructions of the agent that writes one unit test", () => {
   it("say who it is and what oid is, start from the failure of the scenario, give the reason for one test at a time, name the test to try and the report fields, and end with the report", () => {
-    const instructions = tddRedPrompt("FR-A-02");
+    const instructions = tddRedPrompt("FR-A-02", profileOf("TDD_RED"));
     expect(instructions).toMatch(/^You are a specialist in Test-Driven Development: you write the next small unit test that drives the code forward\./);
     expect(instructions).toMatch(/A program called oid orchestrates it/);
     expect(instructions).toMatch(/The scenario below fails, with the failure shown/);
@@ -18,10 +19,16 @@ describe("the instructions of the agent that writes one unit test", () => {
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
-  it("tell what the agent may read and write and why, so that it does not probe the paths it may not read", () => {
-    const instructions = tddRedPrompt("FR-A-02");
-    expect(instructions).toContain("You may read any file of the unit tests, helpers and fixtures included, the feature files and the step definitions");
-    expect(instructions).toContain("write only unit test files: the code under test is the next agent's job");
-    expect(instructions).toContain("A path you may not read is refused at once; do not search for it.");
+  it("state in rule 4 the globs its profile lets it write and read, the conventions files included, with the reason for the writing limit", () => {
+    const profile = profileOf("TDD_RED");
+    const rule = tddRedPrompt("FR-A-02", profile)
+      .split("\n")
+      .find((line) => line.startsWith("4. "));
+    expect(rule).toContain("Change only unit test files");
+    expect(rule).toContain("the code under test is the next agent's job");
+    expect(rule).toContain(`You may write: ${profile.write.join(", ")}.`);
+    expect(rule).toContain(`You may read: ${profile.read.join(", ")}.`);
+    expect(rule).toContain(CONVENTIONS_FILE);
+    expect(rule).toContain("A path you may not read is refused at once; do not search for it.");
   });
 });

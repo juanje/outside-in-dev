@@ -1,4 +1,5 @@
 import { NEWLINE } from "../../artifacts/lines.js";
+import type { Profile } from "../profiles.js";
 
 /** What every agent that runs the project's checks is told about the workflow it is a step of, about oid, which orchestrates it, and about the checkpoint oid saved before the task. */
 const WORKFLOW =
@@ -11,6 +12,13 @@ const FEATURE_WORKFLOW =
 /** How to check one's own work: the `try` tool, and why the full suites are not run. */
 const TRY =
   "To check your own work, call the `try` tool. It runs just the test or scenario you name as its target, then the type check and the linter on the files you changed, and answers in a few lines, in seconds, without changing anything. Running the full suites yourself takes minutes of your session and tells you nothing that oid will not tell you anyway. You do not need to format the code either: oid applies the project's formatter when you finish.";
+
+const LIST = ", ";
+
+/** What a step's agent may write and read, from its profile (the same globs the sandbox names when it refuses a path), and that a refused path is not worth probing. */
+export function accessStatement(profile: Profile): string {
+  return `You may write: ${profile.write.join(LIST)}. You may read: ${profile.read.join(LIST)}. A path you may not read is refused at once; do not search for it.`;
+}
 
 /** The start of a prompt for an agent that checks its work with the `try` tool: its identity, then the workflow, oid, the checkpoint and the `try` tool. */
 export function workflowIntro(identity: string): string {
