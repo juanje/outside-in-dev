@@ -25,6 +25,11 @@ describe("profileFor with design notes", () => {
     expect(profileFor("FEATURE_WRITE", withDesign).read).toEqual(expect.arrayContaining(["docs/design.md", "DECISIONS.md"]));
     expect(profileFor("TDD_RED", withDesign).read).not.toContain("docs/design.md");
   });
+
+  it("names each path once in a step's read and write lists, keeping the first occurrence and the order", () => {
+    const overlapping = { ...config, paths: { ...config.paths, design: ["REQS.md", "DOMAIN.md", "DECISIONS.md"] } };
+    expect(profileFor("FEATURE_WRITE", overlapping).read).toEqual(["REQS.md", "DOMAIN.md", "DECISIONS.md", "bdd/**/*.feature"]);
+  });
 });
 
 describe("profileFor", () => {

@@ -94,8 +94,8 @@ export function profileFor(state: CycleState, config: ProjectConfig): Profile {
   return {
     state,
     builtins: shell ? SHELL_TOOLS : EDIT_TOOLS,
-    write,
-    read,
+    write: [...new Set(write)],
+    read: [...new Set(read)],
     deny: orchestratorFiles(config),
     orchestratorState: orchestratorState(config),
     shell,
