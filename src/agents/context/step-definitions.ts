@@ -70,6 +70,11 @@ function linesSteps(lines: string[]): string[] {
   return keyedSteps(lines).map(({ text }) => text);
 }
 
+/** The text of each step of a whole feature file, without its keyword. */
+export function featureStepTexts(feature: string): string[] {
+  return linesSteps(feature.split(NEWLINE));
+}
+
 /** The keywords of the steps that go on with the kind of the step before them. */
 const CONTINUING_KEYWORD = /^(?:And|But|\*)$/;
 

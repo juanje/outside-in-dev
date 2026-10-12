@@ -5,10 +5,11 @@ import { readText } from "../../artifacts/project-json.js";
 import { failingFrame } from "../../artifacts/cucumber-report.js";
 import { listLocatedScenarios, readFeatureSources } from "../../artifacts/traceability.js";
 import { parseRequirements } from "../../artifacts/spec.js";
-import { exampleFeatures } from "./example-features.js";
+import { designPassages, exampleFeatures, MAX_DESIGN_PASSAGES } from "./example-features.js";
 import { importClosure } from "./import-closure.js";
 import { definitionAtLine, isDefinitionOf, type StepDefinition, stepDefinitions, stepTexts, thenTexts } from "./step-definitions.js";
 import { reuseCatalogue } from "./reuse-catalogue.js";
+import { STEP_CATALOGUE_BUDGET, stepCatalogue } from "./step-catalogue.js";
 
 const DOMAIN_FILE = "DOMAIN.md";
 
@@ -139,21 +140,29 @@ const DESIGN_HEADING = "Design notes (search these files for the terms of the re
 /** The heading of the list of every feature file of the project, which the agent reads when the examples do not show enough. */
 const FEATURE_LIST_HEADING = "All the feature files of the project (read any of them with your read tool):";
 
-/** The prompt of a feature-writing task: the whole text of the requirement, the non-functional requirements, the domain notes, the paths of the design notes to search, and the feature files that exist, for style; no code and no test. */
+/** The heading of the step definitions that exist, by pattern: a scenario written with them runs on a setup that already works, and each new step is code the next step must write and keep. */
+const STEP_CATALOGUE_HEADING = "Step definitions that exist (the steps of the project, by pattern; prefer them: a scenario written with existing steps runs on a setup that already works, and each new step is code that the next step must write and keep; write a new step only for what none of them says):";
+
+/** The prompt of a feature-writing task: the whole text of the requirement, the non-functional requirements, the domain notes, the paths of the design notes to search, the feature files that are the closest to the requirement, for style, the patterns of the step definitions that exist and the paths of all the feature files; no code and no test. */
 export function featureWriteContext(cwd: string, task: { fr: string; comment?: string }): string {
   const { paths } = loadProjectConfig(cwd);
   const requirements = parseRequirements(readText(cwd, paths.spec) ?? "");
   const requirement = requirements.filter(({ id }) => id === task.fr);
   const nonFunctional = requirements.filter(({ id }) => id.startsWith("NFR-"));
   const sources = readFeatureSources(cwd, paths.bdd_features);
-  const features = exampleFeatures(sources, task.fr).map(({ path, text }) => [`### ${path}`, text].join(NEWLINE));
   const designNotes = globSync(paths.design, { cwd }).sort();
+  const requirementText = requirement.map(requirementSection).join(NEWLINE);
+  const passages = designPassages(designNotes.map((file) => readText(cwd, file) ?? ""), requirementText, MAX_DESIGN_PASSAGES);
+  const examples = exampleFeatures(sources, task.fr, { requirement: requirementText, design: passages });
+  const features = examples.map(({ path, text }) => [`### ${path}`, text].join(NEWLINE));
+  const stepFiles = projectSteps(cwd).files.map((file) => ({ file, source: readText(cwd, file) ?? "" }));
   const sections = [
     ["Requirement:", ...requirement.map(requirementSection)],
     ["Non-functional requirements:", ...nonFunctional.map(requirementSection)],
     ["Domain notes:", readText(cwd, DOMAIN_FILE) ?? ""],
     ...(designNotes.length === 0 ? [] : [[DESIGN_HEADING, designNotes.map((file) => `- ${file}`).join(NEWLINE)]]),
     ["Example feature files, for style:", ...features],
+    ...(stepFiles.length === 0 ? [] : [[STEP_CATALOGUE_HEADING, stepCatalogue(stepFiles, { examples, requirement: requirementText, budget: STEP_CATALOGUE_BUDGET })]]),
     [FEATURE_LIST_HEADING, sources.map(({ path }) => `- ${path}`).join(NEWLINE)],
     ...(task.comment === undefined ? [] : [["The person who reviewed your feature files rejected them with this comment:", task.comment]]),
   ];

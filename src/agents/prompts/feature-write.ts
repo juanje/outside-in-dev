@@ -9,7 +9,7 @@ export function featureWritePrompt(fr: string): string {
     [
       "1. Read the requirement, its design notes, the non-functional requirements and the domain notes below. The design notes name the exact options, settings, variables and outputs; use those names.",
       "2. Read the example feature files below to match their style and vocabulary.",
-      '3. Write one scenario per behaviour, as Given, When, Then. Start each scenario from something the user does (a command they run, with the setup it needs) and check what they can observe afterwards (output, files, recorded events). Abstract steps such as "When the system handles it" cannot be turned into a test that proves anything.',
+      '3. Write one scenario per behaviour, as Given, When, Then. Start each scenario from something the user does (a command they run, with the setup it needs) and check what they can observe afterwards (output, files, recorded events). Abstract steps such as "When the system handles it" cannot be turned into a test that proves anything. Prefer the step definitions that exist, listed below: a scenario written with existing steps runs on a setup that already works, and each new step is code that the next step must write and keep, so write a new step only for what none of them says.',
       "4. Check milestones, not where the whole process ends: a later requirement may make the process go further, and a scenario that asserts its last line would then break.",
       "5. Besides the main behaviour, cover what happens when the feature is not configured, and when the thing it depends on fails. These are the cases users hit first.",
       `6. Tag the Feature line with @${fr}. Use an @NFR tag only for a non-functional requirement listed below.`,

@@ -17,6 +17,14 @@ describe("the instructions of the agent that writes the feature files", () => {
     expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
+  it("tells the writer to prefer the step definitions that exist, with the reason in terms of the work saved, and to write a new step only for what none of them says", () => {
+    const instructions = featureWritePrompt("FR-A-02");
+    expect(instructions).toContain("Prefer the step definitions that exist, listed below");
+    expect(instructions).toMatch(/a scenario written with existing steps runs on a setup that already works/);
+    expect(instructions).toMatch(/each new step is code that the next step must write and keep/);
+    expect(instructions).toMatch(/write a new step only for what none of them says/);
+  });
+
   it("states in the last rule before the report what the feature writer may read and write, with the reason", () => {
     const rules = featureWritePrompt("FR-A-02").split("\n").filter((line) => /^\d\. /.test(line));
     expect(rules.at(-2)).toBe(
