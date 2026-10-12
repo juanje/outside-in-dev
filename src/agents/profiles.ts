@@ -26,6 +26,11 @@ const SHELL_TOOLS = [...EDIT_TOOLS, ...names("bash")];
 const WHOLE_REPO = ["**"];
 const DOMAIN = "DOMAIN.md";
 
+/** The conventions files the project lists: the prompt of a step tells its agent to read them, so its read grant holds them. */
+function conventionFiles(config: ProjectConfig): string[] {
+  return config.paths.conventions ?? [];
+}
+
 /** The orchestrator's own state: the progress file, its local folder and git. */
 function orchestratorState(config: ProjectConfig): string[] {
   return [config.paths.progress, ".outside-in*", ".outside-in*/**", ".git", ".git/**"];
@@ -69,11 +74,11 @@ function grantFor(state: CycleState, config: ProjectConfig): Grant {
   const { paths } = config;
   switch (state) {
     case FEATURE_WRITE:
-      return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.design, ...paths.bdd_features], shell: false };
+      return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.design, ...paths.bdd_features, ...conventionFiles(config)], shell: false };
     case BDD_RED:
-      return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN], shell: false };
+      return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN, ...conventionFiles(config)], shell: false };
     case TDD_RED:
-      return { write: paths.unit_tests, read: [...paths.unit_tests, ...wholeDirectories(paths.unit_tests, paths.source), ...paths.bdd_features, ...paths.bdd_steps], shell: false };
+      return { write: paths.unit_tests, read: [...paths.unit_tests, ...wholeDirectories(paths.unit_tests, paths.source), ...paths.bdd_features, ...paths.bdd_steps, ...conventionFiles(config)], shell: false };
     case CODE_GREEN:
     case REFACTOR:
       return { write: paths.source, read: WHOLE_REPO, shell: true };

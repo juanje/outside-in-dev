@@ -36,3 +36,11 @@ describe("parseProjectConfig", () => {
     expect(config.refactor?.detectors?.complexity).toEqual({ max_cyclomatic: 3 });
   });
 });
+
+describe("the conventions files of the paths", () => {
+  it("accepts a list of conventions files, and none by default", () => {
+    expect(parseProjectConfig({ ...VALID, paths: { ...VALID.paths, conventions: ["docs/CONVENTIONS.md"] } }).paths.conventions).toEqual(["docs/CONVENTIONS.md"]);
+    expect(parseProjectConfig(VALID).paths.conventions).toBeUndefined();
+    expect(() => parseProjectConfig({ ...VALID, paths: { ...VALID.paths, conventions: "docs/CONVENTIONS.md" } })).toThrow(/conventions/);
+  });
+});

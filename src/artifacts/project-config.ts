@@ -23,6 +23,7 @@ const projectConfigSchema = z.strictObject({
     spec: z.string(),
     design: globs,
     progress: z.string(),
+    conventions: globs.optional(),
   }),
   commands: z.strictObject({
     bdd: z.string(),
@@ -92,6 +93,12 @@ export function loadComplexityLimits(cwd: string): { max_cyclomatic: number; max
 /** The duplication limits of the project: the configured ones, the defaults for the rest and without a configuration file. */
 export function loadDuplicationLimits(cwd: string): DuplicationLimits {
   return loadLimits(cwd, CATEGORY.duplication, DEFAULT_DUPLICATION);
+}
+
+/** The conventions files of the project (`paths.conventions`, ADR-051): none unless the project lists them, and without a configuration file. */
+export function loadConventionPaths(cwd: string): string[] {
+  const document = readJson(cwd, CONFIG_FILE);
+  return document === undefined ? [] : (parseProjectConfig(document).paths.conventions ?? []);
 }
 
 export type MagicValueLimits = { ignore: number[]; min_string_repeats: number };

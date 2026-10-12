@@ -5,6 +5,7 @@ import { readText } from "../../artifacts/project-json.js";
 import { failingFrame } from "../../artifacts/cucumber-report.js";
 import { listLocatedScenarios, readFeatureSources } from "../../artifacts/traceability.js";
 import { parseRequirements } from "../../artifacts/spec.js";
+import { conventionsSection } from "./conventions.js";
 import { designPassages, exampleFeatures, MAX_DESIGN_PASSAGES } from "./example-features.js";
 import { importClosure } from "./import-closure.js";
 import { definitionAtLine, isDefinitionOf, type StepDefinition, stepDefinitions, stepTexts, thenTexts } from "./step-definitions.js";
@@ -75,7 +76,7 @@ function thenStepsSection(cwd: string, scenario: ScenarioLocation): string[] {
 function testContext(cwd: string, task: { scenario: ScenarioLocation; failure: string }, stepSections: string[]): string {
   const { file, line } = task.scenario;
   const scenario = scenarioText(cwd, task.scenario);
-  return [`Scenario (${file}:${line}):`, scenario, "Current failure of the scenario (your starting point):", task.failure, ...stepSections, CATALOGUE_HEADING, reuseCatalogue(cwd, { mentions: `${scenario}${NEWLINE}${task.failure}` })].join(NEWLINE + NEWLINE);
+  return [`Scenario (${file}:${line}):`, scenario, "Current failure of the scenario (your starting point):", task.failure, ...stepSections, CATALOGUE_HEADING, reuseCatalogue(cwd, { mentions: `${scenario}${NEWLINE}${task.failure}` }), ...conventionsSection(cwd)].join(NEWLINE + NEWLINE);
 }
 
 /** The prompt of a TDD Red task: the scenario with its location and the normalised failure, the whole definition of the step the failure names (else those of the scenario's Then steps), and the public signatures of the project; no body of the source and no other scenario. */
@@ -112,9 +113,9 @@ export function bddRedContext(cwd: string, scenario: ScenarioLocation): string {
   ]);
 }
 
-/** The sections of a prompt as text, each one's lines and the sections themselves apart by a blank line. */
+/** The sections of a prompt as text, each one's lines and the sections themselves apart by a blank line; a section with no lines is left out. */
 export function joinSections(sections: string[][]): string {
-  return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
+  return sections.filter((section) => section.length > 0).map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
 }
 
 /** The prompt of an implementation task (CODE_GREEN): the failing tests in full, the normalised failure, the source files the tests import and the reuse catalogue; no other scenario and no earlier attempt. */
@@ -125,6 +126,7 @@ export function implementationContext(cwd: string, task: { tests: string[]; fail
     ["Current failure of the test (your starting point):", task.failure],
     ["Source the tests import:", ...imported.map((file) => fileSection(cwd, file))],
     [CATALOGUE_HEADING, reuseCatalogue(cwd, { used: imported, mentions: task.failure })],
+    conventionsSection(cwd),
   ];
   return joinSections(sections);
 }
@@ -164,7 +166,8 @@ export function featureWriteContext(cwd: string, task: { fr: string; comment?: s
     ["Example feature files, for style:", ...features],
     ...(stepFiles.length === 0 ? [] : [[STEP_CATALOGUE_HEADING, stepCatalogue(stepFiles, { examples, requirement: requirementText, budget: STEP_CATALOGUE_BUDGET })]]),
     [FEATURE_LIST_HEADING, sources.map(({ path }) => `- ${path}`).join(NEWLINE)],
+    conventionsSection(cwd),
     ...(task.comment === undefined ? [] : [["The person who reviewed your feature files rejected them with this comment:", task.comment]]),
   ];
-  return sections.map((section) => section.join(NEWLINE + NEWLINE)).join(NEWLINE + NEWLINE);
+  return joinSections(sections);
 }

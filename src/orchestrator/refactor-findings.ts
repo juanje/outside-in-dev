@@ -1,4 +1,5 @@
 import { CATALOGUE_HEADING, fileSection, joinSections } from "../agents/context/task-context.js";
+import { conventionsSection } from "../agents/context/conventions.js";
 import { reuseCatalogue } from "../agents/context/reuse-catalogue.js";
 import { findingKey } from "../artifacts/baseline.js";
 import { type LineRange, overlapsChangedLines } from "../artifacts/changed-lines.js";
@@ -29,6 +30,7 @@ export function refactorContext(cwd: string, findings: Finding[]): string {
     ["Findings to fix:", ...findings.map((finding) => findingSection(cwd, finding))],
     ["Files with findings:", ...files.map((file) => fileSection(cwd, file))],
     [CATALOGUE_HEADING, reuseCatalogue(cwd, { used: files })],
+    conventionsSection(cwd),
   ];
   return joinSections(sections);
 }

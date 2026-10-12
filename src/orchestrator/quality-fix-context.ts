@@ -1,4 +1,5 @@
 import { fileSection, joinSections } from "../agents/context/task-context.js";
+import { conventionsSection } from "../agents/context/conventions.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import type { GateError } from "../artifacts/lint-tools.js";
 
@@ -10,5 +11,5 @@ export function errorLine({ kind, file, line, code, message }: GateError): strin
 /** The prompt of a quality fix task: the errors with their locations and the files that have them in full; nothing else. */
 export function qualityFixContext(cwd: string, errors: GateError[]): string {
   const files = [...new Set(errors.map(({ file }) => file))];
-  return joinSections([["Errors to fix:", errors.map(errorLine).join(NEWLINE)], ["Files with errors:", ...files.map((file) => fileSection(cwd, file))]]);
+  return joinSections([["Errors to fix:", errors.map(errorLine).join(NEWLINE)], ["Files with errors:", ...files.map((file) => fileSection(cwd, file))], conventionsSection(cwd)]);
 }

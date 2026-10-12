@@ -99,3 +99,14 @@ describe("profileFor deny list", () => {
     }
   });
 });
+
+describe("profileFor with conventions files", () => {
+  it("lets every step that writes features, steps, tests or code read the conventions files it is told to read", () => {
+    const withConventions = { ...config, paths: { ...config.paths, conventions: ["docs/RULES.md"] } };
+    for (const state of ["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "QUALITY_FIX"] as const) {
+      const read = profileFor(state, withConventions).read;
+      expect(read.includes("docs/RULES.md") || read.includes("**"), state).toBe(true);
+    }
+    expect(profileFor("TDD_RED", config).read).not.toContain("docs/RULES.md");
+  });
+});
