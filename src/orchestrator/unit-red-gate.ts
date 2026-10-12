@@ -1,11 +1,15 @@
 import { CYCLE_STEP, loadProgress } from "../artifacts/progress.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { FAILURE } from "../artifacts/red-classification.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { normalizeVitestReport, selectTest, unitProblems, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { observeUnitRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { PROBLEM, type RedGate, redGate } from "./bdd-red-gate.js";
+
+/** What the next attempt does when its unit test passed at once: the code already does what that test checks. */
+const PASSES_AT_ONCE_ADVICE = "The code already does what this test checks: test a behaviour the code does not have yet, or, if no unit logic is left and the scenario still fails, report no_unit_logic_left";
 
 /** The tests that passed before and fail now, as lines: every failing test and unloadable file but the new test and the load failure of its own file. */
 function brokenTests(cwd: string, files: UnitFileResult[], test: { file: string; name: string }): string[] {
@@ -26,5 +30,7 @@ export function unitRedGate(worktree: string, test: { file: string; name: string
   const run = runners.unitSuite(worktree, config.commands.unit);
   const broken = run.report === undefined ? [] : brokenTests(worktree, normalizeVitestReport(run.report), test);
   if (broken.length > 0) return { kind: PROBLEM, problem: ["unit tests that passed no longer pass:", ...broken].join(NEWLINE) };
-  return redGate(worktree, config, observeUnitRun(worktree, run, test));
+  const observation = observeUnitRun(worktree, run, test);
+  const gate = redGate(worktree, config, observation);
+  return gate.kind === PROBLEM && observation.failure.kind === FAILURE.passed ? { kind: PROBLEM, problem: `${gate.problem}. ${PASSES_AT_ONCE_ADVICE}` } : gate;
 }

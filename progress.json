@@ -2565,6 +2565,10 @@
         {
           "name": "A unit test rejected in the iteration after a scenario was still red does not lose the move back to TDD Red",
           "bdd": "pass"
+        },
+        {
+          "name": "A unit test that passes at once tells the next attempt to test a behaviour the code lacks",
+          "bdd": "pass"
         }
       ]
     },
