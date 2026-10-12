@@ -63,7 +63,7 @@ Feature: BDD Red
       | src/cart.ts                 | changed source code while writing tests |
       | features/FR-CART-02.feature | changed an approved feature file        |
 
-  Scenario: An agent that is blocked stops the run
+  Scenario: An agent that is blocked asks the human what to do
     Given the step-writing agent reports that it is blocked with the reason "the scenario needs a payment service"
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
     Then the human was asked once what to do about the blocked agent of "Add a line" at "BDD_RED", with the actions "retry", "skip_scenario", "skip_fr" and "abort"
