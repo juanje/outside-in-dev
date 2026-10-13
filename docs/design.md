@@ -1,4 +1,4 @@
-# Technical design: Outside-In Development CLI (`oid`) — v3.11
+# Technical design: Outside-In Development CLI (`oid`) — v3.12
 
 > Status: design draft. MVP = `new-feature` workflow + periodic cleanup (`oid tidy`) + TypeScript stack.
 > Methodology reference: [Outside-In Development: Spec → BDD → TDD for AI Coding Agents](https://ai.juanjeojeda.com/outside-in-development)
@@ -103,7 +103,7 @@ Parser rules:
 - FR: `^### (FR-[A-Z][A-Z0-9]*-\d{2,3}[a-z]?): (.+)$` (an optional lowercase suffix, as in `FR-PERM-06b`, see ADR-026)
 - NFR: `^### (NFR-\d{2,3}): (.+)$`
 - The body of each requirement is the text up to the next heading of level ≤ 3.
-- Level-2 section titles are not interpreted: the parser is guided only by the IDs, so it works the same with a `SPEC.md` in other languages.
+- Level-2 section titles are not interpreted: the parser is guided only by the IDs, so the human can arrange the sections freely. `SPEC.md` is in English (ADR-053).
 
 `SPEC_CHECK` validations on the target FRs (blocking):
 
@@ -754,7 +754,7 @@ Human notes (free text from a `WAITING_INPUT`) are added to the next affected ta
 Language, following Buddy's rule *(Buddy)*:
 
 - **Prompts are always written in English, with no examples in other languages.** An English instruction illustrated with "muéstrame" is a strong signal for the model and leads it to overfit to that phrase.
-- **What the agents generate** (Gherkin, test names, code, comments) uses the language in `settings.artifact_language` (English by default).
+- **What the agents generate** (design documents, Gherkin, test names, code, comments) is in English (ADR-053).
 - **Test data** inside scenarios may be in the end user's language: there the goal is to exercise what a user actually types.
 
 ---
@@ -1135,7 +1135,7 @@ oid spec --fr         # Add or refine a specific FR (MVP)
 - **Sandbox as an extension.** Inside interactive mode, the runtime can replace the active session (for example, with `/new`), and a hook installed by hand on `session.agent.beforeToolCall` would be lost. The spec-agent's sandbox is registered as an **extension** (`pi.on("tool_call", …)`, which according to Pi's documentation can block the call, and which blocks by default if the handler fails), and extensions survive the session change. It uses the same `checkPaths` function as §7.3. The cycle's subagents, which do not change session, keep using `beforeToolCall`, the mechanism already proven.
 - **`/check` command.** An extension registers `/check`, which runs the gate's deterministic checks inside the chat and shows the gaps, so the human does not have to leave to know what is missing.
 - Web search may be enabled in this phase.
-- The human edits the documents freely during and after the conversation.
+- **The spec-agent writes the documents** from the research and the conversation; the human reviews them and edits them freely during and after it. The conversation may be in any language; the documents are written in English (ADR-053).
 - **Exit gate**, when the session closes:
   - Deterministic: files present; `SPEC.md` parses (§4.2); unique IDs; no acceptance criteria in the FRs.
   - Jev: the article's six questions (goal, MVP, out of scope, cross-cutting rules, domain, stack) as `noul`; low ones are shown as a list of gaps.
@@ -1325,7 +1325,6 @@ Validated with Zod at startup.
     "worktree_dir": "../.oid-worktrees",
     "branch_prefix": "oid/",
     "commit_template": "{type}({scope}): {id} {title}",
-    "artifact_language": "en",
     "secret_globs": [".env", ".env.*", "**/*.pem", "**/*.key", "**/secrets/**", "**/auth.json"],
     "notify_command": null,
     "tui_screen": "main",
@@ -1555,7 +1554,6 @@ Technical verifications before implementing:
 - [ ] `vitest list`: id format, to verify the `report`'s `test`.
 - [x] `knip` and `jscpd` on Buddy: entry configuration (worker, Svelte frontend, scripts) and false-positive rate. Spike S4, ADR-027.
 - [x] Cost of `tsc --noEmit` in `CODE_GREEN` on a project the size of Buddy; if high, incremental mode or `tsc --build`. About 7 s on Buddy: acceptable without incremental mode (S4, ADR-027).
-- [ ] Gherkin with `# language: es` in cucumber-js, if `artifact_language` is `es`.
 
 ---
 
@@ -1577,6 +1575,13 @@ Until M3, FRs can be written by hand in `SPEC.md` following the format of §4.2.
 ---
 
 ## 22. Changes
+
+### v3.12 — English artefacts
+
+| Area | v3.11 | v3.12 |
+|:--|:--|:--|
+| Language of a target project's artefacts | `settings.artifact_language`, English by default; `SPEC.md` parsed in any language | English for the design documents, feature files, test names, code and comments; test data in the user's language; `artifact_language` removed (ADR-053) |
+| `oid spec` | The human edits the documents freely | The spec-agent writes them from the conversation, which may be in any language; the human reviews and edits them (§13) |
 
 ### v3.11 — spike S1 reduced to the 1.0.3 delta
 

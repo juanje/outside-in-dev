@@ -480,7 +480,7 @@ Agent sessions never read the user's global Pi settings, skills or context files
 
 ### NFR-11: Agent-facing text in English
 
-Prompts and agent-facing documents are written in English without examples in other languages. Generated artefacts use the configured language; test data may use the end user's language.
+Prompts and agent-facing documents are written in English without examples in other languages. In a target project, the design documents, feature files, test names, code and comments are in English too; only test data may use the end user's language. The design conversation may be in any language.
 
 ### NFR-12: Costs are bounded
 
