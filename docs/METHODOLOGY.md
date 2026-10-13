@@ -33,7 +33,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 - **Import source that does not exist yet dynamically, inside the step** (`const { x } = await import("../../src/…")`). A static import of a missing module stops cucumber-js before any scenario runs.
 - Run `oid verify red features/<file>.feature:<line>`. It decides whether the scenario is a **valid Red**: the steps run and fail because the behaviour is missing. "Undefined", "pending", "ambiguous", a crash before running, or a static import of something that does not exist yet are not Red (exit 1).
 
-**Needs a decision (exit 2).** When `oid verify red` cannot classify a failure by itself (a failing assertion on a line that already existed at the last checkpoint, or an error it cannot attribute; an assertion on a line added since is a valid Red, ADR-033), it prints the failure and the questions to answer, and exits 2. Whoever drives the cycle answers them, not the agent that wrote the test: is it the assertion of the new behaviour, failing for the right reason, and does the test check something meaningful? Then `oid verify red "<target>" --decide <class>`, which answers the failure that run recorded without running the test again (refused if any file but `progress.json` changed since: run `oid verify red` again): `business_assertion` or `missing_implementation` for a valid Red, `test_bug` or `environment` otherwise (ADR-030).
+**Needs a decision (exit 2).** When `oid verify red` cannot classify a failure by itself (a failing assertion on a line that already existed at the last checkpoint, or an error it cannot attribute; an assertion on a line added since is a valid Red, ADR-017), it prints the failure and the questions to answer, and exits 2. Whoever drives the cycle answers them, not the agent that wrote the test: is it the assertion of the new behaviour, failing for the right reason, and does the test check something meaningful? Then `oid verify red "<target>" --decide <class>`, which answers the failure that run recorded without running the test again (refused if any file but `progress.json` changed since: run `oid verify red` again): `business_assertion` or `missing_implementation` for a valid Red, `test_bug` or `environment` otherwise (ADR-030).
 
 **The verify gates the step.** Move forward (`bdd_red` → `tdd_red`, `tdd_red` → `tdd_green`, `tdd_green` → `refactor` or `quality_gate`, `refactor` → `quality_gate`) only after the matching `oid verify` passed for the feature, on the content there is now; going back to a Red needs no verification. A scenario can be named by its location or by its name (`oid verify red "<scenario name>"`, `oid verify green "<name>" <feature>:<line> ...`); `oid verify integrity` reports changes the current step does not allow (source while writing tests, tests while writing code, approved feature files, forbidden patterns). In Claude Code both are enforced by hooks (`.claude/settings.json`, `scripts/claude-hook.mjs`).
 
@@ -41,7 +41,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 **A unit test that is wrong once the code exists (ADR-044).** Never edit a unit test at `tdd_green`, `refactor` or `quality_gate`. Go back with `oid progress step FR-… tdd_red`, fix the test without touching `src/`, and run `oid verify red "<file> > <title>"`. A test that fails is judged as any Red (it is the next test of the inner loop, or a gap found at the gate). A test that passes returns the feature to the step it came from if this cycle has code, `src/` is unchanged since going back, and the test fails as a valid Red without this cycle's code (oid checks that itself and restores the code); otherwise oid says which condition failed and the feature stays at `tdd_red`. A passing test with no code in this cycle is still not a Red. The same return from `quality_gate` applies to a step (`bdd_red`).
 
-**No legal move (ADR-035).** If the cycle leaves you in a step with no allowed move forward (for example, a step definition fixed in `bdd_red` leaves every scenario green, so no Red is possible), do not work around the hooks or mutate the source to force a Red. A subagent stops and reports to the orchestrating session. The orchestrating session makes the move with an override (ADR-045): `OID_OVERRIDE="<cause>" oid progress step …` or `OID_OVERRIDE="<cause>" oid verify …`, which the hook lets through only from the main session and records in `.outside-in/overrides.ndjson` (each line is an attempt; oid may still refuse the command). It is the last resort: only when no legal move exists, never for what oid checks by itself (a return under ADR-038 or ADR-044, a `--decide`). A file the step does not allow is edited by the orchestrating session only together with the override that absorbs it, whose cause names the edit. Then run `oid verify green` on the current content, mutation-check any scenario that passed without a Red, and record each override that took effect, with its cause, in the bootstrap log. `oid progress revise` stays the human's.
+**No legal move (ADR-045).** If the cycle leaves you in a step with no allowed move forward (for example, a step definition fixed in `bdd_red` leaves every scenario green, so no Red is possible), do not work around the hooks or mutate the source to force a Red. A subagent stops and reports to the orchestrating session. The orchestrating session makes the move with an override (ADR-045): `OID_OVERRIDE="<cause>" oid progress step …` or `OID_OVERRIDE="<cause>" oid verify …`, which the hook lets through only from the main session and records in `.outside-in/overrides.ndjson` (each line is an attempt; oid may still refuse the command). It is the last resort: only when no legal move exists, never for what oid checks by itself (a return under ADR-038 or ADR-044, a `--decide`). A file the step does not allow is edited by the orchestrating session only together with the override that absorbs it, whose cause names the edit. Then run `oid verify green` on the current content, mutation-check any scenario that passed without a Red, and record each override that took effect, with its cause, in the bootstrap log. `oid progress revise` stays the human's.
 
 ### 3. TDD Red [`tdd_red`]
 
@@ -52,7 +52,7 @@ For each feature, strictly in order. The `cycle_step` value to record is in brac
 
 - Write the **minimum** code in `src/` to make the test pass. Before writing a new function or constant, check whether one already exists (search the exported symbols of `src/`).
 - Do not touch tests in this step.
-- Run `oid verify green`: the whole unit suite, the scenarios recorded as `pass` of the feature in focus (and of the features of its targets), and the type check of the project (source, unit tests and step definitions). It must say `green: ok`. The scenarios of other features run in the quality gate (step 6, ADR-036).
+- Run `oid verify green`: the whole unit suite, the scenarios recorded as `pass` of the feature in focus (and of the features of its targets), and the type check of the project (source, unit tests and step definitions). It must say `green: ok`. The scenarios of other features run in the quality gate (step 6, ADR-030).
 
 ### 5. Refactor [`refactor`]
 
@@ -68,7 +68,7 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 
 - Run `oid metrics --changed` over the whole diff of the feature (tests, steps and docs included) and fix its findings as separate refactor commits or changes.
 - Run the full quality gate (`AGENTS.md`). Every check passes, or go back to the step that owns the failure. A gap seen at the gate (a behaviour with no scenario or no test) is a new Red: `oid progress step FR-… bdd_red` or `tdd_red`; the feature file is not edited inside `quality_gate`.
-- A scenario of another feature that fails in the gate is a regression of this feature's change: go back to a Red (`oid progress step FR-… bdd_red` or `tdd_red`) and fix it before committing (ADR-036).
+- A scenario of another feature that fails in the gate is a regression of this feature's change: go back to a Red (`oid progress step FR-… bdd_red` or `tdd_red`) and fix it before committing (ADR-030).
 
 ### 7. Done
 
@@ -88,10 +88,10 @@ The article and `docs/design.md` are a starting point, and the implementation te
 
 1. **Raise it.** Stop and tell the human what is wrong and the evidence (a failing run, a contradiction, a measurement). A subagent reports it to the orchestrating session. Do not work around it in the code.
 2. **The human decides.** Nothing below happens without that decision.
-3. **ADR.** A new entry in `DECISIONS.md` with context, options, decision and consequences. If it replaces an earlier decision, it says so, and the earlier entry gets one sentence that points to it (as ADR-005 points to ADR-029). A deviation from the article has a title that starts with "Deviation from the article:".
-4. **Design.** Update the sections of `docs/design.md` that the ADR changes, and add a row to its §22.
+3. **ADR.** In `DECISIONS.md`, rewrite the entry the change touches, or add a new one (context, options, decision, consequences) and remove the entries it replaces. The file holds only what is in force; git keeps the rest. Never reuse a number. A deviation from the article has a title that starts with "Deviation from the article:".
+4. **Design.** Update the sections of `docs/design.md` that the ADR changes, so that they describe what is in force.
 5. **Spec.** If behaviour changes, update `SPEC.md`. For each FR whose passing scenarios no longer describe it, the human runs `oid progress revise` ("Changing a requirement"); for one whose scenarios still describe it, `reopen`.
-6. **Commit.** Steps 3 and 4 go in one `docs:` commit, step 5 in that commit too or in the one that follows, so that each link points to the one before.
+6. **Commit.** Steps 3 and 4 go in one `docs:` commit whose message says why, step 5 in that commit too or in the one that follows.
 
 ## Review after done
 
@@ -106,7 +106,7 @@ A pull request opens with the feature already `done`. When review comments arriv
 - Use `.only`, `.skip`, `.todo`, `@ts-ignore`, `@ts-expect-error`, or code that checks whether it runs under test.
 - Assert only that something is defined, or only that something does not happen, unless that is really the requirement.
 - Treat "the test passes" as done. Done is the full quality gate plus the progress update.
-- Stash, move or revert files to fabricate a Red or to satisfy integrity. Stop and say why (ADR-035).
+- Stash, move or revert files to fabricate a Red or to satisfy integrity. Stop and say why (ADR-045).
 
 ## Spikes
 

@@ -1,6 +1,6 @@
 # Technical design: Outside-In Development CLI (`oid`) — v3.13
 
-> Status: living document. MVP = `new-feature` workflow + periodic cleanup (`oid tidy`) + TypeScript stack. A change that alters a decision goes with an ADR, and every change adds a row to §22 (ADR-054).
+> Status: living document. MVP = `new-feature` workflow + periodic cleanup (`oid tidy`) + TypeScript stack. It describes what is in force and the principles for what is still planned; a change that alters a decision goes with its ADR, and git keeps the earlier versions (ADR-054).
 > Methodology reference: [Outside-In Development: Spec → BDD → TDD for AI Coding Agents](https://ai.juanjeojeda.com/outside-in-development)
 > The article is the **starting reference for the methodology's artifacts** (`SPEC.md`, `.feature`, `progress.json`). The implementation tests it: a deviation is allowed when the work gives evidence for it, and is recorded as an ADR (ADR-054). The Buddy project, which predates the final version of the methodology, is used as an **engineering** reference: how to use the Pi SDK and which testing and robustness lessons it left in production. Decisions marked *(Buddy)* come from its code.
 
@@ -168,7 +168,7 @@ select → bdd_red ⇄ tdd_red → tdd_green → refactor ─┬─→ tdd_red  
 
 From `tdd_green` it is also possible to go directly to `tdd_red`, `bdd_red` or `quality_gate` when there is no refactor. From `tdd_red` it is also possible to go back to `bdd_red`, to fix a step (ADR-038). From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. `bdd_red → quality_gate` exists only after `oid progress revise`, when the revised requirement needs no code (ADR-041). Any other transition is rejected.
 
-**Moving to `done`.** `oid progress done` checks what the files can prove: at least one scenario, every scenario in `pass`, every scenario tagged with the feature recorded, and the evidence of a green that ran them with nothing changed since (ADR-032). In `oid run`, the rest follows from the control flow: `FR_COMMIT` comes only after `QUALITY_GATE`, and every scenario but an accepted guard has at least one unit test (§6.6). On moving to `done`, `cycle_step` disappears and `current_focus` moves to the next FR or to `null`.
+**Moving to `done`.** `oid progress done` checks what the files can prove: at least one scenario, every scenario in `pass`, every scenario tagged with the feature recorded, and the evidence of a green that ran them with nothing changed since (ADR-030). In `oid run`, the rest follows from the control flow: `FR_COMMIT` comes only after `QUALITY_GATE`, and every scenario but an accepted guard has at least one unit test (§6.6). On moving to `done`, `cycle_step` disappears and `current_focus` moves to the next FR or to `null`.
 
 **Mapping to the FSM.** Almost one to one:
 
@@ -1211,7 +1211,7 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 | `oid spec [--fr ID]` | Interactive Phase 0. |
 | `oid tidy [--scope PATH…] [--max-items N] [--yes]` | Periodic project cleanup (§14.1). |
 | `oid metrics [--changed] [--baseline]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
-| `oid verify red <test>` · `green [targets…]` · `integrity [--step S]` | The Red Gate (§6.4), a green of the features it verifies (ADR-036; the whole project's regression is the quality gate's) and integrity (§6.5) as standalone commands. Used by the FSM and, during bootstrap, by an agent guided by instructions (see `docs/BOOTSTRAP.md`). |
+| `oid verify red <test>` · `green [targets…]` · `integrity [--step S]` | The Red Gate (§6.4), a green of the features it verifies (ADR-030; the whole project's regression is the quality gate's) and integrity (§6.5) as standalone commands. Used by the FSM and, during bootstrap, by an agent guided by instructions (see `docs/BOOTSTRAP.md`). |
 | `oid try <test or scenario> [--dry-run]` | Runs one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict; records nothing. The agents of a run use it to check their own work (FR-VERIFY-09). With `--dry-run`, only lists the undefined steps of a scenario. |
 | `oid run [--fr ID…] [--max-frs N] [--branch NAME]` | Processes pending FRs in order (or only the given ones), with the interface of §12.2. Post-MVP: `--dashboard [--host H] [--port P]`. |
 | `oid resume` | Continues from `session.json`. |
