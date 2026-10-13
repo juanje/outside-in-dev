@@ -1216,6 +1216,10 @@
         {
           "name": "A string compared with the result of typeof is not a repeated string",
           "bdd": "pass"
+        },
+        {
+          "name": "A string with no letter or digit is not a repeated string",
+          "bdd": "pass"
         }
       ]
     },

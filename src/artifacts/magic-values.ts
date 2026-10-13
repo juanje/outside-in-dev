@@ -75,13 +75,16 @@ interface Occurrence {
 /** The Node encoding names: they name a format, so repeating one is not a magic value. */
 const ENCODING_NAMES = new Set("utf8 utf-8 ascii base64 base64url hex latin1 binary ucs2 ucs-2 utf16le utf-16le".split(/\s/));
 
+/** A letter or a digit of any script: a string without one (a separator, punctuation) is formatting, not a value. */
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
 /** The string literals of a source text, with the lines they span. */
 function stringsOf(text: string): (LineRange & { value: string })[] {
   const file = ts.createSourceFile("source.ts", text, ts.ScriptTarget.Latest, true);
   const found: (LineRange & { value: string })[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isLiteralTypeNode(node)) return;
-    if (ts.isStringLiteral(node) && node.text !== "" && !ENCODING_NAMES.has(node.text) && !isName(node) && !isNamedConstant(node) && !isTypeofComparison(node)) found.push({ value: node.text, ...linesOf(file, node) });
+    if (ts.isStringLiteral(node) && LETTER_OR_DIGIT.test(node.text) && !ENCODING_NAMES.has(node.text) && !isName(node) && !isNamedConstant(node) && !isTypeofComparison(node)) found.push({ value: node.text, ...linesOf(file, node) });
     ts.forEachChild(node, visit);
   };
   visit(file);

@@ -197,3 +197,24 @@ Feature: Detect magic values
     And the output contains "string \"tag\" repeated 3 times"
     And the magic_value findings do not mention "string \"string\""
     And the summary counts magic_value 1
+
+  Scenario: A string with no letter or digit is not a repeated string
+    Given a project file "src/format.ts" containing:
+      """
+      export function listed(items: string[]): string {
+        return items.join(", ") + items.join(" ") + items.join(", ");
+      }
+      export function spaced(items: string[]): string {
+        return items.join(" ") + ": " + items.join(" ") + ": ";
+      }
+      export function word(value: boolean): string {
+        return value ? "tag" : "tag" + "tag";
+      }
+      """
+    When I run "oid metrics"
+    Then the command succeeds
+    And the output contains "string \"tag\" repeated 3 times"
+    And the magic_value findings do not mention "string \", \""
+    And the magic_value findings do not mention "string \" \""
+    And the magic_value findings do not mention "string \": \""
+    And the summary counts magic_value 1

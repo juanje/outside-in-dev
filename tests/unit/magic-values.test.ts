@@ -39,6 +39,22 @@ describe("findMagicNumbers", () => {
 });
 
 describe("findRepeatedStrings", () => {
+  it("leaves out a string with no letter or digit in any script, but not a repeated word", () => {
+    const text = [
+      'export const a = [1, 2].join(", ") + [1].join(" ") + "\\n" + ": " + "/";',
+      'export const b = [1, 2].join(", ") + [1].join(" ") + "\\n" + ": " + "/" + "…" + "…" + "…";',
+      'export const c = ["語", "語", "語", "tag", "tag", "tag", "a1", "a1", "a1", "9", "9", "9"];',
+      "",
+    ].join("\n");
+    const found = findRepeatedStrings([{ file: "src/a.ts", text }], 2);
+    expect(found.map((finding) => finding.detail)).toEqual([
+      'string "語" repeated 3 times',
+      'string "tag" repeated 3 times',
+      'string "a1" repeated 3 times',
+      'string "9" repeated 3 times',
+    ]);
+  });
+
   it("leaves out a string compared with the result of typeof, on either side and with any equality operator, but not other repeated strings", () => {
     const text = [
       'export const a = (v: unknown) => typeof v === "string" || "string" == typeof v;',
