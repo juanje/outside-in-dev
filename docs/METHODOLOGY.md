@@ -88,7 +88,7 @@ The article and `docs/design.md` are a starting point, and the implementation te
 
 1. **Raise it.** Stop and tell the human what is wrong and the evidence (a failing run, a contradiction, a measurement). A subagent reports it to the orchestrating session. Do not work around it in the code.
 2. **The human decides.** Nothing below happens without that decision.
-3. **ADR.** A new entry in `DECISIONS.md` with context, options, decision and consequences, and a `Status:` line. An agent that drafts the entry before the human's decision writes `Status: **proposed**.`; it becomes `Status: **accepted**.` when the human decides, and the steps below follow only then. An entry with no `Status:` line is accepted. If it replaces an earlier decision, it says so, and the earlier entry gets one sentence that points to it (as ADR-005 points to ADR-029). A deviation from the article has a title that starts with "Deviation from the article:".
+3. **ADR.** A new entry in `DECISIONS.md` with context, options, decision and consequences. If it replaces an earlier decision, it says so, and the earlier entry gets one sentence that points to it (as ADR-005 points to ADR-029). A deviation from the article has a title that starts with "Deviation from the article:".
 4. **Design.** Update the sections of `docs/design.md` that the ADR changes, and add a row to its §22.
 5. **Spec.** If behaviour changes, update `SPEC.md`. For each FR whose passing scenarios no longer describe it, the human runs `oid progress revise` ("Changing a requirement"); for one whose scenarios still describe it, `reopen`.
 6. **Commit.** Steps 3 and 4 go in one `docs:` commit, step 5 in that commit too or in the one that follows, so that each link points to the one before.

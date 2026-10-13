@@ -371,8 +371,6 @@ A quality-gate command the agent runs is feedback for that attempt. It does not 
 
 ## ADR-053: Design documents and feature files are written in English
 
-Status: **accepted**.
-
 **Context.** The design lets a target project write in another language: the `SPEC.md` parser follows only the IDs "so that it works the same in other languages" (§4.2), and `settings.artifact_language` sets the language of what the agents generate, Gherkin included (§7.9). NFR-11 says the opposite for agent-facing documents, and a project's `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` and feature files are the main input of every agent and of Jev. `artifact_language` is not implemented, and no scenario depends on it. A shared or open-source project is written in English, and a second language for the same documents adds cases to test and a source of ambiguity for the agents.
 **Options.** (1) Keep `artifact_language` for every generated artefact: rejected, for the reasons above. (2) English for the design documents only, the configured language for feature files and code: rejected, a feature file in another language breaks the vocabulary chain from the FR to the step and to the code. (3) English for the design documents, feature files, test names, code and comments; only test data in the end user's language: chosen.
 **Decision.** In a project that uses oid, `SPEC.md`, `DOMAIN.md`, `DECISIONS.md`, feature files, test names, code and comments are in English. Test data inside scenarios and tests may be in the end user's language, since it exercises what a user really types. The conversation of `oid spec` may be in any language; the spec-agent writes the documents in English (§13). `settings.artifact_language` is removed.
@@ -380,14 +378,11 @@ Status: **accepted**.
 
 ## ADR-054: The article and the design are a starting point, and they change through records
 
-Status: **accepted**.
-
 **Context.** oid is built to enforce the methodology of the article, and it is built with that methodology. The implementation is therefore also a test of the article's claims: it can confirm them or refute them. ADR-011 makes the article the *only* reference and asks the artefacts to follow it *exactly*; the head of `docs/design.md` repeats it, and `AGENTS.md` says "settled decisions stay settled". Read together, they present the article and the design as fixed, while the design has changed more than ten times (§22) and ADR-029 already superseded ADR-005. Agents read that wording as "do not question", and a contradiction found during implementation is then worked around instead of being raised. Two different rules are mixed: an agent implementing an FR must not diverge from the spec on its own, which is the methodology; and the project must be able to correct its design when the implementation shows that it is wrong.
 **Options.** (1) Keep the current wording: rejected, for the reasons above. (2) Let agents change the design when they find a problem: rejected, a design that changes without the human is no longer a contract. (3) Keep the design binding during a feature, with a recorded path to change it: chosen.
 **Decision.**
 - The article is the starting reference for the methodology and its artefacts, not the only one. A deviation from it is allowed when the implementation gives evidence for it, and it is recorded as an ADR whose title starts with "Deviation from the article:", with the evidence. Those entries are what goes back to the article.
 - `docs/design.md` is a living document. A change that alters a decision goes with an ADR; every change adds a row to its §22.
 - During a feature, the spec, the design and the ADRs bind the agent that implements it: it does not diverge on its own. When it finds that one of them is wrong or contradicts the code, it stops and proposes the change, with the evidence. The human decides.
-- An ADR carries a `Status:` line: `proposed` while it waits for the human's decision (an agent may draft it), `accepted` once the human decides. Entries written before this one have no `Status:` line and are accepted.
 - A change to the design follows one chain, each link in the same commit or in the commit that follows: ADR (why) → `docs/design.md` and its §22 (what) → `SPEC.md`, with `oid progress revise` run by the human for each FR whose passing scenarios no longer describe it (`docs/METHODOLOGY.md`, "Changing the design").
 **Consequences.** A wrong design is corrected, with a record of why and of what it affects downstream. ADR-011 keeps the break with Buddy's artefacts. The rule "settled decisions stay settled" stays for agents in a feature; the human can supersede any decision with a new entry. The bootstrap log can also record which claims of the article the implementation confirmed or refuted.
