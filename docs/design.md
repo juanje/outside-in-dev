@@ -1,8 +1,8 @@
-# Technical design: Outside-In Development CLI (`oid`) — v3.12
+# Technical design: Outside-In Development CLI (`oid`) — v3.13
 
-> Status: design draft. MVP = `new-feature` workflow + periodic cleanup (`oid tidy`) + TypeScript stack.
+> Status: living document. MVP = `new-feature` workflow + periodic cleanup (`oid tidy`) + TypeScript stack. A change that alters a decision goes with an ADR, and every change adds a row to §22 (ADR-054).
 > Methodology reference: [Outside-In Development: Spec → BDD → TDD for AI Coding Agents](https://ai.juanjeojeda.com/outside-in-development)
-> The article is the **only reference for the methodology's artifacts** (`SPEC.md`, `.feature`, `progress.json`). The Buddy project, which predates the final version of the methodology, is used as an **engineering** reference: how to use the Pi SDK and which testing and robustness lessons it left in production. Decisions marked *(Buddy)* come from its code.
+> The article is the **starting reference for the methodology's artifacts** (`SPEC.md`, `.feature`, `progress.json`). The implementation tests it: a deviation is allowed when the work gives evidence for it, and is recorded as an ADR (ADR-054). The Buddy project, which predates the final version of the methodology, is used as an **engineering** reference: how to use the Pi SDK and which testing and robustness lessons it left in production. Decisions marked *(Buddy)* come from its code.
 
 `oid` (from *Outside-In Development*) is a command-line tool that enforces the Outside-In methodology (Spec → BDD → TDD) on coding agents. It is not an assistant that "tries to follow" the methodology: it is a harness in which the methodology **is** the control flow. A finite state machine (FSM) written in TypeScript decides what happens at each moment; ephemeral subagents created with the Pi SDK generate specifications, tests and code; and a decision model (Jev, from TypeSafe AI, through Pi's classifier API) answers the semantic micro-decisions that deterministic code cannot make.
 
@@ -1575,6 +1575,13 @@ Until M3, FRs can be written by hand in `SPEC.md` following the format of §4.2.
 ---
 
 ## 22. Changes
+
+### v3.13 — a design that changes through records
+
+| Area | v3.12 | v3.13 |
+|:--|:--|:--|
+| The article | The only reference for the artifacts, followed exactly (ADR-011) | The starting reference; a deviation with evidence is recorded as an ADR (ADR-054) |
+| This document | Design draft | Living document: a change that alters a decision goes with an ADR, and every change adds a row here (ADR-054) |
 
 ### v3.12 — English artefacts
 

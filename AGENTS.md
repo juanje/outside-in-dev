@@ -42,9 +42,10 @@ oid metrics --changed
 
 ## Rules
 
-- **The spec is the source of truth.** If you think a requirement is wrong or contradicts another, stop and ask. Do not silently diverge, and do not edit `SPEC.md`, `DOMAIN.md` or `DECISIONS.md` without being asked.
+- **The spec binds the feature; it is not frozen.** While you work on a feature, follow `SPEC.md`, `docs/design.md` and `DECISIONS.md`, and never diverge from them on your own. Do not edit `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` or `docs/design.md` without being asked.
+- **A design that looks wrong is a finding, not an obstacle.** If a requirement, a design section, an ADR or the article contradicts another or the code, stop and propose the change, with the evidence. The human decides; the change then follows "Changing the design" in `docs/METHODOLOGY.md` (ADR-054). Do not work around it.
 - **One feature at a time.** Do not start the next FR until the current one is done.
-- **Settled decisions stay settled.** Do not reopen a decision in `DECISIONS.md`; propose a new entry if you think one is wrong.
+- **A decision changes through a new entry.** Do not edit or ignore an ADR; propose one that supersedes it.
 - **English everywhere** in code, comments, docs and prompts. Prompts and agent-facing text contain no examples in other languages. Test data may use other languages.
 - **Commit after each feature**, referencing the FR: `feat(<area>): FR-AREA-NN <title>`. Use `test(...)`, `fix(...)`, `refactor(...)`, `docs:` and `chore:` for the rest.
 - **Spikes are the only exception to test-first.** They live in `spikes/<name>/`, are never imported by `src/`, record their conclusions in `DECISIONS.md` and are deleted afterwards.

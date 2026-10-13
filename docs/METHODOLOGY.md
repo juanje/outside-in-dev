@@ -82,6 +82,17 @@ When the human decides that a requirement changed, they run `oid progress revise
 
 Which command: do the scenarios that pass still describe the requirement? Yes (a missing case, a bug against the spec, a review comment): `reopen`, then `oid progress step FR-… bdd_red` for the new scenario. No: `revise`.
 
+## Changing the design
+
+The article and `docs/design.md` are a starting point, and the implementation tests them (ADR-054). When the work shows that a design section, an ADR or the article is wrong, the design changes, through records:
+
+1. **Raise it.** Stop and tell the human what is wrong and the evidence (a failing run, a contradiction, a measurement). A subagent reports it to the orchestrating session. Do not work around it in the code.
+2. **The human decides.** Nothing below happens without that decision.
+3. **ADR.** A new entry in `DECISIONS.md` with context, options, decision and consequences, and a `Status:` line. An agent that drafts the entry before the human's decision writes `Status: **proposed**.`; it becomes `Status: **accepted**.` when the human decides, and the steps below follow only then. An entry with no `Status:` line is accepted. If it replaces an earlier decision, it says so, and the earlier entry gets one sentence that points to it (as ADR-005 points to ADR-029). A deviation from the article has a title that starts with "Deviation from the article:".
+4. **Design.** Update the sections of `docs/design.md` that the ADR changes, and add a row to its §22.
+5. **Spec.** If behaviour changes, update `SPEC.md`. For each FR whose passing scenarios no longer describe it, the human runs `oid progress revise` ("Changing a requirement"); for one whose scenarios still describe it, `reopen`.
+6. **Commit.** Steps 3 and 4 go in one `docs:` commit, step 5 in that commit too or in the one that follows, so that each link points to the one before.
+
 ## Review after done
 
 A pull request opens with the feature already `done`. When review comments arrive, the agent runs `oid progress reopen FR-…`: the feature goes back to `quality_gate` and every `pass` stays `pass`. The comment decides the move: a missing behaviour is `oid progress step FR-… tdd_red`; a missing scenario is `oid progress step FR-… bdd_red` (the feature file is not edited at `quality_gate`); a change to code only stays at `quality_gate`. If the tree changed, run `oid verify green` on the feature's scenarios and `oid progress done FR-…`, and commit the `done` together with the fix: a later commit that only changes `progress.json` drops the approvals of the pull request. Do not use `revise` for a review: if the passing scenarios still describe the requirement, `reopen` is right and a new scenario is added with `oid progress step FR-… bdd_red`; `revise` is for a requirement whose scenarios no longer describe it (ADR-041).
