@@ -166,9 +166,9 @@ select → bdd_red ⇄ tdd_red → tdd_green → refactor ─┬─→ tdd_red  
                                                    └─→ quality_gate   (all scenarios green)
 ```
 
-From `tdd_green` it is also possible to go directly to `tdd_red`, `bdd_red` or `quality_gate` when there is no refactor. From `tdd_red` it is also possible to go back to `bdd_red`, to fix a step (ADR-038). From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. Any other transition is rejected.
+From `tdd_green` it is also possible to go directly to `tdd_red`, `bdd_red` or `quality_gate` when there is no refactor. From `tdd_red` it is also possible to go back to `bdd_red`, to fix a step (ADR-038). From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. `bdd_red → quality_gate` exists only after `oid progress revise`, when the revised requirement needs no code (ADR-041). Any other transition is rejected.
 
-**Moving to `done`.** Only if all scenarios are in `pass`, the FR is at `quality_gate` and the quality gate has passed. `oid` also adds its own rule, checked from `session.json`: each scenario has gone through at least one TDD cycle (§6.6). On moving to `done`, `cycle_step` disappears and `current_focus` moves to the next FR or to `null`.
+**Moving to `done`.** `oid progress done` checks what the files can prove: at least one scenario, every scenario in `pass`, every scenario tagged with the feature recorded, and the evidence of a green that ran them with nothing changed since (ADR-032). In `oid run`, the rest follows from the control flow: `FR_COMMIT` comes only after `QUALITY_GATE`, and every scenario but an accepted guard has at least one unit test (§6.6). On moving to `done`, `cycle_step` disappears and `current_focus` moves to the next FR or to `null`.
 
 **Mapping to the FSM.** Almost one to one:
 
@@ -486,11 +486,15 @@ Also, to keep diffs clean, if the project has a formatter it is applied to the t
 
 Each retry starts from the last checkpoint (without the failed attempt's code) and receives the normalised rejection reason and the attempt number. Effort escalates automatically:
 
+There are `limits.max_retries` + 1 attempts (ADR-047):
+
 | Attempt | Model / `thinkingLevel` |
 |:--|:--|
-| 1 | The one given by effort scoring (§8.4) |
-| 2 | One `thinkingLevel` higher |
-| 3 (last) | `models.strong` with `thinkingLevel: high` |
+| 1 | `models.default` at `medium`; effort scoring (§8.4) will choose it once Jev exists |
+| Each intermediate one | One `thinkingLevel` higher, up to `high` |
+| The last | `models.strong` at `high` |
+
+With `max_retries: 0` the first failure ends the run with its error.
 
 When retries run out, or if Jev detects a stuck loop (§8.2) → `WAITING_INPUT`.
 
@@ -603,8 +607,8 @@ async function runAgent(task: AgentTask, ctx: RunContext): Promise<AgentReport> 
 
 Decisions, all learned in Buddy *(Buddy)*:
 
-- **Its own `agentDir`, always.** Without it, the SDK's `SettingsManager` reads the user's `~/.pi/agent/settings.json`: their provider, model, thinking level and theme (Buddy's NFR-SEC-19). `oid` uses `~/.config/oid/agent` (or `$OID_AGENT_DIR`) and a test checks that every call to `createAgentSession` passes it.
-- **oid's own system prompt, and nothing the user's Pi would add.** The session is opened with the SDK. `systemPromptOverride` replaces only the preamble of the system prompt: the skills and the `AGENTS.md` (global and project) are sections of their own, which Pi still appends. oid turns them off with `noSkills` and `noContextFiles`, and also sets `noExtensions`, `noPromptTemplates` and `noThemes` (FR-AGENT-01). If the project has an `AGENTS.md`, the orchestrator extracts the relevant style conventions and includes them explicitly.
+- **Its own `agentDir`, always.** Without it, the SDK's `SettingsManager` reads the user's `~/.pi/agent/settings.json`: their provider, model, thinking level and theme. `oid` uses `<config dir>/agent` (§16.1; `$OID_AGENT_DIR` overrides it) and a test checks that every call to `createAgentSession` passes it.
+- **oid's own system prompt, and nothing the user's Pi would add.** The session is opened with the SDK. `systemPromptOverride` replaces only the preamble of the system prompt: the skills and the `AGENTS.md` (global and project) are sections of their own, which Pi still appends. oid turns them off with `noSkills` and `noContextFiles`, and also sets `noExtensions`, `noPromptTemplates` and `noThemes` (FR-AGENT-01). The project's `AGENTS.md` is not given to the agents: its conventions reach them through the files in `paths.conventions` (§7.8, ADR-051).
 - **Clean context, saved transcript.** Each task is a new session, but `SessionManager.create` on `.outside-in/runs/<runId>/sessions/` is used instead of `inMemory()`: the agent sees nothing of earlier sessions, and the human can open the full transcript from the interface (key `d`, §12.2) when something goes wrong.
 - **`excludeTools: ["bash"]` plus an allowlist** for every profile without a shell. Double lock, as in Buddy. The implement and debug profiles keep `bash`, checked by the sandbox (§7.3) before each call.
 - **SDK on Pi v1, pinned exactly.** One exact v1 version in `package.json` for `pi-coding-agent`, `pi-ai`, `pi-agent-core` and `pi-tui`. 1.0 is the version that includes the classifier API used by §8. The package has already changed scope once (`@mariozechner/*` → `@earendil-works/*`). All SDK usage stays in `agents/runner.ts` and `decisions/pi-classifier.ts`, and every upgrade within v1 reviews Pi's changelog against the shapes `oid` uses and runs the full gate (ADR-003).
@@ -674,7 +678,7 @@ Additional rules:
 **The shell of the implement and debug profiles (ADR-029).** A `bash` call goes through three checks, in order, in the same `beforeToolCall`:
 
 1. **Containment.** Every path in the command, including those inside `bash -c`, `node -e` and similar wrappers, resolves (symlinks included, through `containment.ts`) inside the worktree. Nothing only the orchestrator writes can be modified: `progress.json`, `.outside-in/`, and the git state the step must not touch. The shared `node_modules` (§9.2) resolves to the main copy, so it stays out of reach.
-2. **Profile policy.** Deny-by-default, an allow list of commands per profile; a deny wins. The list includes the project's quality gate (tests, linters, type check), and the profile's prompt asks the agent to run it and read its output before it reports the task done.
+2. **Profile policy.** Deny-by-default, an allow list of commands per profile; a deny wins. To check its own work the agent uses the `try` tool (FR-VERIFY-09), which runs one test or scenario plus the type check and the linter on the changed files, in seconds; the prompts tell it not to run the full suites, which oid runs anyway.
 3. **Classifier.** Jev decides what the floor cannot settle (credentials, private data leaving the machine, paths that should not be read, commands dangerous in this step), with the patterns as evidence. Without the classifier the floor still holds: no credential is read and nothing is written outside the worktree.
 
 The shell needs its own tests: wrappers, symlinks, and writes to orchestrator state.
@@ -749,7 +753,7 @@ Human notes (free text from a `WAITING_INPUT`) are added to the next affected ta
 
 ### 7.9. Prompts
 
-`src/agents/prompts/<state>.md`, **procedural** (concrete steps, not goals). All end with the obligation to call `report` and the reminder that the agent does not run git or tests: "the orchestrator runs them when you finish". They are versioned and validated with golden runs (§19).
+`src/agents/prompts/<state>.md`, **procedural** (concrete steps, not goals). All end with the obligation to call `report`. Agents never run git; the ones that write tests or code check their own work with `try`, and oid's gates judge the result. They are versioned and validated with golden runs (§19).
 
 Language, following Buddy's rule *(Buddy)*:
 
@@ -1206,18 +1210,17 @@ Full Phase 0 + deterministic scaffolding (`package.json`, `tsconfig.json`, struc
 | `oid init [--import-progress [PATH]]` | Creates `.outside-in.json`, detecting the stack, the paths (from `tsconfig.json`'s `include` and the cucumber and vitest configuration) and the commands (from `package.json`'s scripts). Adds `.outside-in/` to `.gitignore` and initialises `progress.json` from `SPEC.md` if it does not exist. Offers `oid setup` when the user has none. With `--import-progress`, converts a `progress.json` with another schema (below), read from `PATH` or found at `progress.json` or `specs/progress.json`, and writes it beside the spec (`paths.progress`). |
 | `oid spec [--fr ID]` | Interactive Phase 0. |
 | `oid tidy [--scope PATH…] [--max-items N] [--yes]` | Periodic project cleanup (§14.1). |
-| `oid metrics [--since DATE] [--changed]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
-| `oid verify red <test>` · `green` · `integrity [--step S]` | The Red Gate (§6.4), Green-with-regression (§6.7) and integrity (§6.5) checks as standalone commands. Used by the FSM and, during bootstrap, by an agent guided by instructions (see `docs/BOOTSTRAP.md`). |
+| `oid metrics [--changed] [--baseline]` | Code health metrics and their trend (§6.8). With `--changed`, only the findings on lines changed since the last commit or checkpoint. |
+| `oid verify red <test>` · `green [targets…]` · `integrity [--step S]` | The Red Gate (§6.4), a green of the features it verifies (ADR-036; the whole project's regression is the quality gate's) and integrity (§6.5) as standalone commands. Used by the FSM and, during bootstrap, by an agent guided by instructions (see `docs/BOOTSTRAP.md`). |
 | `oid try <test or scenario> [--dry-run]` | Runs one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict; records nothing. The agents of a run use it to check their own work (FR-VERIFY-09). With `--dry-run`, only lists the undefined steps of a scenario. |
 | `oid run [--fr ID…] [--max-frs N] [--branch NAME]` | Processes pending FRs in order (or only the given ones), with the interface of §12.2. Post-MVP: `--dashboard [--host H] [--port P]`. |
 | `oid resume` | Continues from `session.json`. |
-| `oid status` | State, FR, scenario, budget, pending request, worktree. |
 | `oid abort` | Orderly stop. |
 | `oid watch [--run ID]` | Opens the progress interface over a running run (from another terminal) or replays a past one from its `events.jsonl`. Post-MVP, `oid dashboard` will do the same in the browser. |
 | `oid decisions [--purpose P]` | History of Jev decisions, for calibration. |
 | `oid setup [--provider P] [--login \| --api-key-stdin] [--import-pi] [--model ROLE=provider/id]…` | Sets up the user's providers, credentials and models per role (§16.1, FR-INIT-04). Interactive, or without a terminal through its options. |
 | `oid doctor` | Checks, without changing anything, the project's tools, a credential for the provider of each role and each role's model in the catalogue; with `--connect`, one minimal call per provider (FR-INIT-05). |
-| `oid clean [--run ID]` | Removes worktrees and data of finished runs. |
+| `oid clean [--run ID]` | Removes the worktrees and run data of finished runs, never the branch (FR-RUN-12). |
 | `oid progress <subcommand>` | Reads and writes `progress.json` with the rules of §4.4 (below). |
 | `oid --help`, `oid <command> [<subcommand>] --help` | Prints what the command does, its subcommands, arguments and options, and exits 0 (FR-CLI-01). |
 | `oid check` | Consistency checks of `progress.json` and traceability (§4.3), without running anything else. Useful in CI and in projects that do not use `oid run`. |
@@ -1239,7 +1242,7 @@ It is the progress tool the article announces as pending ("a cycle tracker"). It
 
 **Projects that already follow the methodology with another schema.** Buddy, for example, has a `progress.json` that predates the article's format, managed by its own `scripts/progress.ts`. `oid init --import-progress` converts it once and shows what cannot be carried over: `status` `blocked` and `deferred` become `pending`; `cycle_step` `spec_review` → `select`, `bdd_red` → `bdd_red`, `implementing` → `tdd_red`, `bdd_green` → `quality_gate`; `unit_tests` and `note` are dropped (listed in the output). From then on, the project uses `oid progress` instead of its script. Old FRs and `.feature` files that do not follow the article's format remain as frozen debt (§6.14); new FRs are written in the article's format and live alongside them in the same `SPEC.md`, because the parser only recognises `### FR-…:` headings (§4.2).
 
-Exit codes: `0` completed · `1` error · `2` aborted · `3` waiting for input with no channel · `4` budget exhausted.
+Exit codes of `oid run` and `oid resume`: `0` completed · `1` error · `2` aborted · `3` waiting for input with no channel · `4` budget exhausted. `oid verify red`: `0` valid Red · `1` not a valid Red · `2` needs a decision (`--decide`).
 
 ---
 

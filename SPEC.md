@@ -64,7 +64,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-04: Advance the cycle step
 
-`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. The one move from `bdd_red` to `quality_gate` is the human's, after `oid progress revise` when the revised requirement needs no code: it is accepted only if no file of `src/` or of the steps changed since the `revise`, every scenario of the feature exists with the text and tags it had then (scenarios may only have been removed or moved), and the feature's checkpoint is a green that ran all of them with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
+`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. One more move, from `bdd_red` to `quality_gate`, exists only after `oid progress revise`, when the revised requirement needs no code: it is accepted only if no file of `src/` or of the steps changed since the `revise`, every scenario of the feature exists with the text and tags it had then (scenarios may only have been removed or moved), and the feature's checkpoint is a green that ran all of them with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
 
 ### FR-PROG-05: Record scenario status
 
@@ -80,7 +80,7 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-PROG-08: Revise a requirement
 
-`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It prints `FR-xxx: bdd_red, N scenarios pending`, or `FR-xxx: already at bdd_red` when nothing changes. It records `.outside-in/checkpoints/<FR>.revise.json`, the state of the tree and the text and tags of the feature's scenarios, which is what allows the human to leave `bdd_red` for `quality_gate` when no code is needed (FR-PROG-04). It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
+`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It prints `FR-xxx: bdd_red, N scenarios pending`, or `FR-xxx: already at bdd_red` when nothing changes. It records `.outside-in/checkpoints/<FR>.revise.json`, the state of the tree and the text and tags of the feature's scenarios, which is what allows the feature to leave `bdd_red` for `quality_gate` when no code is needed (FR-PROG-04). It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
 
 ### FR-PROG-09: Reopen a done feature for review
 
@@ -284,7 +284,7 @@ A test task (BDD_RED or TDD_RED) receives the public signatures of the project's
 
 ### FR-RUN-02: Write and review feature files
 
-An agent writes the feature files for the requirement; a human approves, edits or rejects them with a comment, by default once for all target features at the start. After approval, the run continues unattended.
+An agent writes the feature files for the requirement; a human approves, edits or rejects them with a comment, once for all target features at the start of the run. After approval, the run continues unattended.
 
 ### FR-RUN-03: BDD Red
 
@@ -300,7 +300,7 @@ After each Green, detectors run on the lines just changed; if anything worth fix
 
 ### FR-RUN-06: Quality gate
 
-Before committing a feature, the project's formatter and linter fixes run, then format, lint, types, unit tests, BDD, extra checks and traceability must all pass. Fixable lint and type errors go to the agent that owns the file.
+Before committing a feature, the project's formatter and linter fixes run, then format, lint, types, unit tests, BDD, coverage (when the project configures it), extra checks and traceability must all pass. Fixable lint and type errors go to the agent that owns the file.
 
 ### FR-RUN-07: Commit the feature
 
@@ -321,6 +321,10 @@ Limits on time, turns, iterations and cost are checked before each billable call
 ### FR-RUN-11: Rewrite or skip when retries run out or an agent is blocked
 
 When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays, as ADR-038 sets out), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
+
+### FR-RUN-12: Clean up finished runs
+
+`oid clean` removes the worktree and the run data under `.outside-in/runs/` of every finished run, or of the one named with `--run`. It never touches a run in progress, and it keeps the run's branch, which holds the result for the human to review. Every run leaves a worktree behind; without a command to remove them, they pile up next to the project.
 
 ## Functional Requirements — Terminal interface
 
@@ -348,7 +352,7 @@ At the end of a run, a report summarises features, scenarios, refactor findings,
 
 ### FR-DEC-01: Decisions through the classifier
 
-Ambiguous Red failures, test quality, task complexity, specification ambiguity, feature coverage and finding triage are decided by Jev through Pi's classifier API, after every deterministic layer, with configurable thresholds. Code decides first; the model only answers what code cannot.
+Ambiguous Red failures, test quality, task complexity, specification ambiguity, feature coverage and finding triage are decided by Jev through Pi's classifier API, after every deterministic layer, with configurable thresholds. Jev also reviews a finished feature's diff for dead code and work outside its scope, and flags tests that only check that something does not happen; these are warnings in the report and the commit body, never a block. Code decides first; the model only answers what code cannot.
 
 ### FR-DEC-02: Conservative fallback
 
