@@ -3655,6 +3655,11 @@
           "bdd": "pass"
         }
       ]
+    },
+    {
+      "id": "FR-RUN-12",
+      "title": "Clean up finished runs",
+      "status": "pending"
     }
   ]
 }

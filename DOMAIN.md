@@ -12,7 +12,7 @@ Context an agent cannot discover from the code: vocabulary, data formats, and ho
 - **Outer loop.** One iteration per scenario: make it fail (BDD Red), then drive it to pass.
 - **Inner loop.** One iteration per unit of logic: one failing unit test (TDD Red), the minimum code to pass it (Green), refactor.
 - **Valid Red.** A test that runs and fails because the behaviour does not exist yet or is wrong. Not a valid Red: a test that passes, does not load, has undefined or pending steps, or fails because the test itself is broken.
-- **Quality gate.** The set of binary checks (format, lint, types, unit, BDD, extra checks, traceability) that defines "done" for a feature.
+- **Quality gate.** The set of binary checks (format, lint, types, unit, BDD, coverage when configured, extra checks, traceability) that defines "done" for a feature.
 - **Traceability.** Every behaviour traces to a scenario, every scenario to an FR.
 
 ### The harness
@@ -20,12 +20,14 @@ Context an agent cannot discover from the code: vocabulary, data formats, and ho
 - **Run.** One execution of `oid run` (or `oid tidy`), with its own id, worktree, branch and event log.
 - **State.** A node of oid's state machine (`BDD_RED`, `CODE_GREEN`…). Finer than the progress file's `cycle_step`.
 - **Gate.** The deterministic condition a state must satisfy to move on.
-- **Checkpoint.** A commit on the run's branch created when a state passes its gate. Rollback target for failed attempts.
+- **Checkpoint.** Two things share the name. In `oid run`, a commit on the run's branch created when a state passes its gate: the rollback target for failed attempts. In `oid verify`, the record of a feature's last passing verification (`.outside-in/checkpoints/<FR>.json`): the step, whether it was a Red or a green, the scenarios a green ran, and a copy of the files that differed from `HEAD`. Integrity and scenario evidence are judged against it.
+- **Return.** Going back from a later step to `bdd_red` (to fix a step definition) or to `tdd_red` (to fix a unit test) once the code exists. oid records where the feature came from and sends it back there once the fix is proved.
 - **Attempt.** One agent session trying to pass a state's gate. Failed attempts are rolled back and retried with the reason, up to a limit.
 - **Agent role.** spec-agent, bdd-agent, tdd-agent, coder-agent. A role plus a state gives a **profile**: tools, readable paths, writable paths.
 - **Report.** The structured result every agent session must end with (`done` with files, or `blocked` with a reason).
 - **Integrity violation.** A change outside the paths allowed for the state, a change to an approved feature file, or a forbidden pattern in added lines.
 - **Input request.** A question to the human (`WAITING_INPUT`), with a fixed set of actions.
+- **Guard.** A scenario that passes before any code exists because it describes what must not happen. Only a human can accept it, with a reason, which then stands as its evidence.
 - **Baseline / frozen debt.** Errors and findings that existed when the run started. Gates judge only what the run adds.
 - **Decision.** One call to the decision model with a shared state and one or more typed questions.
 - **Finding.** One result of a refactor detector: category, location, symbol, detail, related locations.
@@ -77,8 +79,8 @@ Context an agent cannot discover from the code: vocabulary, data formats, and ho
 - `status`: `pending`, `in_progress`, `done`.
 - `cycle_step`: `select`, `bdd_red`, `tdd_red`, `tdd_green`, `refactor`, `quality_gate`. Present only on started features; removed when done.
 - `scenarios[].bdd`: `pending`, `fail`, `pass`.
-- Valid transitions: `select → bdd_red → tdd_red → tdd_green → refactor`; from `refactor` (or directly from `tdd_green`) to `tdd_red` (scenario still red), `bdd_red` (next scenario) or `quality_gate` (all scenarios pass). Anything else is rejected.
-- `done` requires at least one scenario and every scenario in `pass`.
+- Valid transitions: `select → bdd_red → tdd_red → tdd_green → refactor`; from `refactor` (or directly from `tdd_green`) to `tdd_red` (scenario still red), `bdd_red` (next scenario) or `quality_gate` (all scenarios pass). Going back to a Red is always allowed: `tdd_red → bdd_red`, and from `tdd_green`, `refactor` or `quality_gate` to `bdd_red` or `tdd_red`. `bdd_red → quality_gate` is allowed only after `oid progress revise`, when no code is needed. Anything else is rejected.
+- `done` requires at least one scenario, every scenario in `pass`, every scenario tagged with the feature recorded, and the evidence of a green that ran them with nothing changed since.
 
 ### `SPEC.md` requirement headings
 
