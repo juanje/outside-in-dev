@@ -33,8 +33,6 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 - Replacing human judgement in the design phase, which is always interactive.
 - Calibrating a local decision model. Pi supports one with the same API; the MVP uses Jev.
 
-
-
 ## Stack and tools
 
 - **oid itself:** TypeScript on Node.js ≥ 22.19. Pi v1 (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-agent-core`, `pi-tui`), at one exact version in `package.json` (ADR-003). Jev through Pi's `classify()`, model `typesafe/jev-1.13` on OpenRouter.
@@ -44,11 +42,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ---
 
-
-
 ## Functional Requirements — Progress
-
-
 
 ### FR-PROG-01: Show progress
 
@@ -64,7 +58,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-04: Advance the cycle step
 
-`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. From `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`: a gap seen at the gate becomes a new Red. One more move, from `bdd_red` to `quality_gate`, exists only after `oid progress revise`, when the revised requirement needs no code: it is accepted only if no file of `src/` or of the steps changed since the `revise`, every scenario of the feature exists with the text and tags it had then (scenarios may only have been removed or moved), and the feature's checkpoint is a green that ran all of them with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
+`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. Going back to a Red is always allowed; from `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`, because a gap seen at the gate becomes a new Red. A feature revised with no code to write may leave `bdd_red` for `quality_gate`, and only when nothing under `src/` or among the steps changed since the revise, its scenarios were only removed or moved, and a green ran every remaining scenario with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
 
 ### FR-PROG-05: Record scenario status
 
@@ -80,17 +74,15 @@ Every command validates `progress.json` against its schema before and after writ
 
 ### FR-PROG-08: Revise a requirement
 
-`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It prints `FR-xxx: bdd_red, N scenarios pending`, or `FR-xxx: already at bdd_red` when nothing changes. It records `.outside-in/checkpoints/<FR>.revise.json`, the state of the tree and the text and tags of the feature's scenarios, which is what allows the feature to leave `bdd_red` for `quality_gate` when no code is needed (FR-PROG-04). It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
+`oid progress revise FR-xxx` puts a tracked feature back to `in_progress` at `bdd_red` and sets every scenario to `pending`. It does not edit `SPEC.md` or the feature file. A feature that is not tracked is refused; one already at `bdd_red` is left as it is. It prints `FR-xxx: bdd_red, N scenarios pending`, or `FR-xxx: already at bdd_red` when nothing changes. It records the state of the feature at that moment, which is what lets the feature leave `bdd_red` for `quality_gate` when no code is needed (FR-PROG-04). It is not `oid progress step`: that one keeps the scenarios, and a `done` feature cannot use it. When a requirement changes, its scenarios no longer prove the new contract, and adding a second FR for the same intent leaves two truths in the spec.
 
 ### FR-PROG-09: Reopen a done feature for review
 
-`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is, focuses it, and prints `FR-xxx: quality_gate, N scenarios kept`. With `--no-focus` the focus is left as it is; when another feature is focused, the focus is not moved either, and the output says which feature keeps it. It records the feature's checkpoint from `HEAD`, so integrity judges the review's changes against what was committed, not against an older checkpoint that later commits left behind; changes not yet committed show up as changes. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
+`oid progress reopen FR-xxx` puts a `done` feature back to `in_progress` at `quality_gate` and leaves every scenario's status as it is, focuses it, and prints `FR-xxx: quality_gate, N scenarios kept`. With `--no-focus` the focus is left as it is; when another feature is focused, the focus is not moved either, and the output says which feature keeps it. From then on, integrity judges the review's changes against what was committed, so only changes not yet committed count. It does not edit `SPEC.md` or the feature file. A feature that is not `done` is refused, so it is never a shortcut to `quality_gate`. When the focused feature is `done`, `oid verify integrity` names `oid progress reopen` for a review and `oid progress revise` for a changed requirement. A pull request opens with the feature already `done`; review comments must be fixable without resetting scenarios that still pass.
 
 ## Functional Requirements — Consistency checks
 
-
-
-### FR-CHECK-01: Validate [SPEC.md](http://SPEC.md)
+### FR-CHECK-01: Validate SPEC.md
 
 `oid check` reports requirements with duplicate IDs, empty titles or bodies, and acceptance criteria written inside a requirement (a Gherkin-style sequence: a `Given` step followed by a `Then` step, or a `Scenario:` line), without flagging ordinary sentences that happen to start with those words. Acceptance criteria belong to feature files; a specification that mixes both loses its role as the statement of intent.
 
@@ -108,8 +100,6 @@ Every command validates `progress.json` against its schema before and after writ
 
 ## Functional Requirements — Command line
 
-
-
 ### FR-CLI-01: Command help
 
 `oid --help`, `oid <command> --help` and `oid <command> <subcommand> --help` print what the command does, its subcommands, arguments and options, and exit 0; `oid` with no command prints the same help as `oid --help` and exits 0. Anyone running oid, human or agent, can learn how to use it without triggering an error.
@@ -124,13 +114,11 @@ Every command validates `progress.json` against its schema before and after writ
 
 ## Functional Requirements — Project setup
 
-
-
 ### FR-INIT-01: Detect the project setup
 
 `oid init` detects the stack, source and test paths, test commands and existing formatter or linter from `package.json`, `tsconfig.json` and the vitest and cucumber configuration, writes `.outside-in.json`, and adds `.outside-in/` to `.gitignore`. A user should not have to describe a project that can be read.
 
-### FR-INIT-02: Initialise progress from [SPEC.md](http://SPEC.md)
+### FR-INIT-02: Initialise progress from SPEC.md
 
 If no progress file exists, `oid init` creates one with every requirement in `SPEC.md` as a pending feature, in the order of the specification.
 
@@ -147,8 +135,6 @@ If no progress file exists, `oid init` creates one with every requirement in `SP
 `oid doctor` reports, without changing anything, whether oid can run here: the project's tools, a credential for the provider of each role, and each role's model in the catalogue; optionally it makes one minimal call per provider. `oid run` and `oid resume` make the same checks before they start and refuse with what is missing and the command that fixes it.
 
 ## Functional Requirements — Code health
-
-
 
 ### FR-MET-01: Detect complexity
 
@@ -180,11 +166,9 @@ Findings present when a run starts are recorded as a baseline; checks then judge
 
 ## Functional Requirements — Verification
 
-
-
 ### FR-VERIFY-01: Verify a unit Red
 
-`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A test whose name starts with `-` is still run by that name. Every unit run oid starts (this one, the suite of `oid verify green` and of `oid run`) excludes oid's own directory `.outside-in/`, so the copies of tests that checkpoints keep are never run as tests. A failing assertion on a line of a test added since the last checkpoint is a valid Red; one on a line that already existed needs a decision (ADR-017). A failure oid cannot classify alone is recorded with the content of the working tree it ran on; `--decide <class>` answers that recorded failure without running the test again, and is refused when no recorded run of the target needs a decision or when a file other than the progress file changed since it.
+`oid verify red <test>` runs a unit test and classifies its failure as a valid Red (a business assertion, or behaviour that does not exist yet) or not (a broken test, a problem in the environment), using the runner's structured report and the project's actual exports. A test that passes, does not load, or calls something wrongly is not a Red. A failing assertion on a line added since the last verification is a valid Red; one on a line that already existed, or a failure oid cannot classify alone, needs a decision: oid exits 2 and records the failure with the content of the working tree it ran on, and `--decide <class>` answers that recorded failure without running the test again. `--decide` is refused when no recorded run of the target needs a decision, or when a file other than the progress file changed since. The copies of tests that oid keeps for its own records are never run as tests.
 
 ### FR-VERIFY-02: Verify a BDD Red
 
@@ -196,31 +180,29 @@ Reject step files that statically import modules or exports that do not exist ye
 
 ### FR-VERIFY-04: Verify a Green without regressions
 
-`oid verify green [<feature>:<line> | "<scenario name>"]...` runs the unit suite, the scenarios that were passing of the features it verifies (the feature in focus and the feature of each scenario it is given) and the scenarios it is given, in one run, and reports any regression among them and any new type error in the project: source code, unit tests and step definitions. The scenarios of other features are not run: the regression of the whole project is the quality gate's. Every verification that passes records the checkpoint of the feature it verifies, one per feature (`.outside-in/checkpoints/<id>.json`): a green records it for the feature in focus and for the feature of each scenario it was asked to run, and never replaces the checkpoint of another feature; with no feature at all it records the single checkpoint `.outside-in/checkpoint.json`. Scenario evidence (`oid progress scenario pass`, `oid progress done`) is read from the checkpoint of the feature it is about.
+`oid verify green [<feature>:<line> | "<scenario name>"]...` runs the unit suite, the scenarios that were passing of the features it verifies (the feature in focus and the feature of each scenario it is given) and the scenarios it is given, in one run, and reports any regression among them and any new type error in the project: source code, unit tests and step definitions. The scenarios of other features are not run: the regression of the whole project is the quality gate's. Every verification that passes is recorded for the feature it verifies, never replacing the record of another feature; that record is the evidence `oid progress scenario pass` and `oid progress done` require.
 
 ### FR-VERIFY-05: Check the integrity of a change
 
-`oid verify integrity` reports changes, since the checkpoint of the feature in focus, outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified) and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature file is approved per scenario (ADR-040): approved scenarios, and the parts of the file outside any scenario while one is approved, are frozen. A feature with no checkpoint of its own is judged against the single checkpoint when that names it. `oid verify integrity --path <file>` answers, before the file is changed, whether the current step of the feature in focus allows changing a file of that kind (source, unit test, step definition, feature file): exit 0 when it does, or when the path alone cannot tell (no feature focused, a file of no kind); exit 1 naming the file, its kind, the step and the move that would allow it. It reads no content, so approved scenarios and forbidden patterns are still judged after the change.
+`oid verify integrity` reports changes since the last verification of the feature in focus that fall outside the paths allowed for the current step (source changed while writing tests, tests changed while writing code, approved feature files modified), and forbidden patterns in added lines, such as focused or skipped tests, type-check suppressions, or code that behaves differently under test. A feature file is approved per scenario: approved scenarios, and the parts of the file outside any scenario while one of its scenarios is approved, are frozen. `oid verify integrity --path <file>` answers, before the file is changed, whether the current step of the feature in focus allows changing a file of that kind (source, unit test, step definition, feature file): exit 0 when it does, or when the path alone cannot tell (no feature focused, a file of no kind); exit 1 naming the file, its kind, the step and the move that would allow it. It reads no content, so approved scenarios and forbidden patterns are still judged after the change.
 
 ### FR-VERIFY-06: Fix a step after the code exists
 
-A step definition found wrong at `tdd_red`, `tdd_green`, `refactor` or `quality_gate` is fixed by going back to `bdd_red`, never in place. Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written in this cycle, which it restores afterwards. When this cycle has no code yet, the feature moves to `tdd_red` if `src/` has not changed since going back and the scenario either fails as a valid Red or already passes: the unit test is still needed, and the feature never skips to `tdd_green`. The move from `tdd_red` back to `bdd_red` is allowed, like any return to a Red; there is no manual move from `bdd_red` to `tdd_green` or `refactor`. At `bdd_red` without a return, a scenario that already passes and is recorded as passing with the evidence of an earlier green (for example, after the quality gate found a regression) also moves the feature to `tdd_red`; a scenario with no such evidence that passes at once is still not a Red.
+A step definition found wrong at `tdd_red`, `tdd_green`, `refactor` or `quality_gate` is fixed by going back to `bdd_red`, never in place, and `src/` must not change until the feature leaves. `oid verify red` on the scenario then returns the feature to the step it came from only if the scenario passes, `src/` has not changed since going back, and the scenario fails when oid removes the code written for it, which oid restores afterwards. When there is no code yet, the feature moves to `tdd_red` if the scenario fails as a valid Red or already passes: the unit test is still needed, and the feature never skips to `tdd_green`. At `bdd_red` without going back, a scenario that already passes moves the feature to `tdd_red` only if an earlier green recorded it as passing (for example, after the quality gate found a regression); a new scenario that passes at once is not a Red. Under pressure, agents otherwise move or revert source to get a Red, which is exactly what integrity exists to prevent.
 
 ### FR-VERIFY-07: Stop a command that does not end
 
-Every command oid runs from the project's configuration (the unit and BDD runners, the type check, the linter and the formatter) has a time limit, `limits.command_timeout_s` in `.outside-in.json`, 600 seconds by default (ADR-043). A command that passes it is stopped together with every process it started. `oid verify` exits 1 naming the command and the limit (for `oid verify red`, an `environment` failure) and releases `.outside-in/verify.lock`; `oid run` ends the run with the same message and releases its lock.
+Every command oid runs from the project's configuration (the unit and BDD runners, the type check, the linter and the formatter) has a time limit, `limits.command_timeout_s` in `.outside-in.json`, 600 seconds by default. A command that passes it is stopped together with every process it started. `oid verify` exits 1 naming the command and the limit (for `oid verify red`, an `environment` failure) and releases its lock; `oid run` ends the run with the same message and releases its lock. A command that hangs must not hang oid, nor leave processes or locks behind.
 
 ### FR-VERIFY-08: Fix a unit test after the code exists
 
-A unit test found wrong at `tdd_green`, `refactor` or `quality_gate` is fixed by going back to `tdd_red`, never in place (ADR-044). Going back records where the feature came from and the content of the tree; until it leaves, `src/` must stay as it was. At `tdd_red` with that record, `oid verify red <test>` judges a test that fails as any Red. A test that passes returns the feature to the step it came from only if `src/` has not changed since going back and, with the code written in this cycle removed by oid and restored afterwards, the test fails as a valid Red; otherwise it says which condition failed and the feature stays at `tdd_red`. When the failure without that code needs a decision (ADR-017), it is recorded like any other and `--decide` answers it: a valid class returns the feature, any other leaves it at `tdd_red`.
+A unit test found wrong at `tdd_green`, `refactor` or `quality_gate` is fixed by going back to `tdd_red`, never in place, and `src/` must not change until the feature leaves. At `tdd_red` after going back, `oid verify red <test>` judges a test that fails as any Red. A test that passes returns the feature to the step it came from only if `src/` has not changed since going back and, with the code written in this cycle removed by oid and restored afterwards, the test fails as a valid Red; otherwise oid says which condition failed and the feature stays at `tdd_red`. When that failure needs a decision, `--decide` answers it: a valid class returns the feature, any other leaves it at `tdd_red`.
 
 ### FR-VERIFY-09: Try a change without recording it
 
 `oid try <test or scenario>` runs that one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict: what passes, what fails and why, or which steps are undefined (`--dry-run` only lists the undefined steps). It records nothing, so the agents of a run use it to check their own work quickly, and oid's gates still judge the result.
 
 ## Functional Requirements — Git isolation
-
-
 
 ### FR-GIT-01: Work in an isolated worktree
 
@@ -235,8 +217,6 @@ Every step that passes its gate creates a checkpoint; a failed attempt returns t
 Once a feature is done, its checkpoints are squashed into one commit that references the requirement and lists its scenarios. The main branch is never modified.
 
 ## Functional Requirements — Agents
-
-
 
 ### FR-AGENT-01: Isolated agent sessions
 
@@ -268,15 +248,13 @@ Agents cannot edit `package.json` or lockfiles; they ask for a package with a re
 
 ### FR-AGENT-08: Context per task
 
-Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it. The catalogue has a size budget: the modules the task uses and those next to them come first with their signatures, and the rest are listed by path, for the agent to read when it needs them. Every task that writes feature files, step definitions, unit tests or code also receives the project's conventions files (`paths.conventions`, ADR-051), within a budget of their own.
+Each task receives only what it needs: the scenario and failure for a test, the failing tests and the code they import for an implementation. Implementation tasks also receive a catalogue of the project's exported symbols, so that agents reuse existing code instead of rewriting it. The catalogue has a size budget: the modules the task uses and those next to them come first with their signatures, and the rest are listed by path, for the agent to read when it needs them. Every task that writes feature files, step definitions, unit tests or code also receives the project's conventions files, within a budget of their own.
 
 ### FR-AGENT-09: A test task receives public signatures
 
 A test task (BDD_RED or TDD_RED) receives the public signatures of the project's exported symbols: the name, the types and the first documentation line, and no body, within the same budget as the catalogue. It still receives no other scenario.
 
 ## Functional Requirements — Feature cycle
-
-
 
 ### FR-RUN-01: Start a run
 
@@ -288,7 +266,7 @@ An agent writes the feature files for the requirement; a human approves, edits o
 
 ### FR-RUN-03: BDD Red
 
-An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario still passes. Approved feature files cannot change. A scenario that passes at once is put to the human, who can accept it as a guard (ADR-049).
+An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario still passes. Approved feature files cannot change. A scenario that passes at once is put to the human, who can accept it as a guard, with a reason.
 
 ### FR-RUN-04: TDD inner loop
 
@@ -320,15 +298,13 @@ Limits on time, turns, iterations and cost are checked before each billable call
 
 ### FR-RUN-11: Rewrite or skip when retries run out or an agent is blocked
 
-When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays, as ADR-038 sets out), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
+When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
 
 ### FR-RUN-12: Clean up finished runs
 
 `oid clean` removes the worktree and the run data under `.outside-in/runs/` of every finished run, or of the one named with `--run`. It never touches a run in progress, and it keeps the run's branch, which holds the result for the human to review. Every run leaves a worktree behind; without a command to remove them, they pile up next to the project.
 
 ## Functional Requirements — Terminal interface
-
-
 
 ### FR-TUI-01: Progress view
 
@@ -348,8 +324,6 @@ At the end of a run, a report summarises features, scenarios, refactor findings,
 
 ## Functional Requirements — Decisions
 
-
-
 ### FR-DEC-01: Decisions through the classifier
 
 Ambiguous Red failures, test quality, task complexity, specification ambiguity, feature coverage and finding triage are decided by Jev through Pi's classifier API, after every deterministic layer, with configurable thresholds. Jev also reviews a finished feature's diff for dead code and work outside its scope, and flags tests that only check that something does not happen; these are warnings in the report and the commit body, never a block. Code decides first; the model only answers what code cannot.
@@ -368,8 +342,6 @@ If the last attempts fail for the same root cause, the run asks for help instead
 
 ## Functional Requirements — Feature refactor
 
-
-
 ### FR-REF-01: Refactor the whole feature
 
 Once all scenarios of a feature pass, detectors run on the feature's full diff, including tests, steps and documentation, and on duplication between the feature and the rest of the code. Each group of findings becomes an item fixed by the agent that owns the files; failed items are rolled back and reported.
@@ -383,8 +355,6 @@ A refactored test that the feature added must still fail against the code from b
 Detector findings are filtered by the decision model before any agent works on them, so that conventional or intentional patterns are not "fixed" into worse code.
 
 ## Functional Requirements — Terminal interface, extended
-
-
 
 ### FR-TUI-05: Talk it through
 
@@ -400,8 +370,6 @@ A configurable command runs whenever the run needs a human, finishes or fails, s
 
 ## Functional Requirements — Design phase
 
-
-
 ### FR-SPEC-01: Interactive design session
 
 `oid spec` opens a conversation with a design agent, in Pi's interactive interface, that can read the repository and write only the design documents. The design phase is always interactive and runs in its own context.
@@ -415,8 +383,6 @@ A `/check` command inside the session, and the exit of the session, report what 
 On confirmation, new requirements are added to the progress file as pending and the design documents are committed to the user's current branch, the only commit oid makes outside its own branches.
 
 ## Functional Requirements — Periodic cleanup
-
-
 
 ### FR-TIDY-01: Analyse and plan a cleanup
 
@@ -436,11 +402,7 @@ At the end of a run, oid proposes `oid tidy` when a configured number of feature
 
 ---
 
-
-
 ## Non-Functional Requirements
-
-
 
 ### NFR-01: Deterministic first
 
