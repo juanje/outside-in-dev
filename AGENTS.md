@@ -19,9 +19,10 @@ Never skip the quality gate before committing.
 | ------------------------------------------------------------------- | -------------------- |
 | What is open, what is next                                          | `progress.json`      |
 | What to build and why (FRs, NFRs)                                   | `SPEC.md`            |
+| How to write features, steps, tests and code here                   | `docs/CONVENTIONS.md`|
 | The test you must make pass                                         | `features/*.feature` |
 | Vocabulary, data formats, how Pi, cucumber and vitest really behave | `DOMAIN.md`          |
-| Why a decision was made; what is already settled                    | `DECISIONS.md`       |
+| The decisions in force, and why                                     | `DECISIONS.md`       |
 | Full technical design (states, gates, profiles, config)             | `docs/design.md`     |
 | How oid is being bootstrapped, and which phase we are in            | `docs/BOOTSTRAP.md`  |
 
@@ -55,23 +56,11 @@ oid metrics --changed
 
 ## Traps
 
-- **Pi's** `prompt()` **resolves even when the provider failed.** Check `stopReason` on `message_end`. Same for `classify()`.
-- `tools` **and** `customTools` **must come from one array.** A custom tool missing from the allowlist is never offered, with no error.
-- **A step file that statically imports something that does not exist yet stops cucumber-js before any scenario runs.** Import not-yet-implemented source dynamically inside the step.
-- **cucumber-js 13 has no** `json` **or** `junit` **formatter.** Use `--format message:<file>`.
-- **vitest reports a missing export as** `TypeError: (0 , name) is not a function`**, not as an import error.**
-- **Always pass oid's** `agentDir` **to Pi.** Otherwise Pi reads the user's personal settings.
-- **Read progress with** `oid progress current`**,** `status` **and** `show`**.** Do not parse `progress.json`.
-- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** Stop (ADR-045). Fixing a wrong step once the code exists is ADR-038, and a wrong unit test is fixed by going back to `tdd_red` (ADR-044); both are described in `docs/METHODOLOGY.md`.
-- **BDD runs in-process.** `@process` goes only on a scenario that needs a real process, never on the `Feature`. Nothing outside `src/cli.ts` reads `process` globals (ADR-028).
-- **An** `oid run` **scenario asserts a milestone** (a transition, a checkpoint that exists, data in the session, files), not the exit code, the last line or the final state. A failure that must end on the first attempt sets `limits.max_retries: 0`.
-- **One real runner per run state;** the rest replay a recorded report.
-- **A replay declares the request it answers** (the test file and name, or the scenario locations) and fails on an unexpected request or an exhausted sequence. An entry answers more than once only with `repeat: true`.
-- **The real-runner scenarios are named in** `features/support/real-runners.ts`**,** and a unit test checks that each one exists. Renaming one of them means updating that list.
-- **Do not rewrite a test that already fails** (`not.toThrow`, a weaker assertion, a deleted check) so that it fits the code.
-- **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
-- **A requirement that changes, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human.** The exit to `quality_gate` when no code is needed is made by the orchestrating session, with no override (ADR-046). Do not add another FR for it.
-- **Subagents never override.** `OID_OVERRIDE="<cause>"` is for the orchestrating session only, as the last resort when no legal move exists (ADR-045); a subagent with no legal move stops and reports. An edit the step does not allow goes with the override that absorbs it.
-- **A review or a bug on a** `done` **feature whose passing scenarios still describe it is** `oid progress reopen`**, run by you.** The `pass` scenarios stay; the comment picks `tdd_red`, `bdd_red` or staying at `quality_gate`; the new `done` goes in the same commit as the fix.
+Writing features, steps, tests or code: `docs/CONVENTIONS.md` holds the rules, the same ones oid's own agents receive (dynamic imports in steps, Pi's traps, run scenarios that assert milestones, real runners and replays, never rewriting a failing test). The ones below are about driving the cycle.
 
-`DOMAIN.md` has the details.
+- **Read progress with** `oid progress current`**,** `status` **and** `show`**.** Do not parse `progress.json`.
+- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** A wrong step or unit test once the code exists goes back to `bdd_red` or `tdd_red` (ADR-038, ADR-044); with no legal move, stop (ADR-045). Both are in `docs/METHODOLOGY.md`.
+- **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
+- **A requirement that changed, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human.** Do not add another FR for it. The exit to `quality_gate` when no code is needed is the orchestrating session's, with no override (ADR-046).
+- **A review or a bug on a** `done` **feature whose passing scenarios still describe it is** `oid progress reopen`**, run by you.** The new `done` goes in the same commit as the fix.
+- **Subagents never override.** `OID_OVERRIDE="<cause>"` is for the orchestrating session only, as the last resort (ADR-045); a subagent with no legal move stops and reports. An edit the step does not allow goes with the override that absorbs it.

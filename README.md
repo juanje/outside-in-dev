@@ -19,10 +19,15 @@ scripts/install-release.sh ./outside-in-dev-*.tgz
 | `oid check` | Check the specification, scenario traceability and progress. `--json` prints one JSON document. Exit 1 when something is wrong. |
 | `oid init` | Detect a TypeScript project's paths and commands, write `.outside-in.json`, and ignore `.outside-in/`. Creates `progress.json` from `SPEC.md` when none exists. |
 | `oid init --import-progress [path]` | Convert a progress file from an earlier schema and list what could not be carried over. |
-| `oid verify red` | Decide whether a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or `"<scenario name>"`) is a valid Red. A failing assertion on a line added since the last checkpoint is a valid Red. Exit 2 when it needs a decision; answer with `--decide <class>`, which answers the failure that run recorded without running the test again (run `oid verify red` again if anything changed since). A step found wrong once the code exists is fixed by going back (`oid progress step <FR> bdd_red`) and changing only step files: `oid verify red <scenario>` then returns the feature to the step it came from if the scenario passes, `src/` is unchanged since going back, and the scenario fails without this cycle's code; with no code yet, it moves the feature to `tdd_red` (ADR-038). |
+| `oid verify red` | Decide whether a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or `"<scenario name>"`) is a valid Red. Exit 2 when it needs a decision; answer with `--decide <class>`. A step or unit test fixed after the code exists returns the feature to where it came from once oid has proved the fix (ADR-038, ADR-044). |
 | `oid verify green` | Run the unit suite, the scenarios that were passing of the feature in focus and of the targets' features, and the scenarios given as targets (`<file>:<line>` or `"<scenario name>"`, several at once), and report regressions and new type errors in source. A green records the checkpoint of the feature in focus and of each target's feature: it is the evidence `oid progress scenario pass` and `oid progress done` require. |
 | `oid verify integrity` | Report changes since the checkpoint of the focused feature outside the paths of the current step, and forbidden patterns. `--step` checks another step. |
 | `oid metrics` | Report code-health findings. `--changed` keeps only findings on lines changed since the last commit that the baseline does not already hold, and exits 1 when one remains. `--baseline` records the current findings as existing debt. |
+| `oid try` | Run one unit test or scenario, then the type check and the linter on the changed files, and print a short verdict. Records nothing. |
+| `oid setup` | Set up your providers, credentials and a model per role (fast, default, strong, spec). User configuration, never the project's. |
+| `oid doctor` | Check, without changing anything, that oid can run here; `--connect` makes one minimal call per provider. |
+| `oid run` | Run the cycle on the pending features (or `--fr` the given ones) in a worktree of its own, and deliver a branch with one commit per feature. |
+| `oid resume` · `oid abort` | Continue a stopped run · stop the running one after its current step. |
 
 ## Documentation
 
@@ -30,10 +35,12 @@ scripts/install-release.sh ./outside-in-dev-*.tgz
 |------|------------|
 | [SPEC.md](SPEC.md) | What to build: goal, MVP, requirements |
 | [DOMAIN.md](DOMAIN.md) | Vocabulary, data formats, observed tool behaviour |
-| [DECISIONS.md](DECISIONS.md) | Settled architecture decisions |
+| [DECISIONS.md](DECISIONS.md) | The architecture decisions in force, and why |
 | [docs/design.md](docs/design.md) | Technical design |
 | [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | How to implement a feature here |
 | [AGENTS.md](AGENTS.md) | Rules for agents working in this repository |
+| [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | How features, steps, tests and code are written here |
+| [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md) | How oid takes over its own development, and what is next |
 
 Methodology reference: [Outside-In Development](https://ai.juanjeojeda.com/outside-in-development).
 
