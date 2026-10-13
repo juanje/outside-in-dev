@@ -1,6 +1,6 @@
 # Domain
 
-Context an agent cannot discover from the code: vocabulary, data formats, and how the external systems oid depends on actually behave. Everything under "External behaviour" was observed, not assumed (Pi 1.0.0, cucumber-js 13, vitest 3). Pi is pinned at one exact v1 version in `package.json` (ADR-003); 1.1.0 since 2026-10-09. Buddy's lockfile runs 1.0.1 and already confirms session isolation, `beforeToolCall` blocking, the single tool array and `session.abort()` (`docs/BOOTSTRAP.md`, spike S1). S1 on 1.0.3 rechecks the bad-key `stopReason` and the `SessionManager.create(cwd, dir)` signature.
+Context an agent cannot discover from the code: vocabulary, data formats, and how the external systems oid depends on actually behave. Everything under "External behaviour" was observed, not assumed, on the versions oid pins (Pi v1 at the exact version in `package.json`, cucumber-js 13, vitest 3). When an upgrade changes one of these behaviours, this file changes with it (ADR-003).
 
 ## Glossary
 
@@ -135,10 +135,9 @@ All questions of one call share one `state` object. Criteria always carry descri
 
 ### Pi SDK (v1)
 
-Observed on 1.0.0. Buddy runs 1.0.1 with the same session shape. S1 rechecked the bad-key `stopReason` and `SessionManager.create(cwd, dir)` on 1.0.3 (ADR-031), and the same checks passed again on 1.1.0: a bad key resolves `prompt()` and `classify()` with `stopReason: "error"` on `message_end` (usage present, cost 0), and the transcript goes to the given directory. From 1.1.0, `usage.cost.total` no longer undercounts long prompts on models with prompt-length pricing tiers, so costs can read higher than on 1.0.3, and Pi itself retries `server_busy` provider errors.
-
+- A bad API key does not reject `prompt()` or `classify()`: both resolve with `stopReason: "error"` and `errorMessage` (on `message_end` for `prompt()`), with usage present and cost 0. Pi itself retries `server_busy` provider errors.
+- `SessionManager.create(cwd, dir)` writes the transcript in `dir`, but only from the first message: before it, the path is announced and the file does not exist yet. The directory must exist before the call.
 - `await session.prompt(…)` resolves the same way when the model worked and when the provider failed. Errors arrive as an assistant `message_end` with `stopReason: "error"` and `errorMessage`. An empty assistant response is also possible. Neither is success.
-- `classify()` behaves the same: it resolves with `stopReason: "error"` instead of rejecting.
 - `tools` (allowlist of names) also filters `customTools`. A custom tool missing from the allowlist is silently never offered.
 - `session.agent.beforeToolCall` can block a call by returning `{ block: true, reason }`; the reason reaches the model as the tool result. Pi's extensions are installed on the same hook, so oid must chain to the previous handler.
 - `tool_execution_end` carries no `args` (only `toolCallId`, `toolName`, `result`, `isError`); pair it with `tool_execution_start` by `toolCallId`.
@@ -146,8 +145,8 @@ Observed on 1.0.0. Buddy runs 1.0.1 with the same session shape. S1 rechecked th
 - Thinking levels: `off`, `minimal`, `low`, `medium`, `high`.
 - Usage per assistant message: `message.usage.totalTokens` and `message.usage.cost.total` on `message_end`.
 - `InteractiveMode` (exported) takes an `AgentSessionRuntime` and calls `process.exit` when the user quits. Inside it, the runtime can replace the active session (`/new`), dropping hooks installed by hand; extensions survive.
-- `session.abort()` does not end a tool call that ignores the abort signal: the tool's promise stays pending, `prompt()` never settles and `abort()` itself never resolves (observed on 1.1.0 with a custom tool that never returns). A caller that must end a session (a time or cost limit) cannot wait for `prompt()` or `abort()`: it races them against its own limit and abandons the session (`runAgent` does).
-- Calling `abort()` from inside `beforeToolCall` or `afterToolCall` and awaiting it never settles: the hook is a running tool call that `abort()` waits for (observed on 1.1.0). Start it without awaiting (`installSandbox` does).
+- `session.abort()` does not end a tool call that ignores the abort signal: the tool's promise stays pending, `prompt()` never settles and `abort()` itself never resolves (a custom tool that never returns, for example). A caller that must end a session (a time or cost limit) cannot wait for `prompt()` or `abort()`: it races them against its own limit and abandons the session (`runAgent` does).
+- Calling `abort()` from inside `beforeToolCall` or `afterToolCall` and awaiting it never settles: the hook is a running tool call that `abort()` waits for. Start it without awaiting (`installSandbox` does).
 
 ### cucumber-js 13
 
