@@ -45,7 +45,7 @@ oid metrics --changed
 - **The spec binds the feature; it is not frozen.** While you work on a feature, follow `SPEC.md`, `docs/design.md` and `DECISIONS.md`, and never diverge from them on your own. Do not edit `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` or `docs/design.md` without being asked.
 - **A design that looks wrong is a finding, not an obstacle.** If a requirement, a design section, an ADR or the article contradicts another or the code, stop and propose the change, with the evidence. The human decides; the change then follows "Changing the design" in `docs/METHODOLOGY.md` (ADR-054). Do not work around it.
 - **One feature at a time.** Do not start the next FR until the current one is done.
-- **A decision changes through a new entry.** Do not edit or ignore an ADR; propose one that supersedes it.
+- **An ADR is not ignored or quietly edited.** If you think one is wrong, propose the change; once the human agrees, the ADR is rewritten or replaced, never amended by a second entry (ADR-054).
 - **English everywhere** in code, comments, docs and prompts. Prompts and agent-facing text contain no examples in other languages. Test data may use other languages.
 - **Commit after each feature**, referencing the FR: `feat(<area>): FR-AREA-NN <title>`. Use `test(...)`, `fix(...)`, `refactor(...)`, `docs:` and `chore:` for the rest.
 - **Spikes are the only exception to test-first.** They live in `spikes/<name>/`, are never imported by `src/`, record their conclusions in `DECISIONS.md` and are deleted afterwards.
@@ -62,7 +62,7 @@ oid metrics --changed
 - **vitest reports a missing export as** `TypeError: (0 , name) is not a function`**, not as an import error.**
 - **Always pass oid's** `agentDir` **to Pi.** Otherwise Pi reads the user's personal settings.
 - **Read progress with** `oid progress current`**,** `status` **and** `show`**.** Do not parse `progress.json`.
-- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** Stop (ADR-035). Fixing a wrong step once the code exists is ADR-038, and a wrong unit test is fixed by going back to `tdd_red` (ADR-044); both are described in `docs/METHODOLOGY.md`.
+- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** Stop (ADR-045). Fixing a wrong step once the code exists is ADR-038, and a wrong unit test is fixed by going back to `tdd_red` (ADR-044); both are described in `docs/METHODOLOGY.md`.
 - **BDD runs in-process.** `@process` goes only on a scenario that needs a real process, never on the `Feature`. Nothing outside `src/cli.ts` reads `process` globals (ADR-028).
 - **An** `oid run` **scenario asserts a milestone** (a transition, a checkpoint that exists, data in the session, files), not the exit code, the last line or the final state. A failure that must end on the first attempt sets `limits.max_retries: 0`.
 - **One real runner per run state;** the rest replay a recorded report.
