@@ -49,9 +49,19 @@ function oneLine(text: string): string {
   return text.split(/\n/).map((line) => line.trim()).join(" ");
 }
 
+const STEP_LIST_MARK = ", because of these steps:";
+const STEP_BULLET = /^\s*- /;
+
 /** The steps that kept a scenario from running, one on each line; nothing when none is named. */
 function stepList(steps: string[]): string {
-  return steps.length === 0 ? "" : `, because of these steps:${steps.map((step) => `\n  - ${step}`).join("")}`;
+  return steps.length === 0 ? "" : `${STEP_LIST_MARK}${steps.map((step) => `${NEWLINE}  - ${step}`).join("")}`;
+}
+
+/** A reason without the steps that kept a scenario from running, and those steps; a reason that names none comes back whole. */
+export function splitSteps(reason: string): { headline: string; steps: string[] } {
+  const at = reason.indexOf(STEP_LIST_MARK);
+  if (at < 0) return { headline: reason, steps: [] };
+  return { headline: reason.slice(0, at), steps: reason.slice(at + STEP_LIST_MARK.length).split(NEWLINE).map((line) => line.replace(STEP_BULLET, "")).filter((line) => line !== "") };
 }
 
 /** A module or package the runner could not find: vitest quotes the importer, Node does not. */

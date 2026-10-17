@@ -43,7 +43,7 @@ describe("BDD Red of a run", () => {
       exitCode: 1,
       last: "TDD_RED",
       state: "TDD_RED",
-      errors: ['FR-A-01 "Behaviour of FR-A-01": the report names no unit test'],
+      errors: [expect.stringMatching(/^FR-A-01 "Behaviour of FR-A-01": the report names no unit test\nEvidence:\n {2}FR-A-01 "Behaviour of FR-A-01": .+\nNext: name the unit test you wrote/)],
     });
   }, REAL_PROCESS_TIMEOUT_MS);
 });

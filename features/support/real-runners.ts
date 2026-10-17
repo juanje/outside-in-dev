@@ -11,4 +11,9 @@ export const REAL_RUNNER_SCENARIOS = {
     "A scenario that fails names the step and shows why",
     "A dry run lists the undefined steps and runs no test, no type check and no linter",
   ],
+  /** The two scenarios of FR-AGENT-10 that run the real vitest and tsc: `oid verify red` and `oid verify green` have no replay seam. */
+  "FR-AGENT-10": [
+    "oid verify red on a test that passes says what failed, the test and what to write instead",
+    "oid verify green says which test and which type error regress, and what to do with them",
+  ],
 } as const;

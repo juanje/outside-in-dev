@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
 import { scenarioMessages } from "./cucumber-messages.js";
+import { printedParts } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { REAL_PROCESS_TIMEOUT_MS, dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
@@ -65,7 +66,11 @@ describe("oid verify red <feature>:<line>", () => {
     write("features/steps/a.steps.ts", "const = ;\n");
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: `red: not valid (test_bug): the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint:\n  Error: Transform failed\n  ${dir}/features/steps/a.steps.ts:2:6: ERROR\n`,
+      stdout: printedParts(
+        `red: not valid (test_bug): the BDD runner did not start and names features/steps/a.steps.ts, which changed since the last checkpoint:\n  Error: Transform failed\n  ${dir}/features/steps/a.steps.ts:2:6: ERROR`,
+        `test: ${TARGET}`,
+        `fix the test so that it fails because the behaviour is missing, not because the test is broken, then run oid verify red "${TARGET}" again`,
+      ),
       stderr: "",
     });
   });

@@ -9,6 +9,7 @@ import type { EvidenceScenario } from "../artifacts/checkpoint.js";
 import { FAILING, incoherentExit, noReport, SUITE } from "../artifacts/runner-verdict.js";
 import { scenarioTarget } from "../artifacts/verify-target.js";
 import { loadProgress, ProgressError } from "../artifacts/progress.js";
+import { rejection, renderRejection } from "../artifacts/rejection.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
 import { isInsideCode } from "../artifacts/source-roots.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
@@ -115,7 +116,8 @@ export function runGreen(io: CliIo, targets: string[] = []): number {
   const scenarios = scenarioResult(io.cwd, config, targets);
   const problems = [...suiteProblems(io.cwd, config), ...scenarios.problems, ...typecheckProblems(io.cwd, config, scenarios.unloadable === true)];
   if (problems.length > 0) {
-    io.stdout(`green: ${problems.length} problem(s)${NEWLINE}${problems.join(NEWLINE)}${NEWLINE}`);
+    const next = `fix the code, not the tests, for each problem listed (or the target you gave, for a target problem), then run oid verify ${GREEN} again`;
+    io.stdout(`${renderRejection(rejection({ failed: `${GREEN}: ${problems.length} problem(s)`, evidence: problems.join(NEWLINE), next }))}${NEWLINE}`);
     return 1;
   }
   recordVerified(io.cwd, config, { step: "tdd_green", verify: { kind: GREEN, target: "all" }, external: false, scenarios: scenarios.ran }, scenarios.targeted);

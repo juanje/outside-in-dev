@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyFailure, type ClassifyContext } from "../../src/artifacts/red-classification.js";
+import { classifyFailure, type ClassifyContext, splitSteps } from "../../src/artifacts/red-classification.js";
 
 const context: ClassifyContext = { cwd: "/p", isSource: (path) => path.startsWith("src/"), resolveSymbol: () => "missing", isOnAddedTestLine: () => false };
 
@@ -169,6 +169,12 @@ describe("classifyFailure", () => {
       setup: true as const,
     };
     expect(classifyFailure(failure, context)).toEqual({ outcome: "valid", class: "missing_implementation", reason: "the module ../../src/nope.js does not exist yet" });
+  });
+
+  it("splits the steps that kept a scenario from running off the reason, one for each line, and leaves any other reason whole", () => {
+    const reason = "the test did not run (status UNDEFINED), because of these steps:\n  - features/a.feature:5 When it is shouted (UNDEFINED)\n  - features/a.feature:6 Then it shouts (UNDEFINED)";
+    expect(splitSteps(reason)).toEqual({ headline: "the test did not run (status UNDEFINED)", steps: ["features/a.feature:5 When it is shouted (UNDEFINED)", "features/a.feature:6 Then it shouts (UNDEFINED)"] });
+    expect(splitSteps("the test passes without new implementation")).toEqual({ headline: "the test passes without new implementation", steps: [] });
   });
 
   it("names each step that kept a scenario from running, one on each line", () => {

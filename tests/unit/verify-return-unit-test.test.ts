@@ -7,6 +7,7 @@ import { readReturn } from "../../src/artifacts/return-record.js";
 import { commitAll } from "./git-fixture.js";
 import { FEATURE, RED } from "./red-fixture.js";
 import { COMMANDS, PATHS, TARGET } from "./return-unit-fixture.js";
+import { printedParts } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
@@ -65,13 +66,25 @@ describe("oid verify red <test> at tdd_red after a return", () => {
     await goBack("tdd_green");
     write("src/a.ts", "export const a = 4;\n");
     const run = await runInProject(["verify", "red", TARGET]);
-    expect(run).toEqual({ exitCode: 1, stdout: "red: not returned: src/a.ts changed since the return\n", stderr: "" });
+    expect(run).toEqual({
+      exitCode: 1,
+      stdout: printedParts("red: not returned: src/a.ts changed since the return", `feature ${FEATURE}: test ${TARGET}`, `undo the changes to src/a.ts, then run oid verify red "${TARGET}" again`),
+      stderr: "",
+    });
     expect(loadProgress(dir).features[0]?.cycle_step).toBe("tdd_red");
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("does not return the feature when the test also passes without this cycle's code, and restores the code", async () => {
     await goBack("refactor", { base: "export const a = 2;\n", cycleCode: "export const a = 22;\n" });
-    expect(await runInProject(["verify", "red", TARGET])).toEqual({ exitCode: 1, stdout: "red: not returned: the test passes without this cycle's code\n", stderr: "" });
+    expect(await runInProject(["verify", "red", TARGET])).toEqual({
+      exitCode: 1,
+      stdout: printedParts(
+        "red: not returned: the test passes without this cycle's code",
+        `feature ${FEATURE}: test ${TARGET}`,
+        `make the test assert the behaviour that this cycle's code adds, so that it fails without that code, then run oid verify red "${TARGET}" again`,
+      ),
+      stderr: "",
+    });
     expect(readFileSync(join(dir, "runs.log"), "utf8")).toBe("export const a = 22;\nexport const a = 2;\n");
     expect(statSync(join(dir, "src/a.ts")).size).toBe("export const a = 22;\n".length);
     expect(loadProgress(dir).features[0]?.cycle_step).toBe("tdd_red");

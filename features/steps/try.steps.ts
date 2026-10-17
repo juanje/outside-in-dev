@@ -59,6 +59,7 @@ const PLANS: Record<string, Plan> = {
     unit: [{ recording: "try-unit-fail", expect: unitCall("greets in capitals") }],
     typecheck: CLEAN_TYPES,
   },
+  "oid try on a failing test says what failed, the failure and what to do next": { unit: [{ recording: "try-unit-fail", expect: unitCall("greets in capitals") }], typecheck: CLEAN_TYPES },
   "A test name that matches no test is a failed verdict": { unit: [{ recording: "try-unit-none", expect: unitCall("greets nobody") }], typecheck: CLEAN_TYPES },
 };
 
@@ -88,7 +89,7 @@ function writeReplayHome(plan: Plan): string {
   return home;
 }
 
-Before({ tags: "@FR-VERIFY-09" }, function (this: OidWorld, { pickle }) {
+Before({ tags: "@FR-VERIFY-09 or @FR-AGENT-10" }, function (this: OidWorld, { pickle }) {
   const plan = PLANS[pickle.name];
   if (plan === undefined || REAL_SCENARIOS.includes(pickle.name) || pickle.name === NEVER_ENDING_SCENARIO) return;
   const replayed: Replayed = { bdd: plan.bdd !== undefined, unit: plan.unit !== undefined, typecheck: plan.typecheck !== undefined };

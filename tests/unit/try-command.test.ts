@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CommandAbortedError, CommandTimeoutError, REAL_RUNNERS, type Runners } from "../../src/artifacts/verify-runner.js";
 import { runTry } from "../../src/commands/try.js";
 import { commitAll, git } from "./git-fixture.js";
+import { printedParts } from "./rejection-fixture.js";
 import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
 
 useTempDir();
@@ -34,6 +35,11 @@ async function tryWith(args: string[], runners: Runners): Promise<{ exitCode: nu
 }
 
 const TEST = "tests/a.test.ts > adds up";
+
+/** What `oid try` prints when a check of the unit test fails: the checks as the evidence, and the fix to make. */
+function failedTry(...checks: string[]): string {
+  return printedParts("try: failed", checks.join("\n"), "fix what failed, then run the same oid try command again");
+}
 
 const RECORDED = join(import.meta.dirname, "../../features/support/recorded");
 /** The feature the recorded reports of `oid try` ran, written at the place they name. */
@@ -97,15 +103,15 @@ describe("oid try with a unit test", () => {
   it("says that no test has the name when the run found none, and that the test file did not load when it did not", async () => {
     writeMinimalConfig();
     const none = { testResults: [{ name: `${dir}/tests/a.test.ts`, status: "passed", message: "", assertionResults: [{ title: "other", fullName: "other", ancestorTitles: [], status: "skipped", failureMessages: [] }] }] };
-    expect((await tryWith([TEST], runnersAnswering({ unit: { exitCode: 0, report: none } }))).stdout).toContain('test: failed: no test named "adds up" in tests/a.test.ts\ntypes: ok\n');
+    expect((await tryWith([TEST], runnersAnswering({ unit: { exitCode: 0, report: none } }))).stdout).toContain('\n  test: failed: no test named "adds up" in tests/a.test.ts\n  types: ok\n');
     const unloaded = { testResults: [{ name: `${dir}/tests/a.test.ts`, status: "failed", message: "Cannot find module '../src/a.js'\n    at somewhere", assertionResults: [] }] };
-    expect((await tryWith([TEST], runnersAnswering({ unit: { exitCode: 1, report: unloaded } }))).stdout).toContain("test: failed: the test file did not load\n  Cannot find module '../src/a.js'\ntypes: ok\n");
+    expect((await tryWith([TEST], runnersAnswering({ unit: { exitCode: 1, report: unloaded } }))).stdout).toContain("\n  test: failed: the test file did not load\n    Cannot find module '../src/a.js'\n  types: ok\n");
   });
 
   it("says that the runner wrote no report, with its exit code and what it printed on stderr", async () => {
     writeMinimalConfig();
     const { exitCode, stdout } = await tryWith([TEST], runnersAnswering({ unit: { exitCode: 2, report: undefined, stderr: "vitest: command not found\nsecond line\n" } }));
-    expect(stdout).toContain("test: failed: the unit runner wrote no report (exit 2)\n  vitest: command not found\n  second line\ntypes: ok\n");
+    expect(stdout).toContain("\n  test: failed: the unit runner wrote no report (exit 2)\n    vitest: command not found\n    second line\n  types: ok\n");
     expect(exitCode).toBe(1);
   });
 
@@ -113,7 +119,7 @@ describe("oid try with a unit test", () => {
     writeMinimalConfig();
     const message = "AssertionError: expected 1 to be 2 // Object.is equality\n    at /somewhere/a.test.ts:4:9\n    at runTest (/node_modules/vitest/runner.js:1:1)";
     const { exitCode, stdout } = await tryWith([TEST], runnersAnswering({ unit: { exitCode: 1, report: unitReport("failed", [message]) } }));
-    expect(stdout).toBe("test: failed\n  AssertionError: expected 1 to be 2 // Object.is equality\ntypes: ok\nlint: skipped (commands.lint is null)\ntry: failed\n");
+    expect(stdout).toBe(failedTry("test: failed", "  AssertionError: expected 1 to be 2 // Object.is equality", "types: ok", "lint: skipped (commands.lint is null)"));
     expect(exitCode).toBe(1);
   });
 
@@ -122,7 +128,7 @@ describe("oid try with a unit test", () => {
     const output = "src/a.ts(3,5): error TS2322: Type 'string' is not assignable to type 'number'.\nsrc/b.ts(9,1): error TS2304: Cannot find name 'x'.\n";
     const { exitCode, stdout } = await tryWith([TEST], runnersAnswering({ unit: { exitCode: 0, report: unitReport("passed") }, types: { exitCode: 2, output } }));
     expect(stdout).toBe(
-      "test: passed\ntypes: failed (2 errors)\n  src/a.ts:3 TS2322 Type 'string' is not assignable to type 'number'.\n  src/b.ts:9 TS2304 Cannot find name 'x'.\nlint: skipped (commands.lint is null)\ntry: failed\n",
+      failedTry("test: passed", "types: failed (2 errors)", "  src/a.ts:3 TS2322 Type 'string' is not assignable to type 'number'.", "  src/b.ts:9 TS2304 Cannot find name 'x'.", "lint: skipped (commands.lint is null)"),
     );
     expect(exitCode).toBe(1);
   });
@@ -138,7 +144,13 @@ describe("oid try with a unit test", () => {
     writeMinimalConfig();
     const runners: Runners = { ...runnersAnswering({}), tryUnitTest: () => { throw new CommandTimeoutError("u", 1); } };
     const { exitCode, stdout } = await tryWith([TEST], runners);
-    expect(stdout).toBe('try: failed: the command "u" did not end within 1 s and was stopped; raise limits.command_timeout_s in .outside-in.json if it needs more time\n');
+    expect(stdout).toBe(
+      printedParts(
+        'try: failed: the command "u" did not end within 1 s and was stopped; raise limits.command_timeout_s in .outside-in.json if it needs more time',
+        `target: ${TEST}`,
+        `run a smaller target or fix what keeps the command from ending (a test that never ends, a watch mode), then run the same oid try command again`,
+      ),
+    );
     expect(exitCode).toBe(1);
   });
 
@@ -146,11 +158,11 @@ describe("oid try with a unit test", () => {
     writeMinimalConfig();
     const output = Array.from({ length: 12 }, (_, index) => `src/a.ts(${index + 1},1): error TS2322: Wrong ${index + 1}.\n`).join("");
     const { stdout } = await tryWith([TEST], runnersAnswering({ unit: { exitCode: 0, report: unitReport("passed") }, types: { exitCode: 2, output } }));
-    const listed = stdout.split("\n").filter((line) => line.startsWith("  "));
-    expect(stdout).toContain("types: failed (12 errors)\n");
+    const listed = stdout.split("\n").filter((line) => line.startsWith("    "));
+    expect(stdout).toContain("\n  types: failed (12 errors)\n");
     expect(listed).toHaveLength(11);
-    expect(listed[9]).toBe("  src/a.ts:10 TS2322 Wrong 10.");
-    expect(listed[10]).toBe("  ... 2 more");
+    expect(listed[9]).toBe("    src/a.ts:10 TS2322 Wrong 10.");
+    expect(listed[10]).toBe("    ... 2 more");
   });
 
   it("runs the linter only on the changed files, and shows what a linter oid does not recognise printed when it fails", async () => {
@@ -158,7 +170,7 @@ describe("oid try with a unit test", () => {
     const asked: string[] = [];
     const { exitCode, stdout } = await tryWith([TEST], lintingWith({ exitCode: 1, stdout: "problem in src/a.ts\nproblem in src/c.ts\n" }, asked));
     expect(asked).toEqual(["mylint 'src/a.ts' 'src/c.ts'"]);
-    expect(stdout).toBe("test: passed\ntypes: ok\nlint: failed (2 files)\n  problem in src/a.ts\n  problem in src/c.ts\ntry: failed\n");
+    expect(stdout).toBe(failedTry("test: passed", "types: ok", "lint: failed (2 files)", "  problem in src/a.ts", "  problem in src/c.ts"));
     expect(exitCode).toBe(1);
   }, REAL_PROCESS_TIMEOUT_MS);
 
@@ -168,7 +180,7 @@ describe("oid try with a unit test", () => {
     const report = [{ filePath: join(dir, "src/a.ts"), messages: [{ ruleId: "no-unused-vars", severity: 2, message: "'x' is unused", line: 3 }, { ruleId: "semi", severity: 1, message: "warning only", line: 4 }] }];
     const { exitCode, stdout } = await tryWith([TEST], lintingWith({ exitCode: 1, stdout: JSON.stringify(report) }, asked));
     expect(asked).toEqual(["eslint --format json 'src/a.ts' 'src/c.ts'"]);
-    expect(stdout).toContain("lint: failed (2 files)\n  src/a.ts:3 no-unused-vars 'x' is unused\ntry: failed\n");
+    expect(stdout).toContain("\n  lint: failed (2 files)\n    src/a.ts:3 no-unused-vars 'x' is unused\nNext: ");
     expect(exitCode).toBe(1);
   }, REAL_PROCESS_TIMEOUT_MS);
 
@@ -196,7 +208,13 @@ describe("oid try with a scenario", () => {
     writeMinimalConfig();
     write("features/greeting.feature", GREETING_FEATURE);
     const { exitCode, stdout } = await tryWith(["features/greeting.feature:12"], runnersReplaying("try-bdd-undefined", 1));
-    expect(stdout).toBe("test: undefined steps (1)\n  features/greeting.feature:14 When it is printed (UNDEFINED)\ntypes: ok\nlint: skipped (commands.lint is null)\ntry: failed\n");
+    expect(stdout).toBe(
+      printedParts(
+        "try: failed",
+        "test: undefined steps (1)\n  features/greeting.feature:14 When it is printed (UNDEFINED)\ntypes: ok\nlint: skipped (commands.lint is null)",
+        "fix what failed, then run the same oid try command again",
+      ),
+    );
     expect(exitCode).toBe(1);
   });
 
@@ -204,7 +222,7 @@ describe("oid try with a scenario", () => {
     writeMinimalConfig();
     write("features/greeting.feature", GREETING_FEATURE);
     const { exitCode, stdout } = await tryWith(["features/greeting.feature:8"], runnersReplaying("try-bdd-fail", 1));
-    expect(stdout.split("\n").slice(0, 3)).toEqual(["test: failed at features/greeting.feature:10 Then it is shouted", "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:", "  + actual - expected"]);
+    expect(stdout.split("\n").slice(0, 5)).toEqual(["try: failed", "Evidence:", "  test: failed at features/greeting.feature:10 Then it is shouted", "    AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:", "    + actual - expected"]);
     expect(stdout).not.toContain("    at ");
     expect(exitCode).toBe(1);
   });
@@ -215,7 +233,13 @@ describe("oid try with a scenario", () => {
     const asked: boolean[] = [];
     const runners: Runners = { ...runnersReplaying("try-bdd-dry-undefined", 0), tryBddScenario: (...call) => (asked.push(call[3]), runnersReplaying("try-bdd-dry-undefined", 0).tryBddScenario(...call)), tryTypecheck: () => { throw new Error("no type check was expected"); } };
     const { exitCode, stdout } = await tryWith(["--dry-run", "features/greeting.feature:12"], runners);
-    expect(stdout).toBe("dry-run: undefined steps (1)\n  features/greeting.feature:14 When it is printed (UNDEFINED)\n");
+    expect(stdout).toBe(
+      printedParts(
+        "try: failed",
+        "dry-run: undefined steps (1)\n  features/greeting.feature:14 When it is printed (UNDEFINED)",
+        "define the undefined steps in a step file, then run the same oid try command again",
+      ),
+    );
     expect(asked).toEqual([true]);
     expect(exitCode).toBe(1);
   });

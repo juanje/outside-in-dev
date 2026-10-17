@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
+import { rejection, renderRejection } from "../artifacts/rejection.js";
 import { isSecret } from "./secrets.js";
 
 const NEWLINE = "\n";
 const NOTICE = /\n\n\[[^\n]*\]$/;
 const NO_RESULT = new Set(["No matches found", "No files found matching pattern", "(empty directory)"]);
 const GREP_POSITION = /[:-]\d+[:-] /g;
-const UNCHECKABLE = "The result was blocked: it could not be checked for secret files, so none of it is shown.";
+const UNCHECKABLE = "The result was blocked: it could not be checked for secret files, so none of it is shown";
 
 /** Thrown when a line cannot be attributed to a file: the whole result is then withheld. */
 class Unattributable extends Error {}
@@ -34,7 +35,7 @@ export function withoutSecrets(tool: string, text: string, directory: string, wo
   try {
     return redact(tool, text, directory, worktree);
   } catch (error) {
-    if (error instanceof Unattributable) return UNCHECKABLE;
+    if (error instanceof Unattributable) return renderRejection(rejection({ failed: UNCHECKABLE, evidence: `tool: ${tool}, directory: ${directory}`, next: "search again with a narrower pattern or path, or read the files you need with the read tool" }));
     throw error;
   }
 }

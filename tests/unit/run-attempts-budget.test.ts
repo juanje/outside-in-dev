@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAttempts } from "../../src/orchestrator/attempts.js";
 import type { OIEventBody } from "../../src/events/types.js";
+import { rejectionOf } from "./rejection-fixture.js";
 
 const MODELS = { fast: "p/small", default: "p/medium", strong: "p/large" };
 
@@ -13,7 +14,7 @@ describe("runAttempts and the budget", () => {
   it("settles the budget before it announces each attempt, and announces nothing when the budget stops the run", async () => {
     const { bus, log } = setup();
     const spec = { bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {} };
-    await runAttempts({ ...spec, beforeCall: async () => void log.push("budget"), run: async ({ attempt }) => (log.push("run"), attempt === 1 ? { rejected: "no" } : { value: 2 }) });
+    await runAttempts({ ...spec, beforeCall: async () => void log.push("budget"), run: async ({ attempt }) => (log.push("run"), attempt === 1 ? rejectionOf("no") : { value: 2 }) });
     expect(log).toEqual(["budget", "agent_start:1", "run", "attempt_rejected:1", "budget", "agent_start:2", "run"]);
     log.length = 0;
     const stopped = runAttempts({ ...spec, beforeCall: async () => Promise.reject(new Error("budget")), run: async () => (log.push("run"), { value: 1 }) });

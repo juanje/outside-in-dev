@@ -58,7 +58,11 @@ describe("the decision about a Red oid cannot classify", () => {
     const bus = createEventBus({ cwd: dir, runId: "run-1", write: (text) => printed.push(text), now: () => 0 });
     const result = await decideRed(bus, { isTTY: true, choose: async () => "bug", line: async () => "" }, { ...FAILURE, step: "features/a.feature:5 When it is shouted" });
     expect({ result, printed }).toEqual({
-      result: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the step definitions\nthe failure: Error: boom\nfailing step: features/a.feature:5 When it is shouted' },
+      result: {
+        failed: 'FR-A-01 "Pay": the person judged the failure to be a bug in the step definitions',
+        evidence: "the failure: Error: boom\nfailing step: features/a.feature:5 When it is shouted",
+        next: "fix the step definitions so that the scenario fails because the behaviour is missing, then check it with the try tool",
+      },
       printed: [],
     });
   });
@@ -73,8 +77,16 @@ describe("the decision about a Red oid cannot classify", () => {
     const withNote = await reasonWith("  the cart is built with createCart  ");
     const withoutNote = await reasonWith("   ");
     expect({ withNote, withoutNote, asked: asked.length }).toEqual({
-      withNote: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test: the cart is built with createCart\nthe failure: Error: boom' },
-      withoutNote: { rejected: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test\nthe failure: Error: boom' },
+      withNote: {
+        failed: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test: the cart is built with createCart',
+        evidence: "the failure: Error: boom",
+        next: "fix the unit test so that it fails because the behaviour is missing, then check it with the try tool",
+      },
+      withoutNote: {
+        failed: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test',
+        evidence: "the failure: Error: boom",
+        next: "fix the unit test so that it fails because the behaviour is missing, then check it with the try tool",
+      },
       asked: 2,
     });
   });

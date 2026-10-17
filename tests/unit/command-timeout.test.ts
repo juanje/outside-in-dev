@@ -31,6 +31,7 @@ describe("a command that does not end", () => {
       start: "red: not valid (environment): the command",
       key: true,
     });
+    expect(stdout).toContain('\nEvidence:\n  test: tests/unit/a.test.ts > adds\nNext: run a smaller target or fix what keeps the command from ending (a test that never ends, a watch mode), then run oid verify red "tests/unit/a.test.ts > adds" again');
   }, REAL_PROCESS_TIMEOUT_MS);
 
   it("makes oid verify green exit 1 with the same error", async () => {

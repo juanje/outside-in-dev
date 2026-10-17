@@ -7,6 +7,7 @@ import { readSession, recordAttemptsUsed, updateSession } from "../../src/orches
 import { attemptsOf } from "../../src/orchestrator/state-attempts.js";
 import { gitIn } from "./git-fixture.js";
 import { loopProject } from "./loop-fixture.js";
+import { printedRejectionOf, rejectionOf } from "./rejection-fixture.js";
 import { useTempDir } from "./temp-project.js";
 
 useTempDir();
@@ -23,8 +24,8 @@ describe("the attempts of a state", () => {
       state: "QUALITY_FIX",
       role: "fix-agent",
       label: "FR-A-01",
-      run: async () => ({ rejected: "2 lint errors" }),
-      whenExhausted: ({ rejected, attempts }) => ({ left: rejected, attempts }),
+      run: async () => rejectionOf("2 lint errors"),
+      whenExhausted: ({ failed, attempts }) => ({ left: failed, attempts }),
     });
     expect({ result, asked, errors: emitted.filter((event) => event.type === "error").length }).toEqual({ result: { left: "2 lint errors", attempts: 1 }, asked: [], errors: 0 });
   });
@@ -43,9 +44,9 @@ describe("the attempts of a state", () => {
       state: "TDD_RED",
       role: "tdd-agent",
       label: "Add a line",
-      run: async ({ attempt }) => (attempt === 1 ? { rejected: "no test" } : (saved.push(readSession(project)?.attemptsUsed), "accepted")),
+      run: async ({ attempt }) => (attempt === 1 ? rejectionOf("no test") : (saved.push(readSession(project)?.attemptsUsed), "accepted")),
     });
-    expect(saved).toEqual([{ state: "TDD_RED", label: "Add a line", used: 1, reason: "no test" }]);
+    expect(saved).toEqual([{ state: "TDD_RED", label: "Add a line", used: 1, reason: printedRejectionOf("no test") }]);
     expect(readSession(project)?.attemptsUsed).toBeUndefined();
   });
 

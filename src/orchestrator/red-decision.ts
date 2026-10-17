@@ -2,7 +2,7 @@ import { trimFailure } from "../commands/verify.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
-import type { Rejection } from "./attempts.js";
+import { labelled, type Rejection } from "../artifacts/rejection.js";
 import type { Started } from "./begin.js";
 import type { ReviewInput } from "./services.js";
 
@@ -32,8 +32,12 @@ function refusal(label: string, answer: string): string {
 
 /** The rejection of the attempt when the person judges the failure a bug: what the person judged, with the note of the person when there is one, the failure up to its stack, and the failing step when there is one. */
 function bugRejection({ label, message, step, subject = STEP_DEFINITIONS }: UnclassifiedRed, note: string): Rejection {
-  const judged = `${label}: the person judged the failure to be a bug in the ${subject}`;
-  return { rejected: [note === "" ? judged : `${judged}: ${note}`,`the failure: ${trimFailure(message)}`, ...(step === undefined ? [] : [`failing step: ${step}`])].join(NEWLINE) };
+  const judged = `the person judged the failure to be a bug in the ${subject}`;
+  return labelled(label, {
+    failed: note === "" ? judged : `${judged}: ${note}`,
+    evidence: [`the failure: ${trimFailure(message)}`, ...(step === undefined ? [] : [`failing step: ${step}`])].join(NEWLINE),
+    next: `fix the ${subject} so that ${subject === STEP_DEFINITIONS ? "the scenario" : "it"} fails because the behaviour is missing, then check it with the try tool`,
+  });
 }
 
 /** Puts the Red to the person who can classify it: returns "valid" when it is, the rejection of the attempt when the person judges it a bug, or the exit code of the process when the run ends. */

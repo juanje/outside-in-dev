@@ -41,7 +41,10 @@ describe("writing the feature files of a run", () => {
     agent.unreported = [{ path: "features/extra.feature", content: "Feature: Extra\n" }];
     const printed: string[] = [];
     const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
-    expect({ exitCode, last: printed.at(-1) }).toEqual({ exitCode: 1, last: "error: FR-A-01: the agent failed: the report does not match the files that changed (missing files: features/extra.feature)\n" });
+    expect({ exitCode, last: printed.at(-1) }).toEqual({
+      exitCode: 1,
+      last: "error: FR-A-01: the agent failed: the report does not match the files that changed (missing files: features/extra.feature) | Evidence: |   the session of the agent ended with the status failed and no report | Next: do the task and end by calling the report tool once, with status done, or with status blocked and the reason\n",
+    });
   });
 
   it("ends with an error that names the requirement when a feature file the agent wrote does not parse", async () => {
@@ -52,7 +55,7 @@ describe("writing the feature files of a run", () => {
     const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
     const saved = readJson(join(project, ".outside-in/session.json"));
     expect({ exitCode, state: saved.state }).toEqual({ exitCode: 1, state: "FEATURE_WRITE" });
-    expect(printed.at(-1)).toMatch(/^error: FR-A-01: features\/FR-A-01\.feature does not parse: /);
+    expect(printed.at(-1)).toMatch(/^error: FR-A-01: features\/FR-A-01\.feature does not parse \| Evidence: \|   \(1:1\): .* \| Next: fix the Gherkin syntax of features\/FR-A-01\.feature so that it parses, then write the feature files again\n$/);
   });
 
   it("asks the person once for all the targets, with the text of the feature files, the worktree and the three actions", async () => {

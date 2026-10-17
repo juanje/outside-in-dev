@@ -10,6 +10,7 @@ import { OUTCOME } from "../artifacts/red-classification.js";
 import { parseUnitTarget } from "../artifacts/verify-target.js";
 import { runBillable } from "./budget-call.js";
 import { isRejection, type Rejection } from "./attempts.js";
+import { labelled } from "../artifacts/rejection.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
@@ -18,6 +19,9 @@ import type { RedScenario } from "./run-bdd-red.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { recordUnitTest, unitTestsOf, updateSession } from "./session.js";
 import { unitRedGate } from "./unit-red-gate.js";
+
+const NONE = "none";
+const FILE_SEPARATOR = ", ";
 
 /** What TDD Red hands to Code Green: the unit test files to make pass, the failure to get rid of and the test as `<file> > <describe> > <name>`, which the coder checks its work with. */
 export type TddRed = { tests: string[]; failure: string; test?: string };
@@ -29,7 +33,13 @@ const filesOf = (tests: string[]): string[] => [...new Set(tests.map((test) => p
 function integrationStep(started: Started, scenario: RedScenario): Rejection | TddRed {
   const { cwd, bus } = started;
   const known = unitTestsOf(cwd, scenario.current.name);
-  if (known.length === 0) return { rejected: `${scenario.label}: the agent reports that no unit logic is left, but a scenario needs at least one unit test before that` };
+  if (known.length === 0) {
+    return labelled(scenario.label, {
+      failed: "the agent reports that no unit logic is left, but a scenario needs at least one unit test before that",
+      evidence: "the unit tests recorded for this scenario: none",
+      next: "write the unit test for the next piece of logic the scenario needs, and name it in the report",
+    });
+  }
   const unitRed = { tests: filesOf(known), failure: scenario.failure, test: known.at(-1) };
   updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `integration_step: no unit logic is left and the scenario "${scenario.current.name}" is still red`);
@@ -39,7 +49,7 @@ function integrationStep(started: Started, scenario: RedScenario): Rejection | T
 /** Judges the unit test the agent wrote, putting a failure oid cannot classify to the person: what the valid Red was and why, or the exit code of the process. */
 async function judgeUnitRed(started: Started, services: FeatureServices, names: { label: string; scenario: string }, test: { file: string; name: string }): Promise<number | Rejection | { reason: string; message: string }> {
   const gate = unitRedGate(started.workspace.path, test, runnersOf(services));
-  if (gate.kind === PROBLEM) return { rejected: `${names.scenario}: ${gate.problem}` };
+  if (gate.kind === PROBLEM) return labelled(names.scenario, gate.problem);
   if (gate.kind === OUTCOME.valid) return gate;
   const decided = await decideRed(started.bus, services.input ?? { isTTY: false }, { label: names.label, reason: gate.reason, message: gate.message, subject: "unit test" });
   return decided === VALID_RED ? { reason: "the person decided that it is a valid Red", message: gate.message } : decided;
@@ -54,9 +64,15 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
   const stopped = agentStop(started, label, outcome);
   if (stopped !== undefined) return stopped;
   const report = outcome.status === DONE ? outcome.report : undefined;
-  if (report?.status !== DONE) return { rejected: `${label}: the agent ended without a report of a unit test` };
+  if (report?.status !== DONE) {
+    const evidence = `the report of the attempt: ${report === undefined ? NONE : `status ${report.status}`}`;
+    return labelled(label, { failed: "the agent ended without a report of a unit test", evidence, next: "end by calling the report tool once, with status done, the files you changed and the unit test you wrote in test" });
+  }
   if ("reason" in report) return integrationStep(started, scenario);
-  if (report.test === undefined) return { rejected: `${label}: the report names no unit test` };
+  if (report.test === undefined) {
+    const evidence = `${label}: the report lists the files ${report.files.length === 0 ? NONE : report.files.join(FILE_SEPARATOR)} and names no unit test`;
+    return labelled(label, { failed: "the report names no unit test", evidence, next: "name the unit test you wrote in the test field of the report, as <file> > <test name>" });
+  }
   const test = parseUnitTarget(report.test);
   const gate = await judgeUnitRed(started, services, { label: `${label} unit test "${test.name}"`, scenario: label }, test);
   if (isExitCode(gate) || isRejection(gate)) return gate;

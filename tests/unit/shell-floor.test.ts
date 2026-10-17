@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkShell, type ShellRules } from "../../src/agents/shell-floor.js";
+import { renderRejection } from "../../src/artifacts/rejection.js";
 import { dir, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
@@ -31,10 +32,21 @@ beforeEach(() => {
 /** The reason a command is blocked for, or undefined when it is allowed. */
 function reasonFor(command: string): string | undefined {
   const verdict = checkShell(command, rules);
-  return verdict.block ? verdict.reason : undefined;
+  return verdict.block ? renderRejection(verdict.reason) : undefined;
 }
 
 describe("checkShell", () => {
+  it("gives a blocked git command what failed, the command as the evidence, and the project's commands it may run instead", () => {
+    expect(checkShell("git commit -am x", rules)).toEqual({
+      block: true,
+      reason: {
+        failed: "git stays with the orchestrator",
+        evidence: "command: git commit -am x",
+        next: "leave commits, branches and checkpoints to the orchestrator, and run the project's commands directly: npx vitest run, npx tsc --noEmit, npm run build && NODE_OPTIONS=\"--import tsx\" npx cucumber-js",
+      },
+    });
+  });
+
   it("allows the project's own commands, the probes and writes inside the worktree", () => {
     for (const command of [
       "npx vitest run tests/unit/a.test.ts",

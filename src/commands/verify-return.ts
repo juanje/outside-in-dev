@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { recordCheckpoint } from "../artifacts/checkpoint.js";
 import { cycleCodeFiles, withoutCycleCode } from "../artifacts/cycle-code.js";
+import { rejection, renderRejection } from "../artifacts/rejection.js";
 import { requirePassEvidence } from "../artifacts/scenario-evidence.js";
 import { CYCLE_STEP, type FeatureProgress, loadProgress, ProgressError, SCENARIO_STATUS, requireFeature, saveProgress } from "../artifacts/progress.js";
 import type { CliIo } from "../cli-io.js";
@@ -11,14 +12,22 @@ import { changedSinceReturn, clearReturn, readReturn } from "../artifacts/return
 const LIST_SEPARATOR = ", ";
 /** The kind of a judgement that refuses the return. */
 export const REFUSED = "refused";
+/** What to do about a test or a scenario that passes without the code of the cycle. */
+export function assertNewBehaviour(noun: string): string {
+  return `make the ${noun} assert the behaviour that this cycle's code adds, so that it fails without that code`;
+}
+
 /** The judgement of a cycle that has no code to remove, which the usual rules judge. */
 export const NO_CODE = "no_code";
 
 /** What judging a scenario at `bdd_red` after a return found. */
-export type Judgement = { kind: typeof REFUSED; reason: string } | { kind: "returned"; to: string; files: string[] } | { kind: typeof NO_CODE };
+export type Judgement = ({ kind: typeof REFUSED } & Refusal) | { kind: "returned"; to: string; files: string[] } | { kind: typeof NO_CODE };
 
-export function refuse(reason: string): Extract<Judgement, { kind: typeof REFUSED }> {
-  return { kind: REFUSED, reason };
+/** Why a return is refused, and what to do about it. */
+export type Refusal = { reason: string; action: string };
+
+export function refuse(refusal: Refusal): Extract<Judgement, { kind: typeof REFUSED }> {
+  return { kind: REFUSED, ...refusal };
 }
 
 /** What is judged after a return: a scenario at `bdd_red` or a unit test at `tdd_red`, and the Red step it is verified at. */
@@ -32,22 +41,22 @@ export const TEST_RETURN: ReturnKind = { noun: "test", step: CYCLE_STEP.tddRed }
 
 /** What is judged, and how it is run with the code of the cycle removed. */
 export interface ReturnSubject extends ReturnKind {
-  /** Run while the code of the cycle is removed: why the return is refused, or nothing when the subject is as a Red. */
-  refusalWithoutCode: () => string | undefined;
+  /** Run while the code of the cycle is removed: why the return is refused and what to do, or nothing when the subject is as a Red. */
+  refusalWithoutCode: () => Refusal | undefined;
 }
 
 /** A scenario, which has to fail without the code of the cycle: `passes` runs it. */
 function scenarioSubject(passes: () => boolean): ReturnSubject {
-  return { ...SCENARIO_RETURN, refusalWithoutCode: () => (passes() ? "the scenario passes without this cycle's code" : undefined) };
+  return { ...SCENARIO_RETURN, refusalWithoutCode: () => (passes() ? { reason: "the scenario passes without this cycle's code", action: assertNewBehaviour(SCENARIO_RETURN.noun) } : undefined) };
 }
 
 /** Judges a scenario or a test verified with a return: refused when source changed since the return, without running it, when it does not pass, or when it is not a Red without the code of the cycle; `passes` runs it. */
 export function judgeReturn(cwd: string, feature: string, isSource: (name: string) => boolean, passes: () => boolean, subject: ReturnSubject = scenarioSubject(passes)): Judgement {
   const moved = changedSinceReturn(cwd, feature).filter(isSource);
-  if (moved.length > 0) return refuse(`${moved.join(LIST_SEPARATOR)} changed since the return`);
+  if (moved.length > 0) return refuse({ reason: `${moved.join(LIST_SEPARATOR)} changed since the return`, action: `undo the changes to ${moved.join(LIST_SEPARATOR)}` });
   const files = cycleCodeFiles(cwd, feature, isSource);
   if (files.length === 0) return { kind: NO_CODE };
-  if (!passes()) return refuse(`the ${subject.noun} does not pass`);
+  if (!passes()) return refuse({ reason: `the ${subject.noun} does not pass`, action: `fix the ${subject.noun} so that it passes with the code of this cycle` });
   const refusal = withoutCycleCode(cwd, feature, isSource, subject.refusalWithoutCode);
   return refusal === undefined ? { kind: "returned", to: readReturn(cwd, feature)!.from, files } : refuse(refusal);
 }
@@ -89,7 +98,8 @@ export function returnedFeature(cwd: string, progressFile: string, step: string 
 /** Prints what judging the scenario or test found and, when the feature returns, records the checkpoint and moves it: exit 0 when it returned, 1 when it did not. */
 export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: typeof NO_CODE }>, subject: ReturnKind = SCENARIO_RETURN): number {
   if (judged.kind === REFUSED) {
-    io.stdout(`red: not returned: ${judged.reason}\n`);
+    const refusal = rejection({ failed: `red: not returned: ${judged.reason}`, evidence: `feature ${feature}: ${subject.noun} ${target}`, next: `${judged.action}, then run oid verify red "${target}" again` });
+    io.stdout(`${renderRejection(refusal)}\n`);
     return 1;
   }
   recordCheckpoint(io.cwd, { step: subject.step, feature, verify: { kind: "red", target }, external: false, date: new Date(), returned: true });

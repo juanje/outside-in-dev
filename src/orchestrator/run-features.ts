@@ -3,9 +3,10 @@ import { FEATURE_WRITE, profileFor } from "../agents/profiles.js";
 import { names } from "../agents/names.js";
 import { featureWritePrompt } from "../agents/prompts/feature-write.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { isRejection, labelled, renderRejection } from "../artifacts/rejection.js";
 import { featureWriteContext } from "../agents/context/task-context.js";
 import { BLOCKED, DONE } from "../agents/runner.js";
-import { outcomeProblem } from "./agent-run.js";
+import { outcomeProblem, outcomeStop } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
 import { endOnGitFailure } from "./run-git-failure.js";
 import { RunStopped } from "./run-stopped.js";
@@ -44,11 +45,11 @@ async function writeFeature(started: Started, services: FeatureServices, { fr, c
   const prompt = `${featureWritePrompt(fr, profile)}${NEWLINE}${NEWLINE}${featureWriteContext(workspace.path, { fr, comment })}`;
   const outcome = await runBillable(started, services, attemptTask(FEATURE_WRITE, prompt, info), { fr, announce: info.announce });
   if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(fr, outcome)!);
-  const stopped = outcomeProblem(fr, outcome);
-  if (stopped !== undefined) return { problem: stopped };
+  const stopped = outcomeStop(fr, outcome);
+  if (stopped !== undefined) return { problem: isRejection(stopped) ? renderRejection(stopped) : stopped.stop };
   if (outcome.status !== DONE || outcome.report.status !== DONE) return { files: [] };
   const problem = featureProblem(workspace.path, fr, outcome.report.files, knownIds);
-  return problem === undefined ? { files: outcome.report.files } : { problem: `${fr}: ${problem}` };
+  return problem === undefined ? { files: outcome.report.files } : { problem: renderRejection(labelled(fr, problem)) };
 }
 
 /** Has the feature-writing agent run once for each target feature. An agent that is blocked is put to the person, who can have it retry with a note, skip the feature or abort. Returns the exit code of the process when the person's answer ends the run. */

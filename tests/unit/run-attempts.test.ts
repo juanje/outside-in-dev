@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { announceAgent, runAttempts } from "../../src/orchestrator/attempts.js";
 import type { OIEventBody } from "../../src/events/types.js";
+import { printedRejectionOf, rejectionOf } from "./rejection-fixture.js";
 
 const MODELS = { fast: "p/small", default: "p/medium", strong: "p/large" };
 
@@ -42,21 +43,21 @@ describe("runAttempts", () => {
       restore: () => void (restored += 1),
       run: async ({ attempt, note }) => {
         notes.push(note);
-        return attempt === 1 ? { rejected: "the unit test still fails" } : { value: "done" };
+        return attempt === 1 ? rejectionOf("the unit test still fails") : { value: "done" };
       },
     });
     expect(result).toEqual({ value: "done" });
     expect(restored).toBe(1);
     expect(notes[1]).toContain("attempt 2");
-    expect(notes[1]).toContain("the unit test still fails");
+    expect(notes[1]).toContain(printedRejectionOf("the unit test still fails"));
     expect(starts(events).map((event) => (event as { thinkingLevel: string }).thinkingLevel)).toEqual(["medium", "high"]);
   });
 
   it("gives back the last reason and the number of attempts when the retries run out, keeping the last attempt's work", async () => {
     const { bus, events } = setup();
     let restored = 0;
-    const result = await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => void (restored += 1), run: async ({ attempt }) => ({ rejected: `reason ${attempt}` }) });
-    expect(result).toEqual({ rejected: "reason 2", attempts: 2 });
+    const result = await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => void (restored += 1), run: async ({ attempt }) => rejectionOf(`reason ${attempt}`) });
+    expect(result).toEqual({ ...rejectionOf("reason 2"), attempts: 2 });
     expect(restored).toBe(1);
     expect(starts(events).map((event) => (event as { model: string }).model)).toEqual(["p/medium", "p/large"]);
   });
@@ -64,16 +65,16 @@ describe("runAttempts", () => {
   it("tells the next attempt that it starts again from the last checkpoint and why the attempt before it was rejected", async () => {
     const { bus } = setup();
     const notes: string[] = [];
-    await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => {}, run: async ({ attempt, note }) => (notes.push(note), attempt === 1 ? { rejected: "the steps do not run" } : { value: 1 }) });
+    await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => {}, run: async ({ attempt, note }) => (notes.push(note), attempt === 1 ? rejectionOf("the steps do not run") : { value: 1 }) });
     expect(notes).toEqual([
       "",
-      "This is attempt 2. It starts again from the last checkpoint: the files of the attempt before it were discarded, so write everything this task needs. That attempt was rejected because: the steps do not run",
+      `This is attempt 2. It starts again from the last checkpoint: the files of the attempt before it were discarded, so write everything this task needs. That attempt was rejected because: ${printedRejectionOf("the steps do not run")}`,
     ]);
   });
 
   it("announces each rejected attempt with its reason before the next one starts, and the last one too", async () => {
     const { bus, events } = setup();
-    await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => {}, run: async ({ attempt }) => ({ rejected: `reason ${attempt}` }) });
+    await runAttempts({ bus, state: "BDD_RED", role: "bdd-agent", retries: 1, models: MODELS, restore: () => {}, run: async ({ attempt }) => rejectionOf(`reason ${attempt}`) });
     expect(events.map((event) => (event.type === "agent_start" || event.type === "attempt_rejected" ? `${event.type} ${event.attempt}` : event.type))).toEqual([
       "agent_start 1",
       "attempt_rejected 1",
@@ -81,16 +82,16 @@ describe("runAttempts", () => {
       "attempt_rejected 2",
     ]);
     expect(events.filter((event) => event.type === "attempt_rejected")).toEqual([
-      { type: "attempt_rejected", state: "BDD_RED", role: "bdd-agent", attempt: 1, reason: "reason 1" },
-      { type: "attempt_rejected", state: "BDD_RED", role: "bdd-agent", attempt: 2, reason: "reason 2" },
+      { type: "attempt_rejected", state: "BDD_RED", role: "bdd-agent", attempt: 1, reason: printedRejectionOf("reason 1") },
+      { type: "attempt_rejected", state: "BDD_RED", role: "bdd-agent", attempt: 2, reason: printedRejectionOf("reason 2") },
     ]);
   });
 
   it("runs one more attempt with the note of the person, on the strong model", async () => {
     const { bus, events } = setup();
     const notes: string[] = [];
-    const result = await runAttempts({ bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {}, afterAsking: { attempt: 3, note: "use countLines" }, run: async ({ note }) => (notes.push(note), { rejected: "still no test" }) });
-    expect(result).toEqual({ rejected: "still no test", attempts: 3 });
+    const result = await runAttempts({ bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {}, afterAsking: { attempt: 3, note: "use countLines" }, run: async ({ note }) => (notes.push(note), rejectionOf("still no test")) });
+    expect(result).toEqual({ ...rejectionOf("still no test"), attempts: 3 });
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain("attempt 3");
     expect(notes[0]).toContain("use countLines");
@@ -123,20 +124,20 @@ describe("runAttempts", () => {
       restore: () => {},
       from: { attempt: 2, reason: "the report names no unit test" },
       onRejected: (attempt, reason) => void rejections.push({ attempt, reason }),
-      run: async ({ attempt, note }) => (told.push({ attempt, note }), attempt === 2 ? { rejected: "still no test" } : { value: "done" }),
+      run: async ({ attempt, note }) => (told.push({ attempt, note }), attempt === 2 ? rejectionOf("still no test") : { value: "done" }),
     });
     expect(result).toEqual({ value: "done" });
     expect(told.map(({ attempt }) => attempt)).toEqual([2, 3]);
     expect(told[0]!.note).toContain("attempt 2");
     expect(told[0]!.note).toContain("the report names no unit test");
     expect(starts(events).map((event) => [(event as { attempt: number }).attempt, (event as { model: string }).model, (event as { thinkingLevel: string }).thinkingLevel])).toEqual([[2, "p/medium", "high"], [3, "p/large", "high"]]);
-    expect(rejections).toEqual([{ attempt: 2, reason: "still no test" }]);
+    expect(rejections).toEqual([{ attempt: 2, reason: printedRejectionOf("still no test") }]);
   });
 
   it("does not report the last rejection, since no attempt follows it", async () => {
     const { bus } = setup();
     const rejections: number[] = [];
-    const result = await runAttempts({ bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {}, onRejected: (attempt) => void rejections.push(attempt), run: async () => ({ rejected: "no" }) });
-    expect({ result, rejections }).toEqual({ result: { rejected: "no", attempts: 2 }, rejections: [1] });
+    const result = await runAttempts({ bus, state: "TDD_RED", role: "tdd-agent", retries: 1, models: MODELS, restore: () => {}, onRejected: (attempt) => void rejections.push(attempt), run: async () => rejectionOf("no") });
+    expect({ result, rejections }).toEqual({ result: { ...rejectionOf("no"), attempts: 2 }, rejections: [1] });
   });
 });

@@ -1,5 +1,6 @@
 import type { Agent } from "@earendil-works/pi-agent-core";
 import { locate, matchesGlob, mayWrite } from "./containment.js";
+import { type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
 import type { Profile } from "./profiles.js";
 import { textContent, textOf } from "./result-text.js";
 import { withoutSecrets } from "./secret-results.js";
@@ -36,35 +37,60 @@ function mayRead(profile: Profile, tool: string, path: string): boolean {
   return globs.some((glob) => matchesGlob(path, glob) || (searches && inGlobDirectory(path, glob)));
 }
 
-function pathReason(profile: Profile, tool: string, requested: string, worktree: string): string | undefined {
+function pathReason(profile: Profile, tool: string, requested: string, worktree: string): Rejection | undefined {
   const place = locate(worktree, requested);
   const writing = WRITING_TOOLS.has(tool);
   const allowed = place.inside && (writing ? mayWrite(place.relative, profile.write, profile.deny) : mayRead(profile, tool, place.relative));
   if (allowed) return undefined;
   const where = place.inside ? "" : " (it is outside the worktree)";
-  return `"${requested}" is not ${writing ? "writable" : "readable"} in this step${where}. You may write: ${profile.write.join(LIST)}. You may read: ${profile.read.join(LIST)}.`;
+  return rejection({
+    failed: `"${requested}" is not ${writing ? "writable" : "readable"} in this step${where}`,
+    evidence: `tool: ${tool}, path: ${requested}`,
+    next: `You may write: ${profile.write.join(LIST)}. You may read: ${profile.read.join(LIST)}.`,
+  });
 }
 
-function secretReason(paths: string[], worktree: string): string | undefined {
+function secretReason(paths: string[], tool: string, worktree: string): Rejection | undefined {
   const secret = paths.find((path) => isSecret(worktree, path));
-  return secret === undefined ? undefined : `"${secret}" is a secret file: no agent may read it, and nothing overrides that.`;
+  if (secret === undefined) return undefined;
+  return rejection({
+    failed: `"${secret}" is a secret file: no agent may read it, and nothing overrides that`,
+    evidence: `tool: ${tool}, path: ${secret}`,
+    next: "name a file that is not secret; if the task needs this one, call the report tool with status blocked and say why",
+  });
 }
 
 const LISTING_TOOLS = new Set(["grep", "find", "ls"]);
 
-function callReason(profile: Profile, options: SandboxOptions, tool: string, args: unknown): string | undefined {
-  if (!options.tools.includes(tool)) {
-    return tool === SHELL ? "This step has no shell." : `The tool "${tool}" is not available in this step. You have: ${options.tools.join(LIST)}.`;
-  }
+/** What a tool a step does not have can be replaced with, as examples of the tools it has. */
+const SUBSTITUTES: [string, string][] = [["ls", "the ls tool to list files"], ["read", "the read tool to read a file"]];
+
+/** Why a tool is not offered in this step, and which tools to use instead. */
+function unavailable(tool: string, args: unknown, options: SandboxOptions): Rejection {
+  const command = (args as { command?: unknown } | undefined)?.command;
+  const have = options.tools.join(LIST);
+  if (tool !== SHELL) return rejection({ failed: `The tool "${tool}" is not available in this step`, evidence: `tool: ${tool}`, next: `use one of the tools of this step: ${have}` });
+  const instead = SUBSTITUTES.filter(([name]) => options.tools.includes(name)).map(([, example]) => example);
+  return rejection({
+    failed: "This step has no shell",
+    evidence: isText(command) ? `tool: ${tool}, command: ${command}` : `tool: ${tool}`,
+    next: `do the same with a tool of this step${instead.length === 0 ? "" : `, for example ${instead.join(" and ")}`} (you have: ${have})`,
+  });
+}
+
+function callReason(profile: Profile, options: SandboxOptions, tool: string, args: unknown): Rejection | undefined {
+  if (!options.tools.includes(tool)) return unavailable(tool, args, options);
   const paths = pathsOf(tool, args);
-  if (paths === undefined) return `The call to "${tool}" was blocked: its path is missing or the tool is unknown to the sandbox.`;
+  if (paths === undefined) {
+    return rejection({ failed: `The call to "${tool}" was blocked: its path is missing or the tool is unknown to the sandbox`, evidence: `tool: ${tool}, arguments: ${JSON.stringify(args)}`, next: `call a tool of this step (${options.tools.join(LIST)}) with the path it needs` });
+  }
   if (tool === SHELL) {
     const { command } = args as { command?: unknown };
-    if (!isText(command)) return "The shell call has no command.";
+    if (!isText(command)) return rejection({ failed: "The shell call has no command", evidence: `tool: ${tool}`, next: "call bash again with the command to run" });
     const verdict = checkShell(command, { worktree: options.worktree, commands: profile.commands, write: profile.write, deny: profile.deny, state: profile.orchestratorState });
     return verdict.block ? verdict.reason : undefined;
   }
-  return secretReason(paths, options.worktree) ?? paths.map((path) => pathReason(profile, tool, path, options.worktree)).find((reason) => reason !== undefined);
+  return secretReason(paths, tool, options.worktree) ?? paths.map((path) => pathReason(profile, tool, path, options.worktree)).find((reason) => reason !== undefined);
 }
 
 /** Installs the sandbox on `session.agent.beforeToolCall`, chained to the hook already there: a blocked call returns its reason to the agent, and more than `maxDenials` blocked calls abort the session. */
@@ -80,7 +106,7 @@ export function installSandbox(session: SandboxSession, profile: Profile, option
     denials += 1;
     // Not awaited: Pi's abort() waits for the running tool calls, and this denial is one of them.
     if (denials > limit) void session.abort().catch(() => undefined);
-    return { block: true, reason };
+    return { block: true, reason: renderRejection(reason) };
   };
   const originalAfter = session.agent.afterToolCall;
   session.agent.afterToolCall = async (context, signal) => {

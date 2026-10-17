@@ -60,6 +60,13 @@ describe("the result of a search tool", () => {
     expect(odd.text).toContain("blocked");
   });
 
+  it("withholds a result it cannot attribute with what happened, the tool as the evidence, and a narrower search to make", async () => {
+    const odd = await shown("grep", { pattern: "x" }, { content: [{ type: "text", text: "something unexpected" }], details: undefined });
+    expect(odd.text).toBe(
+      ["The result was blocked: it could not be checked for secret files, so none of it is shown", "Evidence:", "  tool: grep, directory: .", "Next: search again with a narrower pattern or path, or read the files you need with the read tool"].join("\n"),
+    );
+  });
+
   it("shows the agent the error of a search that failed, which holds no file lines to check", async () => {
     const error = "rg: regex parse error:\n    (?:runServices()\n    ^\nerror: unclosed group";
     const failed = await shown("grep", { pattern: "runServices(" }, { content: [{ type: "text", text: error }], details: undefined }, true);

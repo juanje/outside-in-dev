@@ -6,6 +6,8 @@ import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { advanceStep, CYCLE_STEP, loadProgress, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { labelled, type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
+import { LIST_SEPARATOR } from "../ui/plain.js";
 import { clearReturn } from "../artifacts/return-record.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
 import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
@@ -26,12 +28,20 @@ import { updateFeature } from "./worktree-progress.js";
 import { unfinishedScenarios } from "./wip-tag.js";
 
 /** The first scenario of the requirement in file order that does not pass yet, with the names of all its scenarios; none when all pass. A name that two scenarios share is a problem. */
-function currentScenario(worktree: string, fr: string): { current: CurrentScenario; names: string[] } | { problem: string } | undefined {
+export function currentScenario(worktree: string, fr: string): { current: CurrentScenario; names: string[] } | { problem: Rejection } | undefined {
   const { paths } = loadProjectConfig(worktree);
   const own = listLocatedScenarios(readFeatureSources(worktree, paths.bdd_features)).filter(({ tags }) => tags.includes(`@${fr}`));
   const names = own.map(({ name }) => name);
   const twice = names.find((name, at) => names.indexOf(name) !== at);
-  if (twice !== undefined) return { problem: `${fr}: the scenario "${twice}" is defined twice, and scenarios are told apart by their names` };
+  if (twice !== undefined) {
+    const places = own.filter(({ name }) => name === twice).map(({ file, line }) => `${file}:${line}`);
+    const problem = rejection({
+      failed: `${fr}: the scenario "${twice}" is defined twice, and scenarios are told apart by their names`,
+      evidence: `scenario "${twice}" in ${places.join(" and ")}`,
+      next: `rename one of the scenarios "${twice}" in its feature file, then run oid resume`,
+    });
+    return { problem };
+  }
   const passing = loadProgress(worktree, paths.progress).features.find(({ id }) => id === fr)?.scenarios?.filter(({ bdd }) => bdd === SCENARIO_STATUS.pass).map(({ name }) => name) ?? [];
   const [first] = unfinishedScenarios(own, fr, passing);
   return first === undefined ? undefined : { current: { file: first.file, line: first.line, name: first.name }, names };
@@ -91,8 +101,11 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const found = currentScenario(workspace.path, fr!);
-  if (found === undefined) return fail(started, `${fr}: no scenario is tagged with it`);
-  if ("problem" in found) return fail(started, found.problem);
+  if (found === undefined) {
+    const none = rejection({ failed: `${fr}: no scenario is tagged with it`, evidence: `feature files searched: ${loadProjectConfig(workspace.path).paths.bdd_features.join(LIST_SEPARATOR)}`, next: `tag a scenario of a feature file with @${fr}, then run oid resume` });
+    return fail(started, renderRejection(none));
+  }
+  if ("problem" in found) return fail(started, renderRejection(found.problem));
   const { current, names } = found;
   const label = `${fr} "${current.name}"`;
   updateSession(cwd, { fr, scenario: { index: names.indexOf(current.name), name: current.name, location: `${current.file}:${current.line}` }, ...(rewrite === undefined ? { innerIteration: 1, scenarioStart: headCommit(workspace.path) } : {}) });
@@ -108,7 +121,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
       const stopped = agentStop(started, label, outcome);
       if (stopped !== undefined) return stopped;
       const judged = rewrite?.base === undefined ? bddRedGate(workspace.path, current, featureHashes, runnersOf(services)) : rewrittenStepsGate(workspace.path, current, featureHashes, rewrite.base, runnersOf(services));
-      if (judged.kind === PROBLEM) return { rejected: `${label}: ${judged.problem}` };
+      if (judged.kind === PROBLEM) return labelled(label, judged.problem);
       if (judged.kind === GUARD) return askAboutPassingScenario(started, services, label);
       if (judged.kind !== OUTCOME.decision) return judged;
       const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step });

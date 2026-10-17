@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig } from "./temp-project.js";
+import { printedParts } from "./rejection-fixture.js";
 
 useTempDir();
 
@@ -27,7 +28,11 @@ describe("oid verify red <feature>:<line>", () => {
     write(STEP_FILE, 'import { shout } from "../../src/shout.js";\n');
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: `red: not valid (test_bug): cucumber would not start, because of a static import of something that does not exist yet\n${STEP_FILE}:1 imports shout from "../../src/shout.js", which does not exist yet: import it dynamically inside the step\n`,
+      stdout: printedParts(
+        "red: not valid (test_bug): cucumber would not start, because of a static import of something that does not exist yet",
+        `${STEP_FILE}:1 imports shout from "../../src/shout.js", which does not exist yet: import it dynamically inside the step`,
+        `import the code that does not exist yet with a dynamic import() inside the step, then run oid verify red "${TARGET}" again`,
+      ),
       stderr: "",
     });
     expect(existsSync(join(dir, RAN_MARKER))).toBe(false);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
 import { commitAll } from "./git-fixture.js";
 import { FEATURE, RED } from "./red-fixture.js";
+import { printedIntegrity } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
 
@@ -23,20 +24,20 @@ async function goBack({ from, to, edited, paths }: { from: string; to: string; e
 }
 
 /** The file may change after the return and integrity is ok; source may not. */
-async function expectSourceRefused(): Promise<void> {
+async function expectSourceRefused(step: string): Promise<void> {
   expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 0, stdout: "integrity: ok\n", stderr: "" });
   write("src/a.ts", "export const a = 3;\n");
-  expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 1, stdout: "src/a.ts changed source code while writing tests\n", stderr: "" });
+  expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 1, stdout: printedIntegrity(step, FEATURE, ["src/a.ts changed source code while writing tests"]), stderr: "" });
 }
 
 describe("oid verify integrity at bdd_red after a return", () => {
   it("judges against the return: step files may change and source may not", async () => {
     await goBack({ from: "tdd_green", to: "bdd_red", edited: "steps/a.ts", paths: { unit_tests: [], bdd_steps: ["steps/**"] } });
-    await expectSourceRefused();
+    await expectSourceRefused("bdd_red");
   });
 
   it("at tdd_red after a return from the code steps, unit tests may change and source may not", async () => {
     await goBack({ from: "quality_gate", to: "tdd_red", edited: "tests/a.test.ts", paths: { unit_tests: ["tests/**"], bdd_steps: [] } });
-    await expectSourceRefused();
+    await expectSourceRefused("tdd_red");
   });
 });

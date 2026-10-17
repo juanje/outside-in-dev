@@ -3,6 +3,7 @@ import { failedScenarios } from "../artifacts/cucumber-report.js";
 import { newErrors } from "../artifacts/gate-errors.js";
 import { type GateError, recognisedTool, TOOL_MODE, toolInvocation } from "../artifacts/lint-tools.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
+import { type Rejection, rejection } from "../artifacts/rejection.js";
 import { checkViolations } from "../commands/check.js";
 import { FAILING, incoherentExit, noReport } from "../artifacts/runner-verdict.js";
 import { SUITE, suiteProblems } from "../commands/verify-green.js";
@@ -14,9 +15,10 @@ export type GateBaseline = { lint: string[]; types: string[]; traceability: stri
 
 /** What the checks of the quality gate came to: they pass, errors of the linter or the type check go to an agent to fix, or a check failed that a person has to look at (its name, one line for each problem and the whole output). */
 export const OUTCOME = { ok: "ok", internal: "internal", fix: "fix", ask: "ask" } as const;
-export type GateOutcome = { kind: typeof OUTCOME.ok } | { kind: typeof OUTCOME.internal; problem: string } | { kind: typeof OUTCOME.fix; errors: GateError[]; output: string } | { kind: typeof OUTCOME.ask; check: string; problems: string[]; output: string };
+export type GateOutcome = { kind: typeof OUTCOME.ok } | { kind: typeof OUTCOME.internal; problem: Rejection } | { kind: typeof OUTCOME.fix; errors: GateError[]; output: string } | { kind: typeof OUTCOME.ask; check: string; problems: string[]; output: string };
 
 const PASS: GateOutcome = { kind: OUTCOME.ok };
+const NO_OUTPUT = "the formatter printed nothing";
 const FORMAT = "format";
 const TRACEABILITY = "traceability";
 const LINT = "lint";
@@ -43,7 +45,13 @@ function traceabilityProblems(worktree: string, held: Set<string>): string[] {
 function formatOutcome(worktree: string, command: string, runners: Runners): GateOutcome {
   if (recognisedTool(worktree, command) !== "prettier") return commandOutcome(FORMAT, worktree, command, runners);
   const { exitCode, stdout } = runners.command(worktree, toolInvocation(worktree, command, TOOL_MODE.check));
-  return exitCode === 0 ? PASS : { kind: OUTCOME.internal, problem: `the formatter still finds files to format after its fixes:${NEWLINE}${stdout.trim()}` };
+  if (exitCode === 0) return PASS;
+  const problem = rejection({
+    failed: "the formatter still finds files to format after its fixes",
+    evidence: stdout.trim() || NO_OUTPUT,
+    next: "format the files listed with the project's formatter; this check is oid's own, so report it if the formatter keeps finding files after that",
+  });
+  return { kind: OUTCOME.internal, problem };
 }
 
 /** The type check: the errors of the whole project that the baseline does not hold. */

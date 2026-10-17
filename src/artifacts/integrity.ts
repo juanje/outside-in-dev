@@ -1,4 +1,5 @@
 import { CYCLE_STEP } from "./progress.js";
+import { type Rejection, rejection } from "./rejection.js";
 import type { ProjectConfig } from "./project-config.js";
 
 /** What a changed file is, for the rules of a step. */
@@ -119,7 +120,17 @@ function moveToAllow(step: string, kind: FileKind, feature: string): string {
 }
 
 /** Why a file of `kind` cannot change at `step` (the same rules as the check of the changes), naming the move that would allow it; undefined when it can. */
-export function pathRefusal(step: string, kind: FileKind | undefined, file: string, feature: string): string | undefined {
+export function pathRefusal(step: string, kind: FileKind | undefined, file: string, feature: string): Rejection | undefined {
   if (kind === undefined || !(STEP_RULES[step]?.kinds ?? []).includes(kind)) return undefined;
-  return `${file}: ${kind} cannot change at ${step}; ${moveToAllow(step, kind, feature)}`;
+  return rejection({ failed: `${file}: ${kind} cannot change at ${step}`, evidence: `feature ${feature} is at ${step}`, next: moveToAllow(step, kind, feature) });
+}
+
+const WRITING_TESTS: string[] = [CYCLE_STEP.bddRed, CYCLE_STEP.tddRed];
+const WRITING_CODE: string[] = [CYCLE_STEP.tddGreen, CYCLE_STEP.refactor];
+
+/** What to do about the changes that broke the rules of `step`: undo them, or make the move that allows them. */
+export function integrityNext(step: string, feature: string): string {
+  if (WRITING_TESTS.includes(step)) return `undo the changes listed; if the code is meant to make a verified Red pass, verify the Red and move to ${CYCLE_STEP.tddGreen} first (oid progress step ${feature} ${CYCLE_STEP.tddGreen})`;
+  if (WRITING_CODE.includes(step)) return `undo the changes to tests listed, or go back to ${CYCLE_STEP.tddRed} for a unit test (oid progress step ${feature} ${CYCLE_STEP.tddRed}, ADR-044) or to ${CYCLE_STEP.bddRed} for a step or a feature file (oid progress step ${feature} ${CYCLE_STEP.bddRed}, ADR-038)`;
+  return `undo the changes listed: this step changes no code and no tests; to change one, go back to the step that owns the file (oid progress step ${feature} ${CYCLE_STEP.tddRed} or ${CYCLE_STEP.bddRed})`;
 }

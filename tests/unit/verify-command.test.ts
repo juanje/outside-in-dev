@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { commitAll } from "./git-fixture.js";
+import { printedParts } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
@@ -33,7 +34,11 @@ describe("oid verify red", () => {
     projectWithRunner({ testResults: [testFile("", [passed])] });
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: "red: not valid (test_bug): the test passes without new implementation\n",
+      stdout: printedParts(
+        "red: not valid (test_bug): the test passes without new implementation",
+        `test: ${TARGET}`,
+        `test a behaviour the code does not have yet, then run oid verify red "${TARGET}" again`,
+      ),
       stderr: "",
     });
   }, REAL_PROCESS_TIMEOUT_MS);
@@ -187,7 +192,11 @@ describe("oid verify red", () => {
     projectWithRunner({ testResults: [testFile("", [passed])] });
     expect(await runInProject(["verify", "red", "tests/unit/a.test.ts > greets nobody"])).toEqual({
       exitCode: 1,
-      stdout: 'red: not valid (test_bug): no test named "greets nobody" ran in tests/unit/a.test.ts\n',
+      stdout: printedParts(
+        'red: not valid (test_bug): no test named "greets nobody" ran in tests/unit/a.test.ts',
+        "test: tests/unit/a.test.ts > greets nobody",
+        'fix the test so that it fails because the behaviour is missing, not because the test is broken, then run oid verify red "tests/unit/a.test.ts > greets nobody" again',
+      ),
       stderr: "",
     });
   });
@@ -208,7 +217,11 @@ describe("oid verify red", () => {
     write("exit4.mjs", "process.exit(4);\n");
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: "red: not valid (environment): the unit runner wrote no report (exit code 4)\n",
+      stdout: printedParts(
+        "red: not valid (environment): the unit runner wrote no report (exit code 4)",
+        `test: ${TARGET}`,
+        `fix what stops the runner from running the test, then run oid verify red "${TARGET}" again`,
+      ),
       stderr: "",
     });
   });
@@ -217,7 +230,11 @@ describe("oid verify red", () => {
     projectWithRunner({ testResults: [testFile("", [{ ...passed, status: "skipped" }])] });
     expect(await runInProject(["verify", "red", TARGET])).toEqual({
       exitCode: 1,
-      stdout: "red: not valid (test_bug): the test did not run (status skipped)\n",
+      stdout: printedParts(
+        "red: not valid (test_bug): the test did not run (status skipped)",
+        `test: ${TARGET}`,
+        `fix the test so that it fails because the behaviour is missing, not because the test is broken, then run oid verify red "${TARGET}" again`,
+      ),
       stderr: "",
     });
   });

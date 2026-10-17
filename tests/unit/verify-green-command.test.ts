@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { runMessages } from "./cucumber-run-messages.js";
 import { commitAll } from "./git-fixture.js";
 import { RUNNER_COMMANDS, RUNNER_PATHS } from "./green-runners.js";
+import { printedGreen } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
 
@@ -61,7 +62,7 @@ describe("oid verify green", () => {
     const results = [await runInProject(["verify", "green", "Bs"]), await runInProject(["verify", "green", "Cs"])];
     expect(results.map(({ exitCode, stdout }) => ({ exitCode, stdout }))).toEqual([
       { exitCode: 0, stdout: "green: ok\n" },
-      { exitCode: 1, stdout: "green: 1 problem(s)\ntarget Cs: expected <feature>:<line> or the name of a scenario\n" },
+      { exitCode: 1, stdout: printedGreen(["target Cs: expected <feature>:<line> or the name of a scenario"]) },
     ]);
   });
 
@@ -71,7 +72,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\nunit tests/unit/a.test.ts > adds: AssertionError: expected 3 to be 4\n",
+      stdout: printedGreen(["unit tests/unit/a.test.ts > adds: AssertionError: expected 3 to be 4"]),
       stderr: "",
     });
     expect(existsSync(join(dir, ".outside-in/checkpoint.json"))).toBe(false);
@@ -82,7 +83,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\ntype src/a.ts:2 TS2322 Type 'number' is not assignable to type 'string'.\n",
+      stdout: printedGreen(["type src/a.ts:2 TS2322 Type 'number' is not assignable to type 'string'."]),
       stderr: "",
     });
   });
@@ -95,7 +96,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\nbdd features/a.feature:4 Adds: it adds (AssertionError: 3 !== 4)\n",
+      stdout: printedGreen(["bdd features/a.feature:4 Adds: it adds (AssertionError: 3 !== 4)"]),
       stderr: "",
     });
   });
@@ -122,7 +123,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\nbdd FR-A-02 Adds: no scenario of that name is tagged with the feature\n",
+      stdout: printedGreen(["bdd FR-A-02 Adds: no scenario of that name is tagged with the feature"]),
       stderr: "",
     });
     expect(existsSync(join(dir, BDD_RAN))).toBe(false);
@@ -135,7 +136,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\nbdd: the runner wrote no report (exit 0)\n",
+      stdout: printedGreen(["bdd: the runner wrote no report (exit 0)"]),
       stderr: "",
     });
   });
@@ -146,7 +147,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\nunit: the runner wrote no report (exit 4)\n",
+      stdout: printedGreen(["unit: the runner wrote no report (exit 4)"]),
       stderr: "",
     });
   });
@@ -157,7 +158,7 @@ describe("oid verify green", () => {
     commitAll();
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: "green: 1 problem(s)\ntype: the type check failed (exit 127) and printed no error\n",
+      stdout: printedGreen(["type: the type check failed (exit 127) and printed no error"]),
       stderr: "",
     });
   });
@@ -170,7 +171,7 @@ describe("oid verify green", () => {
     write("features/steps/a.steps.ts", 'import { add } from "../../src/add.js";\n');
     expect(await runInProject(["verify", "green"])).toEqual({
       exitCode: 1,
-      stdout: 'green: 1 problem(s)\nfeatures/steps/a.steps.ts:1 imports add from "../../src/add.js", which does not exist yet: import it dynamically inside the step\n',
+      stdout: printedGreen(['features/steps/a.steps.ts:1 imports add from "../../src/add.js", which does not exist yet: import it dynamically inside the step']),
       stderr: "",
     });
     expect(existsSync(join(dir, BDD_RAN))).toBe(false);

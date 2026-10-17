@@ -4,6 +4,7 @@ import { commitAll } from "./git-fixture.js";
 import { RUNNER_COMMANDS, RUNNER_PATHS } from "./green-runners.js";
 import { runInProject } from "./run-capture.js";
 import { useTempDir, write, writeMinimalConfig, writeProgressFile, REAL_PROCESS_TIMEOUT_MS } from "./temp-project.js";
+import { printedGreen } from "./rejection-fixture.js";
 
 useTempDir();
 
@@ -32,7 +33,7 @@ describe("oid verify green and the exit of the runners", () => {
   it("rejects a unit run that exits with an error although every test in its report passed", async () => {
     projectWithRunners({ unitExit: 1 });
     commitAll();
-    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: "green: 1 problem(s)\nunit: the runner exited 1 but its report names no failing test\n" });
+    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: printedGreen(["unit: the runner exited 1 but its report names no failing test"]) });
   });
 
   it("rejects a scenario whose steps all passed when one of its hooks failed", async () => {
@@ -43,7 +44,7 @@ describe("oid verify green and the exit of the runners", () => {
     write("features/a.feature", "@FR-A-01\nFeature: A\n\n  Scenario: Adds\n    Given it adds\n");
     writeProgressFile({ current_focus: "FR-A-01", features: [{ id: "FR-A-01", title: "A", status: "in_progress", cycle_step: "tdd_green", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
     commitAll();
-    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: "green: 1 problem(s)\nbdd features/a.feature:4 Adds: a hook (Error: cleanup failed)\n" });
+    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: printedGreen(["bdd features/a.feature:4 Adds: a hook (Error: cleanup failed)"]) });
   });
 
   it("rejects a BDD run that exits with an error although every scenario in its report passed", async () => {
@@ -51,6 +52,6 @@ describe("oid verify green and the exit of the runners", () => {
     write("features/a.feature", "@FR-A-01\nFeature: A\n\n  Scenario: Adds\n    Given it adds\n");
     writeProgressFile({ current_focus: "FR-A-01", features: [{ id: "FR-A-01", title: "A", status: "in_progress", cycle_step: "tdd_green", scenarios: [{ name: "Adds", bdd: "pass" }] }] });
     commitAll();
-    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: "green: 1 problem(s)\nbdd: the runner exited 1 but its report names no failing scenario\n" });
+    expect(await runInProject(["verify", "green"])).toMatchObject({ exitCode: 1, stdout: printedGreen(["bdd: the runner exited 1 but its report names no failing scenario"]) });
   });
 });

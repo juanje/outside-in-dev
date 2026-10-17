@@ -5,6 +5,7 @@ import { ERROR_KIND, type GateError } from "../artifacts/lint-tools.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { loadProgress } from "../artifacts/progress.js";
 import { loadProjectConfig, type ProjectConfig } from "../artifacts/project-config.js";
+import { labelled, rejection, renderRejection } from "../artifacts/rejection.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
 import { ERROR_EVENT } from "../events/types.js";
 import { BLOCKED } from "../agents/runner.js";
@@ -59,7 +60,7 @@ async function qualityFix(started: Started, services: FeatureServices, config: P
     if (stopped !== undefined || forbidden.length > 0) {
       rollback(workspace, before, [...config.paths.source, ...config.paths.unit_tests, ...config.paths.bdd_steps]);
       if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(fr!, outcome)!);
-      return stopped ?? { rejected: forbidden.join(NEWLINE) };
+      return stopped ?? rejection({ failed: `${fr}: the fix changed what its step does not allow`, evidence: forbidden.join(NEWLINE), next: "undo the changes listed and fix only the errors you were given, in the files you may change" });
     }
     checkpoint(workspace, { fr: fr!, state: STATE.qualityFix });
   }
@@ -85,14 +86,14 @@ async function fixWithRetries(started: Started, services: FeatureServices, confi
       const fix = await qualityFix(started, services, config, outcome.errors, info);
       leftErrors = false;
       if (fix !== undefined) {
-        if (isRejection(fix)) asked = questionFor(outcome.errors, outcome.output, fix.rejected);
+        if (isRejection(fix)) asked = questionFor(outcome.errors, outcome.output, fix.failed);
         return fix;
       }
       const checked = check();
       if (checked.kind !== OUTCOME.fix) return checked;
       leftErrors = true;
       asked = questionFor(checked.errors, checked.output);
-      return { rejected: describeErrors(checked.errors) };
+      return rejection({ failed: describeErrors(checked.errors), evidence: checked.errors.map(errorLine).join(NEWLINE), next: "fix each error listed, then run the linter or the type check on the file to check it" });
     },
   });
   if (isExitCode(result)) return { exit: result };
@@ -102,7 +103,7 @@ async function fixWithRetries(started: Started, services: FeatureServices, confi
     return { ask: questionFor(outcome.errors, outcome.output, result.stop) };
   }
   if (isRejection(result)) {
-    transition(bus, STATE.qualityFix, STATE.qualityGate, leftErrors ? "the errors are fixed; the checks run again" : `the fix is rejected: ${result.rejected}`);
+    transition(bus, STATE.qualityFix, STATE.qualityGate, leftErrors ? "the errors are fixed; the checks run again" : `the fix is rejected: ${result.failed}`);
     return { ask: asked! };
   }
   transition(bus, STATE.qualityFix, STATE.qualityGate, "the errors are fixed; the checks run again");
@@ -121,7 +122,7 @@ export async function runQualityGate(started: Started, services: FeatureServices
   };
   let outcome = check();
   for (;;) {
-    if (outcome.kind === OUTCOME.internal) return bus.emit({ type: ERROR_EVENT, message: `${fr}: the quality gate: ${outcome.problem}` }) ?? 1;
+    if (outcome.kind === OUTCOME.internal) return bus.emit({ type: ERROR_EVENT, message: renderRejection(labelled(`${fr}: the quality gate`, outcome.problem)) }) ?? 1;
     if (outcome.kind === OUTCOME.ask) return gateQuestion(bus, services.input ?? { isTTY: false }, outcome);
     if (outcome.kind === OUTCOME.fix) {
       const fixed = await fixWithRetries(started, services, config, outcome, check);

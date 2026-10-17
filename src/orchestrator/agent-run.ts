@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { type Rejection, rejection } from "../artifacts/rejection.js";
 import { openProfileSession } from "../agents/profile-session.js";
 import { ASK, type AgentTask, type AttemptOutcome, BLOCKED, FAILED, type RunContext } from "../agents/runner.js";
 import type { Started } from "./begin.js";
@@ -16,10 +17,15 @@ export function agentContext({ cwd, runId, workspace }: Started, services: Featu
 }
 
 /** What an attempt whose agent did not finish with a report comes to: a rejection of the attempt when the agent failed, the problem that ends the run when it is blocked or the provider failed, nothing when it is done. */
-export function outcomeStop(label: string, outcome: AttemptOutcome): { rejected: string } | { stop: string } | undefined {
+export function outcomeStop(label: string, outcome: AttemptOutcome): Rejection | { stop: string } | undefined {
   const problem = outcomeProblem(label, outcome);
   if (problem === undefined) return undefined;
-  return outcome.status === FAILED ? { rejected: problem } : { stop: problem };
+  if (outcome.status !== FAILED) return { stop: problem };
+  return rejection({
+    failed: problem,
+    evidence: "the session of the agent ended with the status failed and no report",
+    next: "do the task and end by calling the report tool once, with status done, or with status blocked and the reason",
+  });
 }
 
 /** Why an attempt that did not finish with a report stopped the run, as a sentence that starts with `label`; nothing when the attempt is done. */

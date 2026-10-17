@@ -856,3 +856,13 @@ Then("the task lists the module {string} in its catalogue with the symbol {strin
 Then("the system prompt says {string}", function (this: OidWorld, text: string) {
   assert.ok(sandboxSession(this).systemPrompt.includes(text), sandboxSession(this).systemPrompt);
 });
+
+/** The reason the sandbox gave for the last call of the scenario, empty when none was blocked. */
+export function blockedReason(world: OidWorld): string {
+  return sandboxOf(world).verdict?.reason ?? "";
+}
+
+/** What the try tool answered to the last call of the scenario. */
+export function tryAnswer(world: OidWorld): string {
+  return tries.get(world)?.answer ?? "";
+}

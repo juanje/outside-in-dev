@@ -12,7 +12,11 @@ describe("the decision about the Red of a unit test", () => {
     const red = { label: 'FR-A-01 unit test "cart > adds"', reason: "the test failed with an error that is not an assertion", message: "Error: boom", subject: "unit test" };
     const result = await decideRed(bus, { isTTY: true, choose: async () => "bug", line: async () => "" }, red);
     expect({ result, printed }).toEqual({
-      result: { rejected: 'FR-A-01 unit test "cart > adds": the person judged the failure to be a bug in the unit test\nthe failure: Error: boom' },
+      result: {
+        failed: 'FR-A-01 unit test "cart > adds": the person judged the failure to be a bug in the unit test',
+        evidence: "the failure: Error: boom",
+        next: "fix the unit test so that it fails because the behaviour is missing, then check it with the try tool",
+      },
       printed: [],
     });
   });

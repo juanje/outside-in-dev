@@ -52,6 +52,19 @@ describe("the gate of BDD Red", () => {
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet", message: expect.stringContaining("Cannot find module") });
   });
 
+  it("rejects a scenario that did not run with what failed, the scenario as the evidence, and what to do next", () => {
+    const repo = project(scenariosRunner([{ uri: "features/pay.feature", name: "Pay", status: "UNDEFINED" }]));
+    const gate = bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {});
+    expect(gate).toEqual({
+      kind: "problem",
+      problem: expect.objectContaining({
+        failed: "the Red is not valid (test_bug): the test did not run (status UNDEFINED)",
+        evidence: 'scenario features/pay.feature:3 "Pay"\nfeatures/pay.feature a step (UNDEFINED)',
+        next: "define the steps listed in a step file, with the text the scenario words them with, then check it with the try tool",
+      }),
+    });
+  });
+
   it("hands a scenario that passes before any code to a person as a possible guard, not as a problem", () => {
     const repo = project(scenariosRunner([{ uri: "features/pay.feature", name: "Pay", status: "PASSED" }]));
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "guard", reason: "the scenario passes before any code exists for it" });
@@ -76,7 +89,8 @@ describe("the gate of BDD Red", () => {
     write("project/features/steps/pay.steps.ts", 'import { later } from "../../src/later.js";\nlater();\n');
     const gate = bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, { "features/pay.feature": approved });
     expect(gate.kind).toBe("problem");
-    for (const fragment of ["src/cart.ts changed source code while writing tests", "features/pay.feature changed an approved feature file", 'features/steps/pay.steps.ts:1 imports later from "../../src/later.js"']) expect(gate).toMatchObject({ problem: expect.stringContaining(fragment) });
+    for (const fragment of ["src/cart.ts changed source code while writing tests", "features/pay.feature changed an approved feature file", 'features/steps/pay.steps.ts:1 imports later from "../../src/later.js"']) expect(gate).toMatchObject({ problem: { evidence: expect.stringContaining(fragment) } });
+    expect(gate).toMatchObject({ problem: { failed: "the step wrote what it may not write, or its step files cannot load", next: expect.stringContaining("dynamic import()") } });
   });
 
   it("is a problem that names a scenario that passed and no longer passes, even when the current one fails validly", () => {
@@ -87,6 +101,6 @@ describe("the gate of BDD Red", () => {
     ]);
     const repo = project(runner, [{ id: "FR-B-01", scenario: "Old", file: "features/old.feature" }]);
     const gate = bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {});
-    expect(gate).toMatchObject({ kind: "problem", problem: expect.stringContaining("features/old.feature:3 Old") });
+    expect(gate).toMatchObject({ kind: "problem", problem: { failed: "scenarios that passed no longer pass", evidence: expect.stringContaining("features/old.feature:3 Old"), next: expect.stringContaining("try tool") } });
   });
 });

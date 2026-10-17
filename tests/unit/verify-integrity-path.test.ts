@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GATE_PATHS } from "./gate-paths.js";
 import { commitAll } from "./git-fixture.js";
+import { printedParts } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
 
@@ -20,7 +21,7 @@ describe("oid verify integrity --path", () => {
     projectAt("tdd_red");
     expect(await verify("src/a.ts")).toEqual({
       exitCode: 1,
-      stdout: "src/a.ts: source cannot change at tdd_red; verify the Red and move to tdd_green first (oid progress step FR-X-01 tdd_green)\n",
+      stdout: printedParts("src/a.ts: source cannot change at tdd_red", "feature FR-X-01 is at tdd_red", "verify the Red and move to tdd_green first (oid progress step FR-X-01 tdd_green)"),
       stderr: "",
     });
   });
@@ -29,17 +30,20 @@ describe("oid verify integrity --path", () => {
     projectAt("tdd_green");
     expect(await verify("tests/unit/a.test.ts")).toEqual({
       exitCode: 1,
-      stdout: "tests/unit/a.test.ts: unit test cannot change at tdd_green; go back to tdd_red (oid progress step FR-X-01 tdd_red, ADR-044)\n",
+      stdout: printedParts("tests/unit/a.test.ts: unit test cannot change at tdd_green", "feature FR-X-01 is at tdd_green", "go back to tdd_red (oid progress step FR-X-01 tdd_red, ADR-044)"),
       stderr: "",
     });
     projectAt("refactor");
-    expect((await verify("tests/unit/a.test.ts")).stdout).toContain("unit test cannot change at refactor; go back to tdd_red");
+    expect((await verify("tests/unit/a.test.ts")).stdout).toBe(
+      printedParts("tests/unit/a.test.ts: unit test cannot change at refactor", "feature FR-X-01 is at refactor", "go back to tdd_red (oid progress step FR-X-01 tdd_red, ADR-044)"),
+    );
   });
 
   it("refuses a step definitions file and a feature file at tdd_green with the move back to bdd_red", async () => {
     projectAt("tdd_green");
-    expect((await verify("features/steps/a.ts")).stdout).toBe("features/steps/a.ts: step cannot change at tdd_green; go back to bdd_red (oid progress step FR-X-01 bdd_red, ADR-038)\n");
-    expect((await verify("features/a.feature")).stdout).toBe("features/a.feature: feature cannot change at tdd_green; go back to bdd_red (oid progress step FR-X-01 bdd_red, ADR-038)\n");
+    const next = "go back to bdd_red (oid progress step FR-X-01 bdd_red, ADR-038)";
+    expect((await verify("features/steps/a.ts")).stdout).toBe(printedParts("features/steps/a.ts: step cannot change at tdd_green", "feature FR-X-01 is at tdd_green", next));
+    expect((await verify("features/a.feature")).stdout).toBe(printedParts("features/a.feature: feature cannot change at tdd_green", "feature FR-X-01 is at tdd_green", next));
   });
 
   it("allows what the step allows, a file of no kind, no focused feature and a path outside the project", async () => {

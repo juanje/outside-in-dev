@@ -8,6 +8,7 @@ import { readChangedLines } from "../artifacts/git-changes.js";
 import { git, headCommit } from "../artifacts/git-workspace.js";
 import { CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
+import { type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
 import { loadUserModels } from "../artifacts/user-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
@@ -27,7 +28,6 @@ import { type FeatureServices, runnersOf } from "./services.js";
 import { keepPendingFindings, runBaselineFindings, updateSession } from "./session.js";
 import { moveRunTo, updateFeature } from "./worktree-progress.js";
 
-const REASON_SEPARATOR = "; ";
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const NO_REFACTOR: Origin = { from: STATE.codeGreen, note: "" };
 
@@ -50,7 +50,7 @@ function refactorProblems(started: Started, detect: Detector, runners: Runners, 
   const worse = complexityProblem(touched.map((file) => ({ before: committedText(worktree, file), after: readText(worktree, file) ?? "" })));
   if (worse !== undefined) return [worse];
   const check = bddCheck(worktree, scenario.current, "The refactor", runners);
-  if (check.kind === PROBLEM) return [check.problem];
+  if (check.kind === PROBLEM) return [renderRejection(check.problem)];
   return check.kind === before.behaviour ? [] : [`the scenario "${scenario.current.name}" no longer ${before.behaviour === SCENARIO.pass ? "passes" : "fails as it did"}`];
 }
 
@@ -83,5 +83,10 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   }
   rollback(workspace, green, loadProjectConfig(worktree).paths.source);
   keepPendingFindings(cwd, runId, listed);
-  return { from: STATE.refactor, note: `rolled back: ${rejected.join(REASON_SEPARATOR)}` };
+  return { from: STATE.refactor, note: renderRejection(rolledBack(rejected)) };
+}
+
+/** The rejection of a refactor that is rolled back: what it broke, and where its findings wait. */
+export function rolledBack(problems: string[]): Rejection {
+  return rejection({ failed: "the refactor is rolled back", evidence: problems.join(NEWLINE), next: "the findings wait for the feature refactor (FR_REFACTOR), which fixes them" });
 }

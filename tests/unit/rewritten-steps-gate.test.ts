@@ -51,13 +51,23 @@ describe("the gate of steps written again after the code exists", () => {
 
   it("rejects steps that also pass without the code of the scenario", () => {
     const { repo, base } = projectWithCode(runner(true));
-    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toEqual({ kind: "problem", problem: "the scenario passes without the code of this scenario" });
+    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toEqual({
+      kind: "problem",
+      problem: expect.objectContaining({
+        failed: "the scenario passes without the code of this scenario",
+        evidence: 'scenario features/pay.feature:3 "Pay" passed with the code of this scenario taken out',
+        next: "make the steps assert the behaviour that the code of this scenario adds, so that the scenario fails without it; check it with the try tool",
+      }),
+    });
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });
 
   it("rejects steps that do not pass with the code written so far, without removing the code", () => {
     const { repo, base } = projectWithCode(runner("never"));
-    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toMatchObject({ kind: "problem", problem: expect.stringContaining("the scenario does not pass with the code written so far") });
+    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toMatchObject({
+      kind: "problem",
+      problem: { failed: "the scenario does not pass with the code written so far", evidence: expect.stringContaining("Cannot find module"), next: expect.stringContaining("passes with the code that exists") },
+    });
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });
 

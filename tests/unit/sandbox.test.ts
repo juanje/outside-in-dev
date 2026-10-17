@@ -36,6 +36,20 @@ beforeEach(() => {
 });
 
 describe("installSandbox", () => {
+  it("gives a denied write what failed, the tool and the path as the evidence, and the paths the step may write and read", async () => {
+    const { session } = fakeSession();
+    installSandbox(session, tester, { worktree: dir, tools: tester.builtins });
+    expect(await call(session, "write", { path: "src/a.ts" })).toEqual({
+      block: true,
+      reason: [
+        '"src/a.ts" is not writable in this step',
+        "Evidence:",
+        "  tool: write, path: src/a.ts",
+        "Next: You may write: tests/unit/**/*.test.ts. You may read: tests/unit/**/*.test.ts, features/**/*.feature.",
+      ].join("\n"),
+    });
+  });
+
   it("blocks the calls a step may not make, tells the agent what it may do and chains to the previous hook", async () => {
     const { session } = fakeSession();
     installSandbox(session, tester, { worktree: dir, tools: tester.builtins });

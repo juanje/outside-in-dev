@@ -5,6 +5,7 @@ import type { CycleState } from "../agents/profiles.js";
 import { headCommit } from "../artifacts/git-workspace.js";
 import { rollback } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { renderRejection } from "../artifacts/rejection.js";
 import { loadProjectConfig, loadRetryLimit } from "../artifacts/project-config.js";
 import { attemptsUsedBy, clearAttemptsUsed, recordAttemptsUsed } from "./session.js";
 import { loadUserModels } from "../artifacts/user-config.js";
@@ -97,7 +98,7 @@ export async function attemptsOf<T, R = never>(started: Started, services: Featu
     if (!isExhausted(result)) return isExitCode(result) ? result : (saved.forget(), result);
     saved.forget();
     if (whenExhausted !== undefined) return whenExhausted(result);
-    const answer = await answerExhausted(started, services, spec.retries, { state, label, ...result });
+    const answer = await answerExhausted(started, services, spec.retries, { state, label, attempts: result.attempts, rejected: renderRejection(result) });
     if (isExitCode(answer)) return answer;
     spec.restore();
     remember(result.attempts + 1, answer.note);

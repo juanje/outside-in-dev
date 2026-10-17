@@ -26,6 +26,19 @@ function project(files: object[]): string {
 const passing = { name: "<cwd>/tests/unit/old.test.ts", message: "", assertionResults: [{ ancestorTitles: [], fullName: "old works", title: "old works", status: "passed", failureMessages: [] }] };
 
 describe("the gate of a unit test in TDD Red", () => {
+  it("rejects a unit test that passes at once, with the test as the evidence and the way out as the next action", () => {
+    const passes = { name: "<cwd>/tests/unit/cart.test.ts", message: "", assertionResults: [{ ancestorTitles: ["cart lines"], fullName: "cart lines adds a line", title: "adds a line", status: "passed", failureMessages: [] }] };
+    const repo = project([passes, passing]);
+    expect(unitRedGate(repo, { file: "tests/unit/cart.test.ts", name: "cart lines > adds a line" })).toEqual({
+      kind: "problem",
+      problem: expect.objectContaining({
+        failed: "the Red is not valid (test_bug): the test passes without new implementation",
+        evidence: "unit test tests/unit/cart.test.ts > cart lines > adds a line",
+        next: "test a behaviour the code does not have yet, or, if no unit logic is left and the scenario still fails, report no_unit_logic_left",
+      }),
+    });
+  });
+
   it("accepts a new unit test whose file fails to load because a source module does not exist yet, while the other tests pass", () => {
     const missing = { name: "<cwd>/tests/unit/cart.test.ts", message: "Cannot find module '../../src/cart.js' imported from '<cwd>/tests/unit/cart.test.ts'", assertionResults: [] };
     const repo = project([missing, passing]);

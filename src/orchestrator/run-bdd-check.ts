@@ -2,6 +2,7 @@ import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { advanceStep, CYCLE_STEP, recordScenario, SCENARIO_STATUS } from "../artifacts/progress.js";
 import { loadInnerIterationLimit } from "../artifacts/project-config.js";
+import { labelled, renderRejection } from "../artifacts/rejection.js";
 import { bddCheck, SCENARIO } from "./bdd-check.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { type Started, STATE, transition } from "./begin.js";
@@ -50,7 +51,7 @@ export type Origin = { from: string; note: string };
 export async function runBddCheck(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number, origin: Origin = { from: STATE.codeGreen, note: "" }): Promise<number | AfterCheck> {
   const { cwd, bus, workspace } = started;
   const check = bddCheck(workspace.path, scenario.current, undefined, runnersOf(services));
-  if (check.kind === PROBLEM) return fail(started, `${scenario.label}: ${check.problem}`);
+  if (check.kind === PROBLEM) return fail(started, renderRejection(labelled(scenario.label, check.problem)));
   updateSession(cwd, { state: STATE.bddCheck, ...(check.kind === SCENARIO.red ? { scenarioFailure: check.message } : {}) });
   const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;
   transition(bus, origin.from, STATE.bddCheck, origin.note === "" ? verdict : `${origin.note}; ${verdict}`);

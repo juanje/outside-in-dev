@@ -2,6 +2,7 @@ import type { CliIo } from "../cli-io.js";
 import { unrunSteps } from "../artifacts/cucumber-report.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { ProgressError } from "../artifacts/progress.js";
+import { rejection, renderRejection } from "../artifacts/rejection.js";
 import { type Failure, FAILURE } from "../artifacts/red-classification.js";
 import { ESLINT, lintErrors, lintInvocation, recognisedTool } from "../artifacts/lint-tools.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
@@ -104,11 +105,19 @@ async function dryRunChecks(cwd: string, config: ProjectConfig, scenario: { file
   return [steps.length === 0 ? { lines: ["dry-run: ok (no undefined step)"], ok: true } : { lines: [`dry-run: undefined steps (${steps.length})`, ...steps.map((step) => `  ${step}`)], ok: false }];
 }
 
-/** Prints the lines of the checks; the exit code is 0 when all of them passed, 1 otherwise. */
-function print(io: CliIo, checks: Check[]): number {
-  io.stdout(checks.flatMap(({ lines }) => lines).join(NEWLINE) + NEWLINE);
-  return checks.every(({ ok }) => ok) ? 0 : 1;
+/** Prints the lines of the checks when all of them passed (with the verdict `ok` for a full try); when one failed, prints a rejection with the lines of the checks as the evidence and `next` as the action. The exit code is 0 when all of them passed, 1 otherwise. */
+function print(io: CliIo, checks: Check[], { next, verdict }: { next: string; verdict?: string }): number {
+  const lines = checks.flatMap((check) => check.lines);
+  const passed = checks.every(({ ok }) => ok);
+  io.stdout((passed ? [...lines, ...(verdict === undefined ? [] : [verdict])].join(NEWLINE) : renderRejection(rejection({ failed: FAILED, evidence: lines.join(NEWLINE), next }))) + NEWLINE);
+  return passed ? 0 : 1;
 }
+
+/** The verdict line of a try that failed, which is also the first line of its rejection. */
+const FAILED = "try: failed";
+
+/** What to do after a fix: run `oid try` again, as it was run. The target is not repeated: the lines of the checks would then name a file they did not find. */
+const TRY_AGAIN = "run the same oid try command again";
 
 /** Runs one unit test or one scenario with the project's runner, then the type check and the linter on the changed files, and prints a short verdict; nothing is recorded. Exit 0 when everything passes, 1 otherwise, and when a command does not end within its limit. */
 export async function runTry(io: CliIo, args: string[], runners: Runners, control: TryControl = {}): Promise<number> {
@@ -116,7 +125,9 @@ export async function runTry(io: CliIo, args: string[], runners: Runners, contro
     return await tried(io, args, runners, control);
   } catch (error) {
     if (!(error instanceof CommandTimeoutError)) throw error;
-    io.stdout(`try: failed: ${error.message}${NEWLINE}`);
+    const target = args.find((arg) => arg !== DRY_RUN) ?? "";
+    const next = `run a smaller target or fix what keeps the command from ending (a test that never ends, a watch mode), then ${TRY_AGAIN}`;
+    io.stdout(`${renderRejection(rejection({ failed: `${FAILED}: ${error.message}`, evidence: `target: ${target}`, next }))}${NEWLINE}`);
     return 1;
   }
 }
@@ -128,8 +139,10 @@ async function tried(io: CliIo, args: string[], runners: Runners, control: TryCo
   const config = loadVerifyConfig(io.cwd);
   const parsed = parseTarget(io.cwd, target);
   if (args.includes(DRY_RUN) && parsed.kind === TARGET.test) throw new ProgressError(`${DRY_RUN} lists the undefined steps of a scenario; ${target} is a unit test`);
-  if (args.includes(DRY_RUN) && parsed.kind === TARGET.scenario) return print(io, await dryRunChecks(io.cwd, config, parsed.scenario, runners, control));
+  if (args.includes(DRY_RUN) && parsed.kind === TARGET.scenario) {
+    return print(io, await dryRunChecks(io.cwd, config, parsed.scenario, runners, control), { next: `define the undefined steps in a step file, then ${TRY_AGAIN}` });
+  }
   const test = testCheck(await observed(io.cwd, config, parsed, runners, control));
   const checks = [test, typesCheck(io.cwd, await runners.tryTypecheck(io.cwd, config.commands.typecheck, control)), await lintCheck(io.cwd, config, runners, control)];
-  return print(io, [...checks, { lines: [checks.every(({ ok }) => ok) ? "try: ok" : "try: failed"], ok: true }]);
+  return print(io, checks, { next: `fix what failed, then ${TRY_AGAIN}`, verdict: "try: ok" });
 }

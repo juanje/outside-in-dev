@@ -2,6 +2,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { commitAll, git } from "./git-fixture.js";
+import { printedIntegrity } from "./rejection-fixture.js";
 import { runInProject } from "./run-capture.js";
 import { dir, useTempDir, write, writeMinimalConfig, writeProgressFile } from "./temp-project.js";
 
@@ -34,7 +35,7 @@ describe("oid verify integrity", () => {
     write("tests/unit/a.test.ts", "// test\n// more\n");
     expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 0, stdout: "integrity: ok\n", stderr: "" });
     write("src/a.ts", "export const a = 2;\n");
-    expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 1, stdout: "src/a.ts changed source code while writing tests\n", stderr: "" });
+    expect(await runInProject(["verify", "integrity"])).toEqual({ exitCode: 1, stdout: printedIntegrity("tdd_red", "FR-X-01", ["src/a.ts changed source code while writing tests"]), stderr: "" });
   });
 
   it("takes the step of --step over the focused one, and asks for a step when none is focused or the one given is not a step", async () => {
@@ -66,9 +67,9 @@ describe("oid verify integrity", () => {
     rmSync(join(dir, "tests/unit/a.test.ts"));
     expect(await runInProject(["verify", "integrity", "--step", "tdd_green"])).toEqual({
       exitCode: 1,
-      stdout: "features/a.feature changed a test while writing code\ntests/unit/a.test.ts changed a test while writing code\n",
+      stdout: printedIntegrity("tdd_green", "FR-X-01", ["features/a.feature changed a test while writing code", "tests/unit/a.test.ts changed a test while writing code"]),
       stderr: "",
     });
-    expect((await runInProject(["verify", "integrity"])).stdout).toBe("features/a.feature changed an approved feature file: One, the parts outside scenarios\n");
+    expect((await runInProject(["verify", "integrity"])).stdout).toBe(printedIntegrity("quality_gate", "FR-X-01", ["features/a.feature changed an approved feature file: One, the parts outside scenarios"]));
   });
 });

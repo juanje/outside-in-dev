@@ -3669,7 +3669,65 @@
     {
       "id": "FR-AGENT-10",
       "title": "Every rejection says what to do next",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A step file with an undefined step is rejected with the step and the way to define it, and the next attempt and the output carry all three",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test-writing agent that names no unit test is told to name one",
+          "bdd": "pass"
+        },
+        {
+          "name": "Code that does not make the unit test pass is rejected with the failing test and the way to run it",
+          "bdd": "pass"
+        },
+        {
+          "name": "A fix of the quality gate that leaves errors is rejected with the errors and the way to clear them",
+          "bdd": "pass"
+        },
+        {
+          "name": "A Red that the human judges a bug tells the next attempt what to fix",
+          "bdd": "pass"
+        },
+        {
+          "name": "With no retries allowed, the error that ends the run carries what failed, the evidence and what to do next",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test that passes at once is rejected with the test and the behaviour to test instead",
+          "bdd": "pass"
+        },
+        {
+          "name": "A rejection longer than the plain line allows reaches the next attempt whole, and the cut line still ends with the next action",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid verify red on a test that passes says what failed, the test and what to write instead",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid verify green says which test and which type error regress, and what to do with them",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid verify integrity names the files, and the move that allows the change",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid try on a failing test says what failed, the failure and what to do next",
+          "bdd": "pass"
+        },
+        {
+          "name": "A tool call that the sandbox blocks says what was blocked, the path or command, and what is allowed instead",
+          "bdd": "pass"
+        },
+        {
+          "name": "The try tool refuses a target outside the worktree and says which targets it accepts",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-RUN-13",

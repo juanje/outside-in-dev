@@ -4,6 +4,7 @@ import { codeGreenPrompt } from "../agents/prompts/code-green.js";
 import type { AgentTask } from "../agents/runner.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
+import { labelled } from "../artifacts/rejection.js";
 import { CYCLE_STEP } from "../artifacts/progress.js";
 import { runBillable } from "./budget-call.js";
 import type { Rejection } from "./attempts.js";
@@ -23,7 +24,9 @@ async function writeCode(started: Started, services: FeatureServices, scenario: 
   const stopped = agentStop(started, scenario.label, outcome);
   if (stopped !== undefined) return stopped;
   const problems = codeGreenGate(workspace.path, undefined, runnersOf(services));
-  if (problems.length > 0) return { rejected: `${scenario.label}: Code Green is not green:${NEWLINE}${problems.join(NEWLINE)}` };
+  if (problems.length > 0) {
+    return labelled(scenario.label, { failed: "Code Green is not green", evidence: problems.join(NEWLINE), next: "make the checks listed pass by changing the code only, and check the unit test with the try tool" });
+  }
   updateFeature(workspace.path, fr!, (feature) => moveRunTo(feature, CYCLE_STEP.tddGreen));
   checkpoint(workspace, { fr: fr!, state: STATE.codeGreen, scenario: scenario.current.name });
   return undefined;

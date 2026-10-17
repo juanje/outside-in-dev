@@ -1,10 +1,9 @@
 import { AGENT_START, ATTEMPT_REJECTED, type OIEventBody } from "../events/types.js";
-import { isObject } from "../artifacts/progress.js";
+import { isRejection, type Rejection, renderRejection } from "../artifacts/rejection.js";
 import { attemptEffort, type Effort } from "./attempt-effort.js";
 import type { Models } from "../artifacts/user-config.js";
 
-/** An attempt that the gate of its state rejected, with the reason. */
-export type Rejection = { rejected: string };
+export { isRejection, type Rejection };
 
 /** The last rejection when the retries are used, and how many attempts there were. */
 export type Exhausted = Rejection & { attempts: number };
@@ -43,11 +42,6 @@ function noteAbout(attempt: number, reason: string): string {
   return `This is attempt ${attempt}. It starts again from the last checkpoint: the files of the attempt before it were discarded, so write everything this task needs. That attempt was rejected because: ${reason}`;
 }
 
-/** Whether the result of an attempt is a rejection. */
-export function isRejection(result: unknown): result is Rejection {
-  return isObject(result) && "rejected" in result;
-}
-
 /** Whether the result of the attempts is the last rejection after the retries ran out. */
 export function isExhausted(result: unknown): result is Exhausted {
   return isRejection(result) && "attempts" in result;
@@ -69,10 +63,11 @@ export async function runAttempts<T>(spec: AttemptSpec<T>): Promise<T | Exhauste
     const effort = announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry });
     const result = await spec.run({ attempt, effort, note, announce: () => void announceAgent(spec.bus, { ...spec, attempt, retries: lastRetry }) });
     if (!isRejection(result)) return result;
-    spec.bus.emit({ type: ATTEMPT_REJECTED, state: spec.state, role: spec.role, attempt, reason: result.rejected });
+    const reason = renderRejection(result);
+    spec.bus.emit({ type: ATTEMPT_REJECTED, state: spec.state, role: spec.role, attempt, reason });
     if (attempt > lastRetry) return { ...result, attempts: attempt };
-    spec.onRejected?.(attempt, result.rejected);
+    spec.onRejected?.(attempt, reason);
     spec.restore();
-    note = noteAbout(attempt + 1, result.rejected);
+    note = noteAbout(attempt + 1, reason);
   }
 }

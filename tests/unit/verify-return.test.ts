@@ -25,13 +25,13 @@ describe("judgeReturn", () => {
     goBack("tdd_green");
     write("src/a.ts", "export const a = 3;\n");
     const passes = vi.fn(() => true);
-    expect(judgeReturn(dir, FEATURE, isSource, passes)).toEqual({ kind: "refused", reason: "src/a.ts changed since the return" });
+    expect(judgeReturn(dir, FEATURE, isSource, passes)).toEqual({ kind: "refused", reason: "src/a.ts changed since the return", action: "undo the changes to src/a.ts" });
     expect(passes).not.toHaveBeenCalled();
   });
 
   it("refuses when the scenario does not pass", () => {
     goBack("tdd_green");
-    expect(judgeReturn(dir, FEATURE, isSource, () => false)).toEqual({ kind: "refused", reason: "the scenario does not pass" });
+    expect(judgeReturn(dir, FEATURE, isSource, () => false)).toEqual({ kind: "refused", reason: "the scenario does not pass", action: "fix the scenario so that it passes with the code of this cycle" });
   });
 
   it("refuses when the scenario also passes without this cycle's code, and leaves the code as it found it", () => {
@@ -41,7 +41,11 @@ describe("judgeReturn", () => {
       runs.push(readFileSync(join(dir, "src/a.ts"), "utf8"));
       return true;
     };
-    expect(judgeReturn(dir, FEATURE, isSource, passes)).toEqual({ kind: "refused", reason: "the scenario passes without this cycle's code" });
+    expect(judgeReturn(dir, FEATURE, isSource, passes)).toEqual({
+      kind: "refused",
+      reason: "the scenario passes without this cycle's code",
+      action: "make the scenario assert the behaviour that this cycle's code adds, so that it fails without that code",
+    });
     expect(runs).toEqual(["export const a = 2;\n", "export const a = 1;\n"]);
     expect(readFileSync(join(dir, "src/a.ts"), "utf8")).toBe("export const a = 2;\n");
   });

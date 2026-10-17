@@ -10,6 +10,13 @@ describe("plainLine of a rejected attempt", () => {
     );
   });
 
+  it("cuts the evidence of a long rejection and keeps its next action on the line", () => {
+    const line = rejected(`the unit test fails\nEvidence:\n  ${"e".repeat(500)}\nNext: fix the code and run the test again`);
+    expect(line.startsWith("[BDD_RED] attempt 1 rejected: the unit test fails | Evidence: |")).toBe(true);
+    expect(line.endsWith("| Next: fix the code and run the test again")).toBe(true);
+    expect(line).toContain("…");
+  });
+
   it("keeps the first 300 characters of a longer reason and marks the cut", () => {
     expect(rejected(`${"a".repeat(300)}${"b".repeat(200)}`)).toBe(`[BDD_RED] attempt 1 rejected: ${"a".repeat(300)}…`);
     expect(rejected("c".repeat(300))).toBe(`[BDD_RED] attempt 1 rejected: ${"c".repeat(300)}`);

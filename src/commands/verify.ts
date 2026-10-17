@@ -11,7 +11,9 @@ import { focusedFeature, loadVerifyConfig, recordVerified } from "../artifacts/v
 import { loadableStepsProblems } from "../artifacts/loadable-steps.js";
 import { resolveImportedSymbol } from "../artifacts/project-symbol.js";
 import { observationToDecide, recordObservation } from "../artifacts/red-observation.js";
-import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, type Verdict } from "../artifacts/red-classification.js";
+import { redNext } from "../artifacts/red-next.js";
+import { type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
+import { classifyFailure, FAILURE, type Failure, OUTCOME, RED_CLASS, type RedClass, splitSteps, type Verdict } from "../artifacts/red-classification.js";
 import { readText } from "../artifacts/project-json.js";
 import { isInsideSource } from "../artifacts/source-roots.js";
 import { withVerifyLock, type VerifyServices } from "../artifacts/verify-lock.js";
@@ -20,7 +22,7 @@ import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "
 import { parseBddTarget, TARGET, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
-import { answerReturn, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, REFUSED, refuse, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
+import { answerReturn, assertNewBehaviour, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type Refusal, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, REFUSED, refuse, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
 import { GREEN, runGreen } from "./verify-green.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
@@ -202,17 +204,34 @@ export function classifyObservation(cwd: string, config: ProjectConfig, { failur
 }
 
 /** The answer for a scenario whose step files cucumber could not load, and nothing when they load or the target is a unit test. */
-function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target): string | undefined {
+function unloadableAnswer(cwd: string, config: ProjectConfig, parsed: Target, target: string): string | undefined {
   const problems = parsed.kind === TARGET.scenario ? loadableStepsProblems(cwd, config) : [];
   if (problems.length === 0) return undefined;
-  return `red: not valid (${RED_CLASS.testBug}): cucumber would not start, because of a static import of something that does not exist yet\n${problems.join(NEWLINE)}\n`;
+  const failed = `red: not valid (${RED_CLASS.testBug}): cucumber would not start, because of a static import of something that does not exist yet`;
+  return `${renderRejection(rejection({ failed, evidence: problems.join(NEWLINE), next: `import the code that does not exist yet with a dynamic import() inside the step, then ${runAgain(target)}` }))}\n`;
+}
+
+/** What to do after a fix: run the verification of the target again. */
+function runAgain(target: string): string {
+  return `run oid verify red "${target}" again`;
+}
+
+/** The rejection of a test or a scenario that is not a valid Red: the class and why, the target and its failure, and what to do about the class. */
+function notValid(target: string, verdict: Decided, failure?: Failure): Rejection {
+  const message = failure === undefined ? "" : failureMessage(failure);
+  const { headline, steps } = splitSteps(verdict.reason);
+  return rejection({
+    failed: `red: not valid (${verdict.class}): ${headline}`,
+    evidence: [`test: ${target}`, ...(message === "" ? [] : [`failure: ${trimFailure(message)}`]), ...steps].join(NEWLINE),
+    next: redNext({ class: verdict.class, passed: failure?.kind === FAILURE.passed, undefinedSteps: steps.length > 0, then: runAgain(target) }),
+  });
 }
 
 /** Prints the verdict, and records the checkpoint of the step when it is a valid Red: exit 0 when it is, 1 when it is not. */
-function answer(io: CliIo, config: ProjectConfig, { target, step, external }: { target: string; step: string; external: boolean }, verdict: Decided): number {
+function answer(io: CliIo, config: ProjectConfig, { target, step, external, failure }: { target: string; step: string; external: boolean; failure?: Failure }, verdict: Decided): number {
   const valid = verdict.outcome === OUTCOME.valid;
   if (valid) recordVerified(io.cwd, config, { step, verify: { kind: RED, target }, external });
-  io.stdout(`red: ${valid ? "valid" : "not valid"} (${verdict.class}): ${verdict.reason}\n`);
+  io.stdout(valid ? `red: valid (${verdict.class}): ${verdict.reason}\n` : `${renderRejection(notValid(target, verdict, failure))}\n`);
   if (valid && step === BDD_RED && moveToUnitRed(io.cwd, config.paths.progress)) io.stdout(`red: moved to ${TDD_RED}\n`);
   return valid ? 0 : 1;
 }
@@ -227,7 +246,7 @@ function answerRecorded(io: CliIo, config: ProjectConfig, target: string, decisi
 
 /** What a decision on the failure of a fixed test without this cycle's code judges: the return, when the class is a valid Red, and a refusal naming the class otherwise. */
 function judgedByDecision(cwd: string, config: ProjectConfig, feature: string, decision: RedClass): Exclude<Judgement, { kind: typeof NO_CODE }> {
-  if (!VALID_RED_CLASSES.includes(decision)) return refuse(`the failure without this cycle's code was decided as ${decision}`);
+  if (!VALID_RED_CLASSES.includes(decision)) return refuse({ reason: `the failure without this cycle's code was decided as ${decision}`, action: "fix the test so that it fails without this cycle's code because the behaviour is missing" });
   return { kind: "returned", to: readReturn(cwd, feature)!.from, files: cycleCodeFiles(cwd, feature, (name) => isInsideSource(config.paths.source, name)) };
 }
 
@@ -250,15 +269,16 @@ function answerJudged(io: CliIo, config: ProjectConfig, { returned, target, judg
 }
 
 /** Why a test that passes is not a Red either without the code of the cycle, run now: nothing when it fails there as a valid Red. */
-function refusalWithoutCode(cwd: string, config: ProjectConfig, test: { file: string; name: string }, onDecision: (message: string, verdict: DecisionVerdict) => void): string | undefined {
+function refusalWithoutCode(cwd: string, config: ProjectConfig, test: { file: string; name: string }, onDecision: (message: string, verdict: DecisionVerdict) => void): Refusal | undefined {
   const observation = observeUnit(cwd, config, test);
-  if (observation.failure.kind === FAILURE.passed) return "the test passes without this cycle's code";
+  if (observation.failure.kind === FAILURE.passed) return { reason: "the test passes without this cycle's code", action: assertNewBehaviour(TEST_RETURN.noun) };
   const verdict = classifyObservation(cwd, config, observation);
   if (verdict.outcome === OUTCOME.valid) return undefined;
   if (verdict.outcome === OUTCOME.decision) onDecision(failureMessage(observation.failure), verdict);
+  const action = "fix the test so that it fails without this cycle's code because the behaviour is missing, not because the test is broken";
   return verdict.outcome === OUTCOME.decision
-    ? `the test fails without this cycle's code, and the failure needs a decision: ${verdict.reason}`
-    : `the test fails without this cycle's code, but not as a Red (${verdict.class}): ${verdict.reason}`;
+    ? { reason: `the test fails without this cycle's code, and the failure needs a decision: ${verdict.reason}`, action }
+    : { reason: `the test fails without this cycle's code, but not as a Red (${verdict.class}): ${verdict.reason}`, action };
 }
 
 /** Records the run of a fixed test whose failure without this cycle's code needs a decision, with the code back in place, and prints the decision: exit 2. */
@@ -294,7 +314,7 @@ function answerIfReturned(io: CliIo, config: ProjectConfig, parsed: Target, targ
 
 /** The answer for a target that needs no observation: step files that would not load, or a scenario judged against the return of its feature. Nothing otherwise. */
 function answerBeforeRunning(io: CliIo, config: ProjectConfig, parsed: Target, target: string): number | undefined {
-  const unloadable = unloadableAnswer(io.cwd, config, parsed);
+  const unloadable = unloadableAnswer(io.cwd, config, parsed, target);
   if (unloadable === undefined) return answerIfReturned(io, config, parsed, target);
   recordObservation(io.cwd, { target, step: BDD_RED, message: unloadable, needsDecision: false });
   io.stdout(unloadable);
@@ -314,7 +334,9 @@ function runVerifying(io: CliIo, args: string[]): number {
     return runRed(io, args);
   } catch (error) {
     if (!(error instanceof CommandTimeoutError)) throw error;
-    io.stdout(`red: not valid (${RED_CLASS.environment}): ${error.message}\n`);
+    const target = args[1] ?? "";
+    const next = `run a smaller target or fix what keeps the command from ending (a test that never ends, a watch mode), then ${runAgain(target)}`;
+    io.stdout(`${renderRejection(rejection({ failed: `red: not valid (${RED_CLASS.environment}): ${error.message}`, evidence: `test: ${target}`, next }))}\n`);
     return 1;
   }
 }
@@ -340,5 +362,5 @@ function runRed(io: CliIo, args: string[]): number {
     io.stdout(renderDecision(target, message, verdict));
     return NEEDS_A_DECISION;
   }
-  return answer(io, config, { target, step, external: false }, verdict);
+  return answer(io, config, { target, step, external: false, failure: observation.failure }, verdict);
 }

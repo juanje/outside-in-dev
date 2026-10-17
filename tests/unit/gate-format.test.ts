@@ -10,7 +10,14 @@ const FAILS = 'console.log("[warn] src/a.ts");process.exit(1);';
 describe("the format check of the quality gate", () => {
   it("is an error of oid when a formatter it recognises still finds files after the fixes, and a question when it does not recognise the tool", () => {
     const prettier = gateProject({ format: "node prettier.cjs" }, { "prettier.cjs": FAILS });
-    expect(gateChecks(dir, prettier, EMPTY_BASELINE)).toEqual({ kind: "internal", problem: expect.stringContaining("[warn] src/a.ts") });
+    expect(gateChecks(dir, prettier, EMPTY_BASELINE)).toEqual({
+      kind: "internal",
+      problem: {
+        failed: "the formatter still finds files to format after its fixes",
+        evidence: "[warn] src/a.ts",
+        next: "format the files listed with the project's formatter; this check is oid's own, so report it if the formatter keeps finding files after that",
+      },
+    });
     const other = gateProject({ format: "node tidy.cjs" }, { "tidy.cjs": FAILS });
     expect(gateChecks(dir, other, EMPTY_BASELINE)).toEqual({ kind: "ask", check: "format", problems: ['"node tidy.cjs" exited 1', "[warn] src/a.ts"], output: "[warn] src/a.ts" });
     const linter = gateProject({ lint: "node style.cjs" }, { "style.cjs": FAILS });

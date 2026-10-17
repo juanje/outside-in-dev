@@ -3,7 +3,8 @@ import { isAbsolute, join, relative } from "node:path";
 import { addedLines } from "../artifacts/added-lines.js";
 import { baseContent, changedSinceCheckpoint } from "../artifacts/checkpoint.js";
 import { frozenParts } from "../artifacts/feature-approval.js";
-import { type ChangedFile, FILE_KIND, type FileKind, forbiddenPatterns, integrityViolations, pathRefusal } from "../artifacts/integrity.js";
+import { type ChangedFile, FILE_KIND, type FileKind, forbiddenPatterns, integrityNext, integrityViolations, pathRefusal } from "../artifacts/integrity.js";
+import { rejection, renderRejection } from "../artifacts/rejection.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { CYCLE_STEP, CYCLE_STEPS, FEATURE_STATUS, loadProgress, type Progress, ProgressError, SCENARIO_STATUS } from "../artifacts/progress.js";
 import type { ProjectConfig } from "../artifacts/project-config.js";
@@ -18,6 +19,8 @@ export const INTEGRITY = "integrity";
 const STEP_FLAG = "--step";
 const PATH_FLAG = "--path";
 const OUTSIDE = "..";
+/** What stands for the feature in a command to run, when the step to check was given and no feature is focused. */
+const FEATURE_PLACEHOLDER = "<feature>";
 const LIST_SEPARATOR = ", ";
 const FEATURE_TAG = /^@(FR-.+)$/;
 /** The steps after `bdd_red`: a feature at one of them, or done, has approved feature files. */
@@ -100,7 +103,7 @@ function runPathCheck(io: CliIo, config: ProjectConfig, progress: Progress | und
   const name = insideProject(io.cwd, path);
   const focus = progress?.features.find((feature) => feature.id === progress.current_focus);
   const refusal = name === undefined || focus?.cycle_step === undefined ? undefined : pathRefusal(focus.cycle_step, kindOf(config, name), name, focus.id);
-  io.stdout(`${refusal ?? `${INTEGRITY}: ok`}${NEWLINE}`);
+  io.stdout(`${refusal === undefined ? `${INTEGRITY}: ok` : renderRejection(refusal)}${NEWLINE}`);
   return refusal === undefined ? 0 : 1;
 }
 
@@ -110,7 +113,13 @@ export function runIntegrity(io: CliIo, args: string[]): number {
   const progress = existsSync(join(io.cwd, config.paths.progress)) ? loadProgress(io.cwd, config.paths.progress) : undefined;
   const path = args[args.indexOf(PATH_FLAG) + 1];
   if (args.includes(PATH_FLAG) && path !== undefined) return runPathCheck(io, config, progress, path);
-  const violations = integrityProblems(io.cwd, config, progress, stepToCheck(progress, args));
-  io.stdout(violations.length === 0 ? `${INTEGRITY}: ok${NEWLINE}` : `${violations.join(NEWLINE)}${NEWLINE}`);
-  return violations.length === 0 ? 0 : 1;
+  const step = stepToCheck(progress, args);
+  const violations = integrityProblems(io.cwd, config, progress, step);
+  if (violations.length === 0) {
+    io.stdout(`${INTEGRITY}: ok${NEWLINE}`);
+    return 0;
+  }
+  const feature = progress?.current_focus ?? FEATURE_PLACEHOLDER;
+  io.stdout(`${renderRejection(rejection({ failed: `${INTEGRITY}: ${violations.length} violation(s) at ${step}`, evidence: violations.join(NEWLINE), next: integrityNext(step, feature) }))}${NEWLINE}`);
+  return 1;
 }
