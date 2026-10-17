@@ -364,7 +364,7 @@ Limit: `limits.max_inner_iterations` per scenario (8). When reached, the run ask
 
 ### 6.7. Regression
 
-Two levels, as in `oid verify green` (ADR-030): during the cycle, a BDD run includes the current scenario and the scenarios of the feature already in `pass`; the quality gate runs the whole project, and a regression it finds is a new Red for the feature being built. The unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. **Planned (FR-RUN-03, to be revised):** today every BDD run of the cycle still includes every passing scenario of the project.
+Two levels, as in `oid verify green` (ADR-030): during the cycle, a BDD run includes the current scenario and the scenarios of the feature already in `pass`; the quality gate runs the whole project, and a regression it finds there is put to the person (§6.9). The unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. **Planned (FR-RUN-03 and FR-RUN-04, to be revised):** today every BDD run of the cycle still includes every passing scenario of the project. **Direction:** a regression found at the gate goes back to the coding agent, with the broken scenario as its failing test, before it reaches the person.
 
 ### 6.8. Refactor
 
