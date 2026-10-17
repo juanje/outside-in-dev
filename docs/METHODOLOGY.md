@@ -86,7 +86,7 @@ The article and `docs/design.md` are a starting point, and the implementation te
 
 1. **Raise it.** Stop and tell the human what is wrong and the evidence (a failing run, a contradiction, a measurement). A subagent reports it to the orchestrating session. Do not work around it in the code.
 2. **The human decides.** Nothing below happens without that decision.
-3. **ADR.** In `DECISIONS.md`, rewrite the entry the change touches, or add a new one (context, options, decision, consequences) and remove the entries it replaces. The file holds only what is in force; git keeps the rest. Never reuse a number. A deviation from the article has a title that starts with "Deviation from the article:".
+3. **ADR.** In `DECISIONS.md`, rewrite the entry the change touches, or add a new one (context, options, decision, consequences) and remove the entries it replaces. The file holds only what is in force; git keeps the rest. Never reuse a number. A decision that extends or deviates from the article carries an **Article.** line naming the part it changes, and its evidence.
 4. **Design.** Update the sections of `docs/design.md` that the ADR changes, so that they describe what is in force.
 5. **Spec.** If behaviour changes, update `SPEC.md`. For each FR whose passing scenarios no longer describe it, the human runs `oid progress revise` ("Changing a requirement"); for one whose scenarios still describe it, `reopen`.
 6. **Commit.** Steps 3 and 4 go in one `docs:` commit whose message says why, step 5 in that commit too or in the one that follows.

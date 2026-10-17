@@ -4,6 +4,8 @@ Each entry is a decision in force: its context, the options considered, the deci
 
 Full technical design: `docs/design.md` (section numbers below, as §n, refer to it).
 
+Most entries are decisions about the product, oid. An entry with a **Scope.** line is about the process of building it (the dogfooding with Claude Code and its hooks) and does not shape how `oid run` works. An entry with an **Article.** line extends or deviates from the methodology article (ADR-054).
+
 ---
 
 ## ADR-001: Enforce the methodology by architecture, not by instruction
@@ -73,8 +75,8 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 ## ADR-012: `progress.json` and `session.json` are different things
 
 **Context.** The methodology's progress record and the harness's execution state were mixed in the first design.
-**Decision.** `progress.json` (article schema, versioned, no extra fields) records where the methodology is. `.outside-in/session.json` (ignored by git) records what oid needs to resume. Anything oid needs beyond the article's schema goes to the session or the event log.
-**Consequences.** The progress file stays useful without oid and cannot degrade into notes.
+**Decision.** `progress.json` (versioned) records where the methodology is: the article's schema, plus only the typed fields a methodology fact needs (a guard's reason, ADR-049), and no free text. `.outside-in/session.json` (ignored by git) records what oid needs to resume. Anything else oid needs goes to the session or the event log.
+**Consequences.** The progress file stays useful without oid and cannot degrade into notes. What keeps it from degrading is that every field is typed and validated, not that its fields are the article's.
 
 ## ADR-013: Feature files are reviewed by a human, once, up front
 
@@ -105,6 +107,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Context.** In TDD the most common Red is that the function does not exist yet. In vitest a missing export arrives as `undefined` and fails as `TypeError: (0 , name) is not a function`; a missing module fails the file load. Treating these as broken tests blocks the cycle; treating every runtime error as Red lets broken tests through. Almost every ordinary Red is the assertion the agent just wrote for the new behaviour.
 **Decision.** Layers, from the cheapest: the exit code; deterministic classification of the structured report, resolving missing names against the project's real exports; an `AssertionError` whose first stack frame is on a line of a unit test or step file added since the last checkpoint is a valid Red (`business_assertion`), while one on a line that already existed is not decided here; then Jev for what remains ambiguous; then a threshold with a conservative default. Until Jev exists, what would go to it is an external decision: `oid verify red` exits 2 with the trimmed failure and the questions, and whoever orchestrates answers with `--decide <class>`, which answers the recorded failure without running the test again and is refused if any file but the progress file changed since. `oid run` asks the human.
 **Consequences.** Most Reds are classified without a model. Whether a newly added assertion is meaningful is not asked; integrity's forbidden patterns and the review of the feature file remain the checks on the test itself.
+**Article.** Extends "confirm RED" (implementation, steps 2 and 3): a Red must fail for the right reason, and a second party, not the agent that wrote the test, decides when the reason is not clear.
 
 ## ADR-018: Structured runner output, and loadable step files
 
@@ -124,6 +127,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** A refactor step gated by a vague model question (previous design); periodic manual requests; deterministic detectors with closed work lists.
 **Decision.** Detectors (complexity, duplication, dead code, magic values, documentation drift) produce findings; Jev filters false positives; agents fix exactly the listed findings. Three scales: after each Green, per feature (tests and docs included), and `oid tidy` for the whole project. A change is accepted only if behaviour is unchanged, the findings are gone, nothing new appears, no metric gets worse and every new exported symbol has two references. A catalogue of existing exports in the implementation context prevents duplication at the source. Code-health metrics are recorded per feature.
 **Consequences.** Refactor has a signal, a scope and a stopping condition, and over-engineering is rejected by the same rules. Detectors add a small deterministic cost to every cycle; agents only run when there are findings.
+**Article.** Replaces "Refactor: simplify if needed" (step 5): refactoring is driven by detector findings, at three scales, because "if needed" had no signal and did not happen.
 
 ## ADR-021: Frozen baseline for existing debt
 
@@ -148,6 +152,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Context.** oid should be built with its own methodology and used on itself as early as possible. The real unknowns were technical: the Pi sandbox, Jev on real traces, `pi-tui`.
 **Decision.** oid is built with Claude Code following the methodology through `AGENTS.md`. The requirements are ordered so that each deterministic piece replaces a manual part of the process as soon as it exists (progress, checks, metrics, Red/Green verification), and `oid run` takes over requirements as it becomes able to. The manual path stays usable until the decision layer is stable. oid always runs from an installed build, never from the code it is changing. See `docs/BOOTSTRAP.md`.
 **Consequences.** A bug in oid cannot block its own fix. The rules that only the bootstrap needs (Claude Code hooks, overrides, the bootstrap log) live in `docs/METHODOLOGY.md` and ADR-045, not in oid's design.
+**Scope.** The process of building oid (dogfooding with Claude Code), not the product.
 
 ## ADR-026: FR ids may carry a one-letter suffix
 
@@ -192,6 +197,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 - `oid progress scenario pass` and `oid progress done` require that the feature's checkpoint is a green that lists the scenario (for `done`, every scenario) and that nothing changed since it (the progress file and `.outside-in/` aside); otherwise they refuse and name the `oid verify green` to run. `fail` and `pending` need no evidence. `done` also requires at least one scenario, every scenario in `pass` and every scenario tagged with the feature recorded. It checks only what the files can prove; in `oid run`, the passed gate and the unit test per scenario follow from the control flow.
 - `oid verify integrity` compares the working tree with the feature's checkpoint, or with `HEAD` when there is none.
 **Consequences.** Marking a scenario pass costs one green, run after the last edit; any edit after it, a test included, needs another. A green costs the unit suite plus one feature's scenarios and does not grow with the project. A regression in another feature is found at the quality gate and becomes a new Red for the feature being built. Projects whose code does not type-check clean cannot use `oid verify green` until it does. The Claude Code hooks read the same checkpoints.
+**Article.** Extends the quality gate (step 8): two levels of checks, the feature's scenarios during the cycle and the whole project at the gate; and "pass" in the progress file needs the evidence of a run, not a claim.
 
 ## ADR-037: oid derives the fix and check invocations of the project's formatter and linter
 
@@ -209,6 +215,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) Allow step edits at `tdd_green`: rejected, a test could then be changed to fit the code. (2) A manual `bdd_red` → `tdd_green` transition: rejected, it skips the Red with nothing to prove. (3) Go back to `bdd_red`, and let oid return the feature after checking what the missing Red would have proved: chosen. For "this cycle's code": the code since the last Red (rejected, see above); the code of the whole feature (rejected, it removes the code of scenarios that already pass); the code since the scenario's own Red: chosen.
 **Decision.** Moving to `bdd_red` from `tdd_red`, `tdd_green`, `refactor` or `quality_gate` records a return: the step it came from and the content of the tree. Integrity at `bdd_red` then judges against that record: steps may change, `src/` may not. `oid verify red <scenario>` at `bdd_red` with a return and code in this cycle checks three things: the scenario passes; `src/` is as it was at the return; and with this cycle's code removed the scenario fails. This cycle's code is the source changed since the scenario's Red (the checkpoint `oid verify red <scenario>` records when it moves the feature from `bdd_red` to `tdd_red`), or since the last Red checkpoint when the feature has none. oid makes and undoes that removal itself. If all three hold, it records a checkpoint and moves the feature back to the step it came from; otherwise it says which failed and the feature stays at `bdd_red`. With no code in this cycle, the feature moves to `tdd_red` when `src/` is unchanged and the scenario either fails as a valid Red or already passes: the unit test is still required, and the feature never skips to `tdd_green`. At `bdd_red` with no return, a scenario that already passes and is recorded as passing with the evidence of an earlier green moves the feature to `tdd_red` too; any other scenario that passes at once is not a Red (a human may accept it as a guard, ADR-049).
 **Consequences.** Fixing a step needs no human. The mutation check is done by oid, under its control. A step of an earlier scenario fixed at `quality_gate` may still pass without the last scenario's code; then the return is refused and there is no legal move (ADR-045). `oid run` and `oid verify` judge a fixed step against the same base.
+**Article.** Deviates from "for each feature, strictly in order": the cycle is a graph, with legal moves back to a Red when a step definition is wrong.
 
 ## ADR-039: A changed requirement is revised by the human; a review on a done feature is reopened by the agent
 
@@ -216,6 +223,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) `oid progress step` from `done`: rejected, a step keeps the scenarios, which is wrong for a changed contract, and `bdd_red` is too heavy for a review nit. (2) One command for both: rejected, one resets the scenarios and the other must not. (3) Two commands with different owners: chosen.
 **Decision.** The criterion: do the passing scenarios still describe the requirement? If not, it changed: `oid progress revise FR-xxx` (FR-PROG-08) puts the feature at `bdd_red` with every scenario `pending`; one already at `bdd_red` is left as it is. The human runs it. If they do (a review comment, a missing case, a bug against the spec): `oid progress reopen FR-xxx` (FR-PROG-09) accepts only a `done` feature, puts it at `quality_gate` with every scenario as it was, and writes its checkpoint from the committed tree at `HEAD`, so only uncommitted changes count as changes. The agent runs it; a missing scenario then goes back with `oid progress step <FR> bdd_red`. The new `done` needs a green of the feature's scenarios when the tree changed, in the same commit as the fix. Neither command edits `SPEC.md` or a feature file. `oid spec --fr` on an existing FR calls `revise`, never `reopen`. With the focus on a `done` feature, `oid verify integrity` names both commands.
 **Consequences.** One truth in the spec: a changed requirement is rewritten in place and proved again. A review keeps the proof that still holds. Using `revise` for a review, or `reopen` for a changed requirement, is wrong in both directions.
+**Article.** Adds what the article does not cover: work after "done", with two operations and one criterion.
 
 ## ADR-040: A feature file is approved per scenario
 
@@ -230,6 +238,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) Let any agent step from `bdd_red` to `quality_gate`: rejected, it is a skipped Red. (2) A separate human approval record: rejected, more machinery than the case needs. (3) One transition, guarded by evidence: chosen.
 **Decision.** `oid progress revise` writes `.outside-in/checkpoints/<FR>.revise.json`: the state of the tree plus the normalised text and effective tags of every scenario of the FR. It is deleted where the return record is (`step`, `done`) and rewritten by `revise`. The transition `bdd_red` → `quality_gate` is allowed only when that record exists and: (1) no file under `src/` or among the step files changed since the `revise`; (2) every scenario of the FR exists in the record with the same text and tags, so scenarios may only have been removed or moved; (3) the FR's checkpoint is a green that ran all those scenarios with nothing changed since (`progress.json` and `.outside-in/` aside). Who may make the move is ADR-046.
 **Consequences.** The no-code case has a legal exit that needs evidence. The Red is never faked: the transition exists only when nothing executable changed. If something did change, the usual path applies (a Red, or ADR-038).
+**Article.** Extends ADR-039's revise: a revised requirement can reach the gate with no Red when no code is needed.
 
 ## ADR-043: The commands oid runs from the configuration have a time limit, and the whole process group is stopped
 
@@ -244,6 +253,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) Allow test edits at `tdd_green`: rejected, a test could be changed to fit the code. (2) A flag that marks a move to `tdd_red` as a fix: rejected, it adds a mode the agent must remember, and the test itself already tells the cases apart. (3) Mirror ADR-038 at `tdd_red`, with the passing test as the sign of a fix: chosen.
 **Decision.** Moving to `tdd_red` from `tdd_green`, `refactor` or `quality_gate` records a return, with the same record as ADR-038, and integrity at `tdd_red` judges `src/` against it. `oid verify red <test>` at `tdd_red` with a return: a test that fails is judged by the usual rules (it is the next test of the inner loop, or a gap found at the gate). A test that passes, with code in this cycle (source changed since the last Red checkpoint), is judged as a fix: `src/` must be as it was at the return, and with this cycle's code removed the test must fail as a valid Red. If both hold, oid records a checkpoint that is not a Red base and moves the feature back to the step it came from; otherwise it says which condition failed and the feature stays at `tdd_red`. A passing test with no code in this cycle is still not a Red.
 **Consequences.** Fixing a unit test needs no human. A test of an earlier cycle fixed at `quality_gate` may pass without the last cycle's code; then the return is refused and there is no legal move (ADR-045). At `bdd_red` a failing scenario with a return is refused (ADR-038), while at `tdd_red` a failing test is accepted: the asymmetry is deliberate, because a failing test is the normal next step of the inner loop.
+**Article.** Deviates from "strictly in order", as ADR-038, for a wrong unit test.
 
 ## ADR-045: With no legal move, the agent stops, and the orchestrating session overrides on record
 
@@ -251,12 +261,14 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) The human moves the step outside the hook: rejected, the human types what they did not decide. (2) The main session passes every check: rejected, a skipped check would leave no trace. (3) An explicit override, only from the main session, recorded: chosen.
 **Decision.** An agent with no legal move stops and says why; a subagent reports to the orchestrating session. A Bash call from the main session may prefix an `oid verify` or `oid progress step` command with `OID_OVERRIDE="<cause>"`: the hook skips the integrity and evidence checks for that command and appends the date, the command and the cause to `.outside-in/overrides.ndjson` (local, git-ignored). The prefix from a subagent is refused. An override is the last resort: only when no legal move exists, never for what oid checks by itself (a return under ADR-038 or ADR-044, a `--decide`). A file the step does not allow is edited only together with the override that absorbs it. Afterwards the session re-verifies the content (`oid verify green`), mutation-checks any scenario that passed without a Red, and records each override in the bootstrap-log row of the feature. `oid progress revise` stays the human's, with or without the prefix.
 **Consequences.** The human is asked only for what is theirs, and overrides are visible. Their count measures the cases with no legal move: one that repeats is a candidate for a legal move of its own, as ADR-038 and ADR-044 were.
+**Scope.** The process of building oid (dogfooding with Claude Code), not the product: `oid run` answers the same cases with legal moves of its own.
 
 ## ADR-046: The exit after a revise with no code is the orchestrating session's move, not an override
 
 **Context.** The ADR-041 exit is a planned move that oid itself accepts only when its conditions hold. Counting it as an override would mix planned moves with the real gaps overrides are meant to show, and a subagent must not end a revise.
 **Decision.** The hook lets `oid progress step <FR> quality_gate` from `bdd_red` through from the main session with no override, and refuses it from a subagent. oid still checks the conditions of ADR-041.
 **Consequences.** Overrides stay the last resort, and the exit stays out of a subagent's reach.
+**Scope.** The process of building oid (dogfooding with Claude Code), not the product.
 
 ## ADR-047: `max_retries` counts retries after the first attempt, and 0 means fail fast
 
@@ -283,6 +295,7 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Options.** (1) Ask the agent for an assertion that fails without the code: rejected, it forces an implementation-specific check. (2) Skip it as `@wip`: rejected, the feature can then never be done. (3) Let the human accept it: chosen.
 **Decision.** In `oid run`, a scenario that passes at BDD Red with no code of this cycle is put to the human with its step definitions. The human can accept it as a guard, with a reason: it is recorded as passing, with the reason as its evidence, and needs no unit test. Otherwise the usual actions apply. The agent can never accept it; for every other case, a scenario that passes at once is not a Red (ADR-038).
 **Consequences.** The steps of a guard are checked only by the human's review; the reason is in the event log, for audit.
+**Article.** Deviates from "every scenario starts Red": a scenario that passes at once can be a guard; `progress.json` carries the guard's reason, a field the article's schema does not have.
 
 ## ADR-051: The project's own conventions reach the agents through a configured file
 
@@ -310,8 +323,23 @@ Full technical design: `docs/design.md` (section numbers below, as §n, refer to
 **Context.** oid is built to enforce the methodology of the article, and it is built with that methodology, so the implementation is also a test of the article's claims: it can confirm or refute them. Presenting the article and the design as fixed made agents work around contradictions instead of raising them, and made decisions pile up as amendments that had to be read in order to know the rule in force. Two rules were mixed: an agent implementing an FR must not diverge from the spec on its own, which is the methodology; and the project must be able to correct its design when the implementation shows it is wrong.
 **Options.** (1) Fixed documents, changed only by new entries that amend the old ones: rejected, for the reasons above. (2) Let agents change the design when they find a problem: rejected, a design that changes without the human is no longer a contract. (3) Keep the design binding during a feature, with a recorded path to change it: chosen.
 **Decision.**
-- The article is the starting reference for the methodology and its artefacts. A deviation is allowed when the implementation gives evidence for it, and it is recorded as an ADR whose title starts with "Deviation from the article:", with the evidence. Those entries are what goes back to the article.
+- The article is the starting reference for the methodology and its artefacts. A deviation or an extension is allowed when the implementation gives evidence for it. The ADR that records it carries an **Article.** line naming the part of the article it changes, and its context holds the evidence. Those lines are what goes back to the article.
 - `docs/design.md`, `DECISIONS.md` and `SPEC.md` describe what is in force, not how it came to be. A decision that changes is rewritten in place, or replaced by a new entry and removed; a number is never reused. The commit that changes them says why; git keeps every earlier version.
 - During a feature, the spec, the design and the ADRs bind the agent that implements it: it does not diverge on its own. When it finds one of them wrong or contradicting the code, it stops and proposes the change, with the evidence. The human decides.
 - A change follows one chain, in one `docs:` commit or in that commit and the next: the ADR (why), `docs/design.md` (what), and `SPEC.md` when behaviour changes, with `oid progress revise` run by the human for each FR whose passing scenarios no longer describe it (`docs/METHODOLOGY.md`, "Changing the design").
 **Consequences.** A wrong design is corrected, with a record of why and of what it affects downstream, and a reader learns the rule in force from one entry. The bootstrap log can record which claims of the article the implementation confirmed or refuted.
+**Scope.** How this project's documents and the article evolve; it binds the people and agents who build oid, not oid's behaviour.
+
+## ADR-055: oid influences its agents through objective, focus, boundaries and constraints
+
+**Context.** An agent is a complex system: it organises itself around its goal and its context, and a rule only governs what it reaches. The runs of `oid run` on one feature showed it. What reduced rejections from 14 to 0 and access denials from 98 to 6 between the first and the fourth run was not more rules, but what each agent sees (the project's conventions with their reasons, examples chosen by relevance, rejections that say what to do next), legal paths where there were none (the guard question), and permissions stated as they are applied. The worst behaviours (a fabricated Red, test-only code in the source, a finding hidden behind a constant named after its value) each came from a constraint that blocked the goal and offered no legal way forward: the agent found its own, and it was worse. The same happened to this project when its documents could only be amended (ADR-054). An instruction competes for attention with every other instruction in the prompt, and compliance drops as their number grows.
+**Options.** (1) Control: describe each step in more rules, and add a rule for every failure seen. Rejected, for the reasons above. (2) Influence: shape the conditions under which the agent works, and let the how emerge.
+**Decision.** oid fixes the **what** (the scenario, the test, the contract) and the **evidence** (what counts as done); inside each step, the agent organises the **how**. oid acts on four parameters:
+- **Objective.** The FR and the scenario, what and why; and the goal of the whole system (code that is easier to read, change and trust), not only the local task.
+- **Focus of attention.** What the agent sees: the context of its task, examples, catalogues, conventions with their reasons, and the text of every rejection, which says what failed, the evidence and what to do next.
+- **Boundaries.** What it can reach: paths and tools per state, the shell only for the agent that writes code, cost, turns, time and retries.
+- **Constraints.** The rules of the task: the gates, the shape of the tools (few modes, opinionated defaults), the report.
+
+A constraint is kept only if it passes six questions: (1) does it serve the goal of the system, not a theory; (2) does it leave a legal path to the goal; (3) does it remove a decision the agent should not make, not its thinking; (4) can it live in the environment (a boundary, a tool, a message) rather than in a rule of the prompt; (5) does it restrain without forcing one single way; (6) is it measured, and changed when the measurement says so. A prompt holds few rules; where it can, it states traits of character instead ("you fix problems at their cause").
+**Consequences.** Every gate needs a legal way out: a gate that ends the run with no question is a gap to close. Prompts are judged by their effect on runs, one change at a time. oid owns the whole prompt of its agents (ADR-008), so the number of its instructions is a design value that can be counted and kept low. This decision is about the product; the dogfooding with Claude Code follows it where it can, but works inside a system prompt oid does not control.
+**Article.** Extends "Making agents follow the methodology": instructions are a start; guarantees come from the environment, and the environment is designed, not narrated.

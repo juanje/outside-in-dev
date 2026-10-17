@@ -3,7 +3,7 @@
 > **What this document is.** The design in force: how oid works today, and the principles and plans for what is not built yet. Every section says which is which: what is not marked is built; **Planned (FR-xx)** has a requirement in `SPEC.md`; **Direction** is intent with no requirement yet. A change that alters a decision goes with its ADR, and git keeps the earlier versions (ADR-054). Known differences between this document and the code, still to be resolved, are listed in §20.3.
 > **Methodology reference.** [Outside-In Development: Spec → BDD → TDD for AI Coding Agents](https://ai.juanjeojeda.com/outside-in-development). The article is the starting reference for the methodology and its artifacts; a deviation is recorded as an ADR (ADR-054). The Buddy project is an engineering reference: how to use the Pi SDK, and the testing and robustness lessons it learned in production (ADR-011).
 
-`oid` (from *Outside-In Development*) is a command-line tool that enforces the Outside-In methodology (Spec → BDD → TDD) on coding agents. It is not an assistant that "tries to follow" the methodology: it is a harness in which the methodology **is** the control flow. A state machine written in TypeScript decides what happens at each moment; ephemeral agents built on the Pi SDK write specifications, tests and code; and a decision model (Jev, through Pi's classifier API) will answer the semantic micro-decisions that deterministic code cannot make.
+`oid` (from *Outside-In Development*) is a command-line tool that enforces the Outside-In methodology (Spec → BDD → TDD) on coding agents. It is not an assistant that "tries to follow" the methodology, and it does not try to control its agents either: it designs the conditions under which they work. A state machine written in TypeScript owns the cycle: it decides which step comes next and judges each step's result. Inside each step, ephemeral agents built on the Pi SDK write specifications, tests and code, organising the how themselves; and a decision model (Jev, through Pi's classifier API) will answer the semantic micro-decisions that deterministic code cannot make.
 
 The command is `oid` and the npm package `outside-in-dev` (ADR-023). The target project's files keep descriptive names: `.outside-in.json` and `.outside-in/`.
 
@@ -17,13 +17,13 @@ Coding agents fail in four predictable ways: they build the wrong thing, they do
 2. **Context inflation and methodological drift.** In long conversations the model forgets instructions, mixes phases and drags along thousands of irrelevant tokens.
 3. **The false deterministic/generative dichotomy.** An `if` cannot tell whether an error trace is a business failure or a broken import; a general reasoning model is slow and expensive for a yes-or-no question.
 
-**A rule only governs what it can reach.** Several of Buddy's defects were already forbidden in its prompts: the instruction did not fail, it simply did not apply, because the failure happened without anyone disobeying (a status nobody updated, a missing call, an operation that "succeeded" without doing anything). When a failure needs no disobedience, the protection has to live in code. `oid` takes that idea to the whole cycle.
+**A rule only governs what it can reach.** Several of Buddy's defects were already forbidden in its prompts: the instruction did not fail, it simply did not apply, because the failure happened without anyone disobeying (a status nobody updated, a missing call, an operation that "succeeded" without doing anything). When a failure needs no disobedience, the protection has to live in the environment, not in another instruction. And an agent organises itself around whatever goal, context and limits it is given: the same agent behaves differently when what it sees changes. `oid` takes both ideas to the whole cycle (§3).
 
 ## 2. Goals and non-goals
 
 ### Goals
 
-- **Enforce the methodology by construction**, not by instruction. The model cannot skip the Red because it is not the one deciding the transition.
+- **Shape the conditions, not the steps.** The methodology holds because of the environment the agents work in (what they see, what they can reach, what counts as done), not because of how many rules they are told. The model cannot skip the Red because it is not the one deciding the transition.
 - **Context isolation.** Each agent receives only what it needs for its immediate task and dies when it finishes.
 - **Token efficiency.** Everything deterministic is done by Node.js, git, parsers and the stack's tools; micro-decisions go to a decision model; generative models only write specs, tests and code.
 - **Autonomy after human review.** Once the design artifacts are defined and the features reviewed, the cycle completes without intervention unless it asks.
@@ -41,18 +41,44 @@ The MVP's boundaries are in `SPEC.md` ("Not in scope"): no `fix-bug` or `new-pro
 
 These hold for what is built and for everything still to come.
 
-1. **Inversion of control.** The state machine leads; models execute single tasks and hand control back (ADR-001).
+### 3.1. Influence, not control (ADR-055)
+
+An agent is a complex system: it organises itself around its goal and its context, and a rule only governs what it reaches. oid fixes the **what** (the scenario, the test, the contract) and the **evidence** (what counts as done); inside each step, the agent organises the **how**. oid acts on four parameters:
+
+| Parameter | In oid |
+|:--|:--|
+| **Objective** | The FR and the scenario, what and why; and the goal of the whole system (code that is easier to read, change and trust), not only the local task. A local goal alone ("make this finding go away") invites hiding the finding. |
+| **Focus of attention** | What the agent sees: the context of its task (§7.8), examples chosen by relevance, the reuse and step catalogues, the project's conventions with their reasons, and the text of every rejection. |
+| **Boundaries** | What it can reach: paths and tools per state (§7.2), the shell only for the coding agent, cost, turns, time and retries (§11). Stated to the agent exactly as they are applied. |
+| **Constraints** | The rules of the task: the gates (§6), the shape of the tools (few modes, opinionated defaults), the report (§7.6). |
+
+A constraint is kept only if it passes six questions:
+
+1. Does it serve the goal of the system, not a theory or a framework?
+2. Does it leave a legal path to the goal? When it does not, the agent finds its own, and it is worse: a fabricated Red, code moved to force one, a finding hidden behind a constant named after its value.
+3. Does it remove a decision the agent should not make, not its thinking?
+4. Can it live in the environment (a boundary, a tool, a message) rather than in a rule of the prompt?
+5. Does it restrain without forcing one single way of doing the task?
+6. Is it measured, and changed when the measurement says so (§19)?
+
+### 3.2. Principles
+
+1. **The orchestrator owns the cycle.** The state machine decides the next step and judges each result; agents do single tasks and hand back (ADR-001).
 2. **Deterministic first, decision model second, generative model last.** If a parser, an exit code, a `git diff`, the compiler or a stack tool can settle it, no model is consulted (NFR-01).
-3. **Ephemeral, caged agents.** Each task gets a new Pi session with a clean context (the transcript is kept for auditing), limited tools, and read/write access restricted by the **state**, not only the role.
+3. **Ephemeral agents with boundaries per state.** Each task gets a new Pi session with a clean context (the transcript is kept for auditing), limited tools, and read/write access set by the **state**, not only the role.
 4. **Only the orchestrator verifies.** Only the agents that write code have a shell, contained in the run's worktree (ADR-029). What an agent runs is feedback for its attempt; Red, Green and moving the cycle on are decided by the orchestrator from its own runs, so every verification is empirical, never self-reported (NFR-02). Git and dependency management stay with the orchestrator.
-5. **Empirical confirmation of the Red.** A test counts as Red only if the runner executes it and it fails because the behaviour does not exist yet or is wrong. "Undefined", "pending" or a broken test are not Red.
-6. **Git as the rollback mechanism.** A failed attempt returns to the last checkpoint. Reverting costs no tokens.
-7. **Execution isolated from the user's working copy.** oid works in its own git worktree, so a rollback never deletes anything of the user's (NFR-04).
-8. **The methodology's artifacts live in the repo; execution state does not.** `SPEC.md`, feature files and `progress.json` are versioned; `.outside-in/` is ignored by git.
-9. **A single feedback channel at a time.** In the MVP, the terminal. If a second channel is added, whoever answers first wins.
-10. **The artifacts also work without oid.** `SPEC.md`, the feature files and `progress.json` follow the article's formats, and `oid progress`, `oid check` and `oid verify` expose the same rules to any human or agent. A project can advance some features with `oid run` and others with an agent guided by an `AGENTS.md`.
-11. **"It went well" is not evidence.** A session ending, `prompt()` resolving or an agent reporting success proves nothing; the proof is the artifact: the test that ran, the diff, the exit code (NFR-03).
-12. **Every gate judges only what the run adds.** Existing debt is recorded at the start and does not block; new debt does (ADR-021).
+5. **Empirical confirmation of the Red.** A test counts as Red only if the runner executes it and it fails for the right reason: the behaviour does not exist yet or is wrong. "Undefined", "pending" or a broken test are not Red.
+6. **Every gate has a legal way out.** When a gate refuses, the agent gets another attempt, a legal move (a return to a Red, a guard, a revise), or a question to the human; never a dead end it has to work around.
+7. **Every rejection says what to do next.** What failed, the evidence (the failing assertion, the undefined step) and the next action. A bare "fail" brings a blind retry: the agent repeats the same mistake. Tool output changes an agent's behaviour more reliably than a rule in its prompt.
+8. **Every check tells the truth.** The exit code and the report of each tool must agree; a run in which no test ran is a failure, not a pass. A detector with false positives invites a cosmetic fix, so its precision is a requirement.
+9. **Few rules, stated as character.** oid owns the whole prompt of its agents (ADR-008), so the number of its instructions is a design value, counted and kept low. Context (examples, catalogues, the design passages of an FR) informs without competing as rules do.
+10. **Git as the rollback mechanism.** A failed attempt returns to the last checkpoint. Reverting costs no tokens.
+11. **Execution isolated from the user's working copy.** oid works in its own git worktree, so a rollback never deletes anything of the user's (NFR-04).
+12. **The methodology's artifacts live in the repo; execution state does not.** `SPEC.md`, feature files and `progress.json` are versioned; `.outside-in/` is ignored by git.
+13. **A single feedback channel at a time.** In the MVP, the terminal. If a second channel is added, whoever answers first wins.
+14. **The artifacts also work without oid.** `SPEC.md`, the feature files and `progress.json` follow the article's formats (with the extensions the ADRs record), and `oid progress`, `oid check` and `oid verify` expose the same rules to any human or agent. A project can advance some features with `oid run` and others with an agent guided by an `AGENTS.md`.
+15. **"It went well" is not evidence.** A session ending, `prompt()` resolving or an agent reporting success proves nothing; the proof is the artifact: the test that ran, the diff, the exit code (NFR-03).
+16. **Every gate judges only what the run adds.** Existing debt is recorded at the start and does not block; new debt does (ADR-021).
 
 ---
 
@@ -543,7 +569,9 @@ A human's note in answer to a question goes to the next affected task.
 
 ### 7.9. Prompts
 
-`src/agents/prompts/*.ts`, one per state, **procedural** (concrete steps, not goals), with the parts every agent shares in `shared.ts`. Every prompt ends with the obligation to call `report`. Agents never run git; the ones that write tests or code check their work with `try`, and oid's gates judge it.
+`src/agents/prompts/*.ts`, one per state, with the parts every agent shares in `shared.ts`: who the agent is, what oid is and what it checks, the goal of the whole system, and what the agent may read and write, generated from its profile so that the statement and the sandbox cannot differ. Every prompt ends with the obligation to call `report`. Agents never run git; the ones that write tests or code check their work with `try`, and oid's gates judge it.
+
+Today each state's prompt is a numbered procedure. Numbered steps are a constraint of the task: they are kept where they shape the route without taking the agent's thinking away (§3.1, question 3), and each prompt is reviewed toward its outcome. **Direction:** count the instructions of each state's prompt, turn rules into traits where possible, and judge every change by its effect on runs.
 
 Prompts are written in English with no examples in other languages: an English instruction illustrated with words in another language is a strong signal for the model, which overfits to it (NFR-11). They are validated with real runs (§19).
 
@@ -578,14 +606,20 @@ A local model (`llama-cpp-classify`, served by `llama-server`) can replace Jev w
 
 ### 8.2. Catalogue
 
+**Ask per aspect, not one broad question.** The model answers many questions over the same state at no extra cost. Asking about each aspect of a decision (is the failure in a Then step? does it concern the scenario's behaviour? is the test meaningful?) is more precise than one broad question, and it tells which aspect failed, so the next attempt gets a specific note (§3.2, principle 7). **The order of authority holds:** code decides first, the model only what code cannot, the human what the model is not sure of; the model classifies evidence and is never the source of the contract (it approves no spec, feature file or revise).
+
+
 | Point | State | Questions | Policy |
 |:--|:--|:--|:--|
 | Spec check | FR, NFRs, glossary | `noul ambiguous`, `noul testable` | `ambiguous > 0.70` or `testable < 0.50` → ask |
-| Features written | FR, NFRs, feature files | `noul covers_fr`, `noul has_redundant`, `noul has_implementation_details` | `covers_fr < 0.60` or `has_implementation_details > 0.70` → retry before review; probabilities shown in the review |
-| Red gate + test quality | trimmed trace, test, scenario | `choice failure_kind`, `noul test_is_meaningful`, `noul asserts_only_absence` | class per §6.4; `test_is_meaningful < 0.50` → `test_bug`; `asserts_only_absence` is a warning |
+| Features written | FR, NFRs, feature files | `noul covers_fr`, `noul has_redundant`, `noul has_implementation_details`, `noul asserts_ending` (a scenario asserts where the process stops, not a milestone) | `covers_fr < 0.60`, `has_implementation_details > 0.70` or `asserts_ending > 0.70` → retry before review; probabilities shown in the review |
+| Red gate + test quality | trimmed trace, test, scenario | `choice failure_kind`, `noul in_then_step`, `noul about_scenario_behaviour`, `noul test_is_meaningful`, `noul asserts_only_absence` | class per §6.4; `test_is_meaningful < 0.50` → `test_bug`; `asserts_only_absence` is a warning |
 | Effort | target test, signatures | `score complexity [trivial … algorithmic]` | §8.4 |
 | Stuck loop | last 3 normalised failures | `noul same_root_cause` | `> 0.80` → ask without exhausting retries |
 | Finding triage | every finding in scope | one `bool worth_fixing` per finding | `< 0.60` → discarded |
+| Refactor result | the finding, the diff that resolves it | `noul changes_design` (true: the design changed; false: only the appearance, such as a constant named after its value) | `< 0.50` → rejected, with that reason for the next attempt |
+| Guard (with the human) | the scenario, its steps, the code | `noul describes_absence`, `noul then_checks_observable` | shown to the human with the question; never decides alone (the contract is the human's) |
+| After done | FR, its scenarios, the review comment or bug | `noul scenarios_still_describe_fr` | a suggestion: `reopen` or `revise`; the human decides a revise |
 | Definition of done | FR diff, FR, scenarios | `noul dead_code`, `noul out_of_scope`, `score spec_alignment` | **Informational**: warnings in the report and the commit body (ADR-022) |
 
 ### 8.3. Thresholds and calibration
@@ -917,7 +951,8 @@ Principles, learned through defects that reached production in Buddy:
 - **SDK compatibility test** on the shapes oid uses, so that an upgrade breaks the suite, not a run (NFR-09).
 - **`agentDir` isolation test** on every call to `createAgentSession`.
 - **`TOOL_PATH_ARGS` test**: a registered tool with an undeclared path-like parameter fails.
-- **Real runs** on oid itself and on a small reference project (the article's URL shortener) measure retries, interventions, cost and, with Jev, the agreement with humans; they catch prompt regressions and feed calibration. Their results go to the bootstrap log.
+- **Real runs** on oid itself and on a small reference project (the article's URL shortener) catch prompt regressions and feed calibration. Each run records attempts, rejected attempts, blind retries (a retry whose agent was not told what to change), sandbox denials, questions to the human, overrides, cost and time, and, with Jev, the agreement with humans. **Planned (FR-TUI-04):** the final report produces them; today they go to the bootstrap log by hand.
+- **One change at a time.** Between measured runs, change only what fixes a known defect, and judge a change by its effect over several runs, not by one success.
 - oid working on its own repository runs from an installed build, never from the code it changes (ADR-024).
 
 ---
@@ -940,7 +975,18 @@ Principles, learned through defects that reached production in Buddy:
 | A refactored test that stops testing | The test guarantee of the meso scale; assertion counting in `oid tidy`. |
 | Over-engineering in the name of refactoring | Closed lists, metrics that cannot get worse, two references per new export. |
 
-### 20.2. Open checks
+### 20.2. Open checks and decisions
+
+Decisions proposed and not yet taken:
+
+- **Guards.** Accepted by the human only (today), or by a decision model with the evidence of a mutant of the source that makes the scenario fail. Since the guard question was added, the agent reports guards instead of fabricating a Red; a mutant adds a constraint with no evidence yet that it is needed.
+- **Jev's thresholds.** Today's design: one threshold per point and a conservative default. Proposed: three bands (yes, no, ask the human) and a shadow mode, in which Jev answers and the human still decides until the record shows agreement.
+- **Regression in `oid run`.** Today every `BDD_RED` and `BDD_CHECK` runs every passing scenario of the project (§6.7), a cost that grows with it. Proposed: two levels, as `oid verify green` (ADR-030): the feature's scenarios during the cycle, the whole project at the gate.
+- **One test per `TDD_RED`.** One unit of code often makes several scenarios pass; whether "one test, one Green" serves the goal or the theory is to be measured.
+- **Test edits in `REFACTOR`.** Forbidden, so test clean-ups move to the quality gate; whether a test-only refactor item should exist at the micro scale is open.
+
+Checks:
+
 
 - The `score` scale each classification provider returns (Jev on OpenRouter, `llama-cpp-classify`), for the thresholds of §8.
 - Availability and price of `typesafe/jev-1.13` on OpenRouter against `jev-latest` on TypeSafe directly.
