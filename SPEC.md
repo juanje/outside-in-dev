@@ -202,6 +202,10 @@ A unit test found wrong at `tdd_green`, `refactor` or `quality_gate` is fixed by
 
 `oid try <test or scenario>` runs that one test or scenario with the project's runner, then the type check and the linter on the files changed since the last checkpoint, and prints a short verdict: what passes, what fails and why, or which steps are undefined (`--dry-run` only lists the undefined steps). It records nothing, so the agents of a run use it to check their own work quickly, and oid's gates still judge the result.
 
+
+### FR-VERIFY-10: Prove a fixed test with a mutant
+
+When a test or a step definition fixed after the code exists cannot be judged by removing this cycle's code, because the code that makes it pass belongs to an earlier cycle, the agent submits a small change to the source as a diff. oid applies it, runs the test, accepts the fix only if the test then fails with an assertion of the test (not an import error, a missing file or a type error), restores the source itself and records the diff as the evidence. The agent never writes the mutant to the source. A fix with no possible Red still needs proof that the test can tell correct code from broken code.
 ## Functional Requirements — Git isolation
 
 ### FR-GIT-01: Work in an isolated worktree
@@ -254,6 +258,10 @@ Each task receives only what it needs: the scenario and failure for a test, the 
 
 A test task (BDD_RED or TDD_RED) receives the public signatures of the project's exported symbols: the name, the types and the first documentation line, and no body, within the same budget as the catalogue. It still receives no other scenario.
 
+
+### FR-AGENT-10: Every rejection says what to do next
+
+Every rejection oid gives (a gate of `oid run`, `oid verify`, `oid try`, a hook of a session driven through oid's commands) carries what failed, the evidence (the failing assertion, the undefined step, the file) and the next action, and no rejection path can leave the next action empty. A rejection that only says what failed brings a retry that repeats the same mistake.
 ## Functional Requirements — Feature cycle
 
 ### FR-RUN-01: Start a run
@@ -304,6 +312,10 @@ When the retries of a scenario run out, or an agent reports that it is blocked (
 
 `oid clean` removes the worktree and the run data under `.outside-in/runs/` of every finished run, or of the one named with `--run`. It never touches a run in progress, and it keeps the run's branch, which holds the result for the human to review. Every run leaves a worktree behind; without a command to remove them, they pile up next to the project.
 
+
+### FR-RUN-13: A guard is backed by a mutant
+
+In `oid run`, a scenario that passes before any code of this cycle comes with a mutant proposed by the step-writing agent: a small change to the source that breaks the behaviour the scenario protects. oid applies it, checks that the scenario then fails with an assertion of its steps, restores the source and shows the mutant to the human with the guard question. The human still accepts or refuses the guard, and oid records whether the mutant's verdict and the human's answer agree. A guard reviewed through a short diff costs the human less than one reviewed through its steps alone.
 ## Functional Requirements — Terminal interface
 
 ### FR-TUI-01: Progress view

@@ -1,6 +1,6 @@
 # Methodology: Outside-In (Spec → BDD → TDD)
 
-The procedure for agents working on this repository while oid is being bootstrapped. It follows the [Outside-In Development](https://ai.juanjeojeda.com/outside-in-development) article and adds the commands of this project. How to write features, steps, tests and code here is in `docs/CONVENTIONS.md`; why each rule exists is in `DECISIONS.md`.
+The procedure for agents working on this repository while oid is being bootstrapped. It follows the [Outside-In Development](https://ai.juanjeojeda.com/outside-in-development) article and adds the commands of this project. How to write features, steps, tests and code here is in `docs/CONVENTIONS.md`; why each rule exists is in `DECISIONS.md`. `CLAUDE.md` loads `docs/CONVENTIONS.md` as well as `AGENTS.md` because the coordinating session writes code here and needs the same conventions oid's agents receive; `oid run` gives them to its agents through `paths.conventions` and reads neither file.
 
 ## Session start
 
@@ -79,6 +79,10 @@ Then: scenario still red → back to 3. Scenario green → next scenario (2) or,
 Which command (ADR-039): do the scenarios that pass still describe the requirement? Yes (a missing case, a bug against the spec, a review comment): `reopen` ("Review after done"), then `oid progress step FR-… bdd_red` for a new scenario. No: `revise`.
 
 When the human decides that a requirement changed, they run `oid progress revise FR-…` in their own terminal (the hook refuses it from the agent). The FR goes back to `bdd_red` with every scenario `pending`. Then: rewrite the FR's section in `SPEC.md` and its feature file, `oid progress scenario drop` the scenarios that no longer describe anything, and run the cycle again to prove what remains. Do not add a second FR for the same intent; git keeps the old one. If what remains needs no code (the scenarios were only removed or moved), run `oid verify green` on all of them; then the orchestrating session runs `oid progress step FR-… quality_gate`, with no override (ADR-041, ADR-046).
+
+## Changing a prompt's wording
+
+A change to the wording of an agent's prompt (`src/agents/prompts/`), with no change to what the prompt is given, is not a feature: it is a `tune(prompts)` commit, validated by a real `oid run` and recorded in the bootstrap log, with no reopened FR (ADR-057). Change one thing between measured runs. A change to what a prompt is given (its context, its tools, its profile) is behaviour, and goes through its FR.
 
 ## Changing the design
 

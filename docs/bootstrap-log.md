@@ -1,6 +1,15 @@
 # Bootstrap log
 
-One row per FR. "Built with": `claude-code` or `oid run`. "Human interventions" also counts the overrides of the orchestrating session that took effect (ADR-045), noted apart, e.g. `2 (1 override)`. Health delta: change in `oid metrics` (once FR-MET exists). See `docs/BOOTSTRAP.md`.
+One row per FR, fix or measured run (ADR-057). From 2026-10-17 every row uses these definitions; earlier rows are kept as written, and they undercount overrides.
+
+- **Built with:** `claude-code` (with the model, e.g. `claude-code (sonnet subagent)`) or `oid run v<version> (<provider/model>)`.
+- **Human interventions:** every answer a person gives that changes what happens next: approving or editing a feature file, a decision on a Red (`--decide` or the run's question), accepting a guard, a rewrite or skip, a resume, a manual fix. If the coordinating session answers in the person's place, it counts too, marked `(by the session)`.
+- **Overrides:** every `OID_OVERRIDE` that took effect (`.outside-in/overrides.ndjson`), noted apart from the interventions, e.g. `2 (1 override)`.
+- **Cost and time:** for `oid run`, the cost and tokens of the run and its active time; for `claude-code`, `—` unless measured.
+- **Health delta:** the change in `oid metrics` between the commit before the row's work and the commit after it, e.g. `dup +0.2 pp, magic −1`; `0` when nothing changed.
+- **Notes:** what was built or fixed, and for a run, its attempts, rejected attempts, blind retries and sandbox denials.
+
+See `docs/BOOTSTRAP.md`.
 
 | FR | Built with | Retries | Human interventions | Cost | Time | Health delta | Notes |
 |:--|:--|:--|:--|:--|:--|:--|:--|
