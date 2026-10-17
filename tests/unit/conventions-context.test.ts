@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { type CycleState, profileFor } from "../../src/agents/profiles.js";
+import { loadProjectConfig } from "../../src/artifacts/project-config.js";
 import { bddRedContext, featureWriteContext, implementationContext, testTaskContext } from "../../src/agents/context/task-context.js";
 import { qualityFixContext } from "../../src/orchestrator/quality-fix-context.js";
 import { refactorContext } from "../../src/orchestrator/refactor-findings.js";
@@ -39,7 +41,15 @@ describe("the project conventions in the context of a task", () => {
     expect(context.indexOf("SECOND-RULE")).toBeGreaterThan(context.indexOf("FIRST-RULE"));
   });
 
-  it.each(CONTEXTS)("%s has no such section when nothing is configured", (_state, build) => {
+  it.each(CONTEXTS)("%s holds the text of a file its profile lets the agent read: what the agent is shown it may also open", (state, build) => {
+    project(["docs/FIRST.md"]);
+    write("docs/FIRST.md", "FIRST-RULE\n");
+    const read = profileFor(state as CycleState, loadProjectConfig(dir)).read;
+    expect(read.includes("docs/FIRST.md") || read.includes("**")).toBe(true);
+    expect(build()).toContain("FIRST-RULE");
+  });
+
+  it.each(CONTEXTS)("%s has no such section when nothing is configured",(_state, build) => {
     project();
     write("docs/FIRST.md", "FIRST-RULE\n");
     const context = build();
