@@ -346,7 +346,7 @@ If the decision model fails or times out, each decision point applies its conser
 
 ### FR-DEC-03: Decision history
 
-Every decision is logged with its full probabilities and, when it escalated to a human, the human's answer; `oid decisions` shows the agreement between the model and humans per decision point. Thresholds are calibrated with data.
+Every decision is logged with its full probabilities and, when it escalated to a human, the human's answer; `oid decisions` shows the agreement between the model and humans per decision point. Each point starts in shadow mode, with the model answering and the person deciding, and lets the model decide alone only once the record shows enough agreement. Between its thresholds, a point asks the person instead of applying a default. Thresholds are calibrated with data.
 
 ### FR-DEC-04: Detect a stuck loop
 

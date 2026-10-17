@@ -343,7 +343,7 @@ Layers, from the cheapest to the most expensive (ADR-017). The classes are the s
 
 A missing export does not break the vitest file load: it arrives as `undefined` and fails when called. Whether it is a Red depends on whether the name exists in the project, which only the compiler API can answer.
 
-**Layer 3: ambiguous cases.** Today they are an external decision: `oid verify red` exits 2 and whoever orchestrates answers with `--decide <class>`; `oid run` asks the human. **Planned (FR-DEC-01):** Jev answers them, together with whether the test is meaningful (§8.2), and the human only when Jev is unsure (layer 4: confidence below `red_gate`, 0.80, is `test_bug`; the same ambiguity twice asks the human).
+**Layer 3: ambiguous cases.** Today they are an external decision: `oid verify red` exits 2 and whoever orchestrates answers with `--decide <class>`; `oid run` asks the human. **Planned (FR-DEC-01):** Jev answers them, together with whether the test is meaningful (§8.2), in three bands: a valid Red, not a Red, or a question to the person when Jev is unsure (§8.3).
 
 ### 6.5. Integrity
 
@@ -364,7 +364,7 @@ Limit: `limits.max_inner_iterations` per scenario (8). When reached, the run ask
 
 ### 6.7. Regression
 
-In `oid run`, every BDD run includes the current scenario and every scenario already in `pass`; the unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. (`oid verify green` is narrower: the features it verifies, ADR-030; the whole project's regression is the quality gate's.)
+Two levels, as in `oid verify green` (ADR-030): during the cycle, a BDD run includes the current scenario and the scenarios of the feature already in `pass`; the quality gate runs the whole project, and a regression it finds is a new Red for the feature being built. The unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. **Planned (FR-RUN-03, to be revised):** today every BDD run of the cycle still includes every passing scenario of the project.
 
 ### 6.8. Refactor
 
@@ -641,7 +641,7 @@ A local model (`llama-cpp-classify`, served by `llama-server`) can replace Jev w
 
 ### 8.3. Thresholds and calibration
 
-The values above are initial and configurable; they live in the project's configuration, since they are calibrated per project. Every decision is logged with its probabilities and, if it went to the human, their answer; `oid decisions` shows the agreement per point, which is the data for recalibrating them (FR-DEC-03).
+Every point answers in **three bands**: above its upper threshold yes, below its lower threshold no, and between them a question to the person, never a silent default. The values above are the initial thresholds; they are configurable and live in the project's configuration, since they are calibrated per project. Each point starts in **shadow mode**: Jev answers, the person decides, and the agreement is recorded; the point lets Jev decide alone only when the record shows enough agreement (ADR-004). Every decision is logged with its probabilities and, if it went to the human, their answer; `oid decisions` shows the agreement per point, which is the data for recalibrating them (FR-DEC-03).
 
 ### 8.4. Effort
 
@@ -974,6 +974,7 @@ Principles, learned through defects that reached production in Buddy:
 - **`TOOL_PATH_ARGS` test**: a registered tool with an undeclared path-like parameter fails.
 - **Real runs** on oid itself and on a small reference project (the article's URL shortener) catch prompt regressions and feed calibration. Each run records attempts, rejected attempts, blind retries (a retry whose agent was not told what to change), sandbox denials, questions to the human, overrides, cost and time, and, with Jev, the agreement with humans. **Planned (FR-TUI-04):** the final report produces them; today they go to the bootstrap log by hand.
 - **One change at a time.** Between measured runs, change only what fixes a known defect, and judge a change by its effect over several runs, not by one success.
+- **Per scenario:** unit tests and TDD cycles, to see whether "one test per `TDD_RED`" costs more cycles than it saves (ADR-055).
 - **Representative and varied.** The evidence base is a small set of real runs over varied requirements, not more replayed scenarios: almost every defect found late in the bootstrap came from a real run, not from the suite. Scenarios that pin wording or final states make the suite slower and say little.
 - oid working on its own repository runs from an installed build, never from the code it changes (ADR-024).
 
@@ -1001,10 +1002,6 @@ Principles, learned through defects that reached production in Buddy:
 
 Decisions proposed and not yet taken:
 
-- **Jev's thresholds.** Today's design: one threshold per point and a conservative default. Proposed: three bands (yes, no, ask the human) and a shadow mode, in which Jev answers and the human still decides until the record shows agreement.
-- **Regression in `oid run`.** Today every `BDD_RED` and `BDD_CHECK` runs every passing scenario of the project (§6.7), a cost that grows with it. Proposed: two levels, as `oid verify green` (ADR-030): the feature's scenarios during the cycle, the whole project at the gate.
-- **An outcome-evidence gate.** Whether "every scenario and unit test fails without its code and passes with it, and the approved contract is unchanged" could replace part of the sequence, leaving the order inside a scenario or a feature to the agent. The sequence stays the default (§3.1); this is to be answered with data.
-- **One test per `TDD_RED`.** One unit of code often makes several scenarios pass; whether "one test, one Green" serves the goal or the theory is to be measured.
 - **Test edits in `REFACTOR`.** Forbidden, so test clean-ups move to the quality gate; whether a test-only refactor item should exist at the micro scale is open.
 
 Checks:
