@@ -14,7 +14,6 @@ Never skip the quality gate before committing.
 
 ## Where things are
 
-
 | Need                                                                | File                 |
 | ------------------------------------------------------------------- | -------------------- |
 | What is open, what is next                                          | `progress.json`      |
@@ -25,8 +24,6 @@ Never skip the quality gate before committing.
 | The decisions in force, and why                                     | `DECISIONS.md`       |
 | Full technical design (states, gates, profiles, config)             | `docs/design.md`     |
 | How oid is being bootstrapped, and which phase we are in            | `docs/BOOTSTRAP.md`  |
-
-
 
 
 ## Quality gate (all of it, before every commit)
@@ -43,24 +40,17 @@ oid metrics --changed
 
 ## Rules
 
-- **The spec binds the feature; it is not frozen.** While you work on a feature, follow `SPEC.md`, `docs/design.md` and `DECISIONS.md`, and never diverge from them on your own. Do not edit `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` or `docs/design.md` without being asked.
-- **A design that looks wrong is a finding, not an obstacle.** If a requirement, a design section, an ADR or the article contradicts another or the code, stop and propose the change, with the evidence. The human decides; the change then follows "Changing the design" in `docs/METHODOLOGY.md` (ADR-054). Do not work around it.
+- **The spec, the design and the ADRs bind the feature; they are not frozen.** Follow them and never diverge on your own. If one looks wrong or contradicts another or the code, stop and propose the change with the evidence; the human decides, and the change follows "Changing the design" in `docs/METHODOLOGY.md` (ADR-054). Do not edit `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` or `docs/design.md` without being asked.
 - **One feature at a time.** Do not start the next FR until the current one is done.
-- **An ADR is not ignored or quietly edited.** If you think one is wrong, propose the change; once the human agrees, the ADR is rewritten or replaced, never amended by a second entry (ADR-054).
 - **English everywhere** in code, comments, docs and prompts. Prompts and agent-facing text contain no examples in other languages. Test data may use other languages.
 - **Commit after each feature**, referencing the FR: `feat(<area>): FR-AREA-NN <title>`. Use `test(...)`, `fix(...)`, `refactor(...)`, `docs:` and `chore:` for the rest.
 - **Spikes are the only exception to test-first.** They live in `spikes/<name>/`, are never imported by `src/`, record their conclusions in `DECISIONS.md` and are deleted afterwards.
 - **Run oid from an installed build, never from this working tree.** The code being changed is not the code that runs the process.
 
-
-
 ## Traps
 
-Writing features, steps, tests or code: `docs/CONVENTIONS.md` holds the rules, the same ones oid's own agents receive (dynamic imports in steps, Pi's traps, run scenarios that assert milestones, real runners and replays, never rewriting a failing test). The ones below are about driving the cycle.
+Writing features, steps, tests or code: `docs/CONVENTIONS.md`, the same rules oid's own agents receive. Moving the cycle: the hooks refuse what is not allowed and say what to do instead; `docs/METHODOLOGY.md` has the moves (returns, revise and reopen, overrides). What no hook catches:
 
 - **Read progress with** `oid progress current`**,** `status` **and** `show`**.** Do not parse `progress.json`.
-- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** A wrong step or unit test once the code exists goes back to `bdd_red` or `tdd_red` (ADR-038, ADR-044); with no legal move, stop (ADR-045). Both are in `docs/METHODOLOGY.md`.
+- **Do not stash, move or revert files to fabricate a Red or to satisfy integrity.** A wrong step or unit test goes back to a Red (ADR-038, ADR-044); with no legal move, stop (ADR-045).
 - **Do not chain an edit and** `oid verify` **or** `oid progress step` **in the same shell call.** The hook blocks the whole call.
-- **A requirement that changed, so that the passing scenarios no longer describe it, is** `oid progress revise`**, run by the human.** Do not add another FR for it. The exit to `quality_gate` when no code is needed is the orchestrating session's, with no override (ADR-046).
-- **A review or a bug on a** `done` **feature whose passing scenarios still describe it is** `oid progress reopen`**, run by you.** The new `done` goes in the same commit as the fix.
-- **Subagents never override.** `OID_OVERRIDE="<cause>"` is for the orchestrating session only, as the last resort (ADR-045); a subagent with no legal move stops and reports. An edit the step does not allow goes with the override that absorbs it.

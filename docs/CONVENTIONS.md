@@ -7,6 +7,7 @@ These are the rules this project's reviews keep correcting, with the reason for 
 - **A step definition imports code that does not exist yet with a dynamic `import()` inside the step**, never at the top of the file. A static import of a missing module stops cucumber before any scenario runs, so every other scenario fails too.
 - **vitest reports a missing export as `TypeError: (0 , name) is not a function`**, not as an import error. That failure means the function does not exist yet.
 - **cucumber-js 13 has no `json` or `junit` formatter.** Reports are read from `--format message:<file>`.
+- **A test that reads something the code must produce (a file, a record, a value) first asserts that it exists.** Then the missing behaviour fails as an assertion, which oid classifies as a valid Red by itself, and not as a runtime error such as `ENOENT`, which needs someone to decide.
 - **A failing test is never rewritten to fit the code** (`not.toThrow`, a weaker assertion, a deleted check). If the test is wrong, say so in your report.
 - **A test that writes a program to disk (a fake command, a small script) holds code inside code, and escapes are easy to get wrong.** Write that program as a template literal with real line breaks, not as lines joined with "\n": one escape too many writes a backslash and an "n" instead of a line break, the script is invalid, it records nothing, and the test then fails exactly as if the code were missing. It looks like a valid Red that no code can ever make pass.
 
