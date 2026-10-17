@@ -45,7 +45,7 @@ These hold for what is built and for everything still to come.
 
 An agent is a complex system: it organises itself around its goal and its context, and a rule only governs what it reaches. oid fixes the **what** (the scenario, the test, the contract) and the **evidence** (what counts as done), and influences the rest.
 
-**Invariants, held strictly:** the contract the human approved (the specification and the feature files, approved scenarios and their assertions); the evidence (a real Red and a real Green, and checks that tell the truth); safety (secrets, the user's working copy, git). Every other constraint has to justify itself.
+**Invariants, held strictly:** the contract approved from outside oid (the specification and the feature files, approved scenarios and their assertions): the person who uses oid approves it, however they answer, even through another agent they drive; oid never approves it by itself; the evidence (a real Red and a real Green, and checks that tell the truth); safety (secrets, the user's working copy, git). Every other constraint has to justify itself.
 
 **The sequence of the cycle** (scenario by scenario, a Red before each Green) is a constraint on the how, kept deliberately: writing the test from the specification before the code shapes the design and keeps tests from being fitted to the code. Where it blocks legitimate work, because a Red is impossible or artificial, the legal path is evidence by mutation (ADR-056), not another return.
 
@@ -803,7 +803,11 @@ TIDY_ANALYZE ─▶ TIDY_TRIAGE ─▶ TIDY_PLAN ─▶ TIDY_REVIEW ─▶ (per 
 
 The test-first principle applied to a bug: **production code is not touched until a test shows the failure**. The failing test is the reproduction; if one cannot be written, the bug is not understood. The flow: understand the report (no code run), locate the affected modules (read-only), choose the kind of test (a new regression test by default; a missing unit test; changing an existing test only with human confirmation, since that is exactly the door to test cheating), confirm it red, fix the minimum, quality gate, `fix(...)` commit. Because the test is confirmed red before the code changes, and the coding agent cannot touch it afterwards, "reintroduce the bug to check the test" is done by construction.
 
-### 14.3. `new-project` and Python — Direction
+### 14.3. Claude Code as the agents' harness — Direction
+
+oid's agents run on Pi today (ADR-002). Some people will want them to run in Claude Code instead: to use a subscription they already have, or because they prefer how it writes code. The direction is a second harness behind the same boundary of `src/agents/` (§5): each of oid's agents defined for Claude Code with the same role, prompt, context and limits, and the boundaries built with what that harness offers (its hooks, its permissions, its subagents). The state machine, the gates and the evidence stay oid's, whichever harness runs the agent. That adapter would be part of the product, designed with the questions of §3.1; the hook oid uses for its own development today (`scripts/claude-hook.mjs`, ADR-045, ADR-046) is not it.
+
+### 14.4. `new-project` and Python — Direction
 
 `new-project`: the full Phase 0, deterministic scaffolding (package, TypeScript, cucumber and vitest configuration), and the normal cycle over the MVP's FRs. Python: the same contract behind the stack seam (§5), with `uv`, `pytest-bdd` (one test per scenario through `@scenario`, never `scenarios(...)`, which would bind unwritten scenarios), `pytest`, `ruff` and `mypy`, and Python's own Red signals (`ModuleNotFoundError`, `AttributeError` or `NameError` for a project name is `missing_implementation`).
 
@@ -997,8 +1001,6 @@ Principles, learned through defects that reached production in Buddy:
 
 Decisions proposed and not yet taken:
 
-- **Gate mode.** Whether driving the cycle through oid's commands with hooks, from an agent oid does not run (Claude Code, Cursor…), is a mode of the product or only the scaffolding of oid's own development. It decides what happens to the hook adapter, ADR-045 and ADR-046.
-- **Who approves in that mode.** In oid's own development the coordinating session has approved feature files and the removal of approved assertions on the human's behalf; the invariants of §3.1 say the contract is the human's.
 - **Jev's thresholds.** Today's design: one threshold per point and a conservative default. Proposed: three bands (yes, no, ask the human) and a shadow mode, in which Jev answers and the human still decides until the record shows agreement.
 - **Regression in `oid run`.** Today every `BDD_RED` and `BDD_CHECK` runs every passing scenario of the project (§6.7), a cost that grows with it. Proposed: two levels, as `oid verify green` (ADR-030): the feature's scenarios during the cycle, the whole project at the gate.
 - **An outcome-evidence gate.** Whether "every scenario and unit test fails without its code and passes with it, and the approved contract is unchanged" could replace part of the sequence, leaving the order inside a scenario or a feature to the agent. The sequence stays the default (§3.1); this is to be answered with data.
