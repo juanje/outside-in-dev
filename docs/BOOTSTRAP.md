@@ -46,7 +46,7 @@ scripts/install-release.sh ./outside-in-dev-<version>.tgz
 3. FR-RUN-12: `oid clean`.
 4. FR-AGENT-10: every rejection says what to do next, in a typed shape.
 5. FR-VERIFY-10 and FR-RUN-13: evidence by mutation where a Red is impossible (ADR-056), guards in shadow mode.
-6. FR-RUN-03, revised by the human (`oid progress revise FR-RUN-03`): the cycle's BDD runs cover the feature's scenarios, the gate the whole project (ADR-030).
+6. FR-RUN-03 and FR-RUN-04, revised by the human (`oid progress revise FR-RUN-03`, `oid progress revise FR-RUN-04`): the BDD runs of `BDD_RED` and `BDD_CHECK` cover the feature's scenarios, the gate the whole project (ADR-030). Their scenarios that break "Add to cart" of FR-CART-01 become scenarios that break a passing scenario of the same feature; the gate's case is already in FR-RUN-06.
 
 **Process changes (ADR-057), alongside the FRs:**
 
