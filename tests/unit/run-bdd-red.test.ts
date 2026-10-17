@@ -1,5 +1,8 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { BDD_RED, profileFor } from "../../src/agents/profiles.js";
+import { bddRedPrompt } from "../../src/agents/prompts/bdd-red.js";
+import { loadProjectConfig } from "../../src/artifacts/project-config.js";
 import { FakeAgent } from "../../features/support/fake-agent.js";
 import { gitIn } from "./git-fixture.js";
 import { SCENARIO, stepsProject } from "./feature-cycle-fixture.js";
@@ -25,13 +28,13 @@ describe("BDD Red of a run", () => {
       checkpoint: subjects.filter((subject) => subject === `oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`),
       session: [saved.fr, saved.scenario],
       progress,
-      task: agent.stepTasks[0]?.split("\n")[0],
+      task: agent.stepTasks[0]?.startsWith(bddRedPrompt("FR-A-01", "features/FR-A-01.feature:4", profileFor(BDD_RED, loadProjectConfig(saved.worktree)))),
     }).toEqual({
       transition: ["BDD_RED", "TDD_RED"],
       checkpoint: [`oid: checkpoint FR-A-01 BDD_RED ${SCENARIO}`],
       session: ["FR-A-01", { index: 0, name: SCENARIO, location: "features/FR-A-01.feature:4" }],
       progress: [["FR-A-01", "tdd_red", [{ name: SCENARIO, bdd: "fail" }]], ["FR-A-02", "bdd_red", []]],
-      task: "You are a specialist in Behaviour-Driven Development and test automation: you write the step definitions that turn a Gherkin scenario into an executable test.",
+      task: true,
     });
   }, REAL_PROCESS_TIMEOUT_MS);
 

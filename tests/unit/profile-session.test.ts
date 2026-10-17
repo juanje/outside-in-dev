@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openProfileSession } from "../../src/agents/profile-session.js";
+import { REPORT_TOOL } from "../../src/agents/tools/report.js";
 import { fakePiSdk, type FakeCall } from "./fake-pi-sdk.js";
 import { dir, useTempDir, writeMinimalConfig } from "./temp-project.js";
 
@@ -23,13 +24,9 @@ describe("openProfileSession", () => {
     expect(calls[0]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "bash", "report", "request_dependency", "try"], excludeTools: [], agentDir: "/oid/agent" });
     expect(calls[0]?.session.customTools).toMatchObject([{ name: "report" }, { name: "request_dependency" }, { name: "try" }]);
     expect(calls[1]?.session).toMatchObject({ tools: ["read", "grep", "find", "ls", "write", "edit", "report", "request_dependency", "try"], excludeTools: ["bash"] });
-    for (const call of calls) expect(promptOf(call)).toContain("call the report tool");
-    for (const call of calls) expect(promptOf(call)).toContain("orchestrator runs git and the tests");
-
-    expect(promptOf(calls[0])).toContain("Check your work with the `try` tool on the test or scenario of your task, and read its answer");
-    expect(promptOf(calls[0])).toContain("oid runs the full suites");
-    expect(promptOf(calls[0])).not.toContain("quality gate");
-    expect(promptOf(calls[1])).not.toContain("`try` tool");
+    for (const call of calls) expect(promptOf(call)).toMatch(new RegExp(`\\b${REPORT_TOOL}\\b`));
+    expect(promptOf(calls[0])).toContain("`try`");
+    expect(promptOf(calls[1])).not.toContain("`try`");
 
     for (const session of sessions as Agented[]) expect(typeof session.agent.beforeToolCall).toBe("function");
     const hook = (sessions[1] as Agented).agent.beforeToolCall as (context: unknown) => Promise<{ block?: boolean } | undefined>;

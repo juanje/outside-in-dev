@@ -80,7 +80,7 @@ describe("the inner loop of a run", () => {
     const agent = cartAgent();
     const { saved } = await approvedRun(loopProject(), agent);
     expect({
-      target: agent.codeRoute.tasks[0]?.includes('call the `try` tool with target "tests/unit/cart.test.ts > cart > adds"'),
+      target: agent.codeRoute.tasks[0]?.includes('target "tests/unit/cart.test.ts > cart > adds"'),
       session: saved.unitRed?.test,
     }).toEqual({ target: true, session: "tests/unit/cart.test.ts > cart > adds" });
   }, REAL_PROCESS_TIMEOUT_MS);

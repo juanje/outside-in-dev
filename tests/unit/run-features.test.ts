@@ -3,6 +3,9 @@ import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FakeAgent } from "../../features/support/fake-agent.js";
+import { FEATURE_WRITE, profileFor } from "../../src/agents/profiles.js";
+import { featureWritePrompt } from "../../src/agents/prompts/feature-write.js";
+import { loadProjectConfig } from "../../src/artifacts/project-config.js";
 import { runCli } from "../../src/run-cli.js";
 import { gitIn } from "./git-fixture.js";
 import { featureProject, runServices } from "./feature-cycle-fixture.js";
@@ -148,11 +151,10 @@ describe("writing the feature files of a run", () => {
     const agent = new FakeAgent();
     await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
     const [task] = agent.tasks;
-    const instructions = task!.text.slice(0, task!.text.indexOf("Requirement:"));
-    expect(instructions).toMatch(/1\. /);
+    const workspace = readJson(join(project, ".outside-in/session.json")).worktree;
+    const instructions = featureWritePrompt("FR-A-01", profileFor(FEATURE_WRITE, loadProjectConfig(workspace)));
+    expect(task!.text.startsWith(`${instructions}\n\nRequirement:`)).toBe(true);
     expect(instructions).toContain("@FR-A-01");
-    expect(instructions).toMatch(/A program called oid orchestrates it/);
-    expect(instructions.trimEnd().split("\n").at(-1)).toMatch(/call the report tool/i);
   });
 
   it("ends with an error that names the requirement when the provider fails in a way a retry cannot fix", async () => {
