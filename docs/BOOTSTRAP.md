@@ -44,6 +44,14 @@ scripts/install-release.sh ./outside-in-dev-<version>.tgz
 1. Spike S3, then FR-TUI-02 and FR-TUI-01: cards and feature review, then the progress view.
 2. FR-TUI-04: final report.
 3. FR-RUN-12: `oid clean`.
+4. FR-AGENT-10: every rejection says what to do next, in a typed shape.
+5. FR-VERIFY-10 and FR-RUN-13: evidence by mutation where a Red is impossible (ADR-056), guards in shadow mode.
+
+**Process changes (ADR-057), alongside the FRs:**
+
+- [ ] Rewrite the unit tests that pin prompt wording (`tests/unit/*-prompt.test.ts`, `fix-at-cause-sentences.ts`) so that they check the mechanism.
+- [ ] `tune(prompts)`: split the fix-at-cause trait (keep its value and why; drop the "never" clauses the sandbox and integrity enforce; move "do not shape code to one test" to `CODE_GREEN`), then review each state's prompt against the skill checklist (design §7.9). One change per measured run.
+- [ ] A small set of real runs over varied requirements as the evidence base for prompt changes.
 
 **Switch-over.**
 

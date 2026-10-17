@@ -43,7 +43,13 @@ These hold for what is built and for everything still to come.
 
 ### 3.1. Influence, not control (ADR-055)
 
-An agent is a complex system: it organises itself around its goal and its context, and a rule only governs what it reaches. oid fixes the **what** (the scenario, the test, the contract) and the **evidence** (what counts as done); inside each step, the agent organises the **how**. oid acts on four parameters:
+An agent is a complex system: it organises itself around its goal and its context, and a rule only governs what it reaches. oid fixes the **what** (the scenario, the test, the contract) and the **evidence** (what counts as done), and influences the rest.
+
+**Invariants, held strictly:** the contract the human approved (the specification and the feature files, approved scenarios and their assertions); the evidence (a real Red and a real Green, and checks that tell the truth); safety (secrets, the user's working copy, git). Every other constraint has to justify itself.
+
+**The sequence of the cycle** (scenario by scenario, a Red before each Green) is a constraint on the how, kept deliberately: writing the test from the specification before the code shapes the design and keeps tests from being fitted to the code. Where it blocks legitimate work, because a Red is impossible or artificial, the legal path is evidence by mutation (ADR-056), not another return.
+
+oid acts on four parameters:
 
 | Parameter | In oid |
 |:--|:--|
@@ -61,6 +67,8 @@ A constraint is kept only if it passes six questions:
 5. Does it restrain without forcing one single way of doing the task?
 6. Is it measured, and changed when the measurement says so (§19)?
 
+Feedback and reasons are structure, not style: every rejection carries what failed, the evidence and the next action in a typed shape (**Planned, FR-AGENT-10**), and every rule addressed to an agent carries its reason. A rule without one is missing its reason, belongs in the environment, or goes.
+
 ### 3.2. Principles
 
 1. **The orchestrator owns the cycle.** The state machine decides the next step and judges each result; agents do single tasks and hand back (ADR-001).
@@ -69,9 +77,9 @@ A constraint is kept only if it passes six questions:
 4. **Only the orchestrator verifies.** Only the agents that write code have a shell, contained in the run's worktree (ADR-029). What an agent runs is feedback for its attempt; Red, Green and moving the cycle on are decided by the orchestrator from its own runs, so every verification is empirical, never self-reported (NFR-02). Git and dependency management stay with the orchestrator.
 5. **Empirical confirmation of the Red.** A test counts as Red only if the runner executes it and it fails for the right reason: the behaviour does not exist yet or is wrong. "Undefined", "pending" or a broken test are not Red.
 6. **Every gate has a legal way out.** When a gate refuses, the agent gets another attempt, a legal move (a return to a Red, a guard, a revise), or a question to the human; never a dead end it has to work around.
-7. **Every rejection says what to do next.** What failed, the evidence (the failing assertion, the undefined step) and the next action. A bare "fail" brings a blind retry: the agent repeats the same mistake. Tool output changes an agent's behaviour more reliably than a rule in its prompt.
+7. **Every rejection says what to do next.** What failed, the evidence (the failing assertion, the undefined step) and the next action. A bare "fail" brings a blind retry: the agent repeats the same mistake. Tool output changes an agent's behaviour more reliably than a rule in its prompt. Today it depends on how each gate's message was written (`Rejection` is free text); **Planned (FR-AGENT-10):** a typed shape no rejection path can leave without a next action.
 8. **Every check tells the truth.** The exit code and the report of each tool must agree; a run in which no test ran is a failure, not a pass. A detector with false positives invites a cosmetic fix, so its precision is a requirement.
-9. **Few rules, stated as character.** oid owns the whole prompt of its agents (ADR-008), so the number of its instructions is a design value, counted and kept low. Context (examples, catalogues, the design passages of an FR) informs without competing as rules do.
+9. **Few rules, each with its reason; character over limits.** oid owns the whole prompt of its agents (ADR-008), so the number of its instructions is a design value, counted and kept low. A trait states a value and its why; a limit the environment already enforces (the sandbox, integrity) is not repeated in the prompt; a limit it cannot enforce goes next to the step where it applies. Context (examples, catalogues, the design passages of an FR) informs without competing as rules do.
 10. **Git as the rollback mechanism.** A failed attempt returns to the last checkpoint. Reverting costs no tokens.
 11. **Execution isolated from the user's working copy.** oid works in its own git worktree, so a rollback never deletes anything of the user's (NFR-04).
 12. **The methodology's artifacts live in the repo; execution state does not.** `SPEC.md`, feature files and `progress.json` are versioned; `.outside-in/` is ignored by git.
@@ -571,7 +579,16 @@ A human's note in answer to a question goes to the next affected task.
 
 `src/agents/prompts/*.ts`, one per state, with the parts every agent shares in `shared.ts`: who the agent is, what oid is and what it checks, the goal of the whole system, and what the agent may read and write, generated from its profile so that the statement and the sandbox cannot differ. Every prompt ends with the obligation to call `report`. Agents never run git; the ones that write tests or code check their work with `try`, and oid's gates judge it.
 
-Today each state's prompt is a numbered procedure. Numbered steps are a constraint of the task: they are kept where they shape the route without taking the agent's thinking away (§3.1, question 3), and each prompt is reviewed toward its outcome. **Direction:** count the instructions of each state's prompt, turn rules into traits where possible, and judge every change by its effect on runs.
+Each state's prompt is a **skill**: its trigger is the state, and its success criterion is the gate. Numbered steps stay: they keep the agent from improvising the order, and what fails is usually what is missing around them (ADR-057). Each prompt is checked against this list:
+
+- **Step 0, the input:** what the agent has (the scenario, the failure, the files), stated before it acts, so that it does not drift into orientation.
+- **A reason for any order that is not obvious.**
+- **The success criterion in plain words:** the gate it must pass, so that the agent knows what oid will accept before it reports.
+- **Negative constraints at the step they apply to,** not in the shared preamble.
+- **A short checklist at the end** of a prompt with five steps or more.
+- **No informational preamble before the steps.** `shared.ts` (about 760 words, before every state's steps) keeps the identity short, with traits and their reasons; what is operational moves to the step that needs it. Its fix-at-cause trait keeps its value and its why; its "never" clauses that the sandbox and integrity already enforce leave the prompt, and the one they cannot enforce (shaping code to one test) moves to `CODE_GREEN`.
+
+Prompt wording is environment, not contract: unit tests check the mechanism (generated permissions, the conventions present, the shared part once, the report obligation last), and wording is judged by runs (§19).
 
 Prompts are written in English with no examples in other languages: an English instruction illustrated with words in another language is a strong signal for the model, which overfits to it (NFR-11). They are validated with real runs (§19).
 
@@ -953,6 +970,7 @@ Principles, learned through defects that reached production in Buddy:
 - **`TOOL_PATH_ARGS` test**: a registered tool with an undeclared path-like parameter fails.
 - **Real runs** on oid itself and on a small reference project (the article's URL shortener) catch prompt regressions and feed calibration. Each run records attempts, rejected attempts, blind retries (a retry whose agent was not told what to change), sandbox denials, questions to the human, overrides, cost and time, and, with Jev, the agreement with humans. **Planned (FR-TUI-04):** the final report produces them; today they go to the bootstrap log by hand.
 - **One change at a time.** Between measured runs, change only what fixes a known defect, and judge a change by its effect over several runs, not by one success.
+- **Representative and varied.** The evidence base is a small set of real runs over varied requirements, not more replayed scenarios: almost every defect found late in the bootstrap came from a real run, not from the suite. Scenarios that pin wording or final states make the suite slower and say little.
 - oid working on its own repository runs from an installed build, never from the code it changes (ADR-024).
 
 ---
@@ -979,9 +997,11 @@ Principles, learned through defects that reached production in Buddy:
 
 Decisions proposed and not yet taken:
 
-- **Guards.** Accepted by the human only (today), or by a decision model with the evidence of a mutant of the source that makes the scenario fail. Since the guard question was added, the agent reports guards instead of fabricating a Red; a mutant adds a constraint with no evidence yet that it is needed.
+- **Gate mode.** Whether driving the cycle through oid's commands with hooks, from an agent oid does not run (Claude Code, Cursor…), is a mode of the product or only the scaffolding of oid's own development. It decides what happens to the hook adapter, ADR-045 and ADR-046.
+- **Who approves in that mode.** In oid's own development the coordinating session has approved feature files and the removal of approved assertions on the human's behalf; the invariants of §3.1 say the contract is the human's.
 - **Jev's thresholds.** Today's design: one threshold per point and a conservative default. Proposed: three bands (yes, no, ask the human) and a shadow mode, in which Jev answers and the human still decides until the record shows agreement.
 - **Regression in `oid run`.** Today every `BDD_RED` and `BDD_CHECK` runs every passing scenario of the project (§6.7), a cost that grows with it. Proposed: two levels, as `oid verify green` (ADR-030): the feature's scenarios during the cycle, the whole project at the gate.
+- **An outcome-evidence gate.** Whether "every scenario and unit test fails without its code and passes with it, and the approved contract is unchanged" could replace part of the sequence, leaving the order inside a scenario or a feature to the agent. The sequence stays the default (§3.1); this is to be answered with data.
 - **One test per `TDD_RED`.** One unit of code often makes several scenarios pass; whether "one test, one Green" serves the goal or the theory is to be measured.
 - **Test edits in `REFACTOR`.** Forbidden, so test clean-ups move to the quality gate; whether a test-only refactor item should exist at the micro scale is open.
 
@@ -1005,3 +1025,4 @@ Each is a difference to resolve with the human: either the document describes th
 - **Micro refactor acceptance** checks the findings, complexity, the unit suite, types and the current scenario, but not duplicated lines, the two-references rule or the full BDD regression of §6.8.
 - **The report against the diff** is checked only in `FEATURE_WRITE`.
 - **The test-writing agent** does not receive the names of the existing unit tests.
+- **Dead ends still open in `oid verify`** (bootstrap log): a guard scenario fixed after the code exists has no legal return, since it passes without this cycle's code by design; a step of an earlier scenario fixed late is judged against the last scenario's Red and cannot return; a duplication finding in a step definition has no legal move, since a step changes only at `bdd_red` and a return needs a scenario that fails without this cycle's code. **Planned (FR-VERIFY-10):** evidence by mutation (ADR-056).

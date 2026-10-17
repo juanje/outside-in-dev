@@ -3660,6 +3660,21 @@
       "id": "FR-RUN-12",
       "title": "Clean up finished runs",
       "status": "pending"
+    },
+    {
+      "id": "FR-VERIFY-10",
+      "title": "Prove a fixed test with a mutant",
+      "status": "pending"
+    },
+    {
+      "id": "FR-AGENT-10",
+      "title": "Every rejection says what to do next",
+      "status": "pending"
+    },
+    {
+      "id": "FR-RUN-13",
+      "title": "A guard is backed by a mutant",
+      "status": "pending"
     }
   ]
 }

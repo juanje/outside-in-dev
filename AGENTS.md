@@ -43,7 +43,7 @@ oid metrics --changed
 - **The spec, the design and the ADRs bind the feature; they are not frozen.** Follow them and never diverge on your own. If one looks wrong or contradicts another or the code, stop and propose the change with the evidence; the human decides, and the change follows "Changing the design" in `docs/METHODOLOGY.md` (ADR-054). Do not edit `SPEC.md`, `DOMAIN.md`, `DECISIONS.md` or `docs/design.md` without being asked.
 - **One feature at a time.** Do not start the next FR until the current one is done.
 - **English everywhere** in code, comments, docs and prompts. Prompts and agent-facing text contain no examples in other languages. Test data may use other languages.
-- **Commit after each feature**, referencing the FR: `feat(<area>): FR-AREA-NN <title>`. Use `test(...)`, `fix(...)`, `refactor(...)`, `docs:` and `chore:` for the rest.
+- **Commit after each feature**, referencing the FR: `feat(<area>): FR-AREA-NN <title>`. Use `test(...)`, `fix(...)`, `refactor(...)`, `tune(prompts)` (prompt wording only, `docs/METHODOLOGY.md`), `docs:` and `chore:` for the rest.
 - **Spikes are the only exception to test-first.** They live in `spikes/<name>/`, are never imported by `src/`, record their conclusions in `DECISIONS.md` and are deleted afterwards.
 - **Run oid from an installed build, never from this working tree.** The code being changed is not the code that runs the process.
 
