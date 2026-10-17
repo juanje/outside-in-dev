@@ -46,12 +46,14 @@ scripts/install-release.sh ./outside-in-dev-<version>.tgz
 3. FR-RUN-12: `oid clean`.
 4. FR-AGENT-10: every rejection says what to do next, in a typed shape.
 5. FR-VERIFY-10 and FR-RUN-13: evidence by mutation where a Red is impossible (ADR-056), guards in shadow mode.
+6. FR-RUN-03, revised by the human (`oid progress revise FR-RUN-03`): the cycle's BDD runs cover the feature's scenarios, the gate the whole project (ADR-030).
 
 **Process changes (ADR-057), alongside the FRs:**
 
 - [ ] Rewrite the unit tests that pin prompt wording (`tests/unit/*-prompt.test.ts`, `fix-at-cause-sentences.ts`) so that they check the mechanism.
 - [ ] `tune(prompts)`: split the fix-at-cause trait (keep its value and why; drop the "never" clauses the sandbox and integrity enforce; move "do not shape code to one test" to `CODE_GREEN`), then review each state's prompt against the skill checklist (design §7.9). One change per measured run.
 - [ ] A small set of real runs over varied requirements as the evidence base for prompt changes.
+- [ ] `tune(prompts)`: the coding agent's prompt states its objective and its place in the workflow: it is one step of several, the next steps depend on it doing its part (make this test pass, no more and no less), and other agents do the rest. Measured against tests and TDD cycles per scenario.
 
 **Switch-over.**
 
