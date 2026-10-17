@@ -41,16 +41,15 @@ scripts/install-release.sh ./outside-in-dev-<version>.tgz
 
 **Left, in this order** (the human sets the focus; `progress.json` keeps the specification order):
 
-1. Spike S3, then FR-TUI-02 and FR-TUI-01: cards and feature review, then the progress view.
-2. FR-TUI-04: final report.
-3. FR-RUN-12: `oid clean`.
-4. FR-AGENT-10: every rejection says what to do next, in a typed shape.
-5. FR-VERIFY-10 and FR-RUN-13: evidence by mutation where a Red is impossible (ADR-056), guards in shadow mode.
-6. FR-RUN-03 and FR-RUN-04, revised by the human (`oid progress revise FR-RUN-03`, `oid progress revise FR-RUN-04`): the BDD runs of `BDD_RED` and `BDD_CHECK` cover the feature's scenarios, the gate the whole project (ADR-030). Their scenarios that break "Add to cart" of FR-CART-01 become scenarios that break a passing scenario of the same feature; the gate's case is already in FR-RUN-06.
+1. FR-AGENT-10: every rejection says what failed, the evidence and the next action, in a typed shape.
+2. Rewrite the unit tests that pin prompt wording (`tests/unit/*-prompt.test.ts`, `fix-at-cause-sentences.ts`) so that they check the mechanism (ADR-057). `test(...)` work, not a feature.
+3. FR-RUN-03 and FR-RUN-04, revised by the human (`oid progress revise FR-RUN-03`, `oid progress revise FR-RUN-04`): the regression of `oid run` in two levels (ADR-030, design §6.7).
+4. FR-VERIFY-10, then FR-RUN-13: evidence by mutation where a Red is impossible (ADR-056), guards in shadow mode.
+5. The `tune(prompts)` tasks below, one change per measured run.
+6. The rest of the MVP: spike S3, FR-TUI-02, FR-TUI-01, FR-TUI-04, FR-RUN-12.
 
 **Process changes (ADR-057), alongside the FRs:**
 
-- [ ] Rewrite the unit tests that pin prompt wording (`tests/unit/*-prompt.test.ts`, `fix-at-cause-sentences.ts`) so that they check the mechanism.
 - [ ] `tune(prompts)`: split the fix-at-cause trait (keep its value and why; drop the "never" clauses the sandbox and integrity enforce; move "do not shape code to one test" to `CODE_GREEN`), then review each state's prompt against the skill checklist (design §7.9). One change per measured run.
 - [ ] A small set of real runs over varied requirements as the evidence base for prompt changes.
 - [ ] `tune(prompts)`: the coding agent's prompt states its objective and its place in the workflow: it is one step of several, the next steps depend on it doing its part (make this test pass, no more and no less), and other agents do the rest. Measured against tests and TDD cycles per scenario.
