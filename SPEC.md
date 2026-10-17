@@ -356,7 +356,7 @@ If the last attempts fail for the same root cause, the run asks for help instead
 
 ### FR-REF-01: Refactor the whole feature
 
-Once all scenarios of a feature pass, detectors run on the feature's full diff, including tests, steps and documentation, and on duplication between the feature and the rest of the code. Each group of findings becomes an item fixed by the agent that owns the files; failed items are rolled back and reported.
+Once all scenarios of a feature pass, detectors run on the feature's full diff, including tests, steps and documentation, and on duplication between the feature and the rest of the code. Each group of findings becomes an item fixed by the agent that owns the files, in two phases: first the items that change source code, with the tests fixed, then the items that change tests and steps, with the source fixed; no item changes both. Failed items are rolled back and reported.
 
 ### FR-REF-02: Refactored tests keep testing
 
@@ -406,7 +406,7 @@ The human approves, removes or reorders items before anything changes.
 
 ### FR-TIDY-03: Apply cleanup items
 
-Each approved item is applied by the agent that owns its files, verified with the refactor acceptance rules and committed on its own; tests touched by an item must keep their identities and their number of assertions. Failed items are rolled back and reported.
+Each approved item is applied by the agent that owns its files, verified with the refactor acceptance rules and committed on its own; source items come before test items, and no item changes both; tests touched by an item must keep their identities and their number of assertions. Failed items are rolled back and reported.
 
 ### FR-TIDY-04: Propose a cleanup
 

@@ -396,6 +396,8 @@ A finding is `{ id, category, file, range, symbol?, detail, related? }`; `relate
 
 With all scenarios green and before the quality gate: detectors on **the FR's whole diff**, tests, steps and documentation included; a duplication counts if one of its parts is FR code. Findings are grouped into items (both sides of a duplication together), each fixed by the agent that owns the files, one checkpoint per accepted item; a rejected item is rolled back and reported.
 
+**Two phases, in this order, never mixed.** First the **source phase**: items that change source code, with every test and step fixed, so the tests prove the behaviour did not change. Then the **test phase**: items that change tests and steps, with the source fixed, so the code proves the tests still check the same thing (and the guarantee below proves they did not get weaker). The test phase comes second so that the tests follow the cleaned structure of the code. A change that would need both, such as renaming a function the tests import, takes three legal steps: the source phase adds the new name and keeps the old one as an alias; the test phase moves the tests to the new name; a last source item removes the alias, with the tests fixed on the new name.
+
 **Refactored tests keep testing.** In a temporary worktree with the code from where the FR started and the refactored tests on top, every test or scenario added in the FR must fail, and every earlier one must pass. A refactored test that passes against the old code has stopped testing something.
 
 #### Macro scale: `oid tidy` — Planned (FR-TIDY, §14.1)
@@ -405,7 +407,7 @@ With all scenarios green and before the quality gate: detectors on **the FR's wh
 All deterministic, at every scale:
 
 - **Behaviour does not change.** Unit suite and BDD (with regression) green; no new type errors.
-- **Integrity holds.** A source refactor does not touch tests; a test refactor does not touch source. A change that needs both is two items.
+- **Integrity holds.** A source refactor does not touch tests; a test refactor does not touch source; source and tests never change in the same item. The micro scale changes source only, never tests; tests are refactored only in the test phase of the meso scale and in `oid tidy`, with the same order. A change that needs both goes through an alias (meso scale, above).
 - **The item's findings disappear**, and no new one appears in the touched files.
 - **Nothing gets worse.** The complexity of the touched functions and the duplicated lines do not increase.
 - **No premature abstraction.** Every new exported symbol has at least two references. A single-use helper is accepted only if the finding was about complexity.
@@ -998,14 +1000,7 @@ Principles, learned through defects that reached production in Buddy:
 | A refactored test that stops testing | The test guarantee of the meso scale; assertion counting in `oid tidy`. |
 | Over-engineering in the name of refactoring | Closed lists, metrics that cannot get worse, two references per new export. |
 
-### 20.2. Open checks and decisions
-
-Decisions proposed and not yet taken:
-
-- **Test edits in `REFACTOR`.** Forbidden, so test clean-ups move to the quality gate; whether a test-only refactor item should exist at the micro scale is open.
-
-Checks:
-
+### 20.2. Open checks
 
 - The `score` scale each classification provider returns (Jev on OpenRouter, `llama-cpp-classify`), for the thresholds of §8.
 - Availability and price of `typesafe/jev-1.13` on OpenRouter against `jev-latest` on TypeSafe directly.
