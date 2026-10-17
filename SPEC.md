@@ -261,7 +261,7 @@ A test task (BDD_RED or TDD_RED) receives the public signatures of the project's
 
 ### FR-AGENT-10: Every rejection says what to do next
 
-Every rejection oid gives (a gate of `oid run`, `oid verify`, `oid try`, a hook of a session driven through oid's commands) carries what failed, the evidence (the failing assertion, the undefined step, the file) and the next action, and no rejection path can leave the next action empty. A rejection that only says what failed brings a retry that repeats the same mistake.
+Every rejection oid gives (a gate of `oid run`, `oid verify`, `oid try`, a tool call that the sandbox or the containment denies to an agent) carries what failed, the evidence (the failing assertion, the undefined step, the file) and the next action, and no rejection path can leave the next action empty. A rejection that only says what failed brings a retry that repeats the same mistake.
 ## Functional Requirements — Feature cycle
 
 ### FR-RUN-01: Start a run
