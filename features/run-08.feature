@@ -147,3 +147,9 @@ Feature: Retries and escalation
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "bug", "bug" and "abort"
     Then the second question about the Red mentions "attempt 2" and "features/steps/cart-lines.steps.ts"
     And the second question about the Red mentions "the cart lines could not be loaded" and not "the cart could not be built"
+
+  Scenario: The question about the Red of a retried unit test says which attempt it is and which files it changed
+    Given the project allows 1 retry for each state
+    And the test-writing agent's first and second attempts each write a unit test that fails with an error that is not an assertion
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "bug", "bug" and "abort"
+    Then the second question about the Red mentions "attempt 2" and "tests/unit/cart-lines.test.ts"

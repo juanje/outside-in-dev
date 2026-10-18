@@ -69,6 +69,13 @@ Given("the step-writing agent's first attempt writes steps that fail with the er
   apply(this, plan);
 });
 
+Given("the test-writing agent's first and second attempts each write a unit test that fails with an error that is not an assertion", function (this: OidWorld) {
+  const named = writesTest("cart lines > adds a line").test;
+  const attempt = () => ({ ...writesTest("cart lines > fails with an error"), test: named });
+  agentOf(this).testRoute.rounds.push(attempt(), attempt());
+  expect(this, { unit: ["unit-red-not-assertion", "unit-red-not-assertion"] });
+});
+
 Given("the test-writing agent writes no unit test in any attempt",function (this: OidWorld) {
   assert.equal(agentOf(this).testRoute.rounds.length, 0);
 });

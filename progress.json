@@ -2769,6 +2769,10 @@
         {
           "name": "The question about the Red of a retried attempt says which attempt it is and which files it changed",
           "bdd": "pass"
+        },
+        {
+          "name": "The question about the Red of a retried unit test says which attempt it is and which files it changed",
+          "bdd": "pass"
         }
       ]
     },
