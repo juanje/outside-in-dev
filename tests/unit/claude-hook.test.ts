@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
@@ -238,5 +239,160 @@ describe("the before-step hook, on overrides by the orchestrating session (ADR-0
     write("src/a.ts", "export const a = 3;\n");
     const { status, stderr } = runHook("before-step", { tool_input: { command: 'OID_OVERRIDE="cause" oid progress reopen FR-X-01 && oid progress step FR-X-01 refactor' } });
     expect({ status, names: stderr.includes("src/a.ts") }).toEqual({ status: 2, names: true });
+  });
+});
+
+/** The exit code of the before-step hook for each of `commands`, run in the temporary project. */
+const statusesOf = (commands: string[]): (number | null)[] => commands.map((command) => runHook("before-step", { tool_input: { command } }).status);
+
+describe("the before-step hook, on Bash writes to src/, tests/ and features/ (ADR-055)", () => {
+  it("refuses a redirection to a protected path, relative, with ./ or absolute, and says what to use instead", () => {
+    focusedAt("tdd_green");
+    const commands = ["echo x > src/a.ts", "echo x >> src/a.ts", "echo x >src/a.ts", "echo x 2> tests/e.txt", "echo x &> features/x.log", "cat <<EOF > features/x.feature\nFeature: x\nEOF", "echo x > ./src/a.ts", `echo x > ${dir}/src/a.ts`, 'echo x > "$CLAUDE_PROJECT_DIR/tests/a.ts"'];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+    const { stderr } = runHook("before-step", { tool_input: { command: "echo x > src/a.ts" } });
+    expect({ what: stderr.includes("src/a.ts"), next: stderr.includes("use Edit or Write for files under src/, tests/ and features/") }).toEqual({ what: true, next: true });
+  });
+
+  it("refuses tee to a protected path", () => {
+    focusedAt("tdd_green");
+    expect(statusesOf(["echo x | tee src/a.ts", "echo x | tee -a tests/x"])).toEqual([2, 2]);
+  });
+
+  it("refuses an in-place edit of a protected path with sed or perl", () => {
+    focusedAt("tdd_green");
+    const commands = ["sed -i 's/a/b/' src/a.ts", "sed -i.bak 's/a/b/' src/a.ts", "sed --in-place 's/a/b/' tests/a.test.ts", "perl -pi -e 's/a/b/' features/x.feature"];
+    expect(statusesOf(commands)).toEqual([2, 2, 2, 2]);
+  });
+
+  it("refuses cp and mv whose destination is protected", () => {
+    focusedAt("tdd_green");
+    expect(statusesOf(["cp x src/a.ts", "cp -r d features/", "mv a tests/b", "cp -t src/ x"])).toEqual([2, 2, 2, 2]);
+  });
+
+  it("refuses inline python or node code that names a protected path and writes", () => {
+    focusedAt("tdd_green");
+    const commands = [
+      `python3 -c "open('src/a.ts','w').write('x')"`,
+      `python3 -c "open('src/a.ts', mode='a').write('x')"`,
+      `python3 -c "from pathlib import Path; Path('tests/a.ts').write_text('x')"`,
+      `node -e "require('fs').writeFileSync('src/a.ts','x')"`,
+      `node --eval "require('fs').appendFileSync('features/x.feature','x')"`,
+      `node -e "require('fs').renameSync('a','src/b.ts')"`,
+      "python3 - <<EOF\nopen('src/a.ts', 'w').write('x')\nEOF",
+      "node <<EOF\nrequire('fs').writeFileSync('./tests/a.ts','x')\nEOF",
+    ];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+  });
+
+  it("refuses the same writes inside a compound line", () => {
+    focusedAt("tdd_green");
+    const commands = ["cd docs && echo x > ../src/a.ts", "ls; sed -i 's/a/b/' src/a.ts", "cat x | tee src/a.ts", "true && cp x src/a.ts", `bash -c "echo x > src/a.ts"`];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+  });
+
+  it("refuses to undo a change through git, and says to use Edit", () => {
+    focusedAt("tdd_green");
+    const commands = ["git checkout -- src/a.ts", "git checkout .", "git checkout HEAD -- tests", "git restore src/a.ts", "git restore --source=HEAD features/", "git stash", "git stash push -- src", "git stash pop", "git reset --hard", "git reset --hard HEAD~1", "git clean -fd src/", "git clean -fd", "git -C . stash"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+    const { stderr } = runHook("before-step", { tool_input: { command: "git checkout -- src/a.ts" } });
+    expect(stderr.includes("to undo a change, use Edit")).toBe(true);
+  });
+
+  it("lets reads through: cat, grep, sed -n, head, wc, git diff and git show on src/", () => {
+    focusedAt("tdd_green");
+    const commands = ["cat src/a.ts", "grep -rn export src/ tests/", "sed -n 1,10p src/a.ts", "head -5 src/a.ts", "wc -l src/a.ts", "git diff -- src/a.ts", "git show HEAD:src/a.ts", 'grep -n ">" src/a.ts', "ls features/ 2>&1"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets writes outside the protected paths through", () => {
+    focusedAt("tdd_green");
+    const commands = ["echo x > docs/a.md", "echo x >> /tmp/y", `echo x > ${dir}/docs/b.md`, "echo x > /dev/null", "ls nothing 2>&1", "sed -i 's/a/b/' docs/a.md", "cp x docs/a.md", "tee docs/log.txt", "echo x > src-notes.txt"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets a protected source be copied to an unprotected destination", () => {
+    focusedAt("tdd_green");
+    expect(statusesOf(["cp src/a.ts /tmp/x", "cp -r src /tmp/copy", "mv src/a.ts /tmp/x"])).toEqual([0, 0, 0]);
+  });
+
+  it("lets inline code that only reads through", () => {
+    focusedAt("tdd_green");
+    const commands = [`python3 -c "print(open('src/a.ts').read())"`, `node -e "console.log(require('fs').readFileSync('src/a.ts','utf8'))"`, "python3 - <<EOF\nprint(open('src/a.ts').read())\nEOF", `python3 -c "open('docs/a.md','w').write('x')"`];
+    expect(statusesOf(commands)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("takes text inside quotes or in the heredoc body of a command that is not an interpreter for text", () => {
+    focusedAt("tdd_green");
+    const commands = ['git commit -m "echo > src/x"', "git commit -F - <<EOF\nsed -i s/a/b/ src/a.ts\necho x > src/a.ts\nEOF", "echo 'sed -i s/a/b/ src/a.ts'", "cat <<'EOF'\ngit stash\nEOF", "ls # echo x > src/a.ts"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets the project tools, rm and git rm through", () => {
+    focusedAt("tdd_green");
+    const commands = ["npm run test:unit", "npx vitest run tests/unit/a.test.ts", "npx cucumber-js features/a.feature", "oid check", "git add src/a.ts", "git commit -m x", "rm src/a.ts", "git rm src/a.ts", "make build", "some-unknown-binary src/a.ts", "git checkout main", "git restore --staged src/a.ts", "git clean -n src/", "git stash list"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("runs a versioned script, tracked and unchanged, and refuses the same script modified or untracked when it writes into src/", () => {
+    const writer = "import { writeFileSync } from 'node:fs';\nwriteFileSync('src/a.ts', 'x');\n";
+    write("scripts/tracked.mjs", writer);
+    focusedAt("tdd_green");
+    write("scripts/untracked.mjs", writer);
+    const tracked = statusesOf(["node scripts/tracked.mjs"]);
+    write("scripts/tracked.mjs", `${writer}// changed\n`);
+    const modified = statusesOf(["node scripts/tracked.mjs"]);
+    expect({ tracked, modified, untracked: statusesOf(["node scripts/untracked.mjs", "node ./scripts/untracked.mjs"]) }).toEqual({ tracked: [0], modified: [2], untracked: [2, 2] });
+  });
+
+  it("reads a script that is not versioned: refuses one that writes into src/, lets through one that only reads or cannot be read", () => {
+    focusedAt("tdd_green");
+    const scripts = join(mkdtempSync(join(tmpdir(), "oid-scripts-")), "s");
+    mkdirSync(scripts, { recursive: true });
+    writeFileSync(join(scripts, "writes.py"), "open('src/a.ts', 'w').write('x')\n");
+    writeFileSync(join(scripts, "reads.py"), "print(open('src/a.ts').read())\n");
+    writeFileSync(join(scripts, "writes.sh"), "sed -i 's/a/b/' src/a.ts\n");
+    const statuses = statusesOf([`python3 ${join(scripts, "writes.py")}`, `python3 ${join(scripts, "reads.py")}`, `python3 ${join(scripts, "missing.py")}`, `bash ${join(scripts, "writes.sh")}`, `python3 ${scripts}`]);
+    rmSync(join(scripts, ".."), { recursive: true, force: true });
+    expect(statuses).toEqual([2, 0, 0, 2, 0]);
+  });
+
+  it("resolves relative paths against the cwd of the tool call, and follows a cd in the same line", () => {
+    focusedAt("tdd_green");
+    const at = (cwd: string, command: string): number | null => runHook("before-step", { cwd, tool_input: { command } }).status;
+    const blocked = [at(join(dir, "src"), "echo x > a.ts"), at(dir, "cd src && echo x > a.ts"), at(join(dir, "docs"), "cd ../tests; sed -i s/a/b/ a.test.ts"), at(dir, "cd $CLAUDE_PROJECT_DIR/features && echo x > a.feature")];
+    const allowed = [at(join(dir, "docs"), "echo x > a.md"), at(dir, "cd /tmp && echo x > src/a.ts"), at(dir, "cd docs && echo x > a.md"), at(join(dir, "src"), "cd .. && echo x > a.md")];
+    expect({ blocked, allowed }).toEqual({ blocked: [2, 2, 2, 2], allowed: [0, 0, 0, 0] });
+  });
+
+  it("lets what follows a cd it cannot follow through, and still refuses an absolute path", () => {
+    focusedAt("tdd_green");
+    const commands = ["cd && echo x > src/a.ts", "cd - && echo x > src/a.ts", "cd $SOMEWHERE && echo x > src/a.ts", `cd - && echo x > ${dir}/src/a.ts`];
+    expect(statusesOf(commands)).toEqual([0, 0, 0, 2]);
+  });
+
+  it("refuses patch and git apply of a diff that writes into a protected path, and says to use Edit for a mutant", () => {
+    focusedAt("tdd_green");
+    write("m.diff", "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-export const a = 1;\n+export const a = 2;\n");
+    write("plain.diff", "--- tests/a.test.ts\n+++ tests/a.test.ts\t2026-01-01\n@@ -1 +1 @@\n-a\n+b\n");
+    const commands = ["git apply m.diff", "patch -p1 -i m.diff", "patch -p1 < m.diff", "patch -p0 <plain.diff", "git apply --index plain.diff", "cd src && git apply ../m.diff", "patch -p1 <<EOF\n--- a/features/x.feature\n+++ b/features/x.feature\n@@ -1 +1 @@\n-a\n+b\nEOF"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+    const { stderr } = runHook("before-step", { tool_input: { command: "git apply m.diff" } });
+    expect(stderr.includes("for a mutant, apply it with Edit and undo it with Edit (docs/METHODOLOGY.md)")).toBe(true);
+  });
+
+  it("lets patch and git apply through when they only check, or the diff is outside the protected paths or cannot be read", () => {
+    focusedAt("tdd_green");
+    write("m.diff", "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-a\n+b\n");
+    write("d.diff", "--- a/docs/a.md\n+++ b/docs/a.md\n@@ -1 +1 @@\n-a\n+b\n");
+    const commands = ["git apply --check m.diff", "git apply --stat m.diff", "git apply --numstat m.diff", "patch --dry-run -p1 < m.diff", "git apply d.diff", "patch -p1 < d.diff", "git apply missing.diff", "git apply -", "patch -p1", "cat m.diff | git apply"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets a command through when analysing it throws, and still runs the oid checks on it", () => {
+    focusedAt("tdd_green");
+    const unanalysable = "python3 scripts/a\0b.py";
+    const { status, stderr } = runHook("before-step", { tool_input: { command: `${unanalysable} && oid progress revise FR-X-01` } });
+    expect({ alone: statusesOf([unanalysable]), revise: status, human: stderr.includes("run by the human") }).toEqual({ alone: [0], revise: 2, human: true });
   });
 });
