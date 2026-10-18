@@ -258,6 +258,14 @@ Feature: Every rejection says what to do next
         | CODE_GREEN | the agent runs the shell command: git commit -am x | git stays with the orchestrator          | git commit    | npx vitest run          |
         | BDD_RED    | the agent runs the shell command: ls               | This step has no shell                   | ls            | the ls tool             |
 
+    Scenario: A search from a directory that is not readable names the field to change and where a search may start
+      Given oid opened an agent session for the step TDD_RED
+      When the agent calls "find" with the pattern "tests/unit/**/*.test.ts" from the worktree's absolute path
+      Then the call is blocked
+      And the reason has the evidence "Evidence:" naming "find"
+      And the reason has a "Next:" that names the fields "path"
+      And the reason has a "Next:" that names "tests/unit"
+
     Scenario: The try tool refuses a target outside the worktree and says which targets it accepts
       Given the project's unit test and type check pass
       And oid opened an agent session for the step TDD_RED

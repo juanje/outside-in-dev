@@ -242,7 +242,11 @@ When("the agent calls {string} on {string}", async function (this: OidWorld, too
   await callTool(this, tool, { path });
 });
 
-When("the agent calls {string} without a path", async function (this: OidWorld, tool: string) {
+When("the agent calls {string} with the pattern {string} from the worktree's absolute path", async function (this: OidWorld, tool: string, pattern: string) {
+  await callTool(this, tool, { pattern, path: sandboxOf(this).project });
+});
+
+When("the agent calls {string} without a path",async function (this: OidWorld, tool: string) {
   await callTool(this, tool, { pattern: "x" });
 });
 

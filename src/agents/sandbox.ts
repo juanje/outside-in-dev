@@ -26,19 +26,35 @@ const SLASH = "/";
 const CURRENT = ".";
 const WILDCARD = /[*?[]/;
 
-/** Whether `path` is the directory a glob starts in (everything before its first wildcard segment) or is under it; a glob that starts with a wildcard only reaches the worktree root. */
-function inGlobDirectory(path: string, glob: string): boolean {
+/** The directory a glob starts in (everything before its first wildcard segment; "" is the worktree root), or undefined for a glob with no wildcard. */
+function globDirectory(glob: string): string | undefined {
   const segments = glob.split(SLASH);
   const wild = segments.findIndex((segment) => WILDCARD.test(segment));
-  if (wild < 0) return false;
-  const directory = segments.slice(0, wild).join(SLASH);
+  return wild < 0 ? undefined : segments.slice(0, wild).join(SLASH);
+}
+
+/** Whether `path` is the directory a glob starts in or is under it; a glob that starts with a wildcard only reaches the worktree root. */
+function inGlobDirectory(path: string, glob: string): boolean {
+  const directory = globDirectory(glob);
+  if (directory === undefined) return false;
   return directory === "" ? path === "" : path === directory || path.startsWith(`${directory}${SLASH}`);
 }
 
+function readGlobs(profile: Profile): string[] {
+  return [...profile.read, ...profile.write];
+}
+
 function mayRead(profile: Profile, tool: string, path: string): boolean {
-  const globs = [...profile.read, ...profile.write];
   const searches = tool !== "read";
-  return globs.some((glob) => matchesGlob(path, glob) || (searches && inGlobDirectory(path, glob)));
+  return readGlobs(profile).some((glob) => matchesGlob(path, glob) || (searches && inGlobDirectory(path, glob)));
+}
+
+/** The next action of a read denial; a listing tool refused for its directory is first told which directories a search may start from. */
+function readNext(profile: Profile, tool: string): string {
+  const reading = `${READ_LABEL} ${profile.read.join(LIST)}.`;
+  if (!LISTING_TOOLS.has(tool)) return reading;
+  const directories = new Set(readGlobs(profile).map(globDirectory).filter((directory) => directory !== undefined));
+  return `set path to one of the directories a search may start from: ${[...directories].map((directory) => directory || CURRENT).join(LIST)}. ${reading}`;
 }
 
 function pathReason(profile: Profile, tool: string, requested: string, worktree: string): Rejection | undefined {
@@ -50,7 +66,7 @@ function pathReason(profile: Profile, tool: string, requested: string, worktree:
   return rejection({
     failed: `"${requested}" is not ${writing ? "writable" : "readable"} in this step${where}`,
     evidence: `tool: ${tool}, path: ${requested}`,
-    next: writing ? `${WRITE_LABEL} ${profile.write.join(LIST)}. ${READ_LABEL} ${profile.read.join(LIST)}.` : `${READ_LABEL} ${profile.read.join(LIST)}.`,
+    next: writing ? `${WRITE_LABEL} ${profile.write.join(LIST)}. ${READ_LABEL} ${profile.read.join(LIST)}.` : readNext(profile, tool),
   });
 }
 

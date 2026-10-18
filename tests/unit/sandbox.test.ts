@@ -64,6 +64,20 @@ describe("installSandbox", () => {
     });
   });
 
+  it("tells a search refused for its directory to set path to a directory a search may start from, before the paths the step may read", async () => {
+    const { session } = fakeSession();
+    installSandbox(session, tester, { worktree: dir, tools: tester.builtins });
+    expect(await call(session, "find", { pattern: "tests/unit/**/*.test.ts", path: dir })).toEqual({
+      block: true,
+      reason: [
+        `"${dir}" is not readable in this step`,
+        "Evidence:",
+        `  tool: find, path: ${dir}`,
+        "Next: set path to one of the directories a search may start from: tests/unit, features. You may read: tests/unit/**/*.test.ts, features/**/*.feature.",
+      ].join("\n"),
+    });
+  });
+
   it("blocks the calls a step may not make, tells the agent what it may do and chains to the previous hook", async () => {
     const { session } = fakeSession();
     installSandbox(session, tester, { worktree: dir, tools: tester.builtins });

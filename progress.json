@@ -3833,6 +3833,10 @@
         {
           "name": "A report that does not match the changed files is rejected with the file it left out and the field to fix",
           "bdd": "pass"
+        },
+        {
+          "name": "A search from a directory that is not readable names the field to change and where a search may start",
+          "bdd": "pass"
         }
       ]
     },
