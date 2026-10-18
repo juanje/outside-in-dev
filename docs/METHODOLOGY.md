@@ -80,6 +80,13 @@ Which command (ADR-039): do the scenarios that pass still describe the requireme
 
 When the human decides that a requirement changed, they run `oid progress revise FR-…` in their own terminal (the hook refuses it from the agent). The FR goes back to `bdd_red` with every scenario `pending`. Then: rewrite the FR's section in `SPEC.md` and its feature file, `oid progress scenario drop` the scenarios that no longer describe anything, and run the cycle again to prove what remains. Do not add a second FR for the same intent; git keeps the old one. If what remains needs no code (the scenarios were only removed or moved), run `oid verify green` on all of them; then the orchestrating session runs `oid progress step FR-… quality_gate`, with no override (ADR-041, ADR-046).
 
+When the revise needs code, the cycle needs one valid Red for the change, not one per scenario:
+
+- A scenario whose text did not change reaches `pass` through `oid verify green` once the code exists; the Red it had when it was first written is its evidence.
+- A failure that comes only from a recorded report refusing an unexpected request is not a Red: it is not decided with `--decide`, in any class.
+- A new or changed scenario that passes without a Red needs a mutant that makes it fail on one of its own assertions (ADR-056); an import error or a refused report does not count. Until FR-VERIFY-10, the orchestrating session applies the mutant with Edit, undoes it with Edit and records it in the bootstrap log; after it, oid applies it. Applying and undoing a mutant to prove a scenario is not mutating the source to force a Red ("Do not").
+- The recordings the change affects are recorded again at `bdd_red`, with the real runner, in the same commit as the FR; only what the new scope excludes may disappear from them.
+
 ## Changing a prompt's wording
 
 A change to the wording of an agent's prompt (`src/agents/prompts/`), with no change to what the prompt is given, is not a feature: it is a `tune(prompts)` commit, validated by a real `oid run` and recorded in the bootstrap log, with no reopened FR (ADR-057). Change one thing between measured runs. A change to what a prompt is given (its context, its tools, its profile) is behaviour, and goes through its FR.
