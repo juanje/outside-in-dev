@@ -178,3 +178,12 @@ Feature: TDD inner loop
       | agent        | problem                                                                          | reason                              | next        | state      |
       | test-writing | cannot reach its provider                                                        | the provider failed                 | CODE_GREEN  | TDD_RED    |
       | coding       | cannot reach its provider                                                        | the provider failed                 | BDD_CHECK   | CODE_GREEN |
+
+  Scenario: A test the agent reports that is not "<test file> > <test name>" rejects the attempt instead of ending the run
+    Given the project allows 1 retry for each state
+    And the test-writing agent's first attempt reports the test "no_unit_logic_left", which is not of the form "<test file> > <test name>", and its second attempt writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
+    And the coding agent writes the cart code that passes the unit test and the scenario
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
+    Then the event log of the run records an "attempt_rejected" of "TDD_RED" with the attempt 1 and the reason mentioning "no_unit_logic_left"
+    And the event log of the run records an "attempt_rejected" of "TDD_RED" with the attempt 1 and the reason mentioning "<test file> > <test name>"
+    And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 2

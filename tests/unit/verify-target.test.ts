@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ProgressError } from "../../src/artifacts/progress.js";
-import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget } from "../../src/artifacts/verify-target.js";
+import { isRejection } from "../../src/artifacts/rejection.js";
+import { parseBddTarget, parseUnitTarget, requireScenarioStart, scenarioTarget, unitTargetOf } from "../../src/artifacts/verify-target.js";
 
 describe("parseUnitTarget", () => {
   it("splits the test file from the test name at the first ' > '", () => {
@@ -9,6 +10,17 @@ describe("parseUnitTarget", () => {
 
   it("refuses a target without a test name, showing the expected form", () => {
     expect(() => parseUnitTarget("tests/unit/a.test.ts")).toThrow(new ProgressError('expected "<test file> > <test name>", got "tests/unit/a.test.ts"'));
+  });
+});
+
+describe("unitTargetOf", () => {
+  it("gives the file and the name of a well-formed target, and a rejection with the target received and the expected form for any other", () => {
+    expect(unitTargetOf("tests/unit/a.test.ts > parses a")).toEqual({ file: "tests/unit/a.test.ts", name: "parses a" });
+    for (const malformed of ["no_unit_logic_left", " > parses a", "tests/unit/a.test.ts > "]) {
+      const refused = unitTargetOf(malformed);
+      expect(isRejection(refused)).toBe(true);
+      expect(refused).toMatchObject({ evidence: expect.stringContaining(`"${malformed}"`), next: expect.stringContaining("<test file> > <test name>") });
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import type { ScenarioLocation } from "./passing-scenarios.js";
 import { ProgressError } from "./progress.js";
+import { type Rejection, rejection } from "./rejection.js";
 
 const LIST_SEPARATOR = ", ";
 /** What separates the test file from the test name in a unit target. */
@@ -18,7 +19,24 @@ export function parseUnitTarget(target: string): { file: string; name: string } 
   return { file: target.slice(0, at), name: target.slice(at + UNIT_SEPARATOR.length) };
 }
 
-const BDD_TARGET = /^(.+\.feature):(\d+)$/;
+/** The rejection of a test id that oid cannot run: the id received and the form to send. */
+function badUnitTarget(test: string): Rejection {
+  return rejection({
+    failed: "The report names a test that oid cannot run",
+    evidence: `test: "${test}" is not of the form "<test file>${UNIT_SEPARATOR}<test name>"`,
+    next: `call report again with test as "<test file>${UNIT_SEPARATOR}<test name>", for example "tests/unit/cart.test.ts${UNIT_SEPARATOR}adds a line"`,
+  });
+}
+
+/** The file and the name of a unit target with both parts, or the rejection that gives the target received and the form expected. */
+export function unitTargetOf(test: string): { file: string; name: string } | Rejection {
+  const at = test.indexOf(UNIT_SEPARATOR);
+  if (at < 0) return badUnitTarget(test);
+  const target = parseUnitTarget(test);
+  return target.file.trim() === "" || target.name.trim() === "" ? badUnitTarget(test) : target;
+}
+
+const BDD_TARGET =/^(.+\.feature):(\d+)$/;
 
 /** The feature file and the line of a scenario in `<feature>:<line>`; undefined when the target is not of that form. */
 export function parseBddTarget(target: string): { file: string; line: number } | undefined {

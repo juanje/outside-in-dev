@@ -84,7 +84,13 @@ Given("the test-writing agent's first attempt writes a unit test that passes at 
   expect(this, { unit: ["unit-passes-at-once", "unit-red-missing"] });
 });
 
-Given("the coding agent writes the cart code that passes the unit test and the scenario", function (this: OidWorld) {
+Given("the test-writing agent's first attempt reports the test {string}, which is not of the form {string}, and its second attempt writes the unit test {string}, and it fails because the cart code does not exist yet", function (this: OidWorld, reported: string, form: string, name: string) {
+  assert.equal(form, "<test file> > <test name>");
+  agentOf(this).testRoute.rounds.push({ ...writesTest(name), test: reported }, writesTest(name));
+  expect(this, { unit: ["unit-red-missing"] });
+});
+
+Given("the coding agent writes the cart code that passes the unit test and the scenario",function (this: OidWorld) {
   agentOf(this).codeRoute.rounds.push(codeRound(CART_CODE.withCount));
   expect(this, { unit: ["unit-green"], bdd: ["bdd-add-line-green"] });
 });

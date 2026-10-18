@@ -7,7 +7,7 @@ import { headCommit } from "../artifacts/git-workspace.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
-import { parseUnitTarget } from "../artifacts/verify-target.js";
+import { parseUnitTarget, unitTargetOf } from "../artifacts/verify-target.js";
 import { runBillable } from "./budget-call.js";
 import { isRejection, type Rejection } from "./attempts.js";
 import { labelled } from "../artifacts/rejection.js";
@@ -55,6 +55,16 @@ async function judgeUnitRed(started: Started, services: FeatureServices, names: 
   return decided === VALID_RED ? { reason: "the person decided that it is a valid Red", message: gate.message } : decided;
 }
 
+/** The unit test a report names, as its id and its parts, or the rejection of a report that names none or one oid cannot run. */
+function reportedTest(label: string, report: { files: string[]; test?: string }): Rejection | { id: string; file: string; name: string } {
+  if (report.test === undefined) {
+    const evidence = `${label}: the report lists the files ${report.files.length === 0 ? NONE : report.files.join(FILE_SEPARATOR)} and names no unit test`;
+    return labelled(label, { failed: "the report names no unit test", evidence, next: "name the unit test you wrote in the test field of the report, as <file> > <test name>" });
+  }
+  const target = unitTargetOf(report.test);
+  return isRejection(target) ? labelled(label, target) : { ...target, id: report.test };
+}
+
 /** One attempt of TDD Red: the agent writes one unit test and the gate judges it; a valid Red is checkpointed and recorded. Returns what Code Green needs, the rejection of the attempt, or the exit code of the process. */
 async function writeUnitTest(started: Started, services: FeatureServices, scenario: RedScenario, task: AgentTask, announce: () => void): Promise<number | Rejection | TddRed> {
   const { cwd, bus, workspace, targets } = started;
@@ -69,16 +79,13 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
     return labelled(label, { failed: "the agent ended without a report of a unit test", evidence, next: "end by calling the report tool once, with status done, the files you changed and the unit test you wrote in test" });
   }
   if ("reason" in report) return integrationStep(started, scenario);
-  if (report.test === undefined) {
-    const evidence = `${label}: the report lists the files ${report.files.length === 0 ? NONE : report.files.join(FILE_SEPARATOR)} and names no unit test`;
-    return labelled(label, { failed: "the report names no unit test", evidence, next: "name the unit test you wrote in the test field of the report, as <file> > <test name>" });
-  }
-  const test = parseUnitTarget(report.test);
+  const test = reportedTest(label, report);
+  if (isRejection(test)) return test;
   const gate = await judgeUnitRed(started, services, { label: `${label} unit test "${test.name}"`, scenario: label }, test);
   if (isExitCode(gate) || isRejection(gate)) return gate;
-  recordUnitTest(cwd, current.name, report.test);
+  recordUnitTest(cwd, current.name, test.id);
   checkpoint(workspace, { fr: fr!, state: STATE.tddRed, scenario: current.name });
-  const unitRed = { tests: [test.file], failure: gate.message, test: report.test };
+  const unitRed = { tests: [test.file], failure: gate.message, test: test.id };
   updateSession(cwd, { state: STATE.codeGreen, unitRed });
   transition(bus, STATE.tddRed, STATE.codeGreen, `the unit test "${test.name}" fails validly: ${gate.reason}`);
   return unitRed;

@@ -2,9 +2,9 @@ import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { NEWLINE } from "../../artifacts/lines.js";
-import { parseUnitTarget, UNIT_SEPARATOR } from "../../artifacts/verify-target.js";
+import { unitTargetOf } from "../../artifacts/verify-target.js";
 import { type CycleState, TDD_RED } from "../profiles.js";
-import { type Rejection, rejection, renderRejection } from "../../artifacts/rejection.js";
+import { isRejection, type Rejection, rejection, renderRejection } from "../../artifacts/rejection.js";
 
 const text = z.string();
 const DONE_STATUS = "done";
@@ -46,25 +46,6 @@ function refusalOf(args: unknown): Rejection {
   return rejection({ failed: "The report is not valid", evidence: lines.join(NEWLINE), next: `call report again as ${form}` });
 }
 
-/** Whether a test id has the form `<test file> > <test name>`, with both parts. */
-function hasUnitTargetForm(test: string): boolean {
-  try {
-    const { file, name } = parseUnitTarget(test);
-    return file.trim() !== "" && name.trim() !== "";
-  } catch {
-    return false;
-  }
-}
-
-/** The rejection of a test id that oid cannot run: the id received and the form to send. */
-function badTest(test: string): Rejection {
-  return rejection({
-    failed: "The report names a test that oid cannot run",
-    evidence: `test: "${test}" is not of the form "<test file>${UNIT_SEPARATOR}<test name>"`,
-    next: `call report again with test as "<test file>${UNIT_SEPARATOR}<test name>", for example "tests/unit/cart.test.ts${UNIT_SEPARATOR}adds a line"`,
-  });
-}
-
 /** The name of the tool every agent ends by calling. */
 export const REPORT_TOOL = "report";
 const REASONS = ["spec_conflict", "spec_gap", "cannot_test", "other", "no_unit_logic_left"];
@@ -88,7 +69,10 @@ export function reportToolFor(state?: CycleState) {
       const report = parseReport(params);
       if (report === undefined) throw new Error(renderRejection(refusalOf(params)));
       const { test } = report as { test?: string };
-      if (state === TDD_RED && test !== undefined && !hasUnitTargetForm(test)) throw new Error(renderRejection(badTest(test)));
+      if (state === TDD_RED && test !== undefined) {
+        const target = unitTargetOf(test);
+        if (isRejection(target)) throw new Error(renderRejection(target));
+      }
       return { content: [{ type: TEXT_CONTENT, text: "Report received." }], details: {} };
     },
   });

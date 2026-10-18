@@ -2593,6 +2593,10 @@
         {
           "name": "The scenarios of other features are not run in the inner loop, and the passing scenarios of the same feature are",
           "bdd": "pass"
+        },
+        {
+          "name": "A test the agent reports that is not \"<test file> > <test name>\" rejects the attempt instead of ending the run",
+          "bdd": "pass"
         }
       ]
     },
