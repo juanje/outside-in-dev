@@ -4,6 +4,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CommandTimeoutError, REAL_RUNNERS, type Runners } from "../../src/artifacts/verify-runner.js";
+import { loadCommandTimeoutS } from "../../src/artifacts/project-config.js";
 import { CART_CODE } from "../support/cart-files.js";
 import { git } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
@@ -98,6 +100,26 @@ Given("the unit runner does not end within the limit while it checks the coding 
 
 Given("the BDD runner does not end within the limit in the quality gate", function (this: OidWorld) {
   change(this, (fixture) => (fixture.cucumber!.suite = [HANGS]));
+});
+
+/** The invocation of the fixture's linter that fixes: the project's linter command with the flag oid appends in fix mode. */
+const LINT_FIX_SUFFIX = " --fix";
+
+Given("the linter's fix does not end within the limit in the quality gate", function (this: OidWorld) {
+  const services = this.services!;
+  const runners = services.runners ?? REAL_RUNNERS;
+  const seconds = loadCommandTimeoutS(projectRoot(this));
+  // The system's own error, as the supervisor of a real command throws it, without waiting for a process to pass its limit.
+  const command: Runners["command"] = (cwd, commandLine) => {
+    if (commandLine.endsWith(LINT_FIX_SUFFIX)) throw new CommandTimeoutError(commandLine, seconds);
+    return runners.command(cwd, commandLine);
+  };
+  this.services = { ...services, runners: { ...runners, command } };
+});
+
+Given("the unit runner does not end within the limit while it checks the refactor", function (this: OidWorld) {
+  agentOf(this).refactorRoute.rounds.push(codeRound(CART_CODE.refactored));
+  expect(this, { unit: [HANGS], bdd: ["bdd-add-line-green"] });
 });
 
 Then("no process started by the runner is still alive", async function (this: OidWorld) {
