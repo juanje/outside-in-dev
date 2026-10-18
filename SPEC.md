@@ -294,7 +294,7 @@ A finished feature is squashed into one commit and marked done in the progress f
 
 ### FR-RUN-08: Retries and escalation
 
-A failed attempt is retried from the last checkpoint with the reason, and each retry raises the reasoning level, the last one with the strongest model. When retries run out, the run asks.
+A failed attempt is retried from the last checkpoint with the reason, and each retry raises the reasoning level, the last one with the strongest model. When retries run out, the run asks. A question about a Red that comes from a retry says which attempt it is and which files that attempt changed, so the person does not take it for the failure already judged.
 
 ### FR-RUN-09: Resume, abort and concurrency
 
