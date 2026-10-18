@@ -2447,6 +2447,10 @@
         {
           "name": "An agent that is blocked asks the human what to do",
           "bdd": "pass"
+        },
+        {
+          "name": "An edit that changes no file approves nothing and asks again",
+          "bdd": "pass"
         }
       ]
     },

@@ -85,13 +85,19 @@ function hashesOf(worktree: string, files: string[]): Record<string, string> {
   return Object.fromEntries(files.map((file) => [file, `sha256:${hashFile(worktree, file)}`]));
 }
 
-/** Waits for the person to edit the files in the worktree, then commits and logs what changed as a human edit. */
-async function acceptHumanEdit({ bus, workspace }: Started, files: string[], input: Terminal): Promise<void> {
+/** The notice in front of the review question asked again after an edit that changed no file. */
+export const NO_FILE_CHANGED = "No feature file changed since the review was asked: edit the files in the worktree before pressing enter, or choose approve or reject.";
+
+/** Waits for the person to edit the files in the worktree, then commits and logs what changed as a human edit: returns whether any file changed. */
+async function acceptHumanEdit({ bus, workspace }: Started, files: string[], input: Terminal): Promise<boolean> {
   const before = hashesOf(workspace.path, files);
   await input.line(["Edit these feature files, then press enter:", ...files.map((file) => `- ${join(workspace.path, file)}`)].join(NEWLINE));
   const after = hashesOf(workspace.path, files);
-  for (const file of files.filter((candidate) => before[candidate] !== after[candidate])) bus.emit({ type: HUMAN_EDIT, file });
+  const changed = files.filter((candidate) => before[candidate] !== after[candidate]);
+  if (changed.length === 0) return false;
+  for (const file of changed) bus.emit({ type: HUMAN_EDIT, file });
   commitAll(workspace, "oid: human edit");
+  return true;
 }
 
 /** The question of the review: where the files are and their text. */
@@ -125,12 +131,13 @@ function approve({ cwd, bus, workspace, targets }: Started, files: string[]): Ap
 type Rejection = { comment: string };
 
 /** Asks for the review of the feature files of all the targets at once: returns the exit code the question ends the process with. */
-async function askForReview(started: Started, files: string[], input: ReviewInput): Promise<number | Rejection | Approval> {
+async function askForReview(started: Started, files: string[], input: ReviewInput, notice = ""): Promise<number | Rejection | Approval> {
   if (input.isTTY) {
-    const answer = await input.choose(reviewPrompt(started, files), REVIEW_ACTIONS.map(({ key }) => key));
+    const answer = await input.choose(`${notice}${reviewPrompt(started, files)}`, REVIEW_ACTIONS.map(({ key }) => key));
     if (answer === REJECT) return { comment: await input.line("Why are the feature files rejected?") };
-    if (answer === EDIT) await acceptHumanEdit(started, files, input);
-    else if (answer !== APPROVE) return started.bus.emit({ type: ERROR_EVENT, message: `"${answer}" is not an answer to the review: use ${APPROVE}, ${EDIT} or ${REJECT}` }) ?? 1;
+    if (answer === EDIT) {
+      if (!(await acceptHumanEdit(started, files, input))) return askForReview(started, files, input, `${NO_FILE_CHANGED}\n\n`);
+    } else if (answer !== APPROVE) return started.bus.emit({ type: ERROR_EVENT, message: `"${answer}" is not an answer to the review: use ${APPROVE}, ${EDIT} or ${REJECT}` }) ?? 1;
     return approve(started, files);
   }
   const prompt = `Review the feature files of ${started.targets.join(LIST_SEPARATOR)} in ${started.workspace.path}`;

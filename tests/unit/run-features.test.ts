@@ -6,6 +6,7 @@ import { FakeAgent } from "../../features/support/fake-agent.js";
 import { FEATURE_WRITE, profileFor } from "../../src/agents/profiles.js";
 import { featureWritePrompt } from "../../src/agents/prompts/feature-write.js";
 import { loadProjectConfig } from "../../src/artifacts/project-config.js";
+import { NO_FILE_CHANGED } from "../../src/orchestrator/run-features.js";
 import { runCli } from "../../src/run-cli.js";
 import { gitIn } from "./git-fixture.js";
 import { featureProject, runServices } from "./feature-cycle-fixture.js";
@@ -121,13 +122,30 @@ describe("writing the feature files of a run", () => {
     expect(log.filter((event) => event.type === "human_edit")).toMatchObject([{ file: "features/FR-A-01.feature" }]);
   });
 
+  it("approves nothing when the person edits no file: no commit, no event, and the whole question again with a notice in front", async () => {
+    const project = featureProject();
+    const answers = ["edit", "approve"];
+    const prompts: string[] = [];
+    const input = { isTTY: true as const, choose: async (prompt: string) => (prompts.push(prompt), answers.shift()!), line: async () => "" };
+    await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(new FakeAgent().sdk, input));
+    const saved = readJson(join(project, ".outside-in/session.json"));
+    const [run] = readdirSync(join(project, ".outside-in/runs"));
+    const log = readFileSync(join(project, ".outside-in/runs", run!, "events.jsonl"), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+    expect(prompts.length).toBe(2);
+    expect(prompts[0]).not.toContain(NO_FILE_CHANGED);
+    expect(prompts[1]).toBe(`${NO_FILE_CHANGED}\n\n${prompts[0]}`);
+    expect(gitIn(saved.worktree, "log", "--format=%s")).not.toContain("oid: human edit");
+    expect(log.filter((event) => event.type === "human_edit")).toEqual([]);
+  });
+
   it("lists the full path of each feature file to edit when the person chooses to edit", async () => {
     const project = featureProject();
     let worktree = "";
     const asked: string[] = [];
+    const answers = ["edit", "approve"];
     const input = {
       isTTY: true as const,
-      choose: async (prompt: string) => ((worktree = /in (\S+)\n/.exec(prompt)![1]!), "edit"),
+      choose: async (prompt: string) => ((worktree = /in (\S+)\n/.exec(prompt)![1]!), answers.shift()!),
       line: async (prompt: string) => (asked.push(prompt), ""),
     };
     await runCli(["run"], { cwd: project, stdout: () => undefined, stderr: () => undefined }, runServices(new FakeAgent().sdk, input));

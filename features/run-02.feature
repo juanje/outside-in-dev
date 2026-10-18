@@ -105,3 +105,10 @@ Feature: Write and review feature files
       | whose scenario is tagged "@FR-CART-03"    | is not traced to FR-CART-02    |
       | whose scenario has no requirement tag     | is not traced to FR-CART-02    |
       | whose scenario is tagged "@NFR-09"        | NFR-09 is not in SPEC.md       |
+
+  Scenario: An edit that changes no file approves nothing and asks again
+    When I run "oid run" with a terminal where the human answers "edit", presses enter without changing any file, and then answers "approve"
+    Then the human was asked exactly twice about the feature files
+    And the second question about the feature files says that no feature file changed
+    And the worktree has no commit "oid: human edit"
+    And the event log of the run records a transition from "FEATURE_REVIEW" to "BDD_RED"

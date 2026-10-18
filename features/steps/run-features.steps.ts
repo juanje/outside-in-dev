@@ -100,6 +100,10 @@ When("I run {string} with a terminal where the human edits {string} adding a sce
   await runWithTerminal(this, commandLine, [answer], [edit]);
 });
 
+When("I run {string} with a terminal where the human answers {string}, presses enter without changing any file, and then answers {string}", async function (this: OidWorld, commandLine: string, first: string, second: string) {
+  await runWithTerminal(this, commandLine, [first, second], [() => ""]);
+});
+
 When("I run {string} with a terminal where the human answers {string} with the comment {string} and then {string}", async function (this: OidWorld, commandLine: string, first: string, comment: string, second: string) {
   await runWithTerminal(this, commandLine, [first, second], [() => comment]);
 });
@@ -169,6 +173,19 @@ Then("the agent had no shell tool", function (this: OidWorld) {
 
 Then(/^the human was asked exactly (once|twice)$/, function (this: OidWorld, times: string) {
   assert.equal(terminalOf(this).choices.length, times === "once" ? 1 : 2);
+});
+
+const featureQuestions = (world: OidWorld) => terminalOf(world).choices.filter((choice) => choice.prompt.includes("Review the feature files of"));
+
+Then("the human was asked exactly twice about the feature files", function (this: OidWorld) {
+  assert.equal(featureQuestions(this).length, 2, JSON.stringify(terminalOf(this).choices.map((choice) => choice.prompt.slice(0, 80))));
+});
+
+Then("the second question about the feature files says that no feature file changed", async function (this: OidWorld) {
+  const { NO_FILE_CHANGED } = await import("../../src/orchestrator/run-features.js");
+  const second = featureQuestions(this)[1];
+  assert.ok(second, "the feature files were not asked twice");
+  assert.ok(second.prompt.includes(NO_FILE_CHANGED), second.prompt);
 });
 
 Then("the question showed the text of the feature files of {string} and of {string}", function (this: OidWorld, first: string, second: string) {
