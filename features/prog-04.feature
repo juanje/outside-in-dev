@@ -79,3 +79,10 @@ Feature: Advance the cycle step
     Then the command succeeds
     And the feature "FR-GREETING-01" has the cycle step "quality_gate"
     And the output contains "the new scenarios cover code that exists"
+
+  Scenario: A blank cause in OID_OVERRIDE is not an override
+    Given a started feature "FR-GREETING-01" at step "bdd_red"
+    When I run "oid progress step FR-GREETING-01 quality_gate" with "OID_OVERRIDE" set to "   "
+    Then the command fails
+    And the error output contains "revise"
+    And the feature "FR-GREETING-01" has the cycle step "bdd_red"

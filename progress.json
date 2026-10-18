@@ -178,6 +178,10 @@
         {
           "name": "An override lets a feature with no revise record leave bdd_red for the quality gate",
           "bdd": "pass"
+        },
+        {
+          "name": "A blank cause in OID_OVERRIDE is not an override",
+          "bdd": "pass"
         }
       ]
     },
