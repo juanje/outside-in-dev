@@ -27,7 +27,7 @@ const messageSchema = z.object({
   testCaseStarted: z.object({ id: z.string(), testCaseId: z.string() }).optional(),
   attachment: z.object({ testCaseStartedId: z.string().optional(), testStepId: z.string().optional(), body: z.string(), mediaType: z.string() }).optional(),
   testStepFinished: z
-    .object({ testCaseStartedId: z.string().optional(), testStepId: z.string(), testStepResult: z.object({ status: z.string(), message: z.string().optional() }) })
+    .object({ testCaseStartedId: z.string().optional(), testStepId: z.string(), testStepResult: z.object({ status: z.string(), message: z.string().optional(), exception: z.object({ type: z.string() }).optional() }) })
     .optional(),
 });
 
@@ -43,6 +43,17 @@ type Pickle = NonNullable<Message["pickle"]>;
 type TestCase = NonNullable<Message["testCase"]>;
 
 const PASSED = "PASSED";
+
+const ASSERTION = "AssertionError";
+const ASSERTION_CODE = '"code":"ERR_ASSERTION"';
+const STACK_LINE = /^\s+at /;
+
+/** The message of a step result. An assertion whose own message is empty is reported by cucumber as a JSON of its fields and a diff, so it becomes `AssertionError` and the stack frames. */
+function resultMessage({ message = "", exception }: { message?: string; exception?: { type: string } }): string {
+  const isAssertion = exception?.type === ASSERTION || message.includes(ASSERTION_CODE);
+  if (!isAssertion || message.startsWith(ASSERTION)) return message;
+  return [ASSERTION, ...message.split(NEWLINE).filter((line) => STACK_LINE.test(line))].join(NEWLINE);
+}
 
 /** The messages of a Cucumber Messages report, one JSON document per line. */
 function parseMessages(ndjson: string): Message[] {
@@ -67,7 +78,7 @@ export function normalizeCucumberReport(ndjson: string, only?: { file: string; n
   const scenarioSteps = new Set(scenarioTestSteps(messages, only).map((step) => step.id));
   return messages.flatMap(({ testStepFinished }) =>
     testStepFinished !== undefined && scenarioSteps.has(testStepFinished.testStepId)
-      ? [{ status: testStepFinished.testStepResult.status, message: testStepFinished.testStepResult.message ?? "" }]
+      ? [{ status: testStepFinished.testStepResult.status, message: resultMessage(testStepFinished.testStepResult) }]
       : [],
   );
 }

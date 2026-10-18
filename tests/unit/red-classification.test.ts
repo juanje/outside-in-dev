@@ -89,6 +89,16 @@ describe("classifyFailure", () => {
     });
   });
 
+  it("names the failing step when an assertion added since the last checkpoint failed with an empty message", () => {
+    const message = "AssertionError\n    at /p/features/steps/a.steps.ts:3:5";
+    const onAddedLine = { ...context, isOnAddedTestLine: () => true };
+    expect(classifyFailure({ kind: "error", message, step: "features/a.feature:5 Then it greets Ann" }, onAddedLine)).toEqual({
+      outcome: "valid",
+      class: "business_assertion",
+      reason: "an assertion added since the last checkpoint failed with an empty message, at features/a.feature:5 Then it greets Ann",
+    });
+  });
+
   it("accepts the construction of an imported class that does not exist yet as missing implementation", () => {
     expect(classifyFailure({ kind: "error", message: "TypeError: Missing is not a constructor\n    at x" }, context)).toEqual({
       outcome: "valid",

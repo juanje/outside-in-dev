@@ -11,6 +11,15 @@ describe("normalizeCucumberReport", () => {
       { status: "SKIPPED", message: "" },
     ]);
   });
+
+  it("reports a failure that cucumber typed as an assertion, or that carries ERR_ASSERTION, as an assertion that keeps its stack frames", () => {
+    const frames = "    + expected - actual\n\n    at World.<anonymous> (/p/features/steps/s.ts:4:10)";
+    const typed = { status: "FAILED", message: `{"code":"ERR_ASSERTION"}\n${frames}`, exception: { type: "AssertionError", message: "" } };
+    const coded = { status: "FAILED", message: `{"generatedMessage":false,"code":"ERR_ASSERTION"}\n${frames}` };
+    const [first, second] = normalizeCucumberReport(scenarioMessages([typed, coded]));
+    expect(first!.message).toBe("AssertionError\n    at World.<anonymous> (/p/features/steps/s.ts:4:10)");
+    expect(second).toEqual(first);
+  });
 });
 
 describe("failingFile", () => {

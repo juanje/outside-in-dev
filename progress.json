@@ -1603,6 +1603,10 @@
         {
           "name": "A step file that stops cucumber from starting shows the error the runner printed",
           "bdd": "pass"
+        },
+        {
+          "name": "A failing assertion with an empty message is judged as an assertion",
+          "bdd": "pass"
         }
       ]
     },

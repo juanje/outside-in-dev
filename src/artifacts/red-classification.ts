@@ -94,12 +94,13 @@ function messageBeforeStack(message: string): string {
 }
 
 /** A test that ran and failed. */
-function classifyError(message: string, context: ClassifyContext): Verdict {
+function classifyError(message: string, context: ClassifyContext, step?: string): Verdict {
   if (MISSING_MODULE.test(message)) return classifyLoad(message, context);
   if (message.startsWith("AssertionError")) {
+    const where = step !== undefined && messageBeforeStack(message) === "AssertionError" ? ` with an empty message, at ${step}` : "";
     return context.isOnAddedTestLine(message)
-      ? { outcome: OUTCOME.valid, class: RED_CLASS.businessAssertion, reason: "an assertion added since the last checkpoint failed" }
-      : { outcome: OUTCOME.decision, reason: "an assertion failed", candidate: RED_CLASS.businessAssertion };
+      ? { outcome: OUTCOME.valid, class: RED_CLASS.businessAssertion, reason: `an assertion added since the last checkpoint failed${where}` }
+      : { outcome: OUTCOME.decision, reason: `an assertion failed${where}`, candidate: RED_CLASS.businessAssertion };
   }
   const notCallable = NOT_CALLABLE.exec(message);
   if (notCallable === null) return { outcome: OUTCOME.decision, reason: "the test failed with an error that is not an assertion" };
@@ -124,7 +125,7 @@ function runnerError(stderr = ""): string {
 
 /** A run that failed. A step that sets the scenario up is judged apart: only a source module that does not exist yet is a valid Red there, and anything else is a broken scenario. */
 function classifyRun({ message, step, setup }: { message: string; step?: string; setup?: true }, context: ClassifyContext): Verdict {
-  const usual = classifyError(message, context);
+  const usual = classifyError(message, context, step);
   if (setup !== true || (usual.outcome === OUTCOME.valid && usual.class === RED_CLASS.missingImplementation)) return usual;
   return { outcome: OUTCOME.invalid, class: RED_CLASS.testBug, reason: `the scenario failed while setting up, at ${step}: ${messageBeforeStack(message)}` };
 }

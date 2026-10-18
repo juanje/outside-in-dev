@@ -516,3 +516,31 @@ Feature: Verify a BDD Red
     Then the command succeeds
     And the output starts with "red: valid (business_assertion)"
     And the checkpoint records the step "bdd_red"
+
+  Scenario: A failing assertion with an empty message is judged as an assertion
+    Given the feature file "features/greeting.feature" containing:
+      """
+      Feature: Greeting
+
+        Scenario: Greet informally
+          Given the greeting
+          Then it greets Ann informally
+      """
+    And the step definitions file "features/steps/greeting.steps.ts" containing:
+      """
+      import { Given, Then } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the greeting", function () {});
+
+      Then("it greets Ann informally", async function () {
+        const { greet } = await import("../../src/greeting.js");
+        const output = "";
+        assert.ok(greet("Ann") === "Hi, Ann", output);
+      });
+      """
+    When I run "oid verify red features/greeting.feature:3"
+    Then the command succeeds
+    And the output starts with "red: valid (business_assertion)"
+    And the output contains "Then it greets Ann informally"
+    And the checkpoint records the step "bdd_red"
