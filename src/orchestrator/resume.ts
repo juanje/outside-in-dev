@@ -36,12 +36,19 @@ export function resumePlan(saved: RunSession, done: string[]): ResumePlan {
   return { targets, featureStart, entry: { state, red: savedScenario(saved), unitRed: saved.unitRed, beforeGreen: saved.beforeGreen, iteration: saved.innerIteration } };
 }
 
+/** Why the run a saved session names cannot be resumed, or undefined when it can. A run is finished when this says why. */
+export function whyNotResumable(saved: RunSession | undefined): string | undefined {
+  if (saved === undefined) return "no run to resume: no run saved a session; start one with oid run";
+  if (saved.state === STATE.done) return `the run ${saved.runId} is done: nothing to resume`;
+  if (START_STATES.includes(saved.state)) return `the run ${saved.runId} stopped at ${saved.state}, before its features were selected, and cannot be resumed: start a new run with oid run`;
+  return undefined;
+}
+
 /** The session of the run to resume, refusing a run that cannot be. */
 function resumable(cwd: string): RunSession {
   const saved = readSession(cwd);
-  if (saved === undefined) throw new ProgressError("no run to resume: no run saved a session; start one with oid run");
-  if (saved.state === STATE.done) throw new ProgressError(`the run ${saved.runId} is done: nothing to resume`);
-  if (START_STATES.includes(saved.state)) throw new ProgressError(`the run ${saved.runId} stopped at ${saved.state}, before its features were selected, and cannot be resumed: start a new run with oid run`);
+  const reason = whyNotResumable(saved);
+  if (reason !== undefined || saved === undefined) throw new ProgressError(reason ?? "");
   return saved;
 }
 

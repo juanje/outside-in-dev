@@ -1,7 +1,7 @@
 import { After, Before, Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXISTING_UNIT_TEST, TSCONFIG } from "../support/cart-files.js";
@@ -353,6 +353,11 @@ Given("the unit runner reports the content of the lock", function (this: OidWorl
 
 Given("the project has no {string}", function (this: OidWorld, file: string) {
   assert.equal(file, ".outside-in.json");
+  // After a run the repository holds its worktree and branch: the file is only taken away, the fixture is not built again.
+  if (existsSync(this.path(join(PROJECT, SESSION)))) {
+    rmSync(this.path(join(PROJECT, file)));
+    return;
+  }
   change(this, (fixture) => (fixture.config = false));
 });
 

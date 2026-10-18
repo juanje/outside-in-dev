@@ -66,3 +66,45 @@ Feature: Clean up finished runs
     Then the error mentions that the worktree of "failed-clean" could not be removed
     And the run data of "failed-clean" under ".outside-in/runs/" is kept
     And the branch of "failed-clean" is kept
+
+  Scenario: Cleaning without a run name keeps a real run that stopped to wait for an answer
+    Given the feature-writing agent writes for "FR-CART-02" the scenarios "Add a line" and "Remove a line"
+    And "oid run --fr FR-CART-02" was run without a terminal and saved its question about the feature files
+    When I run "oid clean"
+    Then the worktree and run data of the saved run are kept
+    And the output says to run "oid clean --run" with the saved run to clean it
+
+  Scenario: Naming a run that does not exist is refused
+    When I run "oid clean --run no-such-run"
+    Then the process exits with code 1
+    And the error mentions "no-such-run"
+
+  Scenario: A worktree that cannot be removed makes the command fail
+    Given the feature-writing agent writes for "FR-CART-02" the scenarios "Add a line" and "Remove a line"
+    And the step-writing agent writes the steps of each scenario it is given, and they fail because the cart code does not exist yet
+    And the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario
+    And the detectors find nothing
+    And "oid run --fr FR-CART-02" ran to its commit with a terminal where the human answers "approve"
+    And the worktree of that run cannot be removed
+    When I run "oid clean"
+    Then the process exits with code 1
+    And the error mentions that the worktree of that run could not be removed
+    And the run data of that run is kept
+
+  Scenario: With the lock held, naming a run is refused and says which process holds the lock
+    Given the feature-writing agent writes for "FR-CART-02" the scenarios "Add a line" and "Remove a line"
+    And "oid run --fr FR-CART-02" was run without a terminal and saved its question about the feature files
+    And the lock of the project is held by a process that is running
+    When I run "oid clean --run" with the saved run
+    Then the process exits with code 1
+    And the error mentions the lock and the process that holds it
+    And the worktree and run data of the saved run are kept
+
+  Scenario: Cleaning is refused when the project is not configured, and no run is touched
+    Given the feature-writing agent writes for "FR-CART-02" the scenarios "Add a line" and "Remove a line"
+    And "oid run --fr FR-CART-02" was run without a terminal and saved its question about the feature files
+    And the project has no ".outside-in.json"
+    When I run "oid clean --run" with the saved run
+    Then the process exits with code 1
+    And the error mentions ".outside-in.json"
+    And the worktree and run data of the saved run are kept

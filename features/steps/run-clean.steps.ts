@@ -1,9 +1,10 @@
-import { Given, Then } from "@cucumber/cucumber";
+import { Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { git } from "../support/run-project.js";
-import { holdRunningLock, SESSION } from "./run.steps.js";
+import { git, runWorktree } from "../support/run-project.js";
+import { runWithTerminal } from "./run-features.steps.js";
+import { holdRunningLock, runDirectory, type SavedSession, session, SESSION, transitions } from "./run.steps.js";
 import type { OidWorld } from "../support/world.js";
 
 type CleanFixture = { runs: Set<string> };
@@ -14,6 +15,19 @@ function fixtureOf(world: OidWorld): CleanFixture {
   const fixture = fixtures.get(world);
   assert.ok(fixture, "no clean fixture was created");
   return fixture;
+}
+
+const savedRuns = new WeakMap<OidWorld, SavedSession>();
+
+/** Keeps the run the saved session names, read when the run saved it: `oid clean` may remove the session. */
+export function rememberSavedRun(world: OidWorld): void {
+  savedRuns.set(world, session(world));
+}
+
+function savedRunOf(world: OidWorld): SavedSession {
+  const saved = savedRuns.get(world);
+  assert.ok(saved, "no saved run was remembered");
+  return saved;
 }
 
 function worktreeOf(world: OidWorld, runId: string): string {
@@ -170,16 +184,61 @@ Given("{string} was replaced by a later run as the saved session and cannot be r
   recordState(this, runId, "DONE");
 });
 
+function assertKept(world: OidWorld, runId: string, worktree: string): void {
+  assert.equal(existsSync(worktree), true, `${runId} worktree was removed`);
+  assert.ok(git(world.projectDir, "worktree", "list", "--porcelain").includes(worktree), `${runId} remains unregistered`);
+  assert.equal(existsSync(runDataOf(world, runId)), true, `${runId} run data was removed`);
+}
+
+function assertWorktreeNotRemoved(world: OidWorld, runId: string): void {
+  assert.match(world.stderr, /worktree/i);
+  assert.match(world.stderr, /could not be removed/i);
+  assert.ok(world.stderr.includes(runId), `error did not name ${runId}: ${world.stderr}`);
+}
+
+/** The run that a real `oid run` of the scenario left: its id is the one of its run directory. */
+const realRunId = (world: OidWorld): string => basename(runDirectory(world));
+
 Then("the worktree and run data of {string} are kept", function (this: OidWorld, runId: string) {
-  assert.equal(existsSync(worktreeOf(this, runId)), true, `${runId} worktree was removed`);
-  assert.ok(git(this.projectDir, "worktree", "list", "--porcelain").includes(worktreeOf(this, runId)), `${runId} remains unregistered`);
-  assert.equal(existsSync(runDataOf(this, runId)), true, `${runId} run data was removed`);
+  assertKept(this, runId, worktreeOf(this, runId));
+});
+
+Then("the worktree and run data of the saved run are kept", function (this: OidWorld) {
+  const saved = savedRunOf(this);
+  assertKept(this, saved.runId, saved.worktree);
+});
+
+Then("the output says to run {string} with the saved run to clean it", function (this: OidWorld, command: string) {
+  const expected = `${command} ${savedRunOf(this).runId}`;
+  assert.ok(this.stdout.includes(expected), `output did not say to run ${expected}: ${this.stdout}`);
+});
+
+When("I run {string} with the saved run", async function (this: OidWorld, command: string) {
+  await this.run(`${command} ${savedRunOf(this).runId}`);
+});
+
+Given("{string} ran to its commit with a terminal where the human answers {string}", async function (this: OidWorld, commandLine: string, answer: string) {
+  await runWithTerminal(this, commandLine, [answer], []);
+  assert.ok(
+    transitions(this).some((event) => event.to === "FR_COMMIT"),
+    `the run did not reach its commit: ${this.stdout}${this.stderr}`,
+  );
+});
+
+Given("the worktree of that run cannot be removed", function (this: OidWorld) {
+  git(this.projectDir, "worktree", "lock", "--reason", "the removal is expected to fail", runWorktree(this).path);
 });
 
 Then("the error mentions that the worktree of {string} could not be removed", function (this: OidWorld, runId: string) {
-  assert.match(this.stderr, /worktree/i);
-  assert.match(this.stderr, /could not be removed/i);
-  assert.ok(this.stderr.includes(runId), `error did not name ${runId}: ${this.stderr}`);
+  assertWorktreeNotRemoved(this, runId);
+});
+
+Then("the error mentions that the worktree of that run could not be removed", function (this: OidWorld) {
+  assertWorktreeNotRemoved(this, realRunId(this));
+});
+
+Then("the run data of that run is kept", function (this: OidWorld) {
+  assert.equal(existsSync(runDataOf(this, realRunId(this))), true, "the run data was removed");
 });
 
 Then("the run data of {string} under {string} is kept", function (this: OidWorld, runId: string, directory: string) {
@@ -245,7 +304,7 @@ Then("the branches of {string} and {string} are kept", function (this: OidWorld,
 
 Then("no worktree or run data was removed", function (this: OidWorld) {
   const worktrees = git(this.projectDir, "worktree", "list", "--porcelain")
-    .split("\\n\\n")
+    .split("\n\n")
     .filter((entry) => entry.trim() !== "");
   assert.equal(worktrees.length, 1, "a worktree was removed");
   assert.equal(existsSync(join(this.projectDir, ".outside-in", "runs")), false, "run data was removed");

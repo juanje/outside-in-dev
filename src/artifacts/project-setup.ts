@@ -1,5 +1,4 @@
 import type { ProjectConfig } from "./project-config.js";
-import { OID_DIR } from "./checkpoint.js";
 
 const DEFAULT_UNIT = "npx vitest run";
 const DEFAULT_BDD = 'NODE_OPTIONS="--import tsx" npx cucumber-js';
@@ -24,8 +23,8 @@ export function detectCommands(scripts: Record<string, string>): DetectedCommand
   };
 }
 
-const OUTSIDE_IN_ENTRY = `${OID_DIR}/`;
-const EQUIVALENT_ENTRIES = [OUTSIDE_IN_ENTRY, OID_DIR];
+const OUTSIDE_IN_ENTRY = ".outside-in/";
+const EQUIVALENT_ENTRIES = [OUTSIDE_IN_ENTRY, ".outside-in"];
 
 /** Whether the .gitignore already has a line equivalent to `.outside-in/`. */
 export function isOutsideInIgnored(gitignore: string | undefined): boolean {

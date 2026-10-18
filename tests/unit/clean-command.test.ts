@@ -29,6 +29,38 @@ describe("oid clean", () => {
     expect(git("show-ref", "--verify", `refs/heads/oid/${runId}`)).not.toBe("");
   }, REAL_PROCESS_TIMEOUT_MS);
 
+  it("keeps a run that passed feature selection and went on, and says how to clean it", async () => {
+    writeMinimalConfig();
+    write("README.md", "fixture\n");
+    commitAll();
+
+    const runId = "paused-run";
+    const worktree = join(dirname(dir), ".oid-worktrees", basename(dir), runId);
+    git("worktree", "add", "--quiet", "-b", `oid/${runId}`, worktree, "HEAD");
+    const runData = join(dir, ".outside-in", "runs", runId);
+    mkdirSync(runData, { recursive: true });
+    const events = ["SELECT_FR", "FEATURE_REVIEW"].map((to) => JSON.stringify({ ts: 1, type: "state_change", to }));
+    writeFileSync(join(runData, "events.jsonl"), `${events.join("\n")}\n`);
+    write(".outside-in/session.json", JSON.stringify({ runId, state: "FEATURE_REVIEW" }));
+
+    const result = await runInProject(["clean"]);
+
+    expect(result.stdout).toContain(`oid clean --run ${runId}`);
+    expect(existsSync(worktree)).toBe(true);
+    expect(existsSync(runData)).toBe(true);
+  }, REAL_PROCESS_TIMEOUT_MS);
+
+  it("refuses a named run that does not exist", async () => {
+    writeMinimalConfig();
+    write("README.md", "fixture\n");
+    commitAll();
+
+    const result = await runInProject(["clean", "--run", "no-such-run"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("no-such-run");
+  }, REAL_PROCESS_TIMEOUT_MS);
+
   it("removes a finished run that stopped before feature selection", async () => {
     writeMinimalConfig();
     write("README.md", "fixture\n");
@@ -114,7 +146,9 @@ describe("oid clean", () => {
 
       const result = await runInProject(["clean", "--run", runId]);
 
-      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(".outside-in/lock");
+      expect(result.stderr).toContain(String(holder.pid));
       expect(existsSync(worktree)).toBe(true);
       expect(existsSync(runData)).toBe(true);
       expect(git("show-ref", "--verify", `refs/heads/oid/${runId}`)).not.toBe("");
@@ -136,8 +170,9 @@ describe("oid clean", () => {
     mkdirSync(runData, { recursive: true });
     writeFileSync(join(runData, "events.jsonl"), `${JSON.stringify({ ts: 1, type: "state_change", to: "FR_COMMIT" })}\n`);
 
-    const result = await runInProject(["clean", "--run", runId]).catch((error: unknown) => ({ stderr: String(error) }));
+    const result = await runInProject(["clean", "--run", runId]);
 
+    expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(new RegExp(`worktree of ${runId} could not be removed`, "i"));
     expect(existsSync(runData)).toBe(true);
     expect(git("show-ref", "--verify", `refs/heads/oid/${runId}`)).not.toBe("");

@@ -1,7 +1,6 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
-import { OID_DIR } from "./checkpoint.js";
 import { processExists } from "./process-exists.js";
 import { ProgressError } from "./progress.js";
 import { readText } from "./project-json.js";
@@ -18,7 +17,7 @@ export function withVerifyLock<T>(cwd: string, { pid, isRunning = processExists 
     const holder = Number(held);
     if (isRunning(holder)) throw new ProgressError(`another oid verify holds the lock ${LOCK_FILE} (process ${holder}); wait for it, or kill that process if it hangs`);
   }
-  mkdirSync(join(cwd, OID_DIR), { recursive: true });
+  mkdirSync(join(cwd, ".outside-in"), { recursive: true });
   writeFileAtomic(join(cwd, LOCK_FILE), `${pid}\n`);
   try {
     return work();

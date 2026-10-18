@@ -16,7 +16,7 @@ export function lockHolder(cwd: string): number | undefined {
 }
 
 /** The refusal of a lock that a running process holds. */
-function heldBy(holder: number): ProgressError {
+export function heldBy(holder: number): ProgressError {
   return new ProgressError(`another run holds the lock ${LOCK_FILE} (process ${holder})`);
 }
 

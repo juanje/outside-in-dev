@@ -8,6 +8,7 @@ import { ProcessDied, type Route } from "../support/fake-agent.js";
 import { terminalOf } from "../support/terminal.js";
 import { type OidWorld, splitArgs } from "../support/world.js";
 import { runCli } from "../../src/run-cli.js";
+import { rememberSavedRun } from "./run-clean.steps.js";
 import { agentOf, runWithTerminal, worktreePath, worktreeText } from "./run-features.steps.js";
 import { codeRound, expect, writesTest } from "./run-loop.steps.js";
 import { assertStampedWithTheirTimes, eventLog, holdLockOfDeadProcess, lockedBy, lockHolder, lockText, PROJECT, session } from "./run.steps.js";
@@ -35,6 +36,7 @@ Given("{string} was run without a terminal and saved its question about the feat
   this.services = { ...this.services, input: { isTTY: false } };
   await this.run(commandLine);
   assert.equal(this.exitCode, 3, `${this.stdout}${this.stderr}`);
+  rememberSavedRun(this);
 });
 
 Given(/^the (test-writing|coding) agent writes the file "(.+)" and then the process dies$/, function (this: OidWorld, who: string, file: string) {

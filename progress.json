@@ -3717,6 +3717,26 @@
         {
           "name": "A failed worktree removal is reported without deleting the run data",
           "bdd": "pass"
+        },
+        {
+          "name": "Cleaning without a run name keeps a real run that stopped to wait for an answer",
+          "bdd": "pass"
+        },
+        {
+          "name": "Naming a run that does not exist is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A worktree that cannot be removed makes the command fail",
+          "bdd": "pass"
+        },
+        {
+          "name": "With the lock held, naming a run is refused and says which process holds the lock",
+          "bdd": "pass"
+        },
+        {
+          "name": "Cleaning is refused when the project is not configured, and no run is touched",
+          "bdd": "pass"
         }
       ]
     },
