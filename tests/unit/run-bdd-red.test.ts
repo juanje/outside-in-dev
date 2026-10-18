@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BDD_RED, profileFor } from "../../src/agents/profiles.js";
@@ -48,5 +49,30 @@ describe("BDD Red of a run", () => {
       state: "TDD_RED",
       errors: [expect.stringMatching(/^FR-A-01 "Behaviour of FR-A-01": the report names no unit test\nEvidence:\n {2}FR-A-01 "Behaviour of FR-A-01": .+\nNext: name the unit test you wrote/)],
     });
+  }, REAL_PROCESS_TIMEOUT_MS);
+});
+
+describe("BDD Red of a run when the feature files tag no scenario with the requirement", () => {
+  it("stops with a rejection that names the requirement, the feature paths searched and the tag to add", async () => {
+    const project = stepsProject();
+    const untagging = {
+      isTTY: true as const,
+      line: async () => "",
+      choose: async () => {
+        const { worktree } = readJson(join(project, ".outside-in/session.json"));
+        const file = join(worktree, "features/FR-A-01.feature");
+        writeFileSync(file, readFileSync(file, "utf8").replace("@FR-A-01\n", ""));
+        return "approve";
+      },
+    };
+    const { log } = await approvedRun(project, new FakeAgent(), ["run"], untagging);
+    const searched = loadProjectConfig(project).paths.bdd_features;
+    const errors = log.filter((event) => event.type === "error").map((event) => event.message as string);
+    expect(errors.length).toBeGreaterThan(0);
+    const [failed] = errors[0]!.split("\n");
+    expect(failed).toContain("FR-A-01");
+    expect(failed).toMatch(/tagged/);
+    for (const path of searched) expect(errors[0]).toContain(path);
+    expect(errors[0]).toContain("@FR-A-01");
   }, REAL_PROCESS_TIMEOUT_MS);
 });
