@@ -1,7 +1,7 @@
 import { Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import type { OidWorld } from "../support/world.js";
-import { blockedReason, tryAnswer } from "./agent.steps.js";
+import { blockedReason, reportRefusal, tryAnswer } from "./agent.steps.js";
 import { eventLog } from "./run.steps.js";
 
 const EVIDENCE_HEADING = "Evidence:";
@@ -45,10 +45,11 @@ function textOf(world: OidWorld, subject: string): string {
     return rejected.reason;
   }
   if (subject === "the output") return world.stdout;
+  if (subject === "the report refusal") return reportRefusal(world);
   return subject === "the reason" ? blockedReason(world) : tryAnswer(world);
 }
 
-const SUBJECT = "(that reason|the output|the reason|the refusal)";
+const SUBJECT = "(that reason|the output|the report refusal|the reason|the refusal)";
 
 Then(new RegExp(`^${SUBJECT} has the evidence "Evidence:" naming (.+)$`), function (this: OidWorld, subject: string, naming: string) {
   const { evidence } = printed(textOf(this, subject));
@@ -57,12 +58,38 @@ Then(new RegExp(`^${SUBJECT} has the evidence "Evidence:" naming (.+)$`), functi
   for (const text of expected) assert.ok(evidence.join(NEWLINE).includes(text), `the evidence does not name "${text}":\n${evidence.join(NEWLINE)}`);
 });
 
-Then(new RegExp(`^${SUBJECT} has a "Next:" that (.+)$`), function (this: OidWorld, subject: string, action: string) {
+/** The labels of a path denial: the feature names them by their words, the step compares the text with the sandbox's own constants. */
+async function pathLabels(): Promise<Record<string, string | undefined>> {
+  const { READ_LABEL, WRITE_LABEL } = (await import("../../src/agents/sandbox.js")) as { READ_LABEL?: string; WRITE_LABEL?: string };
+  return { "You may read:": READ_LABEL, "You may write": WRITE_LABEL };
+}
+
+/** The label the feature names, as the sandbox prints it; fails when the sandbox does not export it. */
+function labelOf(labels: Record<string, string | undefined>, name: string): string {
+  const label = labels[name];
+  assert.ok(label !== undefined, `the sandbox exports no label for "${name}"`);
+  return label;
+}
+
+Then(new RegExp(`^${SUBJECT} has a "Next:" that (.+)$`), async function (this: OidWorld, subject: string, action: string) {
   const { next } = printed(textOf(this, subject));
+  const begins = action.match(/^begins with "([^"]+)" and names "([^"]+)"$/);
+  const excluded = action.match(/^does not name "([^"]+)"$/);
+  if (begins !== null) {
+    assert.ok(next.startsWith(labelOf(await pathLabels(), begins[1]!)), `the next action does not begin with "${begins[1]}":\n${next}`);
+    assert.ok(next.includes(begins[2]!), `the next action does not hold "${begins[2]}":\n${next}`);
+    return;
+  }
+  if (excluded !== null) {
+    assert.ok(!next.includes(labelOf(await pathLabels(), excluded[1]!)), `the next action holds "${excluded[1]}":\n${next}`);
+    return;
+  }
   const quoted = action.match(/^names "([^"]+)"$/)?.[1];
   const afterVerifying = action.match(/^names the command "([^"]+)" after verifying the Red$/)?.[1];
+  const fields = action.match(/^names the fields (.+)$/);
+  const fieldWords = fields === null ? undefined : [...fields[1]!.matchAll(/"([^"]+)"/g)].map(([, word]) => word!);
   const phrase = Object.keys(NEXT_WORDS).find((key) => action.startsWith(key));
-  const words = quoted !== undefined ? [quoted] : afterVerifying !== undefined ? [afterVerifying, "verify"] : phrase === undefined ? undefined : NEXT_WORDS[phrase];
+  const words = quoted !== undefined ? [quoted] : afterVerifying !== undefined ? [afterVerifying, "verify"] : fieldWords ?? (phrase === undefined ? undefined : NEXT_WORDS[phrase]);
   assert.ok(words, `no words are known for: ${action}`);
   for (const word of words) assert.ok(next.toLowerCase().includes(word.toLowerCase()), `the next action does not hold "${word}":\n${next}`);
 });

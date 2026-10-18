@@ -256,3 +256,32 @@ Feature: Every rejection says what to do next
       Then the try tool refuses, naming the worktree
       And the refusal has the evidence "Evidence:" naming "../outside.test.ts"
       And the refusal has a "Next:" that names "tests/unit/cart.test.ts"
+
+    Scenario: A report with a field its form does not allow names the field and gives the form to send
+      Given oid opened an agent session for the step TDD_RED
+      When the agent reports done with no files, the summary "No unit logic is left" and the reason "no_unit_logic_left", and also the test "no_unit_logic_left"
+      Then the report is refused
+      And the report refusal has the evidence "Evidence:" naming "test"
+      And the report refusal has a "Next:" that names the fields "files", "summary" and "reason" and the value "no_unit_logic_left"
+
+    Scenario: A blocked report without its detail names the missing field
+      Given oid opened an agent session for the step BDD_RED
+      When the agent reports blocked with the reason "spec_gap" and no detail
+      Then the report is refused
+      And the report refusal has the evidence "Evidence:" naming "detail"
+      And the report refusal has a "Next:" that names the fields "reason" and "detail"
+
+    Scenario: In the test-writing step a test that is not of the form test file and test name is refused with the form
+      Given oid opened an agent session for the step TDD_RED
+      When the agent reports done with the file "tests/unit/cart.test.ts", the summary "Added a test" and the test "adds a line"
+      Then the report is refused
+      And the report refusal has the evidence "Evidence:" naming "adds a line"
+      And the report refusal has a "Next:" that names "<test file> > <test name>"
+
+    Scenario: A read the sandbox blocks gets a Next that lists what the step may read, not what it may write
+      Given oid opened an agent session for the step FEATURE_WRITE
+      When the agent calls "read" on "features/steps/setup.steps.ts"
+      Then the call is blocked
+      And the reason names "features/steps/setup.steps.ts"
+      And the reason has a "Next:" that begins with "You may read:" and names "SPEC.md"
+      And the reason has a "Next:" that does not name "You may write"

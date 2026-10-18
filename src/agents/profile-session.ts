@@ -7,7 +7,7 @@ import { type CycleState, FEATURE_WRITE, type Profile, profileFor } from "./prof
 import { openAgentSession, type PiSdk } from "./runner.js";
 import { installSandbox } from "./sandbox.js";
 import { buildToolset } from "./toolset.js";
-import { reportTool } from "./tools/report.js";
+import { reportToolFor } from "./tools/report.js";
 import { type DependencyDecision, type DependencyRequest, requestDependencyTool } from "./tools/request-dependency.js";
 import { tryTool } from "./tools/try.js";
 
@@ -43,7 +43,7 @@ export async function openProfileSession(request: ProfileSessionRequest, sdk: Pi
   const profile = profileFor(request.state, loadProjectConfig(request.worktree));
   const dependencyTools = request.state !== FEATURE_WRITE ? [requestDependencyTool({ worktree: request.worktree, approve: request.approveDependency, install: request.installDependency ?? runInstall })] : [];
   const tryTools = request.state !== FEATURE_WRITE ? [tryTool({ worktree: request.worktree, runners: request.runners ?? REAL_RUNNERS })] : [];
-  const toolset = buildToolset(profile, [reportTool, ...dependencyTools, ...tryTools]);
+  const toolset = buildToolset(profile, [reportToolFor(request.state), ...dependencyTools, ...tryTools]);
   const session = await openAgentSession({ worktree: request.worktree, agentDir: request.agentDir, sessionsDir: request.sessionsDir, systemPrompt: systemPromptFor(profile), toolset, model: request.model, thinkingLevel: request.thinkingLevel }, sdk);
   installSandbox(session, profile, { worktree: request.worktree, tools: toolset.names });
   if (toolset.names.includes("edit")) installEditHints(session);

@@ -1,6 +1,10 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
+import { NEWLINE } from "../../artifacts/lines.js";
+import { parseUnitTarget, UNIT_SEPARATOR } from "../../artifacts/verify-target.js";
+import { type CycleState, TDD_RED } from "../profiles.js";
+import { type Rejection, rejection, renderRejection } from "../../artifacts/rejection.js";
 
 const text = z.string();
 const DONE_STATUS = "done";
@@ -21,26 +25,74 @@ export function parseReport(args: unknown): AgentReport | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
+const NO_LOGIC_REASON = "no_unit_logic_left";
+const NO_LOGIC_FORM = `status: done, files: [], summary and reason: ${NO_LOGIC_REASON}`;
+const BLOCKED_FORM = "status: blocked, reason (spec_conflict, spec_gap, cannot_test or other) and detail";
+const DONE_FORM = "status: done, files (every file you changed), summary, and test in a test step";
+
+/** The form a report is meant to have, by what it says: blocked, no unit logic left, or done with files. */
+function formOf(args: unknown): { schema: z.ZodType; form: string } {
+  const { status, reason } = (typeof args === "object" && args !== null ? args : {}) as { status?: unknown; reason?: unknown };
+  if (status === BLOCKED_STATUS) return { schema: blocked, form: BLOCKED_FORM };
+  return reason === NO_LOGIC_REASON ? { schema: doneWithoutFiles, form: NO_LOGIC_FORM } : { schema: done, form: DONE_FORM };
+}
+
+/** The rejection of a report that has none of the three forms: the fields that are extra or wrong, and the form its status asks for. */
+function refusalOf(args: unknown): Rejection {
+  const { schema, form } = formOf(args);
+  const result = schema.safeParse(args);
+  const issues = result.success ? [] : result.error.issues;
+  const lines = issues.flatMap((issue) => (issue.code === "unrecognized_keys" ? issue.keys.map((key) => `${key}: not allowed in this form`) : [`${issue.path.join(".")}: ${issue.message}`]));
+  return rejection({ failed: "The report is not valid", evidence: lines.join(NEWLINE), next: `call report again as ${form}` });
+}
+
+/** Whether a test id has the form `<test file> > <test name>`, with both parts. */
+function hasUnitTargetForm(test: string): boolean {
+  try {
+    const { file, name } = parseUnitTarget(test);
+    return file.trim() !== "" && name.trim() !== "";
+  } catch {
+    return false;
+  }
+}
+
+/** The rejection of a test id that oid cannot run: the id received and the form to send. */
+function badTest(test: string): Rejection {
+  return rejection({
+    failed: "The report names a test that oid cannot run",
+    evidence: `test: "${test}" is not of the form "<test file>${UNIT_SEPARATOR}<test name>"`,
+    next: `call report again with test as "<test file>${UNIT_SEPARATOR}<test name>", for example "tests/unit/cart.test.ts${UNIT_SEPARATOR}adds a line"`,
+  });
+}
+
 /** The name of the tool every agent ends by calling. */
 export const REPORT_TOOL = "report";
 const REASONS = ["spec_conflict", "spec_gap", "cannot_test", "other", "no_unit_logic_left"];
 
 /** The `report` tool: every agent ends by calling it. The schema is one flat object, because a provider may refuse a top-level choice; the three shapes are enforced on the call itself. */
-export const reportTool = defineTool({
-  name: REPORT_TOOL,
-  label: "Report",
-  description:
-    "Call this last, exactly once, to end your task. status done: list every file you changed, added or deleted in files and say what you did in summary (in a test step, name the new test in test; when no unit logic is left, give files [] and reason no_unit_logic_left). status blocked: give reason (spec_conflict, spec_gap, cannot_test or other) and detail.",
-  parameters: Type.Object({
-    status: Type.Union([Type.Literal(DONE_STATUS), Type.Literal(BLOCKED_STATUS)]),
-    files: Type.Optional(Type.Array(Type.String())),
-    summary: Type.Optional(Type.String()),
-    test: Type.Optional(Type.String()),
-    reason: Type.Optional(Type.Union(REASONS.map((reason) => Type.Literal(reason)))),
-    detail: Type.Optional(Type.String()),
-  }),
-  async execute(_id, params) {
-    if (parseReport(params) === undefined) throw new Error("The report is not valid: done needs files and summary; blocked needs a reason and a detail. Call report again.");
-    return { content: [{ type: TEXT_CONTENT, text: "Report received." }], details: {} };
-  },
-});
+export function reportToolFor(state?: CycleState) {
+  return defineTool({
+    name: REPORT_TOOL,
+    label: "Report",
+    description:
+      "Call this last, exactly once, to end your task. status done: list every file you changed, added or deleted in files and say what you did in summary (in a test step, name the new test in test; when no unit logic is left, give files [] and reason no_unit_logic_left). status blocked: give reason (spec_conflict, spec_gap, cannot_test or other) and detail.",
+    parameters: Type.Object({
+      status: Type.Union([Type.Literal(DONE_STATUS), Type.Literal(BLOCKED_STATUS)]),
+      files: Type.Optional(Type.Array(Type.String())),
+      summary: Type.Optional(Type.String()),
+      test: Type.Optional(Type.String()),
+      reason: Type.Optional(Type.Union(REASONS.map((reason) => Type.Literal(reason)))),
+      detail: Type.Optional(Type.String()),
+    }),
+    async execute(_id, params) {
+      const report = parseReport(params);
+      if (report === undefined) throw new Error(renderRejection(refusalOf(params)));
+      const { test } = report as { test?: string };
+      if (state === TDD_RED && test !== undefined && !hasUnitTargetForm(test)) throw new Error(renderRejection(badTest(test)));
+      return { content: [{ type: TEXT_CONTENT, text: "Report received." }], details: {} };
+    },
+  });
+}
+
+/** The `report` tool of a session that is not tied to a step, which applies no rule of a step. */
+export const reportTool = reportToolFor();

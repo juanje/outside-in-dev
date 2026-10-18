@@ -50,6 +50,20 @@ describe("installSandbox", () => {
     });
   });
 
+  it("gives a denied read the paths the step may read, and not the ones it may write", async () => {
+    const { session } = fakeSession();
+    installSandbox(session, tester, { worktree: dir, tools: tester.builtins });
+    expect(await call(session, "read", { path: "src/a.ts" })).toEqual({
+      block: true,
+      reason: [
+        '"src/a.ts" is not readable in this step',
+        "Evidence:",
+        "  tool: read, path: src/a.ts",
+        "Next: You may read: tests/unit/**/*.test.ts, features/**/*.feature.",
+      ].join("\n"),
+    });
+  });
+
   it("blocks the calls a step may not make, tells the agent what it may do and chains to the previous hook", async () => {
     const { session } = fakeSession();
     installSandbox(session, tester, { worktree: dir, tools: tester.builtins });

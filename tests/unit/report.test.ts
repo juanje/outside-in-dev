@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { CycleState } from "../../src/agents/profiles.js";
 import { parseReport } from "../../src/agents/tools/report.js";
 
 describe("parseReport", () => {
@@ -11,6 +12,40 @@ describe("parseReport", () => {
     expect(parseReport({ status: "done", files: ["src/a.ts"] })).toBeUndefined();
     expect(parseReport({ status: "done", files: ["src/a.ts"], summary: "x", reason: "no_unit_logic_left" })).toBeUndefined();
     expect(parseReport("done")).toBeUndefined();
+  });
+});
+
+/** The message of the error the report tool throws for a report, empty when it accepts it. */
+async function refusal(args: Record<string, unknown>, state?: CycleState): Promise<string> {
+  const { reportToolFor } = await import("../../src/agents/tools/report.js");
+  try {
+    await reportToolFor(state).execute("call-1", args as never, undefined, undefined, {} as never);
+  } catch (error) {
+    return (error as Error).message;
+  }
+  return "";
+}
+
+describe("the refusal of the report tool", () => {
+  it("names the field that the form of a report with no unit logic left does not allow, and gives that form", async () => {
+    const text = await refusal({ status: "done", files: [], summary: "No unit logic is left.", reason: "no_unit_logic_left", test: "no_unit_logic_left" });
+    expect(text).toMatch(/^.+\nEvidence:\n {2}test: /);
+    expect(text).toMatch(/\nNext: .*files.*summary.*reason: no_unit_logic_left/);
+  });
+
+  it("names the field that a blocked report leaves out, and gives the form of a blocked report", async () => {
+    const text = await refusal({ status: "blocked", reason: "spec_gap" });
+    expect(text).toMatch(/^.+\nEvidence:\n {2}detail: /);
+    expect(text).toMatch(/\nNext: .*status: blocked.*reason.*detail/);
+  });
+
+  it("refuses in the test-writing step a test that is not of the form test file and test name, and takes it in the other steps", async () => {
+    const report = { status: "done", files: ["tests/unit/cart.test.ts"], summary: "Added a test.", test: "adds a line" };
+    const text = await refusal(report, "TDD_RED");
+    expect(text).toMatch(/^.+\nEvidence:\n {2}test: .*adds a line/);
+    expect(text).toMatch(/\nNext: .*<test file> > <test name>/);
+    expect(await refusal({ ...report, test: "tests/unit/cart.test.ts > cart > adds a line" }, "TDD_RED")).toBe("");
+    expect(await refusal(report, "CODE_GREEN")).toBe("");
   });
 });
 

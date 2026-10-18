@@ -15,6 +15,10 @@ export type SandboxOptions = { worktree: string; tools: string[]; maxDenials?: n
 /** More denials than this in one session abort it (`limits.sandbox_denials_abort`). */
 export const SANDBOX_DENIALS_ABORT = 5;
 
+/** What introduces the paths a step may write and the paths it may read in the next action of a path denial. */
+export const WRITE_LABEL = "You may write:";
+export const READ_LABEL = "You may read:";
+
 const SHELL = "bash";
 const WRITING_TOOLS = new Set(["write", "edit"]);
 const LIST = ", ";
@@ -46,7 +50,7 @@ function pathReason(profile: Profile, tool: string, requested: string, worktree:
   return rejection({
     failed: `"${requested}" is not ${writing ? "writable" : "readable"} in this step${where}`,
     evidence: `tool: ${tool}, path: ${requested}`,
-    next: `You may write: ${profile.write.join(LIST)}. You may read: ${profile.read.join(LIST)}.`,
+    next: writing ? `${WRITE_LABEL} ${profile.write.join(LIST)}. ${READ_LABEL} ${profile.read.join(LIST)}.` : `${READ_LABEL} ${profile.read.join(LIST)}.`,
   });
 }
 

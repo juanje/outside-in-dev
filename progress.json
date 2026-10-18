@@ -3738,6 +3738,22 @@
         {
           "name": "The try tool refuses a target outside the worktree and says which targets it accepts",
           "bdd": "pass"
+        },
+        {
+          "name": "A report with a field its form does not allow names the field and gives the form to send",
+          "bdd": "pass"
+        },
+        {
+          "name": "A blocked report without its detail names the missing field",
+          "bdd": "pass"
+        },
+        {
+          "name": "In the test-writing step a test that is not of the form test file and test name is refused with the form",
+          "bdd": "pass"
+        },
+        {
+          "name": "A read the sandbox blocks gets a Next that lists what the step may read, not what it may write",
+          "bdd": "pass"
         }
       ]
     },

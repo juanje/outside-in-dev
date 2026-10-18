@@ -862,6 +862,41 @@ export function blockedReason(world: OidWorld): string {
   return sandboxOf(world).verdict?.reason ?? "";
 }
 
+/** What the report tool answered to the last report of the scenario: the refusal it threw, or undefined while it accepted the report. */
+const reportRefusals = new WeakMap<OidWorld, { refusal: string | undefined }>();
+
+async function report(world: OidWorld, args: Record<string, unknown>): Promise<void> {
+  const tool = sandboxSession(world).getToolDefinition("report");
+  assert.ok(tool, "the session does not offer the report tool");
+  try {
+    await tool.execute("call-1", args as never, undefined, undefined, {} as never);
+    reportRefusals.set(world, { refusal: undefined });
+  } catch (error) {
+    reportRefusals.set(world, { refusal: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+When("the agent reports done with no files, the summary {string} and the reason {string}, and also the test {string}", async function (this: OidWorld, summary: string, reason: string, test: string) {
+  await report(this, { status: "done", files: [], summary, reason, test });
+});
+
+When("the agent reports blocked with the reason {string} and no detail", async function (this: OidWorld, reason: string) {
+  await report(this, { status: "blocked", reason });
+});
+
+When("the agent reports done with the file {string}, the summary {string} and the test {string}", async function (this: OidWorld, file: string, summary: string, test: string) {
+  await report(this, { status: "done", files: [file], summary, test });
+});
+
+Then("the report is refused", function (this: OidWorld) {
+  assert.ok(reportRefusals.get(this)?.refusal !== undefined, "the report was received");
+});
+
+/** The refusal the report tool gave to the last report of the scenario, empty when it was received. */
+export function reportRefusal(world: OidWorld): string {
+  return reportRefusals.get(world)?.refusal ?? "";
+}
+
 /** What the try tool answered to the last call of the scenario. */
 export function tryAnswer(world: OidWorld): string {
   return tries.get(world)?.answer ?? "";
