@@ -310,7 +310,7 @@ When the retries of a scenario run out, or an agent reports that it is blocked (
 
 ### FR-RUN-12: Clean up finished runs
 
-`oid clean` removes the worktree and the run data under `.outside-in/runs/` of every finished run, or of the one named with `--run`. It never touches a run in progress, and it keeps the run's branch, which holds the result for the human to review. Every run leaves a worktree behind; without a command to remove them, they pile up next to the project.
+`oid clean` removes the worktree and the run data under `.outside-in/runs/` of every finished run, or of the one named with `--run`. A run is finished when `oid resume` cannot continue it: it reached its commit, it stopped before its features were selected, or a later run replaced it as the saved session. `oid clean` leaves a run that can be resumed and says how to clean it; `oid clean --run` cleans it, since naming it is the decision, and removes its saved session. A run in progress, one whose process holds the lock, is never touched, even when named. The run's branch is always kept: it holds the result for the human to review. Every run leaves a worktree behind; without a command to remove them, they pile up next to the project.
 
 
 ### FR-RUN-13: A guard is backed by a mutant
