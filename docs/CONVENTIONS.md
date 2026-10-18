@@ -10,6 +10,7 @@ These are the rules this project's reviews keep correcting, with the reason for 
 - **A test that reads something the code must produce (a file, a record, a value) first asserts that it exists.** Then the missing behaviour fails as an assertion, which oid classifies as a valid Red by itself, and not as a runtime error such as `ENOENT`, which needs someone to decide.
 - **A failing test is never rewritten to fit the code** (`not.toThrow`, a weaker assertion, a deleted check). If the test is wrong, say so in your report.
 - **A test that writes a program to disk (a fake command, a small script) holds code inside code, and escapes are easy to get wrong.** Write that program as a template literal with real line breaks, not as lines joined with "\n": one escape too many writes a backslash and an "n" instead of a line break, the script is invalid, it records nothing, and the test then fails exactly as if the code were missing. It looks like a valid Red that no code can ever make pass.
+- **A Given that sets up state the system itself writes (a session, an event log, a saved file) builds it with the system's own code or a recording of a real one, never by hand:** a hand-made state can miss what every real one contains.
 
 ## This project
 
