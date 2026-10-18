@@ -94,6 +94,13 @@ Then(new RegExp(`^${SUBJECT} has a "Next:" that (.+)$`), async function (this: O
   for (const word of words) assert.ok(next.toLowerCase().includes(word.toLowerCase()), `the next action does not hold "${word}":\n${next}`);
 });
 
+Then("that reason does not contain the evidence of a missing report", async function (this: OidWorld) {
+  const { NO_REPORT_EVIDENCE } = (await import("../../src/agents/runner.js")) as { NO_REPORT_EVIDENCE?: string };
+  assert.ok(typeof NO_REPORT_EVIDENCE === "string" && NO_REPORT_EVIDENCE !== "", "the runner exports no evidence for a missing report");
+  const text = textOf(this, "that reason");
+  assert.ok(!text.includes(NO_REPORT_EVIDENCE), `the reason holds the evidence of a missing report:\n${text}`);
+});
+
 Then("the reason says {string}", function (this: OidWorld, text: string) {
   assert.ok(blockedReason(this).includes(text), `the reason does not say "${text}":\n${blockedReason(this)}`);
 });

@@ -90,6 +90,15 @@ Feature: Every rejection says what to do next
       Then the second task of the step-writing agent includes "the cart could not be built" and "features/FR-CART-02.feature:5 When a line is added"
       And the plain output line of the "attempt_rejected" of "BDD_RED" is cut and still contains "Next:"
 
+    Scenario: A report that does not match the changed files is rejected with the file it left out and the field to fix
+      Given the project allows 1 retry for each state
+      And the step-writing agent changes a file it does not report
+      When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
+      Then the event log of the run records the "attempt_rejected" of "BDD_RED" with the attempt 1 before the "agent_start" of "BDD_RED" with the attempt 2
+      And that reason has the evidence "Evidence:" naming "features/steps/extra.steps.ts"
+      And that reason has a "Next:" that names "files"
+      And that reason does not contain the evidence of a missing report
+
   Rule: oid verify refuses with the three parts
 
     Scenario: oid verify red on a test that passes says what failed, the test and what to write instead

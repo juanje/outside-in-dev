@@ -101,6 +101,34 @@ describe("runAgent", () => {
     const reason = outcome.status === "failed" ? outcome.reason : "";
     expect(reason).toContain("missing files: src/new.ts");
     expect(reason).toContain("extra files: src/invented.ts");
+    expect(outcome).toMatchObject({ status: "failed", evidence: "missing files: src/new.ts\nextra files: src/invented.ts" });
+    expect(outcome.status === "failed" && outcome.next).toContain("`files`");
+  });
+
+  it("gives an attempt that ended without a report the evidence NO_REPORT_EVIDENCE and the way to report", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const { NO_REPORT_EVIDENCE } = await import("../../src/agents/runner.js");
+    const outcome = await run(fakeSession(() => write("src/a.ts", "changed\n")).session);
+    expect(NO_REPORT_EVIDENCE).toContain("no report");
+    expect(outcome).toMatchObject({ status: "failed", evidence: NO_REPORT_EVIDENCE });
+    expect(outcome.status === "failed" && outcome.next).toContain("calling the report tool once");
+  });
+
+  it("gives an empty response an evidence that says the response had no content, and asks for work and a report", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const outcome = await run(fakeSession(() => {}, { content: [] }).session);
+    expect(outcome).toMatchObject({ status: "failed", evidence: "the response of the agent had no content" });
+    expect(outcome.status === "failed" && outcome.next).toContain("report tool");
+  });
+
+  it("gives an aborted turn an evidence that says it was aborted, and asks to finish the task and report", async () => {
+    write("src/a.ts", "a\n");
+    commitAll();
+    const outcome = await run(fakeSession(() => {}, { stopReason: "aborted", content: [], errorMessage: "Request was aborted" }).session);
+    expect(outcome).toMatchObject({ status: "failed", evidence: "the turn of the agent was aborted before it finished" });
+    expect(outcome.status === "failed" && outcome.next).toContain("report tool");
   });
 
   it("stops and asks, without a retry, when the provider rejected the key but the prompt resolved", async () => {

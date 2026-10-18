@@ -47,7 +47,7 @@ describe("writing the feature files of a run", () => {
     const exitCode = await runCli(["run"], { cwd: project, stdout: (text) => printed.push(text), stderr: () => undefined }, runServices(agent.sdk, { isTTY: false }));
     expect({ exitCode, last: printed.at(-1) }).toEqual({
       exitCode: 1,
-      last: "error: FR-A-01: the agent failed: the report does not match the files that changed (missing files: features/extra.feature) | Evidence: |   the session of the agent ended with the status failed and no report | Next: do the task and end by calling the report tool once, with status done, or with status blocked and the reason\n",
+      last: "error: FR-A-01: the agent failed: the report does not match the files that changed (missing files: features/extra.feature) | Evidence: |   missing files: features/extra.feature | Next: list in `files` exactly the files you change, and change only the files the task needs\n",
     });
   });
 

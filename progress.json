@@ -3825,6 +3825,10 @@
         {
           "name": "A read the sandbox blocks gets a Next that lists what the step may read, not what it may write",
           "bdd": "pass"
+        },
+        {
+          "name": "A report that does not match the changed files is rejected with the file it left out and the field to fix",
+          "bdd": "pass"
         }
       ]
     },

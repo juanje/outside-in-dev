@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import * as pi from "@earendil-works/pi-coding-agent";
+import { NEWLINE } from "../artifacts/lines.js";
 import { AUTH_FILE, MODEL_SEPARATOR, MODELS_FILE } from "../artifacts/user-config.js";
 import type { CycleState } from "./profiles.js";
 import { collectReport } from "./report-events.js";
@@ -72,12 +73,20 @@ export const FAILED = "failed";
 export const DONE = "done";
 export const BLOCKED = "blocked";
 export const ASK = "ask";
-export type AttemptOutcome = ({ status: typeof LIMIT } & LimitHit) | { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
+export type AttemptOutcome = ({ status: typeof LIMIT } & LimitHit) | { status: typeof ASK; reason: string; detail: string } | { status: typeof FAILED; reason: string; evidence: string; next: string } | { status: typeof DONE; report: AgentReport } | { status: typeof BLOCKED; reason: string; detail: string };
 
 const NOTHING_PRODUCED = "the agent produced nothing: its response had no content";
 const TURN_ABORTED = "the turn was aborted before the agent finished";
 const NO_REPORT =
   "the agent ended without calling the report tool: no report (call the report tool once when you finish; if the task cannot be finished honestly with the files you may change, call it with status blocked and say why in reason and detail)";
+
+/** The evidence of an attempt that ended without a report. */
+export const NO_REPORT_EVIDENCE = "the session of the agent ended with the status failed and no report";
+const NO_REPORT_NEXT = "do the task and end by calling the report tool once, with status done, or with status blocked and the reason";
+const NOTHING_PRODUCED_EVIDENCE = "the response of the agent had no content";
+const TURN_ABORTED_EVIDENCE = "the turn of the agent was aborted before it finished";
+const REPORT_AFTER_WORK_NEXT = "do the task again and end by calling the report tool once, with status done, or with status blocked and the reason";
+const MISMATCH_NEXT = "list in `files` exactly the files you change, and change only the files the task needs";
 
 const PART_SEPARATOR = "; ";
 const FILE_SEPARATOR = ", ";
@@ -86,13 +95,13 @@ function listed(label: string, files: string[]): string {
   return files.length > 0 ? `${label}: ${files.join(FILE_SEPARATOR)}` : "";
 }
 
-/** Why the files a report names are not the files that changed, or `undefined` when they are the same. */
-function diffMismatch(reported: string[], changed: string[]): string | undefined {
+/** Why the files a report names are not the files that changed, and the evidence that lists them, or `undefined` when they are the same. */
+function diffMismatch(reported: string[], changed: string[]): { reason: string; evidence: string } | undefined {
   const missing = changed.filter((file) => !reported.includes(file));
   const extra = reported.filter((file) => !changed.includes(file));
   if (missing.length === 0 && extra.length === 0) return undefined;
   const parts = [listed("missing files", missing), listed("extra files", extra)].filter((part) => part !== "");
-  return `the report does not match the files that changed (${parts.join(PART_SEPARATOR)})`;
+  return { reason: `the report does not match the files that changed (${parts.join(PART_SEPARATOR)})`, evidence: parts.join(NEWLINE) };
 }
 
 const SECOND_MS = 1000;
@@ -198,17 +207,17 @@ export async function runAgent(task: AgentTask, context: RunContext): Promise<At
 /** The outcome of a response that is not retried: a provider error stops and asks, an empty or aborted turn fails, and only a productive one has its report examined. */
 function judge(response: ResponseVerdict, events: unknown[], context: RunContext, before: WorktreeSnapshot): AttemptOutcome {
   if (response.kind === PROVIDER_ERROR) return { status: ASK, reason: "the provider failed", detail: response.message };
-  if (response.kind === EMPTY) return { status: FAILED, reason: NOTHING_PRODUCED };
-  if (response.kind === ABORTED) return { status: FAILED, reason: TURN_ABORTED };
+  if (response.kind === EMPTY) return { status: FAILED, reason: NOTHING_PRODUCED, evidence: NOTHING_PRODUCED_EVIDENCE, next: REPORT_AFTER_WORK_NEXT };
+  if (response.kind === ABORTED) return { status: FAILED, reason: TURN_ABORTED, evidence: TURN_ABORTED_EVIDENCE, next: REPORT_AFTER_WORK_NEXT };
   return judgeReport(events, context, before);
 }
 
 /** Judges the report of a productive response against the files that changed since `before`. */
 function judgeReport(events: unknown[], context: RunContext, before: WorktreeSnapshot): AttemptOutcome {
   const report = collectReport(events);
-  if (report === undefined) return { status: FAILED, reason: NO_REPORT };
+  if (report === undefined) return { status: FAILED, reason: NO_REPORT, evidence: NO_REPORT_EVIDENCE, next: NO_REPORT_NEXT };
   if (report.status === BLOCKED) return { status: BLOCKED, reason: report.reason, detail: report.detail };
   const mismatch = diffMismatch(report.files, changesSince(context.worktree, before));
-  if (mismatch !== undefined) return { status: FAILED, reason: mismatch };
+  if (mismatch !== undefined) return { status: FAILED, ...mismatch, next: MISMATCH_NEXT };
   return { status: DONE, report };
 }

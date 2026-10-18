@@ -21,11 +21,7 @@ export function outcomeStop(label: string, outcome: AttemptOutcome): Rejection |
   const problem = outcomeProblem(label, outcome);
   if (problem === undefined) return undefined;
   if (outcome.status !== FAILED) return { stop: problem };
-  return rejection({
-    failed: problem,
-    evidence: "the session of the agent ended with the status failed and no report",
-    next: "do the task and end by calling the report tool once, with status done, or with status blocked and the reason",
-  });
+  return rejection({ failed: problem, evidence: outcome.evidence, next: outcome.next });
 }
 
 /** Why an attempt that did not finish with a report stopped the run, as a sentence that starts with `label`; nothing when the attempt is done. */
