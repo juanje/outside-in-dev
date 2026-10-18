@@ -245,13 +245,13 @@ describe("the before-step hook, on overrides by the orchestrating session (ADR-0
 /** The exit code of the before-step hook for each of `commands`, run in the temporary project. */
 const statusesOf = (commands: string[]): (number | null)[] => commands.map((command) => runHook("before-step", { tool_input: { command } }).status);
 
-describe("the before-step hook, on Bash writes to src/, tests/ and features/ (ADR-055)", () => {
+describe("the before-step hook, on Bash writes to the project's files (ADR-055)", () => {
   it("refuses a redirection to a protected path, relative, with ./ or absolute, and says what to use instead", () => {
     focusedAt("tdd_green");
     const commands = ["echo x > src/a.ts", "echo x >> src/a.ts", "echo x >src/a.ts", "echo x 2> tests/e.txt", "echo x &> features/x.log", "cat <<EOF > features/x.feature\nFeature: x\nEOF", "echo x > ./src/a.ts", `echo x > ${dir}/src/a.ts`, 'echo x > "$CLAUDE_PROJECT_DIR/tests/a.ts"'];
     expect(statusesOf(commands)).toEqual(commands.map(() => 2));
     const { stderr } = runHook("before-step", { tool_input: { command: "echo x > src/a.ts" } });
-    expect({ what: stderr.includes("src/a.ts"), next: stderr.includes("use Edit or Write for files under src/, tests/ and features/") }).toEqual({ what: true, next: true });
+    expect({ what: stderr.includes("src/a.ts"), next: stderr.includes("use Edit or Write for the project's files; Bash writes only to dist/, node_modules/, coverage/, outside the project, or through a versioned script; .outside-in/ is written only by oid") }).toEqual({ what: true, next: true });
   });
 
   it("refuses tee to a protected path", () => {
@@ -267,7 +267,7 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
 
   it("refuses cp and mv whose destination is protected", () => {
     focusedAt("tdd_green");
-    expect(statusesOf(["cp x src/a.ts", "cp -r d features/", "mv a tests/b", "cp -t src/ x"])).toEqual([2, 2, 2, 2]);
+    expect(statusesOf(["cp x src/a.ts", "cp -r d features/", "mv /tmp/x src/a.ts", "cp -t src/ x"])).toEqual([2, 2, 2, 2]);
   });
 
   it("refuses inline python or node code that names a protected path and writes", () => {
@@ -283,6 +283,12 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
       "node <<EOF\nrequire('fs').writeFileSync('./tests/a.ts','x')\nEOF",
     ];
     expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+  });
+
+  it("refuses inline code that reads a file of the project and writes outside it, and says to print and redirect instead", () => {
+    focusedAt("tdd_green");
+    const { status, stderr } = runHook("before-step", { tool_input: { command: `python3 -c "d = open('src/a.ts').read(); open('/tmp/o.md', 'w').write(d)"` } });
+    expect({ status, next: stderr.includes(`Next: have the code only read and print, and redirect its output outside the project (python3 -c "…print(…)…" > /tmp/x); to change a file of the project, use Edit or Write.`) }).toEqual({ status: 2, next: true });
   });
 
   it("refuses the same writes inside a compound line", () => {
@@ -305,9 +311,9 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
     expect(statusesOf(commands)).toEqual(commands.map(() => 0));
   });
 
-  it("lets writes outside the protected paths through", () => {
+  it("lets writes outside the project through", () => {
     focusedAt("tdd_green");
-    const commands = ["echo x > docs/a.md", "echo x >> /tmp/y", `echo x > ${dir}/docs/b.md`, "echo x > /dev/null", "ls nothing 2>&1", "sed -i 's/a/b/' docs/a.md", "cp x docs/a.md", "tee docs/log.txt", "echo x > src-notes.txt"];
+    const commands = ["echo x >> /tmp/y", `echo x > ${tmpdir()}/x`, "echo x > /dev/null", "ls nothing 2>&1", "echo x | tee /tmp/run.log", "echo x > ~/.cache/x", "echo x > $SOMEWHERE/x"];
     expect(statusesOf(commands)).toEqual(commands.map(() => 0));
   });
 
@@ -318,7 +324,7 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
 
   it("lets inline code that only reads through", () => {
     focusedAt("tdd_green");
-    const commands = [`python3 -c "print(open('src/a.ts').read())"`, `node -e "console.log(require('fs').readFileSync('src/a.ts','utf8'))"`, "python3 - <<EOF\nprint(open('src/a.ts').read())\nEOF", `python3 -c "open('docs/a.md','w').write('x')"`];
+    const commands = [`python3 -c "print(open('src/a.ts').read())"`, `node -e "console.log(require('fs').readFileSync('src/a.ts','utf8'))"`, "python3 - <<EOF\nprint(open('src/a.ts').read())\nEOF", `python3 -c "open('/tmp/o.md','w').write('x')"`];
     expect(statusesOf(commands)).toEqual([0, 0, 0, 0]);
   });
 
@@ -361,8 +367,9 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
     focusedAt("tdd_green");
     const at = (cwd: string, command: string): number | null => runHook("before-step", { cwd, tool_input: { command } }).status;
     const blocked = [at(join(dir, "src"), "echo x > a.ts"), at(dir, "cd src && echo x > a.ts"), at(join(dir, "docs"), "cd ../tests; sed -i s/a/b/ a.test.ts"), at(dir, "cd $CLAUDE_PROJECT_DIR/features && echo x > a.feature")];
-    const allowed = [at(join(dir, "docs"), "echo x > a.md"), at(dir, "cd /tmp && echo x > src/a.ts"), at(dir, "cd docs && echo x > a.md"), at(join(dir, "src"), "cd .. && echo x > a.md")];
-    expect({ blocked, allowed }).toEqual({ blocked: [2, 2, 2, 2], allowed: [0, 0, 0, 0] });
+    const allowed = [at(join(dir, "docs"), "echo x > /tmp/a.md"), at(dir, "cd /tmp && echo x > src/a.ts"), at(tmpdir(), "echo x > a.md"), at(join(dir, "src"), "cd /tmp && echo x > a.md")];
+    const blockedNow = [at(join(dir, "docs"), "echo x > a.md"), at(dir, "cd docs && echo x > a.md"), at(join(dir, "src"), "cd .. && echo x > a.md")];
+    expect({ blocked, allowed, blockedNow }).toEqual({ blocked: [2, 2, 2, 2], allowed: [0, 0, 0, 0], blockedNow: [2, 2, 2] });
   });
 
   it("lets what follows a cd it cannot follow through, and still refuses an absolute path", () => {
@@ -384,8 +391,97 @@ describe("the before-step hook, on Bash writes to src/, tests/ and features/ (AD
   it("lets patch and git apply through when they only check, or the diff is outside the protected paths or cannot be read", () => {
     focusedAt("tdd_green");
     write("m.diff", "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-a\n+b\n");
-    write("d.diff", "--- a/docs/a.md\n+++ b/docs/a.md\n@@ -1 +1 @@\n-a\n+b\n");
+    write("d.diff", "--- /tmp/a.md\n+++ /tmp/a.md\n@@ -1 +1 @@\n-a\n+b\n");
     const commands = ["git apply --check m.diff", "git apply --stat m.diff", "git apply --numstat m.diff", "patch --dry-run -p1 < m.diff", "git apply d.diff", "patch -p1 < d.diff", "git apply missing.diff", "git apply -", "patch -p1", "cat m.diff | git apply"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("refuses a write to any project file outside the generated directories", () => {
+    focusedAt("tdd_green");
+    write("docs/bootstrap-log.md", "row\n");
+    write("m.diff", "--- a/docs/a.md\n+++ b/docs/a.md\n@@ -1 +1 @@\n-a\n+b\n");
+    const commands = [
+      "sed -i 's/a/b/' docs/bootstrap-log.md",
+      "perl -pi -e 's/a/b/' docs/a.md",
+      "echo x >> docs/a.md",
+      "echo x > progress.json",
+      "echo x > SPEC.md",
+      "echo x > src-notes.txt",
+      `echo x > ${dir}/docs/a.md`,
+      "cd docs && echo x > a.md",
+      "cat <<EOF > docs/x.md\nx\nEOF",
+      "oid verify green | tee run.log",
+      "cp /tmp/x docs/a.md",
+      "cp docs/a.md docs/b.md",
+      "mv /tmp/x docs/a.md",
+      "git apply m.diff",
+      "patch -p1 < m.diff",
+    ];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+  });
+
+  it("refuses inline code, and a script that is not versioned, that writes in the project", () => {
+    focusedAt("tdd_green");
+    const scripts = mkdtempSync(join(tmpdir(), "oid-scripts-"));
+    writeFileSync(join(scripts, "s.mjs"), "import { writeFileSync } from 'node:fs';\nwriteFileSync('docs/a.md', 'x');\n");
+    const commands = [
+      `python3 -c "open('docs/a.md','w').write('x')"`,
+      `python3 -c "open('out','w').write('x')"`,
+      `node -e "require('fs').writeFileSync('./docs/a.md','x')"`,
+      `node -e "require('fs').writeFileSync('${dir}/docs/a.md','x')"`,
+      `node ${join(scripts, "s.mjs")}`,
+    ];
+    const statuses = statusesOf(commands);
+    rmSync(scripts, { recursive: true, force: true });
+    expect(statuses).toEqual(commands.map(() => 2));
+  });
+
+  it("refuses a write to .git/, .claude/ and .outside-in/, and says that .outside-in/ is written only by oid", () => {
+    focusedAt("tdd_green");
+    const commands = [
+      "echo x >> .git/info/exclude",
+      "echo x > .claude/settings.json",
+      "echo '{}' > .outside-in/checkpoints/FR-X.json",
+      "echo x >> .outside-in/overrides.ndjson",
+      "cp /tmp/c.json .outside-in/checkpoints/FR-X.json",
+      "sed -i s/a/b/ .outside-in/metrics-baseline.json",
+    ];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+    const { stderr } = runHook("before-step", { tool_input: { command: "echo x > .outside-in/overrides.ndjson" } });
+    expect(stderr.includes(".outside-in/ is written only by oid")).toBe(true);
+  });
+
+  it("refuses to undo a change to any project file through git", () => {
+    focusedAt("tdd_green");
+    write("docs/bootstrap-log.md", "row\n");
+    const commands = ["git checkout docs/bootstrap-log.md", "git checkout -- SPEC.md", "git checkout .", "git checkout HEAD docs/bootstrap-log.md", "git restore docs/a.md", "git restore --source=HEAD progress.json", "git restore --staged --worktree docs/a.md", "git checkout -- .outside-in/overrides.ndjson", "git stash", "git reset --hard", "git clean -fd"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 2));
+    const { stderr } = runHook("before-step", { tool_input: { command: "git checkout docs/bootstrap-log.md" } });
+    expect(stderr.includes("to undo a change, use Edit (git cannot discard work in the project's files)")).toBe(true);
+  });
+
+  it("lets the generated directories and git commands that do not undo through", () => {
+    focusedAt("tdd_green");
+    const commands = ["echo x > dist/x", "echo x > coverage/x", "echo x > node_modules/.cache/x", "echo x | tee -a dist/log.txt", "cp /tmp/x dist/x", "git checkout main", "git checkout -b x", "git switch main", "git restore --staged docs/a.md", "git checkout -- dist/x", "git add docs/a.md", "git commit -F - <<EOF\nmsg\nEOF", "git clean -n", "git stash list"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets .outside-in/ be read or copied out, and the project's files be read or copied to outside", () => {
+    focusedAt("tdd_green");
+    const commands = ["cat .outside-in/overrides.ndjson", "cp .outside-in/checkpoints/FR-X.json /tmp/x", "cp docs/a.md /tmp/x", "grep -n x docs/a.md", "head -3 docs/a.md", "sed -n 1,3p docs/a.md", "git diff", "git show HEAD:docs/a.md", `python3 -c "print(open('docs/a.md').read())"`];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets deleting, and moving inside the project, through: they write no new content", () => {
+    focusedAt("tdd_green");
+    const commands = ["rm docs/a.md", "git rm docs/a.md", "mv docs/a.md docs/b.md", "git mv src/a.ts src/b.ts", "mv a tests/b", "mv -t docs a b"];
+    expect(statusesOf(commands)).toEqual(commands.map(() => 0));
+  });
+
+  it("lets the project tools and a versioned script through", () => {
+    write("scripts/record-replays.mjs", "import { writeFileSync } from 'node:fs';\nwriteFileSync('docs/a.md', 'x');\n");
+    focusedAt("tdd_green");
+    const commands = ["node scripts/record-replays.mjs", "npm run test:unit", "npx tsc --noEmit", "oid progress step FR-X-01 refactor --help", "oid metrics --baseline"];
     expect(statusesOf(commands)).toEqual(commands.map(() => 0));
   });
 

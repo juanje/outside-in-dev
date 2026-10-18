@@ -36,7 +36,7 @@ oid check
 oid metrics --changed
 ```
 
-`oid check` and `oid metrics` are the installed build. Both run as a git pre-commit hook: install it with `cp scripts/pre-commit .git/hooks/pre-commit`. `oid metrics --changed` fails only on new findings on the lines changed since the last commit; existing ones are in the local baseline (`oid metrics --baseline`, once per clone). CI runs `oid check` only: after the commit there are no changed lines to judge.
+`oid check` and `oid metrics` are the installed build. Both run as a git pre-commit hook: install it with `npm run hooks:install` (Bash may not copy into `.git/`, ADR-055). `oid metrics --changed` fails only on new findings on the lines changed since the last commit; existing ones are in the local baseline (`oid metrics --baseline`, once per clone). CI runs `oid check` only: after the commit there are no changed lines to judge.
 
 ## Rules
 

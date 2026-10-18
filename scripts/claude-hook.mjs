@@ -17,21 +17,29 @@
 //                An `oid` command with `--help` or `-h` runs nothing, so none of these checks apply to it.
 //                Only the commands the shell would run count: text in a heredoc, a comment or a quoted string
 //                does not.
-//                It also refuses, in every session (ADR-055), a Bash command that writes into src/, tests/ or
-//                features/ (relative, with ./, or absolute inside the project): a redirection, tee, sed -i, perl -i,
-//                cp or mv to it, patch or git apply whose diff has a `+++` header in it, inline python or node
-//                code (or a heredoc) that names such a path and writes, an undo through git (checkout,
-//                restore, stash, reset --hard, clean), and a script run with an
-//                interpreter that is not versioned (tracked by git and unchanged from HEAD): its content is read
-//                and judged like inline code. Relative paths resolve against the `cwd` of the tool call, moved by
-//                the `cd`s of the line (a `cd` it cannot follow makes what follows fail open). The next action
-//                is Edit or Write; there is no override. It fails open: a command it cannot analyse, a
-//                script it cannot read, or one it does not know is let through.
+//                It also refuses, in every session (ADR-055), a Bash command that writes a file of the project
+//                other than in dist/, node_modules/ and coverage/ (a path outside the project is free). Two
+//                reasons. The files are written with Edit or Write, which the cycle's hooks see: a `sed -i` once
+//                rewrote old rows of docs/bootstrap-log.md (the evidence record), and a `git checkout` undid it,
+//                and neither went through any check. And `.outside-in/` is oid's evidence (the checkpoints of
+//                `oid verify` that this hook reads to let a step move forward, overrides.ndjson, the metrics
+//                baseline): `echo … > .outside-in/checkpoints/FR-X.json` would fabricate a verification, so only
+//                oid writes there. What it sees: a redirection, tee, sed -i, perl -i, the destination of cp, or
+//                of mv and git mv when the source is outside the project (a move inside the project writes no
+//                new content and integrity judges it), patch or git apply whose diff has a `+++` header in the
+//                project, inline python or node code (or a heredoc) that names a project path and writes, an
+//                undo through git on any project file (checkout, restore, stash, reset --hard, clean), and a
+//                script run with an interpreter that is not versioned (tracked by git and unchanged from HEAD):
+//                its content is read and judged like inline code. Relative paths resolve against the `cwd` of the
+//                tool call, moved by the `cd`s of the line (a `cd` it cannot follow, or a path with a variable
+//                or `~`, makes what follows fail open). The next action is Edit or Write; there is no override.
+//                It fails open: a command it cannot analyse, a script it cannot read, or one it does not know
+//                is let through.
 //   before-edit  (PreToolUse on Edit|Write|MultiEdit): run `oid verify integrity --path <file>` on the file about
 //                to be changed and block the edit when oid refuses it (exit 1), passing oid's line on, which
 //                names the step to move to. It judges the path by its kind only: approved scenarios (ADR-040)
 //                and forbidden patterns are still judged by after-edit, on the content. Writes from Bash to
-//                src/, tests/ and features/ do not go through it: before-step refuses them. It fails open: if
+//                the project's files do not go through it: before-step refuses them. It fails open: if
 //                oid is missing or fails in any other way, or the input has no file_path, the edit is allowed.
 //   overrides    (ADR-045): an `oid verify` or `oid progress step` prefixed with OID_OVERRIDE="<cause>" skips the
 //                integrity and evidence checks, only from the main session:
@@ -247,10 +255,11 @@ function requireMainSessionForReviseExit(input, id, to) {
   }
 }
 
-/** The directories whose files are written with Edit or Write only (ADR-055): a write from Bash does not go through before-edit and after-edit. */
-const PROTECTED_DIRS = ["src", "tests", "features"];
-const USE_EDIT = "use Edit or Write for files under src/, tests/ and features/";
-const USE_EDIT_TO_UNDO = "to undo a change, use Edit (git cannot be used to discard work under src/, tests/ and features/)";
+/** The only directories of the project a Bash command may write (ADR-055): every other file is written with Edit or Write, and a write from Bash does not go through before-edit and after-edit. */
+const GENERATED_DIRS = ["dist", "node_modules", "coverage"];
+const USE_EDIT = "use Edit or Write for the project's files; Bash writes only to dist/, node_modules/, coverage/, outside the project, or through a versioned script; .outside-in/ is written only by oid";
+const USE_PRINT = `have the code only read and print, and redirect its output outside the project (python3 -c "…print(…)…" > /tmp/x); to change a file of the project, use Edit or Write`;
+const USE_EDIT_TO_UNDO ="to undo a change, use Edit (git cannot discard work in the project's files)";
 const EVIDENCE_LENGTH = 200;
 const MAX_DEPTH = 3;
 const INTERPRETERS = { python: /^python[\d.]*$/, node: /^(node|nodejs|bun|deno|tsx|ts-node)$/, shell: /^(bash|sh|zsh|dash)$/ };
@@ -264,6 +273,7 @@ let base = project;
 /** The absolute path `raw` names, or undefined when it is relative and the directory is unknown. */
 function absolute(raw) {
   const path = raw.replaceAll("${CLAUDE_PROJECT_DIR}", project).replaceAll("$CLAUDE_PROJECT_DIR", project);
+  if (path.startsWith("~") || path.includes("$")) return undefined;
   if (isAbsolute(path)) return resolve(path);
   return base === undefined ? undefined : resolve(base, path);
 }
@@ -275,14 +285,22 @@ function inProject(raw) {
   const rel = relative(project, path);
   return rel.startsWith("..") || isAbsolute(rel) ? undefined : rel;
 }
-const isProtected = (raw) => PROTECTED_DIRS.includes((inProject(raw) ?? "").split(sep)[0]);
-/** Whether a git path argument covers a protected directory: the project root does too. */
-const coversProtected = (raw) => inProject(raw) === "" || isProtected(raw);
+/** Whether `raw` names a place of the project that Bash may not write: anywhere in it but the generated directories (the root itself too). */
+const isProtected = (raw) => {
+  const rel = inProject(raw);
+  return rel !== undefined && !GENERATED_DIRS.includes(rel.split(sep)[0]);
+};
+/** The calls of inline code whose first argument is the path they write. */
+const WRITE_CALLS = "open|writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|Path|rename|renameSync|copyFile|copyFileSync|copy|move|replace";
+/** Whether a string literal of code looks like a path: it has a dot or a leading `/` or `~`, or is under a directory of the project; versions and URLs are not paths. */
+const pathLike = (text) => !/^[\d.]+$/.test(text) && !/^[a-z][a-z0-9+.-]*:/i.test(text) && (text.includes(".") || /^[/~]/.test(text) || (text.includes("/") && existsSync(join(project, text.split("/")[0]))));
 
-/** Whether `code` names a protected path and writes. */
+/** Whether `code` writes and names a path of the project that Bash may not write: the first argument of a writing call, or any string that looks like a path. */
 function codeWrites(code) {
-  const text = code.replaceAll(project + "/", "").replaceAll("${CLAUDE_PROJECT_DIR}/", "").replaceAll("$CLAUDE_PROJECT_DIR/", "");
-  return /(?:^|[^\w./-])(?:\.\/)?(?:src|tests|features)(?:\/|['"]|$)/m.test(text) && CODE_WRITES.test(text);
+  if (!CODE_WRITES.test(code)) return false;
+  const firstArguments = [...code.matchAll(new RegExp(`\\b(?:${WRITE_CALLS})\\s*\\(\\s*(['"])([^'"\\s]+)\\1`, "g"))].map((match) => match[2]);
+  const literals = [...code.matchAll(/(['"])([^'"\s]+)\1/g)].map((match) => match[2]).filter(pathLike);
+  return [...firstArguments, ...literals].some(isProtected);
 }
 
 /** Whether a script is versioned: tracked by git and unchanged from HEAD. */
@@ -319,7 +337,7 @@ function patchWrite(args, words, program) {
   for (const line of diff.split("\n")) {
     if (!line.startsWith("+++ ")) continue;
     const path = line.slice(4).split("\t")[0].trim();
-    const stripped = path.split("/").slice(1).join("/");
+    const stripped = isAbsolute(path) ? path : path.split("/").slice(1).join("/");
     if (path !== "/dev/null" && (isProtected(path) || isProtected(stripped))) return `a patch writes to ${path} (${program === "git" ? "git apply" : "patch"})`;
   }
   return undefined;
@@ -328,18 +346,24 @@ function patchWrite(args, words, program) {
 /** The first argument that is not an option: the script an interpreter runs. */
 const scriptOf = (args) => args.find((arg) => arg !== "-" && !arg.startsWith("-"));
 
-/** What a git command does to a protected directory, or undefined: the undo commands. */
+/** What a git command does to the project's files, or undefined: the undo commands. */
 function gitWrite(args, words) {
   let at = 0;
   while (at < args.length && args[at].startsWith("-")) at += args[at] === "-C" || args[at] === "-c" ? 2 : 1;
   const [subcommand, ...rest] = args.slice(at);
   const operands = rest.filter((arg) => !arg.startsWith("-"));
   if (subcommand === "apply") return patchWrite(rest, words, "git");
-  if (subcommand === "stash") return operands[0] === "list" || operands[0] === "show" ? undefined : "git stash saves and removes the changes of src/, tests/ and features/";
-  if (subcommand === "reset") return rest.includes("--hard") ? "git reset --hard discards the changes of src/, tests/ and features/" : undefined;
-  if (subcommand === "clean") return rest.includes("-n") || rest.includes("--dry-run") ? undefined : operands.length === 0 || operands.some(coversProtected) ? "git clean deletes files of src/, tests/ and features/" : undefined;
+  if (subcommand === "stash") return operands[0] === "list" || operands[0] === "show" ? undefined : "git stash saves and removes the changes of the project's files";
+  if (subcommand === "reset") return rest.includes("--hard") ? "git reset --hard discards the changes of the project's files" : undefined;
+  if (subcommand === "clean") return rest.includes("-n") || rest.includes("--dry-run") ? undefined : operands.length === 0 || operands.some(isProtected) ? "git clean deletes files of the project" : undefined;
   if (subcommand === "restore" && (rest.includes("--staged") || rest.includes("-S")) && !rest.includes("--worktree") && !rest.includes("-W")) return undefined;
-  if ((subcommand === "checkout" || subcommand === "restore") && operands.some(coversProtected)) return `git ${subcommand} overwrites files of src/, tests/ and features/`;
+  if (subcommand === "restore" && operands.some(isProtected)) return "git restore overwrites files of the project";
+  if (subcommand === "checkout") {
+    // After `--` every operand is a path; before it, one that exists in the project (or `.`) is a path, the rest are branches.
+    const dashes = rest.indexOf("--");
+    const paths = dashes >= 0 ? rest.slice(dashes + 1) : operands.filter((operand) => operand === "." || existsSync(absolute(operand) ?? ""));
+    if (paths.some(isProtected)) return "git checkout overwrites files of the project";
+  }
   return undefined;
 }
 
@@ -349,6 +373,28 @@ function destinationOf(args) {
   if (target >= 0) return args[target].includes("=") ? args[target].split("=")[1] : args[target + 1];
   const operands = args.filter((arg) => !arg.startsWith("-"));
   return operands.length >= 2 ? operands.at(-1) : undefined;
+}
+
+/** The sources of a mv or git mv: the operands but the destination (and, for git, the word `mv`). */
+function sourcesOf(args, program) {
+  const target = args.findIndex((arg) => arg === "-t" || arg.startsWith("--target-directory"));
+  const skip = new Set(target >= 0 && !args[target].includes("=") ? [target + 1] : []);
+  const operands = args.filter((arg, at) => !arg.startsWith("-") && !skip.has(at));
+  const list = program === "git" ? operands.slice(operands.indexOf("mv") + 1) : operands;
+  return target >= 0 ? list : list.slice(0, -1);
+}
+
+/** The files `sed -i` or `perl -i` edits: the operands, but the script (the value of -e or -f, or the first operand when there is none). */
+function fileOperands(args) {
+  const files = [];
+  let scripted = false;
+  for (let at = 0; at < args.length; at++) {
+    if (args[at] === "-e" || args[at] === "-f" || args[at] === "--expression" || args[at] === "--file") {
+      scripted = true;
+      at++;
+    } else if (!args[at].startsWith("-")) files.push(args[at]);
+  }
+  return scripted ? files : files.slice(1);
 }
 
 /** What an interpreter run does to a protected path (inline code, a heredoc, a script file that is not versioned), or undefined. */
@@ -364,8 +410,8 @@ function interpreterWrite(kind, args, body, depth) {
     code = textOf(path);
     if (code === undefined) return undefined;
   }
-  if (kind === "shell" && depth < MAX_DEPTH && bashWrite(code, depth + 1) !== undefined) return "a shell script writes to src/, tests/ or features/";
-  return codeWrites(code) ? "code run by an interpreter names src/, tests/ or features/ and writes" : undefined;
+  if (kind === "shell" && depth < MAX_DEPTH && bashWrite(code, depth + 1) !== undefined) return "a shell script writes to a file of the project";
+  return codeWrites(code) ? "code run by an interpreter writes to a file of the project" : undefined;
 }
 
 /** What one simple command writes in a protected directory, or undefined. */
@@ -382,11 +428,15 @@ function commandWrite(words, depth) {
     base = target === undefined || target.startsWith("~") || (target.includes("$") && !target.includes("CLAUDE_PROJECT_DIR")) ? undefined : absolute(target);
     return undefined;
   }
-  if (program === "tee" && operands.some(isProtected)) return "tee writes to a protected path";
-  if ((program === "sed" || program === "perl") && args.some((arg) => /^-[a-zA-Z]*i|^--in-place/.test(arg)) && operands.some(isProtected)) return `${program} edits a protected file in place`;
+  if (program === "tee" && operands.some(isProtected)) return "tee writes to a file of the project";
+  if ((program === "sed" || program === "perl") && args.some((arg) => /^-[a-zA-Z]*i|^--in-place/.test(arg)) && fileOperands(args).some(isProtected)) return `${program} edits a file of the project in place`;
   if (program === "cp" || program === "mv" || (program === "git" && args.includes("mv"))) {
     const destination = destinationOf(args);
-    if (destination !== undefined && isProtected(destination)) return `${program} writes to ${destination}`;
+    if (destination !== undefined && isProtected(destination)) {
+      // A move whose sources are all inside the project writes no new content: integrity judges it at the next verify.
+      const moves = program === "mv" || program === "git";
+      if (!moves || sourcesOf(args, program).some((source) => absolute(source) !== undefined && inProject(source) === undefined)) return `${program} writes to ${destination}`;
+    }
   }
   if (program === "patch") return patchWrite(args, words, "patch");
   if (program === "git") return gitWrite(args, words);
@@ -407,6 +457,8 @@ function bashWrite(text, depth = 0) {
       let next = USE_EDIT;
       if (what.startsWith("git ")) next = USE_EDIT_TO_UNDO;
       else if (what.startsWith("a patch ")) next = USE_EDIT_FOR_PATCH;
+      // Inline code that names a project path may only read it and write elsewhere: the hook cannot tell which path it writes.
+      else if (what.startsWith("code run ")) next = USE_PRINT;
       return { what, evidence, next };
     }
     return undefined;
