@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CommandTimeoutError, REAL_RUNNERS, type Runners } from "../../src/artifacts/verify-runner.js";
 import { unitRedGate } from "../../src/orchestrator/unit-red-gate.js";
 import { committedRepo } from "./git-fixture.js";
 import { GATE_PATHS } from "./gate-paths.js";
@@ -36,6 +37,15 @@ describe("the gate of a unit test in TDD Red", () => {
         evidence: "unit test tests/unit/cart.test.ts > cart lines > adds a line",
         next: "test a behaviour the code does not have yet, or, if no unit logic is left and the scenario still fails, report no_unit_logic_left",
       }),
+    });
+  });
+
+  it("rejects the attempt when the unit run does not end within its limit, with the command and the limit as the evidence", () => {
+    const repo = project([passing]);
+    const runners: Runners = { ...REAL_RUNNERS, unitSuite: () => { throw new CommandTimeoutError("node unit.cjs", 5); } };
+    expect(unitRedGate(repo, { file: "tests/unit/cart.test.ts", name: "cart lines > adds a line" }, runners)).toEqual({
+      kind: "problem",
+      problem: expect.objectContaining({ evidence: expect.stringContaining("limits.command_timeout_s"), next: expect.stringContaining("keeps the command from ending") }),
     });
   });
 

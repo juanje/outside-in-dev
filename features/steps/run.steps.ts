@@ -145,8 +145,15 @@ function writeReplayScripts(world: OidWorld, script: string, as: string): void {
 }
 
 /** An entry of a replay sequence: the recording it answers with, the request it answers, and whether it answers every later identical call. */
-type ReplayEntry = { recording: string | null; expect?: unknown; repeat?: true };
+type ReplayEntry = { recording: string | null; expect?: unknown; repeat?: true; hangs?: true };
 const SUITE = "suite";
+/** The name that stands, in the list of recordings of a runner, for a call that does not end within the limit: it has no recording, and the replay answers it as the supervisor of a real command does. */
+export const HANGS = "hangs";
+
+/** The entry that answers a request with a recording, or with a command that does not end. */
+function answering(recording: string, expect: unknown): ReplayEntry {
+  return recording === HANGS ? { recording: null, expect, hangs: true } : { recording, expect };
+}
 /** A recording of the gate list that ends with this mark answers the runs of the whole suite (as many as come) until a run of some scenarios asks for the next entry. */
 const WHOLE_RUN = "*";
 
@@ -162,14 +169,14 @@ function locationsOf(recording: string): string[] {
 function writeReplay(world: OidWorld, gate: string | string[], suite: string[] = []): void {
   const exitCodes = JSON.parse(readFileSync(join(SUPPORT, "recorded", "exit-codes.json"), "utf8")) as Record<string, number>;
   const suites = suite.length === 0 ? [BASELINE_REPLAY] : [BASELINE_REPLAY, ...suite];
-  const whole = (recording: string): ReplayEntry => ({ recording, expect: SUITE });
+  const whole = (recording: string): ReplayEntry => answering(recording, SUITE);
   const finals = suites.length === 1 ? suites : suites.slice(1);
   const gateEntries = [gate].flat().map((item): ReplayEntry => (item.endsWith(WHOLE_RUN) ? { ...whole(item.slice(0, -WHOLE_RUN.length)), repeat: true } : { recording: item, expect: { locations: locationsOf(item) } }));
   const sequence: ReplayEntry[] = [whole(suites[0]!), ...gateEntries, ...finals.map(whole)];
   sequence[sequence.length - 1]!.repeat = true;
   writeReplayScripts(world, "replay-bdd.mjs", "bdd-replay.mjs");
   writeIn(world, "replay/replay.json", JSON.stringify({ sequence, exitCodes }));
-  for (const name of new Set([BASELINE_REPLAY, ...suite, ...gateEntries.map(({ recording }) => recording!)])) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
+  for (const name of new Set([BASELINE_REPLAY, ...suite, ...gateEntries.map(({ recording }) => recording!)].filter((recording) => recording !== HANGS))) writeIn(world, `replay/${name}.ndjson`, readFileSync(join(SUPPORT, "recorded", `${name}.ndjson`), "utf8"));
 }
 
 /** The fake unit runner and type check of the project and the recordings they replay. */
@@ -178,12 +185,12 @@ function writeLoopReplay(world: OidWorld, { unit, typecheck }: Loop): void {
   writeReplayScripts(world, "replay-unit.mjs", "unit-replay.mjs");
   writeIn(world, "typecheck-replay.mjs", readFileSync(join(SUPPORT, "replay-typecheck.mjs"), "utf8"));
   // The full unit run of the quality gate follows the runs of the loop; unless a scenario scripts it, it passes, and so on for as many runs as it makes.
-  const units: ReplayEntry[] = [...unit.map((recording) => ({ recording, expect: SUITE })), { recording: GATE_UNIT_REPORT, expect: SUITE, repeat: true }];
+  const units: ReplayEntry[] = [...unit.map((recording) => answering(recording, SUITE)), { recording: GATE_UNIT_REPORT, expect: SUITE, repeat: true }];
   writeIn(world, "replay/unit.json", JSON.stringify({ sequence: units, exitCodes }));
   // The type check of the start of the run comes before the runs of the loop. A recording given alone answers every call.
   const checks: ReplayEntry[] = Array.isArray(typecheck) ? [{ recording: null }, ...typecheck.map((recording) => ({ recording }))] : [{ recording: typecheck, repeat: true }];
   writeIn(world, "replay/typecheck.json", JSON.stringify({ sequence: checks, exitCodes }));
-  for (const name of new Set([...unit, GATE_UNIT_REPORT])) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
+  for (const name of new Set([...unit, GATE_UNIT_REPORT].filter((recording) => recording !== HANGS))) writeIn(world, `replay/${name}.json`, readFileSync(join(SUPPORT, "recorded", `${name}.json`), "utf8"));
   for (const name of new Set([typecheck].flat())) if (name !== null) writeIn(world, `replay/${name}.txt`, readFileSync(join(SUPPORT, "recorded", `${name}.txt`), "utf8"));
 }
 

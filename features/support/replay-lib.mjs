@@ -4,6 +4,7 @@
 // A replay file holds { "sequence": [entry, ...], "exitCodes": {...} }. An entry is { "recording": "<name>" | null,
 // "expect": <the request it answers>, "repeat": true }. `expect` is "suite" (the whole suite), { file, name } (one unit test),
 // { locations: ["file:line", ...] } (some scenarios; the order is not contractual) or absent (any call, as the type check).
+// An entry with `hangs: true` answers a call that does not end within the limit (no recording; the call returns `hung: true`).
 // An entry is consumed by the call it answers; only an entry with `repeat: true` answers every later identical call too.
 // A call that is not the one the current entry expects, or that arrives when the sequence is exhausted, is refused: exit code 2
 // and what was expected and what was received on stderr. `replayCall` is the whole of a call; the scripts (as a process) and the in-process
@@ -17,6 +18,8 @@ import { dirname, join, resolve } from "node:path";
 
 export const CALL_LOG = join(".outside-in", "replay-calls.ndjson");
 const REFUSED = 2;
+/** The exit code of a call that passed its limit and was stopped (the one of timeout(1)); only a replay run as a process ends with it, the in-process replay throws the error of the real supervisor. */
+const STOPPED = 124;
 
 /** The location `file:line` without a leading `./`. */
 const normalised = (location) => location.replace(/^\.\//, "");
@@ -83,6 +86,7 @@ export function replayCall(kind, { here, cwd, request, output }) {
     if (!(error instanceof ReplayRefused)) throw error;
     return { exitCode: REFUSED, stdout: "", stderr: `${error.message}\n` };
   }
+  if (entry.hangs === true) return { exitCode: STOPPED, stdout: "", stderr: "replay: this call does not end within the limit\n", hung: true };
   const text = entry.recording === null ? "" : readFileSync(join(here, "replay", `${entry.recording}.${extension}`), "utf8").split("<root>").join(cwd);
   if (toFile) {
     mkdirSync(dirname(resolve(cwd, output)), { recursive: true });

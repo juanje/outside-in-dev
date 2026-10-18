@@ -3314,6 +3314,14 @@
         {
           "name": "A Red whose unit runner never ends is an environment failure",
           "bdd": "pass"
+        },
+        {
+          "name": "A unit run that passes its limit after the coding agent's change rejects the attempt and the next attempt goes on",
+          "bdd": "pass"
+        },
+        {
+          "name": "A command that passes its limit in the quality gate is a failed check put to the human",
+          "bdd": "pass"
         }
       ]
     },

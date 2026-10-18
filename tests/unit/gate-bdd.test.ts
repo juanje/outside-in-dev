@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CommandTimeoutError, REAL_RUNNERS, type Runners } from "../../src/artifacts/verify-runner.js";
 import { gateChecks } from "../../src/orchestrator/gate-checks.js";
 import { runMessages } from "./cucumber-run-messages.js";
 import { bddRunner, EMPTY_BASELINE, gateProject, PASSING_UNIT } from "./gate-project.js";
@@ -15,6 +16,15 @@ describe("the BDD suite of the quality gate", () => {
     const config = gateProject({ unit: "node unit.cjs", typecheck: "node -e 0", bdd: "node bdd.cjs" }, { "unit.cjs": PASSING_UNIT, "bdd.cjs": bddRunner(report, 1) });
     const problem = "bdd features/cart.feature: Add to cart: I add (boom)";
     expect(gateChecks(dir, config, EMPTY_BASELINE)).toEqual({ kind: "ask", check: "bdd", problems: [problem], output: problem });
+  });
+});
+
+describe("a command of the quality gate that does not end within its limit", () => {
+  it("is a failed check put to a person, with the command and the limit", () => {
+    const config = gateProject({ unit: "node unit.cjs", typecheck: "node -e 0", bdd: "node bdd.cjs" }, { "unit.cjs": PASSING_UNIT });
+    const runners: Runners = { ...REAL_RUNNERS, bddScenarios: () => { throw new CommandTimeoutError("node bdd.cjs", 5); } };
+    const outcome = gateChecks(dir, config, EMPTY_BASELINE, runners);
+    expect(outcome).toMatchObject({ kind: "ask", problems: [expect.stringContaining("limits.command_timeout_s")], output: expect.stringContaining("node bdd.cjs") });
   });
 });
 

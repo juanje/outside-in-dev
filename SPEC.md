@@ -192,7 +192,7 @@ A step definition found wrong at `tdd_red`, `tdd_green`, `refactor` or `quality_
 
 ### FR-VERIFY-07: Stop a command that does not end
 
-Every command oid runs from the project's configuration (the unit and BDD runners, the type check, the linter and the formatter) has a time limit, `limits.command_timeout_s` in `.outside-in.json`, 600 seconds by default. A command that passes it is stopped together with every process it started. `oid verify` exits 1 naming the command and the limit (for `oid verify red`, an `environment` failure) and releases its lock; `oid run` ends the run with the same message and releases its lock. A command that hangs must not hang oid, nor leave processes or locks behind.
+Every command oid runs from the project's configuration (the unit and BDD runners, the type check, the linter and the formatter) has a time limit, `limits.command_timeout_s` in `.outside-in.json`, 600 seconds by default. A command that passes it is stopped together with every process it started. `oid verify` exits 1 naming the command and the limit (for `oid verify red`, an `environment` failure) and releases its lock. In `oid run`, a command that passes its limit before any agent has worked (the baseline) ends the run with the same message and releases its lock; in a gate after an agent's change it is a failed check: the attempt is rejected with the command and the limit as evidence, and retried. A command that hangs must not hang oid, nor leave processes or locks behind.
 
 ### FR-VERIFY-08: Fix a unit test after the code exists
 

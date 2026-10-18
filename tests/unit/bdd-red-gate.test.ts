@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { CommandTimeoutError, REAL_RUNNERS, type Runners } from "../../src/artifacts/verify-runner.js";
 import { bddRedGate } from "../../src/orchestrator/bdd-red-gate.js";
 import { COMMANDS, PATHS } from "./bdd-gate-fixture.js";
 import { committedRepo } from "./git-fixture.js";
@@ -54,6 +55,15 @@ describe("the gate of BDD Red", () => {
   it("accepts a scenario whose step fails because a source module does not exist yet", () => {
     const repo = project(failingRunner("Error: Cannot find module '<cwd>/src/cart.js' imported from <cwd>/features/steps/pay.steps.ts"));
     expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {})).toEqual({ kind: "valid", reason: "the module src/cart.js does not exist yet", message: expect.stringContaining("Cannot find module") });
+  });
+
+  it("rejects the attempt when the scenario run does not end within its limit, with the command and the limit as the evidence", () => {
+    const repo = project(failingRunner("unused"));
+    const runners: Runners = { ...REAL_RUNNERS, bddScenarios: () => { throw new CommandTimeoutError("node bdd.cjs", 5); } };
+    expect(bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {}, runners)).toEqual({
+      kind: "problem",
+      problem: expect.objectContaining({ evidence: expect.stringContaining("limits.command_timeout_s"), next: expect.stringContaining("keeps the command from ending") }),
+    });
   });
 
   it("rejects a scenario that did not run with what failed, the scenario as the evidence, and what to do next", () => {

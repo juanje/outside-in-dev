@@ -6,7 +6,8 @@ import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { normalizeVitestReport, selectTest, unitProblems, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { observeUnitRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
-import { rejection } from "../artifacts/rejection.js";
+import { isRejection, rejection } from "../artifacts/rejection.js";
+import { rejectingTimeout } from "./command-timeout.js";
 import { PROBLEM, type RedGate, redGate, TRY_AGAIN } from "./bdd-red-gate.js";
 
 /** What the next attempt does when its unit test passed at once: the code already does what that test checks. */
@@ -30,7 +31,9 @@ export function unitRedGate(worktree: string, test: { file: string; name: string
   if (early.length > 0) {
     return { kind: PROBLEM, problem: rejection({ failed: "a file was changed that the unit test step may not change", evidence: early.join(NEWLINE), next: "undo the changes to the files listed and write only the unit test" }) };
   }
-  const run = runners.unitSuite(worktree, config.commands.unit);
+  const ran = rejectingTimeout(() => runners.unitSuite(worktree, config.commands.unit));
+  if (isRejection(ran)) return { kind: PROBLEM, problem: ran };
+  const run = ran;
   const broken = run.report === undefined ? [] : brokenTests(worktree, normalizeVitestReport(run.report), test);
   if (broken.length > 0) {
     return { kind: PROBLEM, problem: rejection({ failed: "unit tests that passed no longer pass", evidence: broken.join(NEWLINE), next: `fix your test so that the tests listed pass again, then ${TRY_AGAIN}` }) };

@@ -4,7 +4,8 @@ import { codeGreenPrompt } from "../agents/prompts/code-green.js";
 import type { AgentTask } from "../agents/runner.js";
 import { checkpoint } from "../artifacts/git-checkpoints.js";
 import { NEWLINE } from "../artifacts/lines.js";
-import { labelled } from "../artifacts/rejection.js";
+import { isRejection, labelled } from "../artifacts/rejection.js";
+import { rejectingTimeout } from "./command-timeout.js";
 import { CYCLE_STEP } from "../artifacts/progress.js";
 import { runBillable } from "./budget-call.js";
 import type { Rejection } from "./attempts.js";
@@ -23,7 +24,8 @@ async function writeCode(started: Started, services: FeatureServices, scenario: 
   const outcome = await runBillable(started, services, task, { fr: fr!, announce });
   const stopped = agentStop(started, scenario.label, outcome);
   if (stopped !== undefined) return stopped;
-  const problems = codeGreenGate(workspace.path, undefined, runnersOf(services), scenario.current);
+  const problems = rejectingTimeout(() => codeGreenGate(workspace.path, undefined, runnersOf(services), scenario.current));
+  if (isRejection(problems)) return labelled(scenario.label, problems);
   if (problems.length > 0) {
     return labelled(scenario.label, { failed: "Code Green is not green", evidence: problems.join(NEWLINE), next: "make the checks listed pass by changing the code only, and check the unit test with the try tool" });
   }

@@ -9,7 +9,8 @@ import { listLocatedScenarios, readFeatureSources } from "../artifacts/traceabil
 import { type ProjectConfig, loadProjectConfig } from "../artifacts/project-config.js";
 import { FAILURE, failureDetail, OUTCOME, splitSteps } from "../artifacts/red-classification.js";
 import { redNext } from "../artifacts/red-next.js";
-import { type Rejection, rejection } from "../artifacts/rejection.js";
+import { isRejection, type Rejection, rejection } from "../artifacts/rejection.js";
+import { rejectingTimeout } from "./command-timeout.js";
 import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
 import { type BddRun, classifyObservation, type Observation, observeBddRun } from "../commands/verify.js";
 import { integrityProblems } from "../commands/verify-integrity.js";
@@ -91,7 +92,8 @@ export function runScenarioChecked(worktree: string, scenario: CurrentScenario, 
   const tags = located.find((candidate) => candidate.file === scenario.file && candidate.line === scenario.line)?.tags ?? [];
   const passing = locatePassingScenarios(progress, located).found.filter(({ feature }) => tags.includes(`@${feature}`));
   const again = () => runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
-  const first = again();
+  const first = rejectingTimeout(again);
+  if (isRejection(first)) return { kind: PROBLEM, problem: first };
   const broken = first.report === undefined ? [] : bddProblems(first.report, passing);
   if (broken.length === 0) return { kind: RAN, config, first, again };
   return { kind: PROBLEM, problem: rejection({ failed: "scenarios that passed no longer pass", evidence: broken.join(NEWLINE), next: `fix the step definitions you changed so that the scenarios listed pass again, then ${TRY_AGAIN}` }) };

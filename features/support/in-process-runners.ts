@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
-import { BDD_REPORT, clearReport, REAL_RUNNERS, type Runners, UNIT_REPORT } from "../../src/artifacts/verify-runner.js";
+import { BDD_REPORT, clearReport, CommandTimeoutError, REAL_RUNNERS, type Runners, UNIT_REPORT } from "../../src/artifacts/verify-runner.js";
 import { loadCommandTimeoutS } from "../../src/artifacts/project-config.js";
 import { readJson, readText } from "../../src/artifacts/project-json.js";
 import { replayCall, type ReplayKind, type ReplayRequest } from "./replay-lib.mjs";
@@ -10,10 +10,13 @@ import { replayCall, type ReplayKind, type ReplayRequest } from "./replay-lib.mj
 export type Replayed = { bdd: boolean; unit: boolean; typecheck: boolean };
 
 /** One call answered by the replay of `replay/` in `home` (the project itself unless a fixture keeps its replay files elsewhere), with the same effects as the script has in a process: the report directory made and the old report removed when the call writes a report in the project (a report at an absolute path is the caller's own: it makes nothing), the report written, the position and the log kept in the project. There is no process, so no command timeout applies (a replay reads a few files and ends); the configured limit is still read, so a configuration the real runner refuses is refused here too. */
-function replay(kind: ReplayKind, cwd: string, request: ReplayRequest, report: string | undefined, home: string): { exitCode: number; stdout: string; stderr: string } {
+function replay(kind: ReplayKind, command: string, cwd: string, request: ReplayRequest, report: string | undefined, home: string): { exitCode: number; stdout: string; stderr: string } {
   if (report !== undefined && !isAbsolute(report)) clearReport(cwd, report);
-  loadCommandTimeoutS(cwd);
-  return replayCall(kind, { here: home, cwd, request, output: report });
+  const seconds = loadCommandTimeoutS(cwd);
+  const answered = replayCall(kind, { here: home, cwd, request, output: report });
+  // An entry that stands for a command that does not end is answered as the supervisor of a real command does: no waiting, the same error.
+  if (answered.hung === true) throw new CommandTimeoutError(command, seconds);
+  return answered;
 }
 
 /** Runs `use` with the path of a report file in a directory of its own, which is removed afterwards: what `oid try` does, so that it writes nothing in the project. */
@@ -47,10 +50,10 @@ export function inProcessRunners(replayed: Replayed, home?: string, stateOf?: ()
     ...REAL_RUNNERS,
     ...(replayed.unit
       ? {
-          unitSuite: (cwd: string) => ({ exitCode: replay("unit", cwd, "suite", UNIT_REPORT, at(cwd)).exitCode, report: readJson(cwd, UNIT_REPORT) }),
-          tryUnitTest: (cwd: string, _command: string, test: { file: string; name: string }) =>
+          unitSuite: (cwd: string, command: string) => ({ exitCode: replay("unit", command, cwd, "suite", UNIT_REPORT, at(cwd)).exitCode, report: readJson(cwd, UNIT_REPORT) }),
+          tryUnitTest: (cwd: string, command: string, test: { file: string; name: string }) =>
             withTempReport("unit.json", (path) => {
-              const { exitCode, stderr } = replay("unit", cwd, test, path, at(cwd));
+              const { exitCode, stderr } = replay("unit", command, cwd, test, path, at(cwd));
               const text = readReport(path);
               return { exitCode, report: text === undefined ? undefined : (JSON.parse(text) as unknown), stderr };
             }),
@@ -58,19 +61,19 @@ export function inProcessRunners(replayed: Replayed, home?: string, stateOf?: ()
       : {}),
     ...(replayed.bdd
       ? {
-          bddScenarios: (cwd: string, _command: string, scenarios: { file: string; line: number }[]) => {
+          bddScenarios: (cwd: string, command: string, scenarios: { file: string; line: number }[]) => {
             const locations = scenarios.map(({ file, line }) => `${file}:${line}`);
-            const { exitCode, stderr } = replay("bdd", cwd, locations.length === 0 ? "suite" : { locations }, BDD_REPORT, at(cwd));
+            const { exitCode, stderr } = replay("bdd", command, cwd, locations.length === 0 ? "suite" : { locations }, BDD_REPORT, at(cwd));
             recordState(cwd, stateOf?.());
             return { exitCode, report: readText(cwd, BDD_REPORT), stderr };
           },
-          tryBddScenario: (cwd: string, _command: string, scenario: { file: string; line: number }) =>
+          tryBddScenario: (cwd: string, command: string, scenario: { file: string; line: number }) =>
             withTempReport("bdd.ndjson", (path) => {
-              const { exitCode, stderr } = replay("bdd", cwd, { locations: [`${scenario.file}:${scenario.line}`] }, path, at(cwd));
+              const { exitCode, stderr } = replay("bdd", command, cwd, { locations: [`${scenario.file}:${scenario.line}`] }, path, at(cwd));
               return { exitCode, report: readReport(path), stderr };
             }),
         }
       : {}),
-    ...(replayed.typecheck ? { typecheck: (cwd: string) => { const { exitCode, stdout } = replay("typecheck", cwd, undefined, undefined, at(cwd)); return { exitCode, output: stdout }; } } : {}),
+    ...(replayed.typecheck ? { typecheck: (cwd: string, command: string) => { const { exitCode, stdout } = replay("typecheck", command, cwd, undefined, undefined, at(cwd)); return { exitCode, output: stdout }; } } : {}),
   };
 }

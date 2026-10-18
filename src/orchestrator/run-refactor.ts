@@ -8,7 +8,8 @@ import { readChangedLines } from "../artifacts/git-changes.js";
 import { git, headCommit } from "../artifacts/git-workspace.js";
 import { CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
-import { type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
+import { isRejection, type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
+import { rejectingTimeout } from "./command-timeout.js";
 import { loadUserModels } from "../artifacts/user-config.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
@@ -76,7 +77,8 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   const effort = announce();
   const outcome = await runBillable(started, services, { state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr: fr!, announce: () => void announce() });
   const problems = [outcomeProblem(scenario.label, outcome) ?? ""].filter((problem) => problem !== "");
-  const rejected = problems.length > 0 ? problems : refactorProblems(started, detect, runnersOf(services), scenario, { findings: drafts, detected, behaviour: behaviour.kind });
+  const judged = problems.length > 0 ? problems : rejectingTimeout(() => refactorProblems(started, detect, runnersOf(services), scenario, { findings: drafts, detected, behaviour: behaviour.kind }));
+  const rejected = isRejection(judged) ? [renderRejection(judged)] : judged;
   if (rejected.length === 0) {
     checkpoint(workspace, { fr: fr!, state: STATE.refactor, scenario: scenario.current.name });
     return { from: STATE.refactor, note: `accepted: ${listed.length} finding${listed.length === 1 ? "" : "s"} fixed` };

@@ -116,9 +116,9 @@ export async function runQualityGate(started: Started, services: FeatureServices
   const [fr] = targets;
   const config = loadProjectConfig(workspace.path);
   const check = (): GateOutcome => {
-    autofix(workspace.path, config, runnersOf(services));
+    const timedOut = autofix(workspace.path, config, runnersOf(services));
     checkpoint(workspace, { fr: fr!, state: STATE.qualityGate, scenario: AUTOFIX });
-    return gateChecks(workspace.path, config, runGateBaseline(cwd, runId), runnersOf(services));
+    return timedOut ?? gateChecks(workspace.path, config, runGateBaseline(cwd, runId), runnersOf(services));
   };
   let outcome = check();
   for (;;) {

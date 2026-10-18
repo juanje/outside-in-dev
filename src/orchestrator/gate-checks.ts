@@ -8,7 +8,8 @@ import { checkViolations } from "../commands/check.js";
 import { FAILING, incoherentExit, noReport } from "../artifacts/runner-verdict.js";
 import { SUITE, suiteProblems } from "../commands/verify-green.js";
 import { lintReport, typeReport } from "./gate-reports.js";
-import { REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
+import { type CommandTimeoutError, REAL_RUNNERS, type Runners } from "../artifacts/verify-runner.js";
+import { whenTimedOut } from "./command-timeout.js";
 
 /** What a run's baseline holds of the quality gate: the identity of the lint errors and type errors the project already had, and the traceability violations. */
 export type GateBaseline = { lint: string[]; types: string[]; traceability: string[] };
@@ -89,6 +90,11 @@ function firstFailure(check: string, worktree: string, commands: string[], runne
   return PASS;
 }
 
+/** The outcome of a command that passed its limit: a failed check that no agent fixes, put to a person with the command and the limit. */
+export function timeoutAsk(error: CommandTimeoutError): GateOutcome {
+  return { kind: OUTCOME.ask, check: "command", problems: [error.message], output: error.message };
+}
+
 /** Runs the checks of the quality gate, cheapest first, and returns what the first that fails came to. */
 export function gateChecks(worktree: string, config: ProjectConfig, baseline: GateBaseline, runners: Runners = REAL_RUNNERS): GateOutcome {
   const { format, lint, typecheck, coverage, extra_checks: extra } = config.commands;
@@ -103,7 +109,7 @@ export function gateChecks(worktree: string, config: ProjectConfig, baseline: Ga
     () => firstFailure(EXTRA_CHECK, worktree, extra, runners),
   ];
   for (const check of checks) {
-    const outcome = check();
+    const outcome = whenTimedOut(check, timeoutAsk);
     if (outcome !== PASS) return outcome;
   }
   return PASS;

@@ -4,7 +4,7 @@ export type ReplayKind = "unit" | "bdd" | "typecheck";
 export type ReplayRequest = "suite" | { file?: string; name?: string } | { locations: string[] } | undefined;
 
 /** One call of a replay: `here` holds `replay/`, `cwd` is where the call runs, `output` is the report file (relative to `cwd`) of the kinds that write one. */
-export function replayCall(kind: ReplayKind, call: { here: string; cwd: string; request: ReplayRequest; output?: string }): { exitCode: number; stdout: string; stderr: string };
+export function replayCall(kind: ReplayKind, call: { here: string; cwd: string; request: ReplayRequest; output?: string }): { exitCode: number; stdout: string; stderr: string; hung?: true };
 
 export function finish(result: { exitCode: number; stdout: string; stderr: string }): never;
 export function unescapedName(pattern: string): string;

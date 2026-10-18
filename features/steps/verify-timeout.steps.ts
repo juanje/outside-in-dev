@@ -4,10 +4,12 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FakeAgent } from "../support/fake-agent.js";
-import { detectorOf } from "../support/fake-detector.js";
+import { CART_CODE } from "../support/cart-files.js";
 import { git } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
+import { agentOf } from "./run-features.steps.js";
+import { codeRound, expect } from "./run-loop.steps.js";
+import { change, HANGS } from "./run.steps.js";
 
 /** The parts of the configuration file these steps change. */
 type ConfigFile = { commands: { unit: string }; limits?: object };
@@ -43,7 +45,6 @@ function recordedPids(world: OidWorld): number[] {
 
 Before({ tags: "@FR-VERIFY-07" }, function (this: OidWorld) {
   recordings.set(this, mkdtempSync(join(tmpdir(), "oid-hang-")));
-  this.services = { sdk: new FakeAgent().sdk, input: { isTTY: false }, pid: process.pid, agentDir: this.path("agent"), detect: detectorOf(this).detect };
 });
 
 After({ tags: "@FR-VERIFY-07" }, function (this: OidWorld) {
@@ -88,6 +89,15 @@ Given("the limit {string} of the project is {int}", function (this: OidWorld, ke
   configure(this, (config) => {
     config.limits = { ...config.limits, command_timeout_s: seconds };
   });
+});
+
+Given("the unit runner does not end within the limit while it checks the coding agent's first attempt", function (this: OidWorld) {
+  agentOf(this).codeRoute.rounds.push(codeRound(CART_CODE.withCount));
+  expect(this, { unit: [HANGS] });
+});
+
+Given("the BDD runner does not end within the limit in the quality gate", function (this: OidWorld) {
+  change(this, (fixture) => (fixture.cucumber!.suite = [HANGS]));
 });
 
 Then("no process started by the runner is still alive", async function (this: OidWorld) {
