@@ -99,7 +99,7 @@ A rule governs only what it reaches, and compliance drops as the number of instr
 2. **Make it visible, with a way out:** feedback that shows the mistake when it happens, and a legal exit from it (a report reason, a rejection that says what to do next).
 3. **A rule, only when neither can.** It enters with the incident that motivates it (the run or the log row) and is written for the class of mistake, not for the case: the next case will have another cause.
 
-When a tool or a feedback that covers a rule arrives, the rule is removed in the same commit. This holds for `docs/CONVENTIONS.md`, `AGENTS.md` and the prompts in `src/agents/prompts/`.
+When a tool or a feedback that covers a rule arrives, the rule is removed in the same commit. This holds for `docs/CONVENTIONS.md`, `AGENTS.md` and the prompts in `src/agents/prompts/`. `npx tsx scripts/count-instructions.mts` counts the instructions of each prompt and the rules of the conventions; the starting point is in the bootstrap log.
 ## Changing the design
 
 The article and `docs/design.md` are a starting point, and the implementation tests them (ADR-054). When the work shows that a design section, an ADR or the article is wrong, the design changes, through records:
