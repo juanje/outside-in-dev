@@ -298,11 +298,11 @@ Any state ──▶ ABORTED (oid abort, after the current step)
 | `SELECT_FR` | Next pending FR in `progress.json`, or the ones given with `--fr`. | Deterministic. |
 | `FEATURE_WRITE` | The feature-writing agent writes the FR's feature files (Gherkin only). | They parse; ≥ 1 scenario; traceability; the files the report declares match the diff. **Planned (FR-DEC-01):** Jev judges coverage of the FR. |
 | `FEATURE_REVIEW` | The human approves, edits and approves, or rejects with a comment (back to `FEATURE_WRITE`). | Approval. The approved files are recorded. |
-| `BDD_RED` | The step-writing agent writes the steps of the current scenario. The current scenario and the already-green ones run. | Steps loadable (§9.2); valid Red of the current scenario (§6.4); the others still green; approved feature files untouched. A scenario that passes at once is put to the human, who may accept it as a guard (ADR-049). |
+| `BDD_RED` | The step-writing agent writes the steps of the current scenario. The current scenario and the passing scenarios of its feature run (those of other features are the quality gate's, §6.7). | Steps loadable (§9.2); valid Red of the current scenario (§6.4); the others still green; approved feature files untouched. A scenario that passes at once is put to the human, who may accept it as a guard (ADR-049). |
 | `TDD_RED` | The test-writing agent writes **one** unit test. The unit suite runs. | Valid Red of the new test; the rest still green. |
-| `CODE_GREEN` | The coding agent writes the minimum code, with the reuse catalogue in its context (§7.8). Unit suite and type check. | Unit green + no new type error in source + integrity (§6.5). |
+| `CODE_GREEN` | The coding agent writes the minimum code, with the reuse catalogue in its context (§7.8). Unit suite, type check, then the passing scenarios of the feature (none when it has none). | Unit green + no new type error in source + integrity (§6.5) + the feature's passing scenarios still pass; otherwise the attempt is rejected and retried (§6.7). |
 | `REFACTOR` | Micro refactor (§6.8): detectors on the lines just changed; if findings remain, the coding agent fixes exactly those. With no findings, no agent starts. | Acceptance criteria of §6.8; otherwise rollback. |
-| `BDD_CHECK` | Runs the current scenario and the already-green ones. | Current green → next scenario or the gate; current red → `TDD_RED`. |
+| `BDD_CHECK` | Runs the current scenario only (the feature's passing scenarios were run by the gate of `CODE_GREEN` or `REFACTOR`). | Current green → next scenario or the gate; current red → `TDD_RED`. |
 | `QUALITY_GATE` | Autofix, then format, lint, types, unit, BDD, coverage, extra checks and traceability (§6.9). | All pass. |
 | `QUALITY_FIX` | Lint and type errors go to the agent that owns each file, under that agent's profile. | Back to `QUALITY_GATE`. |
 | `FR_COMMIT` | Squash of the FR's checkpoints into one commit; `progress.json` updated. | Deterministic. |
