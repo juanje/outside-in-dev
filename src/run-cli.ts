@@ -79,6 +79,11 @@ const COMMANDS: Record<string, CommandHelp> = {
     extra: async () =>
       "\nThe worktree goes back to its last checkpoint: what the run changed after it is discarded, and listed. The feature files that wait for their review are kept and put to the person again. A lock left by a process that is not running is released.\n\nExit codes:\n  0  the run finished\n  1  error, or no run to resume\n  2  the run was aborted\n  3  waiting for an answer with no terminal: the session is saved\n",
   },
+  clean: {
+    summary: "Remove the worktrees and data of finished runs",
+    usage: "oid clean [--run ID]",
+    options: { "--run": "Clean the named run, even when it can be resumed" },
+  },
   abort: {
     summary: "Stop the run in progress after the step it is in",
     usage: "oid abort",
@@ -122,6 +127,7 @@ const RUNNERS: Record<string, Runner> = {
     return (await import("./commands/try.js")).runTry(io, rest, (services as TryServices | undefined)?.runners ?? REAL_RUNNERS);
   },
   resume: async (_rest, io, services) => (await import("./commands/resume.js")).runResume(io, services as RunServices),
+  clean: async (rest, io) => (await import("./commands/clean.js")).runClean(io, rest[0] === "--run" ? rest[1] : undefined),
   abort: async (_rest, io, services) => (await import("./commands/abort.js")).runAbort(io, services as AbortServices),
   metrics: async (rest, io) => {
     const { runMetrics } = await import("./commands/metrics.js");

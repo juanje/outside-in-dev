@@ -1,0 +1,252 @@
+import { Given, Then } from "@cucumber/cucumber";
+import assert from "node:assert/strict";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
+import { git } from "../support/run-project.js";
+import { holdRunningLock, SESSION } from "./run.steps.js";
+import type { OidWorld } from "../support/world.js";
+
+type CleanFixture = { runs: Set<string> };
+
+const fixtures = new WeakMap<OidWorld, CleanFixture>();
+
+function fixtureOf(world: OidWorld): CleanFixture {
+  const fixture = fixtures.get(world);
+  assert.ok(fixture, "no clean fixture was created");
+  return fixture;
+}
+
+function worktreeOf(world: OidWorld, runId: string): string {
+  return resolve(world.projectDir, "..", ".oid-worktrees", basename(world.projectDir), runId);
+}
+
+function runDataOf(world: OidWorld, runId: string): string {
+  return join(world.projectDir, ".outside-in", "runs", runId);
+}
+
+function branchOf(runId: string): string {
+  return `oid/${runId}`;
+}
+
+function recordState(world: OidWorld, runId: string, state: string): void {
+  writeFileSync(join(runDataOf(world, runId), "events.jsonl"), `${JSON.stringify({ ts: 1, type: "state_change", to: state })}\n`);
+}
+
+Given(
+  "a run {string} that can be resumed, with its worktree, run data and branch",
+  function (this: OidWorld, runId: string) {
+    const root = join(this.projectDir, ".outside-in", "runs");
+    mkdirSync(root, { recursive: true });
+    git(this.projectDir, "worktree", "add", "--quiet", "-b", branchOf(runId), worktreeOf(this, runId), "HEAD");
+    mkdirSync(runDataOf(this, runId), { recursive: true });
+    writeFileSync(join(runDataOf(this, runId), "baseline.json"), "{}\n");
+    recordState(this, runId, "BDD_RED");
+    writeFileSync(
+      join(this.projectDir, ".outside-in", "session.json"),
+      JSON.stringify({
+        runId,
+        worktree: worktreeOf(this, runId),
+        branch: branchOf(runId),
+        baseCommit: git(this.projectDir, "rev-parse", "HEAD"),
+        state: "BDD_RED",
+        pendingInput: null,
+      }),
+    );
+    fixtures.set(this, { runs: new Set([runId]) });
+  },
+);
+
+Given(
+  "a run {string} is in progress, with its worktree, run data and branch",
+  function (this: OidWorld, runId: string) {
+    const root = join(this.projectDir, ".outside-in", "runs");
+    mkdirSync(root, { recursive: true });
+    git(this.projectDir, "worktree", "add", "--quiet", "-b", branchOf(runId), worktreeOf(this, runId), "HEAD");
+    mkdirSync(runDataOf(this, runId), { recursive: true });
+    writeFileSync(join(runDataOf(this, runId), "baseline.json"), "{}\n");
+    recordState(this, runId, "BDD_RED");
+    writeFileSync(
+      join(this.projectDir, SESSION),
+      JSON.stringify({
+        runId,
+        worktree: worktreeOf(this, runId),
+        branch: branchOf(runId),
+        baseCommit: git(this.projectDir, "rev-parse", "HEAD"),
+        state: "BDD_RED",
+        pendingInput: null,
+      }),
+    );
+    fixtures.set(this, { runs: new Set([runId]) });
+    holdRunningLock(this);
+  },
+);
+
+Given(
+  "a run {string} has a process holding the lock, with its worktree, run data and branch",
+  function (this: OidWorld, runId: string) {
+    const root = join(this.projectDir, ".outside-in", "runs");
+    mkdirSync(root, { recursive: true });
+    git(this.projectDir, "worktree", "add", "--quiet", "-b", branchOf(runId), worktreeOf(this, runId), "HEAD");
+    mkdirSync(runDataOf(this, runId), { recursive: true });
+    writeFileSync(join(runDataOf(this, runId), "baseline.json"), "{}\n");
+    recordState(this, runId, "BDD_RED");
+    writeFileSync(
+      join(this.projectDir, SESSION),
+      JSON.stringify({
+        runId,
+        worktree: worktreeOf(this, runId),
+        branch: branchOf(runId),
+        baseCommit: git(this.projectDir, "rev-parse", "HEAD"),
+        state: "BDD_RED",
+        pendingInput: null,
+      }),
+    );
+    fixtures.set(this, { runs: new Set([runId]) });
+    holdRunningLock(this);
+    assert.equal(existsSync(worktreeOf(this, runId)), true, `${runId} worktree was not created`);
+    assert.equal(existsSync(runDataOf(this, runId)), true, `${runId} run data was not created`);
+    assert.equal(existsSync(join(this.projectDir, ".outside-in", "lock")), true, "project lock was not created");
+  },
+);
+
+Given("the saved session names {string}", function (this: OidWorld, runId: string) {
+  const sessionPath = join(this.projectDir, ".outside-in", "session.json");
+  assert.equal(JSON.parse(readFileSync(sessionPath, "utf8")).runId, runId, "saved session has the wrong run");
+});
+
+Given(
+  "finished runs {string}, {string} and {string} with their worktrees, run data and branches",
+  function (this: OidWorld, first: string, second: string, third: string) {
+    createFinishedRuns(this, [first, second, third]);
+  },
+);
+
+Given(
+  "finished runs {string} and {string} with their worktrees, run data and branches",
+  function (this: OidWorld, first: string, second: string) {
+    createFinishedRuns(this, [first, second]);
+  },
+);
+
+function createFinishedRuns(world: OidWorld, runs: string[]): void {
+  const root = join(world.projectDir, ".outside-in", "runs");
+  mkdirSync(root, { recursive: true });
+  for (const runId of runs) {
+    const worktree = worktreeOf(world, runId);
+    git(world.projectDir, "worktree", "add", "--quiet", "-b", branchOf(runId), worktree, "HEAD");
+    mkdirSync(runDataOf(world, runId), { recursive: true });
+    writeFileSync(join(runDataOf(world, runId), "baseline.json"), "{}\n");
+    recordState(world, runId, "DONE");
+  }
+  fixtures.set(world, { runs: new Set(runs) });
+}
+
+Given("finished run {string} has a worktree that cannot be removed, its run data and branch", function (this: OidWorld, runId: string) {
+  createFinishedRuns(this, [runId]);
+  git(this.projectDir, "worktree", "lock", "--reason", "the removal is expected to fail", worktreeOf(this, runId));
+  const run = this.run.bind(this);
+  this.run = async (commandLine: string) => {
+    try {
+      await run(commandLine);
+    } catch (error) {
+      this.stderr = error instanceof Error ? error.message : String(error);
+    }
+  };
+});
+
+Given("{string} reached its commit and cannot be resumed", function (this: OidWorld, runId: string) {
+  assert.ok(fixtureOf(this).runs.has(runId));
+  recordState(this, runId, "FR_COMMIT");
+});
+
+Given("{string} stopped before its features were selected and cannot be resumed", function (this: OidWorld, runId: string) {
+  assert.ok(fixtureOf(this).runs.has(runId));
+  recordState(this, runId, "SELECT_FR");
+});
+
+Given("{string} was replaced by a later run as the saved session and cannot be resumed", function (this: OidWorld, runId: string) {
+  assert.ok(fixtureOf(this).runs.has(runId));
+  this.write("project/.outside-in/session.json", JSON.stringify({ runId: "later-run", state: "DONE", pendingInput: null }));
+  recordState(this, runId, "DONE");
+});
+
+Then("the worktree and run data of {string} are kept", function (this: OidWorld, runId: string) {
+  assert.equal(existsSync(worktreeOf(this, runId)), true, `${runId} worktree was removed`);
+  assert.ok(git(this.projectDir, "worktree", "list", "--porcelain").includes(worktreeOf(this, runId)), `${runId} remains unregistered`);
+  assert.equal(existsSync(runDataOf(this, runId)), true, `${runId} run data was removed`);
+});
+
+Then("the error mentions that the worktree of {string} could not be removed", function (this: OidWorld, runId: string) {
+  assert.match(this.stderr, /worktree/i);
+  assert.match(this.stderr, /could not be removed/i);
+  assert.ok(this.stderr.includes(runId), `error did not name ${runId}: ${this.stderr}`);
+});
+
+Then("the run data of {string} under {string} is kept", function (this: OidWorld, runId: string, directory: string) {
+  assert.equal(directory, ".outside-in/runs/");
+  assert.equal(existsSync(runDataOf(this, runId)), true, `${runId} run data was removed`);
+});
+
+Then("the worktree and run data of {string} are removed", function (this: OidWorld, runId: string) {
+  assert.equal(existsSync(worktreeOf(this, runId)), false, `${runId} worktree still exists`);
+  assert.ok(!git(this.projectDir, "worktree", "list", "--porcelain").includes(worktreeOf(this, runId)), `${runId} remains registered`);
+  assert.equal(existsSync(runDataOf(this, runId)), false, `${runId} run data still exists`);
+});
+
+Then("the saved session is removed", function (this: OidWorld) {
+  assert.equal(existsSync(join(this.projectDir, ".outside-in", "session.json")), false, "saved session still exists");
+});
+
+Then("the output says to run {string} to clean it", function (this: OidWorld, command: string) {
+  assert.ok(this.stdout.includes(command), `output did not say to run ${command}: ${this.stdout}`);
+});
+
+Then("the branch of {string} is kept", function (this: OidWorld, runId: string) {
+  assert.equal(
+    git(this.projectDir, "rev-parse", "--verify", `refs/heads/${branchOf(runId)}`),
+    git(this.projectDir, "rev-parse", branchOf(runId)),
+    `${runId} branch was removed`,
+  );
+});
+
+Then("the worktrees of {string}, {string} and {string} are removed", function (this: OidWorld, first: string, second: string, third: string) {
+  for (const runId of [first, second, third]) {
+    assert.equal(existsSync(worktreeOf(this, runId)), false, `${runId} worktree still exists`);
+    assert.ok(!git(this.projectDir, "worktree", "list", "--porcelain").includes(worktreeOf(this, runId)), `${runId} remains registered`);
+  }
+});
+
+Then("the run data of {string}, {string} and {string} under {string} is removed", function (this: OidWorld, first: string, second: string, third: string, directory: string) {
+  assert.equal(directory, ".outside-in/runs/");
+  for (const runId of [first, second, third]) assert.equal(existsSync(runDataOf(this, runId)), false, `${runId} run data still exists`);
+});
+
+Then("the branches of {string}, {string} and {string} are kept", function (this: OidWorld, first: string, second: string, third: string) {
+  for (const runId of [first, second, third]) {
+    assert.equal(readFileSync(join(this.projectDir, ".git", "HEAD"), "utf8").startsWith("ref:"), true);
+    assert.equal(
+      git(this.projectDir, "rev-parse", "--verify", `refs/heads/${branchOf(runId)}`),
+      git(this.projectDir, "rev-parse", branchOf(runId)),
+      `${runId} branch was removed`,
+    );
+  }
+});
+
+Then("the branches of {string} and {string} are kept", function (this: OidWorld, first: string, second: string) {
+  for (const runId of [first, second]) {
+    assert.equal(readFileSync(join(this.projectDir, ".git", "HEAD"), "utf8").startsWith("ref:"), true);
+    assert.equal(
+      git(this.projectDir, "rev-parse", "--verify", `refs/heads/${branchOf(runId)}`),
+      git(this.projectDir, "rev-parse", branchOf(runId)),
+      `${runId} branch was removed`,
+    );
+  }
+});
+
+Then("no worktree or run data was removed", function (this: OidWorld) {
+  const worktrees = git(this.projectDir, "worktree", "list", "--porcelain")
+    .split("\\n\\n")
+    .filter((entry) => entry.trim() !== "");
+  assert.equal(worktrees.length, 1, "a worktree was removed");
+  assert.equal(existsSync(join(this.projectDir, ".outside-in", "runs")), false, "run data was removed");
+});

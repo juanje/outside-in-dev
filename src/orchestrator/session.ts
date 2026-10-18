@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { writeFileAtomic } from "../artifacts/atomic-write.js";
 import type { Finding } from "../artifacts/findings.js";
@@ -78,6 +78,11 @@ function writeSession(cwd: string, session: object): void {
 /** Saves the session of a new run, replacing whatever an earlier run saved. */
 export function startSession(cwd: string, session: RunSession): void {
   writeSession(cwd, session);
+}
+
+/** Forgets the saved session of a run, if any. */
+export function clearSession(cwd: string): void {
+  rmSync(join(cwd, SESSION_FILE), { force: true });
 }
 
 /** Changes some fields of the saved session of the run, keeping the rest. */

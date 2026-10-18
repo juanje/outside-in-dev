@@ -366,14 +366,18 @@ function holdLock(world: OidWorld, pid: number): void {
   lockPaths.set(world, String(pid));
 }
 
-Given("the lock of the project is held by a process that is running", function (this: OidWorld) {
+export function holdRunningLock(world: OidWorld): void {
   const holder = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
   assert.ok(holder.pid);
-  holders.set(this, holder);
-  holdLock(this, holder.pid);
+  holders.set(world, holder);
+  holdLock(world, holder.pid);
+}
+
+Given("the lock of the project is held by a process that is running", function (this: OidWorld) {
+  holdRunningLock(this);
 });
 
-After({ tags: "@FR-RUN-01 or @FR-RUN-09" }, function (this: OidWorld) {
+After({ tags: "@FR-RUN-01 or @FR-RUN-09 or @FR-RUN-12" }, function (this: OidWorld) {
   holders.get(this)?.kill();
 });
 
