@@ -25,12 +25,6 @@ const unusedExport = (): FindingDraft => ({ category: "dead_code", file: "src/ca
 /** What the fake runners replay for the run of the refactoring agent's change: the unit report, the scenario runs that follow the run before the agent worked (the last is the BDD Check's, the others the refactor's own), and whether the type check fails. */
 type Acceptance = { unit?: string; bdd: string[]; typecheck?: string };
 
-/** The recording of the scenarios of the project that has the status of each, and the one of the scenarios of the feature only: the refactor runs the second, the BDD Check the first. */
-const IN_FEATURE: Record<string, string> = { "bdd-add-line-green": "bdd-add-line-green-in-feature", "bdd-add-line-still-red": "bdd-add-line-still-red-in-feature" };
-const STILL_RED_IN_FEATURE = "bdd-add-line-still-red-in-feature";
-
-const inFeature = (recording: string): string => IN_FEATURE[recording] ?? recording;
-
 /** The recorded scenario run that keeps the status the last one of the plan has. */
 function sameStatus(world: OidWorld): string {
   const { bdd } = planOf(world);
@@ -41,8 +35,7 @@ function sameStatus(world: OidWorld): string {
 function acceptanceReplay(world: OidWorld, { unit, bdd, typecheck }: Acceptance): void {
   const plan = planOf(world);
   plan.typecheck = typecheck === undefined ? plan.typecheck : [null, typecheck];
-  plan.bdd[plan.bdd.length - 1] = inFeature(sameStatus(world));
-  expect(world, { unit: unit === undefined ? [] : [unit], bdd: bdd.map((recording, at) => (at === bdd.length - 1 ? recording : inFeature(recording))) });
+  expect(world, { unit: unit === undefined ? [] : [unit], bdd });
 }
 
 Given("the detectors find nothing", function (this: OidWorld) {
@@ -82,7 +75,7 @@ Given("the refactoring agent also tries to write {string} and {string}", functio
 const REFACTOR_PROBLEMS: Record<string, { round: Round; afterwards?: FindingDraft[]; acceptance: (same: string) => Acceptance }> = {
   "its code has a type error": { round: codeRound(CART_CODE.withTypeError), acceptance: (same) => ({ unit: "unit-green", typecheck: "typecheck-error", bdd: [same] }) },
   "its code makes a unit test fail": { round: codeRound(CART_CODE.unitFailing), acceptance: (same) => ({ unit: "unit-still-failing", bdd: [same] }) },
-  'its code breaks the scenario "Add a line"': { round: codeRound(CART_CODE.refactored), acceptance: (same) => ({ unit: "unit-green", bdd: [STILL_RED_IN_FEATURE, same] }) },
+  'its code breaks the scenario "Add a line"': { round: codeRound(CART_CODE.refactored), acceptance: (same) => ({ unit: "unit-green", bdd: ["bdd-add-line-still-red", same] }) },
   "its code leaves the finding where it was": { round: codeRound(CART_CODE.refactored), afterwards: [magicValue("src/cart.ts")], acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },
   "its code brings a new finding": { round: codeRound(CART_CODE.refactored), afterwards: [unusedExport()], acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },
   "its code is more complex than before": { round: codeRound(CART_CODE.moreComplex), acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },

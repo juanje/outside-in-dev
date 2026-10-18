@@ -7,6 +7,7 @@ import type { Round, Route } from "../support/fake-agent.js";
 import { git } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
+import { locationOf } from "./run-bdd-red.steps.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
 import { change, eventLog, session, transitions } from "./run.steps.js";
 
@@ -93,10 +94,13 @@ Given("the coding agent writes the cart code that passes the unit test, but the 
   expect(this, { unit: ["unit-green"], bdd: ["bdd-add-line-still-red"] });
 });
 
-Given("the coding agent writes the cart code that passes the unit test, but breaks the scenario {string}", function (this: OidWorld, scenario: string) {
-  assert.equal(scenario, "Add to cart");
-  agentOf(this).codeRoute.rounds.push(codeRound(CART_CODE.withCount));
-  expect(this, { unit: ["unit-green"], bdd: ["regression"] });
+Given("the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario, but the first code for {string} breaks the scenario {string}", function (this: OidWorld, second: string, broken: string) {
+  assert.equal(`${second} breaks ${broken}`, "Remove a line breaks Add a line");
+  const agent = agentOf(this);
+  agent.testRoute.rounds.push(writesTest("cart lines > adds a line"), writesTest("cart lines > removes a line"));
+  agent.codeRoute.rounds.push(codeRound(CART_CODE.withCount), codeRound(CART_CODE.dedupedUnitOnly), codeRound(CART_CODE.withRemove));
+  // The gate of Code Green runs "Add a line" with each attempt for "Remove a line": the first finds it broken, the second finds it passing.
+  expect(this, { unit: ["unit-red-missing", "unit-green", "unit-red-remove", "unit-green-remove", "unit-green-remove"], bdd: ["bdd-add-line-green", "bdd-remove-line-missing", "bdd-add-line-regression", "bdd-add-line-green", "bdd-remove-line-green"] });
 });
 
 Given("the test-writing agent then reports that no unit logic is left", function (this: OidWorld) {
@@ -182,7 +186,37 @@ Given("the agents write for each of the two scenarios a failing unit test and th
   const agent = agentOf(this);
   agent.testRoute.rounds.push(writesTest("cart lines > adds a line"), writesTest("cart lines > removes a line"));
   agent.codeRoute.rounds.push(codeRound(CART_CODE.withCount), codeRound(CART_CODE.withRemove));
-  expect(this, { unit: ["unit-red-missing", "unit-green", "unit-red-remove", "unit-green-remove"], bdd: ["bdd-add-line-green", "bdd-remove-line-missing", "bdd-all-green"] });
+  expect(this, { unit: ["unit-red-missing", "unit-green", "unit-red-remove", "unit-green-remove"], bdd: ["bdd-add-line-green", "bdd-remove-line-missing", "bdd-add-line-green", "bdd-remove-line-green"] });
+});
+
+type LoggedRequest = { kind: string; request: { locations?: string[]; suite?: true } };
+/** What the BDD runner was asked, with the state the run was in when it asked. */
+type Asked = { locations: string[] | undefined; state: string | null };
+
+/** Every request the BDD runner of the worktree got after the call numbered `mark` in its log, each with the state of the run at that moment (the runner of the test support keeps it). A request with no locations asks for every scenario of the project. */
+function bddRequestsAfter(world: OidWorld, mark: number | undefined, who: string): Asked[] {
+  assert.ok(mark !== undefined, `the ${who} agent was not run`);
+  const read = (file: string): string[] => readFileSync(join(worktreePath(world), ".outside-in", file), "utf8").split("\n").filter((line) => line !== "");
+  const calls = read("replay-calls.ndjson").map((line) => JSON.parse(line) as LoggedRequest);
+  const states = read("replay-states.ndjson").map((line) => (JSON.parse(line) as { state: string | null }).state);
+  const ordinal = (at: number): number => calls.slice(0, at).filter(({ kind }) => kind === "bdd").length;
+  return calls.flatMap((call, at) => (at < mark || call.kind !== "bdd" ? [] : [{ locations: call.request.locations, state: states[ordinal(at)] ?? null }]));
+}
+
+Then("the BDD runner was never asked to run the scenario {string} from the first task of the coding agent to the transition to {string}", function (this: OidWorld, name: string, last: string) {
+  const asked = bddRequestsAfter(this, agentOf(this).codeRoute.callMarks[0], "coding");
+  const end = asked.findIndex(({ state }) => state === last);
+  const inLoop = end < 0 ? asked : asked.slice(0, end);
+  assert.deepEqual(inLoop.filter(({ locations }) => locations?.includes(locationOf(this, name))), [], `the scenario "${name}" was requested`);
+  assert.deepEqual(inLoop.filter(({ locations }) => locations === undefined), [], "a request with no scenarios asks for every scenario of the project");
+  assert.ok(end > 0, `no request was made in the state ${last}: ${JSON.stringify(asked)}`);
+  assert.ok(inLoop.some(({ locations }) => locations !== undefined), `the inner loop made no request for scenarios: ${JSON.stringify(inLoop)}`);
+});
+
+Then("the BDD runner was asked to run, when the code for {string} was judged, only the scenario {string}", function (this: OidWorld, scenario: string, only: string) {
+  const asked = bddRequestsAfter(this, agentOf(this).codeRoute.callMarks[1], "coding").at(0);
+  assert.ok(asked, `the BDD runner was not asked anything after the task of the coding agent for "${scenario}"`);
+  assert.deepEqual(asked.locations, [locationOf(this, only)]);
 });
 
 /** The hash of the commit of the worktree whose subject is `message`, if it has one. */

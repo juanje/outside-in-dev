@@ -16,7 +16,7 @@ import { outcomeProblem } from "./agent-run.js";
 import { runBillable } from "./budget-call.js";
 import { settleBudget } from "./budget-settle.js";
 import { announceAgent } from "./attempts.js";
-import { bddCheck, CHECK_SCOPE, SCENARIO } from "./bdd-check.js";
+import { bddCheck, SCENARIO } from "./bdd-check.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { type Started, STATE, transition } from "./begin.js";
 import { codeGreenGate } from "./code-green-gate.js";
@@ -42,14 +42,14 @@ type Before = { findings: FindingDraft[]; detected: FindingDraft[]; behaviour: s
 /** What is wrong with the refactor the agent did, cheapest check first; none means it is accepted. */
 function refactorProblems(started: Started, detect: Detector, runners: Runners, scenario: RedScenario, before: Before): string[] {
   const worktree = started.workspace.path;
-  const early = codeGreenGate(worktree, CYCLE_STEP.refactor, runners);
+  const early = codeGreenGate(worktree, CYCLE_STEP.refactor, runners, scenario.current);
   if (early.length > 0) return early;
   const found = findingProblems(before.findings, before.detected, detect(worktree));
   if (found.length > 0) return found;
   const touched = [...readChangedLines(worktree).keys()].filter((file) => SOURCE_FILE.test(file));
   const worse = complexityProblem(touched.map((file) => ({ before: committedText(worktree, file), after: readText(worktree, file) ?? "" })));
   if (worse !== undefined) return [worse];
-  const check = bddCheck(worktree, scenario.current, "The refactor", runners, CHECK_SCOPE.feature);
+  const check = bddCheck(worktree, scenario.current, runners);
   if (check.kind === PROBLEM) return [renderRejection(check.problem)];
   return check.kind === before.behaviour ? [] : [`the scenario "${scenario.current.name}" no longer ${before.behaviour === SCENARIO.pass ? "passes" : "fails as it did"}`];
 }
@@ -64,7 +64,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   const drafts = newFindings(detected, readChangedLines(worktree, since), new Set(runBaselineFindings(cwd, runId)));
   const listed = triage(numberFindings(drafts));
   if (listed.length === 0) return NO_REFACTOR;
-  const behaviour = bddCheck(worktree, scenario.current, undefined, runnersOf(services), CHECK_SCOPE.feature);
+  const behaviour = bddCheck(worktree, scenario.current, runnersOf(services));
   if (behaviour.kind === PROBLEM) return NO_REFACTOR;
   const green = headCommit(worktree);
   updateFeature(worktree, fr!, (feature) => moveRunTo(feature, CYCLE_STEP.refactor));

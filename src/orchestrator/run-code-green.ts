@@ -23,7 +23,7 @@ async function writeCode(started: Started, services: FeatureServices, scenario: 
   const outcome = await runBillable(started, services, task, { fr: fr!, announce });
   const stopped = agentStop(started, scenario.label, outcome);
   if (stopped !== undefined) return stopped;
-  const problems = codeGreenGate(workspace.path, undefined, runnersOf(services));
+  const problems = codeGreenGate(workspace.path, undefined, runnersOf(services), scenario.current);
   if (problems.length > 0) {
     return labelled(scenario.label, { failed: "Code Green is not green", evidence: problems.join(NEWLINE), next: "make the checks listed pass by changing the code only, and check the unit test with the try tool" });
   }

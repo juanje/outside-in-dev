@@ -47,10 +47,10 @@ function anotherIteration(started: Started, scenario: RedScenario, iteration: nu
 /** Where a BDD Check comes from: the state before it and what that state did, when it did something (the reason of the transition starts with the note). */
 export type Origin = { from: string; note: string };
 
-/** Runs BDD Check for the current scenario after Code Green or after the refactor that followed it: the scenario and the scenarios that passed run together. Returns what follows, or the exit code of the process. */
+/** Runs BDD Check for the current scenario after Code Green or after the refactor that followed it: the scenario runs alone (the scenarios that passed were run by the gate of the code). Returns what follows, or the exit code of the process. */
 export async function runBddCheck(started: Started, services: FeatureServices, scenario: RedScenario, iteration: number, origin: Origin = { from: STATE.codeGreen, note: "" }): Promise<number | AfterCheck> {
   const { cwd, bus, workspace } = started;
-  const check = bddCheck(workspace.path, scenario.current, undefined, runnersOf(services));
+  const check = bddCheck(workspace.path, scenario.current, runnersOf(services));
   if (check.kind === PROBLEM) return fail(started, renderRejection(labelled(scenario.label, check.problem)));
   updateSession(cwd, { state: STATE.bddCheck, ...(check.kind === SCENARIO.red ? { scenarioFailure: check.message } : {}) });
   const verdict = `the scenario "${scenario.current.name}" ${check.kind === SCENARIO.pass ? "passes" : "is still red"}`;

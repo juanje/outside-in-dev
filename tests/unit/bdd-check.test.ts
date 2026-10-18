@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadProjectConfig } from "../../src/artifacts/project-config.js";
-import { REAL_RUNNERS, runBddScenario } from "../../src/artifacts/verify-runner.js";
+import { runBddScenario } from "../../src/artifacts/verify-runner.js";
 import { classifyObservation, observeBddRun } from "../../src/commands/verify.js";
 import { bddCheck } from "../../src/orchestrator/bdd-check.js";
 import { committedRepo } from "./git-fixture.js";
@@ -42,7 +42,7 @@ describe("the check of a scenario after its code was written", () => {
     expect(bddCheck(repoWith(RUNNER), PAY)).toEqual({ kind: "red", message: expect.stringContaining("pay is not a function") });
   });
 
-  it("with the scope of the feature, runs the scenario and the passing scenarios of its feature, and none of another feature", () => {
+  it("runs the current scenario only, not the scenarios that passed, whether of its feature or of another", () => {
     const recording = `require("node:fs").writeFileSync("argv.json", JSON.stringify(process.argv));\n${RUNNER}`;
     const scenarios = [{ name: "Pay", bdd: "fail" }, { name: "Pay again", bdd: "pass" }];
     const repo = committedRepo("project", {
@@ -53,10 +53,10 @@ describe("the check of a scenario after its code was written", () => {
       "features/other.feature": "@FR-B-01\nFeature: Other\n  Scenario: Other\n    When I act\n",
       "bdd.cjs": recording,
     });
-    bddCheck(repo, PAY, "The refactor", REAL_RUNNERS, "feature");
+    bddCheck(repo, PAY);
     const asked = existsSync(join(repo, "argv.json")) ? readFileSync(join(repo, "argv.json"), "utf8") : "the runner was not run";
     expect(asked).toContain("features/pay.feature:3");
-    expect(asked).toContain("features/pay.feature:6");
+    expect(asked).not.toContain("features/pay.feature:6");
     expect(asked).not.toContain("features/other.feature");
   });
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { BDD_REPORT, clearReport, REAL_RUNNERS, type Runners, UNIT_REPORT } from "../../src/artifacts/verify-runner.js";
@@ -26,13 +26,22 @@ function withTempReport<T>(name: string, use: (path: string) => T): T {
   }
 }
 
+/** Where the state of the run at each BDD call is kept: one line per call of the log of the replay, in the same order. */
+export const STATE_LOG = join(".outside-in", "replay-states.ndjson");
+
+/** Keeps, for the BDD call just answered or refused, the state the run was in when it asked (the log of the replay has no state, and it has no order shared with the event log). */
+function recordState(cwd: string, state: string | undefined): void {
+  mkdirSync(join(cwd, ".outside-in"), { recursive: true });
+  appendFileSync(join(cwd, STATE_LOG), `${JSON.stringify({ state: state ?? null })}\n`);
+}
+
 /** The text of a report file, if the call wrote it. */
 function readReport(path: string): string | undefined {
   return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
 /** The runners of `oid run` and `oid try` that answer from the recorded reports a fixture declares, in this process, for the runners `replayed` names; the others (and the other commands) are the real ones. The semantics are those of the replay scripts: both run `replayCall`. */
-export function inProcessRunners(replayed: Replayed, home?: string): Runners {
+export function inProcessRunners(replayed: Replayed, home?: string, stateOf?: () => string | undefined): Runners {
   const at = (cwd: string): string => home ?? cwd;
   return {
     ...REAL_RUNNERS,
@@ -52,6 +61,7 @@ export function inProcessRunners(replayed: Replayed, home?: string): Runners {
           bddScenarios: (cwd: string, _command: string, scenarios: { file: string; line: number }[]) => {
             const locations = scenarios.map(({ file, line }) => `${file}:${line}`);
             const { exitCode, stderr } = replay("bdd", cwd, locations.length === 0 ? "suite" : { locations }, BDD_REPORT, at(cwd));
+            recordState(cwd, stateOf?.());
             return { exitCode, report: readText(cwd, BDD_REPORT), stderr };
           },
           tryBddScenario: (cwd: string, _command: string, scenario: { file: string; line: number }) =>

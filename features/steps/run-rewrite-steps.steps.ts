@@ -9,8 +9,8 @@ import { expect } from "./run-loop.steps.js";
 const ADD_A_LINE = "Add a line";
 const FAILS_WITHOUT_CODE = "bdd-missing-implementation";
 const PASSES_WITH_CODE = "bdd-add-line-green";
-/** The run of the gate of BDD Red for a scenario that passes: the scenario and the passing scenarios of its feature, not those of other features. */
-const PASSES_IN_FEATURE = "bdd-add-line-green-in-feature";
+/** The run of the gate of BDD Red for a scenario that passes. */
+const PASSES_IN_FEATURE = PASSES_WITH_CODE;
 
 /** The steps of "Add a line" written again: the first ones with a comment that tells the attempts apart. */
 const rewritten = (attempt: number) => [{ path: STEP_FILE, content: `${STEP_ROUNDS[0]}\n// written again, attempt ${attempt}\n` }];

@@ -216,7 +216,7 @@ export function commit(world: OidWorld): void {
   const loopCommands = loop === undefined ? bddCommands : { ...bddCommands, unit: realLoop ? REAL_UNIT_COMMAND : `${REPLAY_NODE} unit-replay.mjs`, typecheck: realLoop ? REAL_TYPECHECK_COMMAND : `${REPLAY_NODE} typecheck-replay.mjs` };
   // The runs of this process answer from the recorded reports without a process; the scripts stay in the project for the runs that start one (a built `oid`, `oid verify`).
   const replayed = { bdd: fixture.cucumber !== undefined && bddCommands === REPLAY_COMMANDS, unit: loop !== undefined && !realLoop, typecheck: loop !== undefined && !realLoop };
-  if (world.services !== undefined) world.services = { ...world.services, runners: Object.values(replayed).some(Boolean) ? inProcessRunners(replayed) : undefined };
+  if (world.services !== undefined) world.services = { ...world.services, runners: Object.values(replayed).some(Boolean) ? inProcessRunners(replayed, undefined, () => savedState(world)) : undefined };
   const { format, lint, extraCheck } = fixture.tools;
   const commands = { ...loopCommands, format: format ? "node prettier.mjs" : null, lint: lint ? "node eslint.mjs" : null, extra_checks: extraCheck === undefined ? [] : [`node ${EXTRA_CHECK_FILE}`] };
   if (format) writeIn(world, "prettier.mjs", PRETTIER_TOOL);
@@ -439,6 +439,11 @@ export function transitions(world: OidWorld): LoggedEvent[] {
 
 export function session(world: OidWorld): SavedSession {
   return JSON.parse(readFileSync(world.path(join(PROJECT, SESSION)), "utf8")) as SavedSession;
+}
+
+/** The state the saved session is in now, if the run has saved one. */
+function savedState(world: OidWorld): string | undefined {
+  return existsSync(world.path(join(PROJECT, SESSION))) ? session(world).state : undefined;
 }
 
 Then("the event log of the run starts with the transitions to {string}, {string}, {string}, {string} and {string}, in that order", function (this: OidWorld, a: string, b: string, c: string, d: string, e: string) {

@@ -55,7 +55,7 @@ Given("the coding agent runs {string} while it writes the code of the second sce
 });
 
 Given("the BDD runner replays the check of the last scenario once more for the resumed run", function (this: OidWorld) {
-  expect(this, { bdd: ["bdd-all-green"] });
+  expect(this, { bdd: ["bdd-remove-line-green"] });
 });
 
 When(/^I run "(.+)" with a terminal where the human answers "(.+)", and the process dies while the (test-writing|coding) agent works$/, async function (this: OidWorld, commandLine: string, answer: string, who: string) {

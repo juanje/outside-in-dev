@@ -278,7 +278,7 @@ An agent writes the step definitions for one scenario; the scenario must load an
 
 ### FR-RUN-04: TDD inner loop
 
-An agent writes one failing unit test, then another agent writes the minimum code to make it pass, until the scenario passes. Every scenario, except an accepted guard, needs at least one unit test. The loop has an iteration limit.
+An agent writes one failing unit test, then another agent writes the minimum code to make it pass, until the scenario passes. Every scenario, except an accepted guard, needs at least one unit test. Code that breaks a passing scenario of the same feature fails the attempt; the scenarios of other features are run by the quality gate. The loop has an iteration limit.
 
 ### FR-RUN-05: Refactor after each Green
 

@@ -109,12 +109,19 @@ Feature: TDD inner loop
     And the second task of the test-writing agent includes the failure of the scenario after the code was written
 
   Scenario: Code that breaks a scenario that passed is a failure of Code Green
-    Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
-    And the coding agent writes the cart code that passes the unit test, but breaks the scenario "Add to cart"
+    Given the project allows 1 retry for each state
+    And the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario, but the first code for "Remove a line" breaks the scenario "Add a line"
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the event log of the run records an error mentioning "Add to cart" and "Code Green"
-    And the event log of the run records no transition from "BDD_CHECK" to "BDD_RED"
-    And progress.json of the worktree records "Add a line" as "fail"
+    Then the event log of the run records an "attempt_rejected" of "CODE_GREEN" with the attempt 1 and the reason mentioning "Add a line"
+    And the event log of the run records an "attempt_rejected" of "CODE_GREEN" with the attempt 1 and the reason mentioning "the cart cannot take a line"
+    And the event log of the run records an "agent_start" of "CODE_GREEN" with the attempt 2
+    And in the commit "oid: checkpoint FR-CART-02 BDD_CHECK Remove a line" progress.json records "Add a line" as "pass" and "Remove a line" as "pass"
+
+  Scenario: The scenarios of other features are not run in the inner loop, and the passing scenarios of the same feature are
+    Given the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
+    Then the BDD runner was never asked to run the scenario "Add to cart" from the first task of the coding agent to the transition to "QUALITY_GATE"
+    And the BDD runner was asked to run, when the code for "Remove a line" was judged, only the scenario "Add a line"
 
   Scenario: An agent with no unit logic left sends the run to Code Green with the failure of the scenario
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet

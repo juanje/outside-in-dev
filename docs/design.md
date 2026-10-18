@@ -364,7 +364,7 @@ Limit: `limits.max_inner_iterations` per scenario (8). When reached, the run ask
 
 ### 6.7. Regression
 
-Two levels, as in `oid verify green` (ADR-030): during the cycle, a BDD run includes the current scenario and the scenarios of the feature already in `pass`; the quality gate runs the whole project, and a regression it finds there is put to the person (§6.9). The unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. `BDD_RED` runs only the current scenario and the passing scenarios of its feature; `BDD_CHECK` still includes every passing scenario of the project (**Planned (FR-RUN-04)**). **Direction:** a regression found at the gate goes back to the coding agent, with the broken scenario as its failing test, before it reaches the person.
+Two levels, as in `oid verify green` (ADR-030): during the cycle, a BDD run includes the current scenario and the scenarios of the feature already in `pass`; the quality gate runs the whole project, and a regression it finds there is put to the person (§6.9). The unit suite always runs in full. A test or scenario that was green and turns red invalidates the attempt. `BDD_RED` runs only the current scenario and the passing scenarios of its feature. In the inner loop, the gate of `CODE_GREEN` (and of `REFACTOR`, which uses the same one) runs the passing scenarios of the feature, and the code that breaks one fails the attempt, with the broken scenario and its failure as the rejection; `BDD_CHECK` judges the current scenario only. No state of the inner loop runs the scenarios of other features. **Direction:** a regression found at the gate goes back to the coding agent, with the broken scenario as its failing test, before it reaches the person.
 
 ### 6.8. Refactor
 
@@ -1010,7 +1010,6 @@ Principles, learned through defects that reached production in Buddy:
 Each is a difference to resolve with the human: either the document describes the decision and the code has to follow, or the code has the decision and this document has to change.
 
 - **Working in place** (`settings.isolation: "in_place"`) exists, with scenarios of FR-GIT-01, but contradicts FR-GIT-01's text ("every run works in its own worktree") and NFR-04.
-- **Regression in `BDD_CHECK`.** A scenario that was green and turns red ends the run with an error; §6.7 says it fails the attempt, which is retried.
 - **Permanent provider errors** end the run with exit 1; the design intended a question to the human.
 - **`request_dependency` in `oid run`** has nobody to approve it, so every request is refused.
 - **Skipping a scenario** moves the feature on to its next step; §10.1 intended the feature to stay where it was.
