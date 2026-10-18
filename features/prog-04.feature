@@ -72,3 +72,10 @@ Feature: Advance the cycle step
     Then the command fails
     And the error output contains "FR-X-99"
     And the progress file is unchanged
+
+  Scenario: An override lets a feature with no revise record leave bdd_red for the quality gate
+    Given a started feature "FR-GREETING-01" at step "bdd_red"
+    When I run "oid progress step FR-GREETING-01 quality_gate" with "OID_OVERRIDE" set to "the new scenarios cover code that exists"
+    Then the command succeeds
+    And the feature "FR-GREETING-01" has the cycle step "quality_gate"
+    And the output contains "the new scenarios cover code that exists"

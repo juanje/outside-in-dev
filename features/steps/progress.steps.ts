@@ -65,7 +65,12 @@ When("I run {string}", async function (this: OidWorld, commandLine: string) {
   await this.run(commandLine);
 });
 
-Then("the command succeeds", function (this: OidWorld) {
+When("I run {string} with {string} set to {string}", async function (this: OidWorld, commandLine: string, name: string, value: string) {
+  this.services = { pid: process.pid, agentDir: this.path("agent"), ...this.services, env: { [name]: value } };
+  await this.run(commandLine);
+});
+
+Then("the command succeeds",function (this: OidWorld) {
   assert.equal(this.exitCode, 0, `expected exit code 0, got ${this.exitCode}; stderr: ${this.stderr}`);
 });
 

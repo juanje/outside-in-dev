@@ -4,6 +4,7 @@ import type { CliIo } from "./cli-io.js";
 import type { VerifyServices } from "./artifacts/verify-lock.js";
 import type { RunServices } from "./orchestrator/services.js";
 import type { AbortServices } from "./commands/abort.js";
+import type { ProgressServices } from "./commands/progress.js";
 import type { TryServices } from "./commands/try.js";
 import type { DoctorServices } from "./commands/doctor.js";
 import type { SetupServices } from "./commands/setup.js";
@@ -103,13 +104,13 @@ const COMMANDS: Record<string, CommandHelp> = {
 const VERSION_OPTION = "-v, --version";
 const COMMAND_NAMES = Object.keys(COMMANDS);
 
-type Services = RunServices | VerifyServices | AbortServices | SetupServices | DoctorServices | TryServices;
+type Services = ProgressServices | RunServices |VerifyServices | AbortServices | SetupServices | DoctorServices | TryServices;
 type Runner = (rest: string[], io: CliIo, services?: Services) => Promise<number>;
 
 /** What each command does with its arguments; a command's module loads only when it runs. */
 const RUNNERS: Record<string, Runner> = {
-  progress: async (rest, io) => {
-    (await import("./commands/progress.js")).runProgress(rest, io);
+  progress: async (rest, io, services) => {
+    (await import("./commands/progress.js")).runProgress(rest, io, services as ProgressServices | undefined);
     return 0;
   },
   check: async (rest, io) => (await import("./commands/check.js")).runCheck(io, rest.includes("--json")),
