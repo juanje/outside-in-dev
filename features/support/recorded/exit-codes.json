@@ -38,5 +38,6 @@
   "try-bdd-undefined": 1,
   "try-bdd-dry-undefined": 0,
   "try-bdd-dry-defined": 0,
-  "try-typecheck-error": 1
+  "try-typecheck-error": 1,
+  "not-an-assertion-lines": 1
 }

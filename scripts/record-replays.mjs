@@ -46,7 +46,7 @@ const stepFile = (content) => `${IMPORTS}\n${content}`;
 const MISSING_CART_STEP = `When("a line is added", async function () {\n  const { addLine } = await import("../../src/cart.js");\n  addLine();\n});\n`;
 const COUNT_STEP = `Then("the cart has {int} line(s)", function (count: number) {\n  assert.equal(count, 1);\n});\n`;
 const EMPTY_STEP = `When("a line is added", function () {});\n`;
-const THROWING_STEP = (attach) => `When("a line is added", function () {\n${attach}  throw new Error("the cart could not be built");\n});\n`;
+const THROWING_STEP = (attach, error = "the cart could not be built") => `When("a line is added", function () {\n${attach}  throw new Error("${error}");\n});\n`;
 const lines = (id, first, second) => `@${id}\nFeature: Cart lines\n  Scenario: ${first}\n    Given a cart\n    When a line is added\n    Then the cart has 1 line\n\n  Scenario: ${second}\n    Given a cart with 1 line\n    When the line is removed\n    Then the cart has 0 lines\n`;
 /** The step file of the second round with the step "a line is added" throwing: code that breaks a scenario that passed. */
 const BROKEN = STEP_ROUNDS[1].replace(/(When\("a line is added", async function \(\) \{\n)[^]*?(\n\}\);)/, `$1  throw new Error("the cart cannot take a line");$2`);
@@ -61,6 +61,7 @@ const CASES = {
   "passes-at-once": { steps: stepFile(`${EMPTY_STEP}\nThen("the cart has {int} line(s)", function (count: number) {\n  assert.ok(count);\n});\n`), request: [FIRST_SCENARIO] },
   "undefined-step": { steps: stepFile(EMPTY_STEP), request: [FIRST_SCENARIO] },
   "not-an-assertion": { steps: stepFile(`${THROWING_STEP("")}\n${COUNT_STEP}`), request: [FIRST_SCENARIO] },
+  "not-an-assertion-lines": { steps: stepFile(`${THROWING_STEP("", "the cart lines could not be loaded")}\n${COUNT_STEP}`), request: [FIRST_SCENARIO] },
   "not-an-assertion-with-output": { alone: true, steps: stepFile(`${THROWING_STEP('  this.attach("the cart refused the line", "text/plain");\n')}\n${COUNT_STEP}`), request: [FIRST_SCENARIO] },
   "bdd-missing-implementation": { steps: STEP_ROUNDS[0], request: [FIRST_SCENARIO] },
   "bdd-remove-line-missing": { steps: STEP_ROUNDS[1], cart: CART_CODE.withCount, request: [SECOND_SCENARIO, FIRST_SCENARIO] },

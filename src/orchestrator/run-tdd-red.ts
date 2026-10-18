@@ -14,7 +14,8 @@ import { labelled } from "../artifacts/rejection.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
 import { PROBLEM } from "./bdd-red-gate.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
-import { decideRed, VALID_RED } from "./red-decision.js";
+import { decideRed, retryOf, VALID_RED } from "./red-decision.js";
+import type { AttemptInfo } from "./attempts.js";
 import type { RedScenario } from "./run-bdd-red.js";
 import { type FeatureServices, runnersOf } from "./services.js";
 import { recordUnitTest, unitTestsOf, updateSession } from "./session.js";
@@ -47,11 +48,11 @@ function integrationStep(started: Started, scenario: RedScenario): Rejection | T
 }
 
 /** Judges the unit test the agent wrote, putting a failure oid cannot classify to the person: what the valid Red was and why, or the exit code of the process. */
-async function judgeUnitRed(started: Started, services: FeatureServices, names: { label: string; scenario: string }, test: { file: string; name: string }): Promise<number | Rejection | { reason: string; message: string }> {
+async function judgeUnitRed(started: Started, services: FeatureServices, names: { label: string; scenario: string }, test: { file: string; name: string }, attempt: number): Promise<number | Rejection | { reason: string; message: string }> {
   const gate = unitRedGate(started.workspace.path, test, runnersOf(services));
   if (gate.kind === PROBLEM) return labelled(names.scenario, gate.problem);
   if (gate.kind === OUTCOME.valid) return gate;
-  const decided = await decideRed(started.bus, services.input ?? { isTTY: false }, { label: names.label, reason: gate.reason, message: gate.message, subject: "unit test" });
+  const decided = await decideRed(started.bus, services.input ?? { isTTY: false }, { label: names.label, reason: gate.reason, message: gate.message, subject: "unit test", retry: retryOf(started.workspace.path, attempt) });
   return decided === VALID_RED ? { reason: "the person decided that it is a valid Red", message: gate.message } : decided;
 }
 
@@ -66,7 +67,7 @@ function reportedTest(label: string, report: { files: string[]; test?: string })
 }
 
 /** One attempt of TDD Red: the agent writes one unit test and the gate judges it; a valid Red is checkpointed and recorded. Returns what Code Green needs, the rejection of the attempt, or the exit code of the process. */
-async function writeUnitTest(started: Started, services: FeatureServices, scenario: RedScenario, task: AgentTask, announce: () => void): Promise<number | Rejection | TddRed> {
+async function writeUnitTest(started: Started, services: FeatureServices, scenario: RedScenario, task: AgentTask, { attempt, announce }: Pick<AttemptInfo, "attempt" | "announce">): Promise<number | Rejection | TddRed> {
   const { cwd, bus, workspace, targets } = started;
   const [fr] = targets;
   const { current, label } = scenario;
@@ -81,7 +82,7 @@ async function writeUnitTest(started: Started, services: FeatureServices, scenar
   if ("reason" in report) return integrationStep(started, scenario);
   const test = reportedTest(label, report);
   if (isRejection(test)) return test;
-  const gate = await judgeUnitRed(started, services, { label: `${label} unit test "${test.name}"`, scenario: label }, test);
+  const gate = await judgeUnitRed(started, services, { label: `${label} unit test "${test.name}"`, scenario: label }, test, attempt);
   if (isExitCode(gate) || isRejection(gate)) return gate;
   recordUnitTest(cwd, current.name, test.id);
   checkpoint(workspace, { fr: fr!, state: STATE.tddRed, scenario: current.name });
@@ -98,5 +99,5 @@ export async function runTddRed(started: Started, services: FeatureServices, sce
   const asked = note === "" ? "" : `${NEWLINE}${NEWLINE}The person who follows the run asks for this unit test to be written again, and says: ${note}`;
   const profile = profileFor(TDD_RED, loadProjectConfig(workspace.path));
   const prompt = `${tddRedPrompt(targets[0]!, profile)}${NEWLINE}${NEWLINE}${testTaskContext(workspace.path, { scenario: scenario.current, failure: scenario.failure })}${asked}`;
-  return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info), info.announce) });
+  return attemptsOf(started, services, { state: TDD_RED, role: "tdd-agent", label: scenario.label, run: (info) => writeUnitTest(started, services, scenario, attemptTask(TDD_RED, prompt, info), info) });
 }

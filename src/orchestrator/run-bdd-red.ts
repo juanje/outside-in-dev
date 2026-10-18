@@ -20,7 +20,7 @@ import { AFTER_GUARD, acceptGuard } from "./run-guard.js";
 import { TryAgain } from "./redirect.js";
 import { isExitCode, type Started, STATE, transition } from "./begin.js";
 import { agentStop, attemptsOf, attemptTask } from "./state-attempts.js";
-import { decideRed, VALID_RED } from "./red-decision.js";
+import { decideRed, retryOf, VALID_RED } from "./red-decision.js";
 import { rewrittenStepsGate } from "./rewritten-steps-gate.js";
 import { readSession, updateSession } from "./session.js";
 import { type FeatureServices, runnersOf } from "./services.js";
@@ -124,7 +124,7 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
       if (judged.kind === PROBLEM) return labelled(label, judged.problem);
       if (judged.kind === GUARD) return askAboutPassingScenario(started, services, label);
       if (judged.kind !== OUTCOME.decision) return judged;
-      const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step });
+      const decided = await decideRed(bus, services.input ?? { isTTY: false }, { label, reason: judged.reason, message: judged.message, detail: judged.detail, step: judged.step, retry: retryOf(workspace.path, info.attempt) });
       return decided === VALID_RED ? judged : decided;
     },
   });

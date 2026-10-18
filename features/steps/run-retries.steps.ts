@@ -54,7 +54,22 @@ Given("the step-writing agent's first attempt writes steps that fail with an err
   apply(this, plan);
 });
 
-Given("the test-writing agent writes no unit test in any attempt", function (this: OidWorld) {
+/** The steps that fail with each error, with the recorded report of cucumber running them. */
+const FAILING_WITH: Record<string, { steps: string; recording: string }> = {
+  "the cart could not be built": { steps: NOT_AN_ASSERTION_STEP, recording: "not-an-assertion" },
+  "the cart lines could not be loaded": { steps: NOT_AN_ASSERTION_STEP.replace("the cart could not be built", "the cart lines could not be loaded"), recording: "not-an-assertion-lines" },
+};
+
+Given("the step-writing agent's first attempt writes steps that fail with the error {string}, and its second attempt writes steps that fail with the error {string}", function (this: OidWorld, first: string, second: string) {
+  const attempts = [first, second].map((error) => FAILING_WITH[error]!);
+  assert.ok(attempts.every(Boolean), `no recorded report for ${first} and ${second}`);
+  agentOf(this).stepRounds = attempts.map(({ steps }) => [{ path: STEP_FILE, content: steps }]);
+  const plan = planOf(this);
+  plan.bdd.unshift(...attempts.map(({ recording }) => recording));
+  apply(this, plan);
+});
+
+Given("the test-writing agent writes no unit test in any attempt",function (this: OidWorld) {
   assert.equal(agentOf(this).testRoute.rounds.length, 0);
 });
 
@@ -134,7 +149,24 @@ Then(/^the human was asked once what to do with "([^"]+)", after (\d+) attempts 
   assert.deepEqual(asked[0]!.actions, actions);
 });
 
-Then("the question about the attempts mentions {string}", function (this: OidWorld, text: string) {
+When("I run {string} with a terminal where the human answers {string}, {string}, {string} and {string}", async function (this: OidWorld, commandLine: string, first: string, second: string, third: string, fourth: string) {
+  await runWithTerminal(this, commandLine, [first, second, third, fourth], []);
+});
+
+/** The questions the run put about a Red it could not classify. */
+function redQuestions(world: OidWorld) {
+  return terminalOf(world).choices.filter((choice) => choice.prompt.includes("oid cannot tell whether it is a valid Red"));
+}
+
+Then(/^the second question about the Red mentions "([^"]+)" and (?:"([^"]+)"|not "([^"]+)")$/, function (this: OidWorld, first: string, second: string | null, absent: string | null) {
+  const asked = redQuestions(this)[1];
+  assert.ok(asked, `the human was asked ${redQuestions(this).length} question(s) about a Red: ${JSON.stringify(terminalOf(this).choices)}`);
+  assert.ok(asked.prompt.includes(first), `the question does not mention "${first}":\n${asked.prompt}`);
+  if (second !== null) assert.ok(asked.prompt.includes(second), `the question does not mention "${second}":\n${asked.prompt}`);
+  if (absent !== null) assert.ok(!asked.prompt.includes(absent), `the question mentions "${absent}":\n${asked.prompt}`);
+});
+
+Then("the question about the attempts mentions {string}",function (this: OidWorld, text: string) {
   assert.ok(attemptQuestions(this)[0]?.prompt.includes(text), JSON.stringify(attemptQuestions(this)));
 });
 

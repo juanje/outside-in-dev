@@ -90,4 +90,20 @@ describe("the decision about a Red oid cannot classify", () => {
       asked: 2,
     });
   });
+
+  it("says in the question which attempt it is and which files it changed when the Red comes from a retry, and says nothing of it for the first attempt", async () => {
+    const bus = createEventBus({ cwd: dir, runId: "run-1", write: () => undefined, now: () => 0 });
+    const askedWith = async (retry?: { attempt: number; files: string[] }) => {
+      const asked: string[] = [];
+      const input = { isTTY: true as const, choose: async (prompt: string) => (asked.push(prompt), "valid"), line: async () => "" };
+      await decideRed(bus, input, { ...FAILURE, retry });
+      return asked[0]!;
+    };
+    const first = await askedWith();
+    const second = await askedWith({ attempt: 2, files: ["features/steps/a.steps.ts", "features/steps/b.steps.ts"] });
+    expect(first).not.toContain("attempt");
+    expect(second).toContain("attempt 2");
+    expect(second).toContain("features/steps/a.steps.ts");
+    expect(second).toContain("features/steps/b.steps.ts");
+  });
 });

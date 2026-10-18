@@ -140,3 +140,10 @@ Feature: Retries and escalation
     Then the event log of the run records an "attempt_rejected" of "TDD_RED" with the attempt 1 and the reason mentioning "the person judged the failure to be a bug in the unit test: the cart is built with createCart, not with new Cart"
     And the second task of the test-writing agent includes "attempt 2" and "the cart is built with createCart, not with new Cart"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
+
+  Scenario: The question about the Red of a retried attempt says which attempt it is and which files it changed
+    Given the project allows 1 retry for each state
+    And the step-writing agent's first attempt writes steps that fail with the error "the cart could not be built", and its second attempt writes steps that fail with the error "the cart lines could not be loaded"
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "bug", "bug" and "abort"
+    Then the second question about the Red mentions "attempt 2" and "features/steps/cart-lines.steps.ts"
+    And the second question about the Red mentions "the cart lines could not be loaded" and not "the cart could not be built"

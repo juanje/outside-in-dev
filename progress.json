@@ -2765,6 +2765,10 @@
         {
           "name": "The human says what is wrong with a note, and the note goes in the reason that the retry receives",
           "bdd": "pass"
+        },
+        {
+          "name": "The question about the Red of a retried attempt says which attempt it is and which files it changed",
+          "bdd": "pass"
         }
       ]
     },

@@ -1,5 +1,6 @@
 import { trimFailure } from "../commands/verify.js";
 import { OUTCOME } from "../artifacts/red-classification.js";
+import { readChangedLines } from "../artifacts/git-changes.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { ERROR_EVENT, WAITING_INPUT } from "../events/types.js";
 import { labelled, type Rejection } from "../artifacts/rejection.js";
@@ -18,11 +19,24 @@ const STEP_DEFINITIONS = "step definitions";
 const BUG_NOTE_PROMPT = "What is wrong, for the next attempt? (optional, one line)";
 
 /** A Red oid cannot classify: whose it is, why oid cannot tell, the failure message as the runner gave it, what else the run showed about it (the failing step, the output it recorded) and what the person would call wrong if it is a bug (the step definitions by default). */
-export type UnclassifiedRed = { label: string; reason: string; message: string; detail?: string; step?: string; subject?: string };
+export type UnclassifiedRed = { label: string; reason: string; message: string; detail?: string; step?: string; subject?: string; retry?: Retry };
 
-/** The question about the Red: what failed, why oid cannot tell, the failure up to its first stack frame, or all of it, and what else the run showed. */
-function question({ label, reason, message, detail }: UnclassifiedRed, whole: boolean): string {
-  return [`${label} fails, and oid cannot tell whether it is a valid Red: ${reason}`, whole ? message : trimFailure(message), ...(detail === undefined || detail === "" ? [] : [detail])].join(NEWLINE);
+/** The attempt a Red comes from when it is not the first, and the files that attempt changed since the last checkpoint. */
+export type Retry = { attempt: number; files: string[] };
+
+/** What the question says of an attempt after the first, so that the person does not take its failure for one already judged. */
+export function retryOf(cwd: string, attempt: number): Retry | undefined {
+  return attempt <= 1 ? undefined : { attempt, files: [...readChangedLines(cwd).keys()].sort() };
+}
+
+/** The line that says which attempt the Red comes from and which files it changed. */
+function retryLine({ attempt, files }: Retry): string {
+  return `This is the Red of attempt ${attempt}, a new run after the attempts before it were rejected. That attempt changed: ${files.length === 0 ? "no file" : files.join(", ")}`;
+}
+
+/** The question about the Red: what failed, why oid cannot tell, the attempt it comes from when it is a retry, the failure up to its first stack frame, or all of it, and what else the run showed. */
+function question({ label, reason, message, detail, retry }: UnclassifiedRed, whole: boolean): string {
+  return [`${label} fails, and oid cannot tell whether it is a valid Red: ${reason}`, ...(retry === undefined ? [] : [retryLine(retry)]), whole ? message : trimFailure(message), ...(detail === undefined || detail === "" ? [] : [detail])].join(NEWLINE);
 }
 
 /** Why the run ends when the answer is not an action. */
