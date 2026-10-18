@@ -919,7 +919,7 @@ Validated at startup; unknown keys are refused. The schema is `src/artifacts/pro
 - `refactor`, `limits`, `integrity` and `settings` are optional; the values above are the defaults. `limits.cost_limit_usd` and `cost_limit_fr_usd` have none.
 - `readFileSync` in `forbidden_in_tests` applies only when the path read is in `paths.source`; tests may read fixtures.
 - Credentials and models never go here: a `models` key is an error that names `oid setup` (ADR-048).
-- **Planned:** Jev's thresholds (`decisions.thresholds`, FR-DEC), the notification command (FR-TUI-06) and the cleanup triggers (`refactor.tidy`, FR-TIDY) will be added with their requirements.
+- **Planned:** Jev's thresholds (`decisions.thresholds`, FR-DEC) and the cleanup triggers (`refactor.tidy`, FR-TIDY) will be added with their requirements. The notification command is user configuration (§16.1).
 
 ### 16.1. User configuration (`<config dir>/config.json`)
 
@@ -937,6 +937,7 @@ The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.confi
 ```
 
 - Each role is `provider/id`, resolved with Pi's `ModelRuntime`. The `decisions` role is reserved for Jev (FR-DEC).
+- `notify_command` (optional, FR-TUI-06): a shell command oid runs when the run asks the person, finishes or fails. It is the user's, like the models: a project does not decide how its collaborators are notified. The command receives the kind of event in `OID_EVENT` (`waiting_input`, `finished` or `failed`) and a one-line description in `OID_MESSAGE`.
 - Credentials live in `<config dir>/agent/auth.json`, oid's `agentDir` (`OID_AGENT_DIR` overrides it), written through Pi's `ModelRuntime.login`: the provider's own login flow or an API key from standard input. Provider variables (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`…) still work. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked, merging them per provider, atomically and with mode 0600; imported OAuth entries share their refresh token with Pi, and oid says so.
 
 ---
