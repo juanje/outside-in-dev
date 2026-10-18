@@ -74,7 +74,7 @@ Feature: Refactor after each Green
       | problem                                          | reason                                    |
       | its code has a type error                        | error TS2322                              |
       | its code makes a unit test fail                  | adds a line                               |
-      | its code breaks the scenario "Add to cart"       | Add to cart                               |
+      | its code breaks the scenario "Add a line"        | Add a line                                |
       | its code leaves the finding where it was         | the finding is still there                |
       | its code brings a new finding                    | a new finding                             |
       | its code is more complex than before             | more complex                              |
@@ -105,6 +105,13 @@ Feature: Refactor after each Green
     Then the event log of the run records a transition from "CODE_GREEN" to "REFACTOR" whose reason mentions "1 finding"
     And the worktree has the commit "oid: checkpoint FR-CART-02 REFACTOR Add a line" with the refactored cart code
     And the event log of the run records a transition from "BDD_CHECK" to "TDD_RED"
+
+  Scenario: The scenarios of other features are not run when the refactor is checked
+    Given the coding agent writes the cart code that passes the unit test and the scenario
+    And the detectors find a magic value in "src/cart.ts"
+    And the refactoring agent writes the cart code without the magic value, and the detectors find nothing afterwards
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
+    Then the BDD runner was asked to run, before and after the refactoring agent worked, only the scenario "Add a line"
 
   Scenario: With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent
     Given the coding agent writes cart code with a magic number that passes the unit test and the scenario

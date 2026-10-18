@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { loadProjectConfig } from "../../src/artifacts/project-config.js";
-import { runBddScenario } from "../../src/artifacts/verify-runner.js";
+import { REAL_RUNNERS, runBddScenario } from "../../src/artifacts/verify-runner.js";
 import { classifyObservation, observeBddRun } from "../../src/commands/verify.js";
 import { bddCheck } from "../../src/orchestrator/bdd-check.js";
 import { committedRepo } from "./git-fixture.js";
@@ -38,6 +40,24 @@ describe("the check of a scenario after its code was written", () => {
 
   it("says the scenario is still red and gives the failure message", () => {
     expect(bddCheck(repoWith(RUNNER), PAY)).toEqual({ kind: "red", message: expect.stringContaining("pay is not a function") });
+  });
+
+  it("with the scope of the feature, runs the scenario and the passing scenarios of its feature, and none of another feature", () => {
+    const recording = `require("node:fs").writeFileSync("argv.json", JSON.stringify(process.argv));\n${RUNNER}`;
+    const scenarios = [{ name: "Pay", bdd: "fail" }, { name: "Pay again", bdd: "pass" }];
+    const repo = committedRepo("project", {
+      ".outside-in.json": JSON.stringify({ version: 1, stack: "typescript", paths: GATE_PATHS, commands: { bdd: "node bdd.cjs", unit: "u", typecheck: "t", format: null, lint: null, coverage: null, extra_checks: [] } }),
+      "progress.json": JSON.stringify({ current_focus: null, features: [{ id: "FR-A-01", title: "One", status: "in_progress", cycle_step: "tdd_green", scenarios }, { id: "FR-B-01", title: "Two", status: "done",scenarios: [{ name: "Other", bdd: "pass" }] }] }),
+      ".gitignore": ".outside-in/\nargv.json\n",
+      "features/pay.feature": "@FR-A-01\nFeature: Pay\n  Scenario: Pay\n    When I pay\n\n  Scenario: Pay again\n    When I pay\n",
+      "features/other.feature": "@FR-B-01\nFeature: Other\n  Scenario: Other\n    When I act\n",
+      "bdd.cjs": recording,
+    });
+    bddCheck(repo, PAY, "The refactor", REAL_RUNNERS, "feature");
+    const asked = existsSync(join(repo, "argv.json")) ? readFileSync(join(repo, "argv.json"), "utf8") : "the runner was not run";
+    expect(asked).toContain("features/pay.feature:3");
+    expect(asked).toContain("features/pay.feature:6");
+    expect(asked).not.toContain("features/other.feature");
   });
 
   it("rejects a scenario that neither passes nor fails with an error, with the classifier's reason for what the run showed, the scenario and a next action", () => {

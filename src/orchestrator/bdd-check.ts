@@ -16,11 +16,18 @@ export const SCENARIO = { pass: "pass", red: "red" } as const;
 /** What the check of the current scenario found: it passes, it is still red (with the failure as the runner gave it), or a problem stops the run. */
 export type BddCheck = { kind: typeof SCENARIO.pass } | { kind: typeof SCENARIO.red; message: string } | { kind: typeof PROBLEM; problem: Rejection };
 
-/** Runs the current scenario and every scenario that passed, in one run, and says what it showed: a scenario that passed and no longer does is a problem before anything else. */
-export function bddCheck(worktree: string, scenario: CurrentScenario, culprit = "Code Green", runners: Runners = REAL_RUNNERS): BddCheck {
+/** Which passing scenarios a check runs with the current one: those of the whole project, or only those of the feature of the current scenario (the quality gate runs the others). */
+export const CHECK_SCOPE = { project: "whole project", feature: "feature" } as const;
+export type CheckScope = (typeof CHECK_SCOPE)[keyof typeof CHECK_SCOPE];
+
+/** Runs the current scenario and the scenarios that passed (of `scope`), in one run, and says what it showed: a scenario that passed and no longer does is a problem before anything else. */
+export function bddCheck(worktree: string, scenario: CurrentScenario, culprit = "Code Green", runners: Runners = REAL_RUNNERS, scope: CheckScope = CHECK_SCOPE.project): BddCheck {
   const config = loadProjectConfig(worktree);
   const progress = loadProgress(worktree, config.paths.progress);
-  const passing = locatePassingScenarios(progress, listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features))).found;
+  const located = listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features));
+  const tags = located.find((candidate) => candidate.file === scenario.file && candidate.line === scenario.line)?.tags ?? [];
+  const everywhere = locatePassingScenarios(progress, located).found;
+  const passing = scope === CHECK_SCOPE.feature ? everywhere.filter(({ feature }) => tags.includes(`@${feature}`)) : everywhere;
   const run = runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
   const broken = run.report === undefined ? [] : bddProblems(run.report, passing);
   if (broken.length > 0) {

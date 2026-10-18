@@ -167,7 +167,7 @@ Then("the feature file of {string} is as it was approved", function (this: OidWo
 });
 
 /** `file:line` of the scenario called `name` among the feature files of the worktree. */
-function locationOf(world: OidWorld, name: string): string {
+export function locationOf(world: OidWorld, name: string): string {
   const dir = join(worktreePath(world), "features");
   for (const file of readdirSync(dir).filter((entry) => entry.endsWith(".feature"))) {
     const line = readFileSync(join(dir, file), "utf8").split("\n").findIndex((text) => text.trim() === `Scenario: ${name}`);
@@ -176,7 +176,7 @@ function locationOf(world: OidWorld, name: string): string {
   return assert.fail(`no feature file of the worktree has the scenario "${name}"`);
 }
 
-type LoggedCall = { kind: string; request: { locations?: string[] } };
+export type LoggedCall = { kind: string; request: { locations?: string[] } };
 
 /** The scenarios the BDD runner of the worktree was asked to run in the first call it got after the step-writing agent began its task for `scenario`: the run that judges the steps the agent wrote. */
 function scenariosAskedWhileWriting(world: OidWorld, scenario: string): string[] {

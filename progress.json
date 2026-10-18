@@ -2629,6 +2629,10 @@
         {
           "name": "With the real detectors and the real runners, a magic value that Code Green left is named by the refactoring agent",
           "bdd": "pass"
+        },
+        {
+          "name": "The scenarios of other features are not run when the refactor is checked",
+          "bdd": "pass"
         }
       ]
     },

@@ -282,7 +282,7 @@ An agent writes one failing unit test, then another agent writes the minimum cod
 
 ### FR-RUN-05: Refactor after each Green
 
-After each Green, detectors run on the lines just changed; if anything worth fixing remains after triage, an agent fixes exactly that list. The result is accepted only if behaviour is unchanged, the findings are gone, nothing new appears and no metric gets worse; otherwise it is rolled back.
+After each Green, detectors run on the lines just changed; if anything worth fixing remains after triage, an agent fixes exactly that list. The result is accepted only if behaviour is unchanged (the unit suite, the current scenario and the passing scenarios of the same feature; the scenarios of other features are run by the quality gate), the findings are gone, nothing new appears and no metric gets worse; otherwise it is rolled back.
 
 ### FR-RUN-06: Quality gate
 

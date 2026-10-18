@@ -9,7 +9,8 @@ import type { Round } from "../support/fake-agent.js";
 import { git } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
-import { assertShellTool, codeRound, expect, filesOfCommit, findCommit, planOf } from "./run-loop.steps.js";
+import { type LoggedCall, locationOf } from "./run-bdd-red.steps.js";
+import { assertShellTool,codeRound, expect, filesOfCommit, findCommit, planOf } from "./run-loop.steps.js";
 import { eventLog, PROJECT, session } from "./run.steps.js";
 
 const BLOCKED_PATTERN = /^reports that it is blocked with the reason "(.+)"$/;
@@ -21,8 +22,14 @@ const magicValue = (file: string, range = ADD_LINE_LINES): FindingDraft => ({ ca
 const staleDocumentation = (): FindingDraft => ({ category: "doc_drift", file: "src/cart.ts", range: COUNT_LINES, symbol: "countCartLines", detail: "@param lines does not match the signature" });
 const unusedExport = (): FindingDraft => ({ category: "dead_code", file: "src/cart.ts", range: COUNT_LINES, symbol: "countCartLines", detail: "unused export" });
 
-/** What the fake runners replay for the run of the refactoring agent's change: the unit report, the scenario runs, and whether the type check fails. */
+/** What the fake runners replay for the run of the refactoring agent's change: the unit report, the scenario runs that follow the run before the agent worked (the last is the BDD Check's, the others the refactor's own), and whether the type check fails. */
 type Acceptance = { unit?: string; bdd: string[]; typecheck?: string };
+
+/** The recording of the scenarios of the project that has the status of each, and the one of the scenarios of the feature only: the refactor runs the second, the BDD Check the first. */
+const IN_FEATURE: Record<string, string> = { "bdd-add-line-green": "bdd-add-line-green-in-feature", "bdd-add-line-still-red": "bdd-add-line-still-red-in-feature" };
+const STILL_RED_IN_FEATURE = "bdd-add-line-still-red-in-feature";
+
+const inFeature = (recording: string): string => IN_FEATURE[recording] ?? recording;
 
 /** The recorded scenario run that keeps the status the last one of the plan has. */
 function sameStatus(world: OidWorld): string {
@@ -30,11 +37,12 @@ function sameStatus(world: OidWorld): string {
   return bdd[bdd.length - 1]!;
 }
 
-/** Adds to the plan what the run replays once the refactoring agent has worked: the run of the scenarios before it, and the runs after it. */
+/** Adds to the plan what the run replays once the refactoring agent has worked: the run of the scenarios before it, and the runs after it. The refactor runs the scenarios of the feature only, so its own runs (the one before the agent and those of its acceptance) replay the recordings of the feature. */
 function acceptanceReplay(world: OidWorld, { unit, bdd, typecheck }: Acceptance): void {
   const plan = planOf(world);
   plan.typecheck = typecheck === undefined ? plan.typecheck : [null, typecheck];
-  expect(world, { unit: unit === undefined ? [] : [unit], bdd });
+  plan.bdd[plan.bdd.length - 1] = inFeature(sameStatus(world));
+  expect(world, { unit: unit === undefined ? [] : [unit], bdd: bdd.map((recording, at) => (at === bdd.length - 1 ? recording : inFeature(recording))) });
 }
 
 Given("the detectors find nothing", function (this: OidWorld) {
@@ -74,7 +82,7 @@ Given("the refactoring agent also tries to write {string} and {string}", functio
 const REFACTOR_PROBLEMS: Record<string, { round: Round; afterwards?: FindingDraft[]; acceptance: (same: string) => Acceptance }> = {
   "its code has a type error": { round: codeRound(CART_CODE.withTypeError), acceptance: (same) => ({ unit: "unit-green", typecheck: "typecheck-error", bdd: [same] }) },
   "its code makes a unit test fail": { round: codeRound(CART_CODE.unitFailing), acceptance: (same) => ({ unit: "unit-still-failing", bdd: [same] }) },
-  'its code breaks the scenario "Add to cart"': { round: codeRound(CART_CODE.refactored), acceptance: (same) => ({ unit: "unit-green", bdd: ["regression", same] }) },
+  'its code breaks the scenario "Add a line"': { round: codeRound(CART_CODE.refactored), acceptance: (same) => ({ unit: "unit-green", bdd: [STILL_RED_IN_FEATURE, same] }) },
   "its code leaves the finding where it was": { round: codeRound(CART_CODE.refactored), afterwards: [magicValue("src/cart.ts")], acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },
   "its code brings a new finding": { round: codeRound(CART_CODE.refactored), afterwards: [unusedExport()], acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },
   "its code is more complex than before": { round: codeRound(CART_CODE.moreComplex), acceptance: (same) => ({ unit: "unit-green", bdd: [same] }) },
@@ -114,7 +122,23 @@ Then("the detectors ran once, after Code Green", function (this: OidWorld) {
   assert.ok(calls.every((call) => call === worktreePath(this)), calls.join(", "));
 });
 
-Then("the refactoring agent was never started", function (this: OidWorld) {
+/** The scenarios the BDD runner of the worktree was asked to run in the first call it got after the task of an agent began (the call numbered `mark` in its log): the run that judges what that agent left. */
+function scenariosAskedAfter(world: OidWorld, mark: number | undefined, who: string): string[] {
+  assert.ok(mark !== undefined, `the ${who} agent was not run`);
+  const calls = readFileSync(join(worktreePath(world), ".outside-in", "replay-calls.ndjson"), "utf8").split("\n").filter((line) => line !== "").map((line) => JSON.parse(line) as LoggedCall);
+  const asked = calls.slice(mark).find((call) => call.kind === "bdd");
+  assert.ok(asked, `the BDD runner was not asked anything after the task of the ${who} agent`);
+  return asked.request.locations ?? [];
+}
+
+Then("the BDD runner was asked to run, before and after the refactoring agent worked, only the scenario {string}", function (this: OidWorld, name: string) {
+  const wanted = [locationOf(this, name)];
+  const { codeRoute, refactorRoute } = agentOf(this);
+  assert.deepEqual(scenariosAskedAfter(this, codeRoute.callMarks[0], "coding"), wanted, "the run before the refactoring agent");
+  assert.deepEqual(scenariosAskedAfter(this, refactorRoute.callMarks[0], "refactoring"), wanted, "the run after the refactoring agent");
+});
+
+Then("the refactoring agent was never started",function (this: OidWorld) {
   assert.deepEqual(agentOf(this).refactorRoute.tasks, []);
 });
 

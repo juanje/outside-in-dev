@@ -20,6 +20,7 @@
   "bdd-add-line-green": 0,
   "bdd-add-line-green-in-feature": 0,
   "bdd-add-line-still-red": 1,
+  "bdd-add-line-still-red-in-feature": 1,
   "bdd-remove-line-missing": 1,
   "bdd-remove-line-regression": 1,
   "bdd-all-green": 0,

@@ -24,6 +24,8 @@ export class ProcessDied extends Error {
 export class Route {
   constructor(readonly name: string) {}
   tasks: string[] = [];
+  /** For each task, the number of calls the replay runners of its worktree had logged when the task began: the calls that follow are the run's answer to what the agent wrote. */
+  callMarks: number[] = [];
   /** What happens while a session works, before it writes anything, by the index of the session. */
   during = new Map<number, () => Promise<void>>();
   rounds: Round[] = [];
@@ -154,6 +156,7 @@ export class FakeAgent {
         else {
           const own = route.tasks.length;
           route.tasks.push(text);
+          route.callMarks.push(loggedCalls(cwd));
           if (!(await this.turns(route, own, emit, { aborted: () => aborted, until }))) {
             route.stopped += 1;
             return;
