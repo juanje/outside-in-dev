@@ -72,7 +72,7 @@ const RAN = "ran";
 /** What the cheap gates and a run of the scenario with the scenarios that passed came to: a problem, or the configuration, the run and a way to make the same run again. */
 export type ScenarioRuns = { kind: typeof PROBLEM; problem: Rejection } | { kind: typeof RAN; config: ProjectConfig; first: BddRun; again: () => BddRun };
 
-/** The cheap gates first, then one run of the scenario together with the scenarios that passed: a scenario that passed and no longer does is a problem. */
+/** The cheap gates first, then one run of the scenario together with the scenarios of its feature that passed (those of other features are the quality gate's): a scenario that passed and no longer does is a problem. */
 export function runScenarioChecked(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, runners: Runners): ScenarioRuns {
   const config = loadProjectConfig(worktree);
   const progress = loadProgress(worktree, config.paths.progress);
@@ -87,7 +87,9 @@ export function runScenarioChecked(worktree: string, scenario: CurrentScenario, 
       }),
     };
   }
-  const passing = locatePassingScenarios(progress, listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features))).found;
+  const located = listLocatedScenarios(readFeatureSources(worktree, config.paths.bdd_features));
+  const tags = located.find((candidate) => candidate.file === scenario.file && candidate.line === scenario.line)?.tags ?? [];
+  const passing = locatePassingScenarios(progress, located).found.filter(({ feature }) => tags.includes(`@${feature}`));
   const again = () => runners.bddScenarios(worktree, config.commands.bdd, [scenario, ...passing]);
   const first = again();
   const broken = first.report === undefined ? [] : bddProblems(first.report, passing);

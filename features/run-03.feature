@@ -30,12 +30,20 @@ Feature: BDD Red
     And the agent had no shell tool
 
   Scenario: A change that breaks a scenario that passes stops the run
-    Given the step-writing agent also changes the step "the cart is not empty" so that it fails
+    Given the step-writing agent writes the steps of each scenario it is given, and they fail because the cart code does not exist yet
+    And the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario
+    And the step-writing agent, when it writes the steps of "Remove a line", also changes the step "a line is added" so that it fails
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
-    Then the event log of the run records an error mentioning "Add to cart" and "the cart is not empty"
-    And the run never reaches "TDD_RED"
+    Then the event log of the run records an error mentioning "Add a line" and "a line is added"
+    And the run never reaches "TDD_RED" for "Remove a line"
     And the worktree is kept
 
+  Scenario: The scenarios of other features are not run when the steps are written
+    Given the step-writing agent writes the steps of each scenario it is given, and they fail because the cart code does not exist yet
+    And the agents write for each of the two scenarios a failing unit test and the cart code that passes it and the scenario
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"
+    Then the BDD runner was asked to run, while the steps of "Add a line" were written, only the scenario "Add a line"
+    And the BDD runner was asked to run, while the steps of "Remove a line" were written, only the scenarios "Remove a line" and "Add a line"
   Scenario Outline: A scenario that is not a valid Red stops the run
     Given the step-writing agent writes steps where <problem>
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve"

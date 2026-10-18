@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { bddRedGate } from "../../src/orchestrator/bdd-red-gate.js";
 import { COMMANDS, PATHS } from "./bdd-gate-fixture.js";
@@ -33,12 +35,14 @@ require("node:fs").writeFileSync(out, lines.map((line) => JSON.stringify(line)).
 `;
 
 function project(runner: string, passing: { id: string; scenario: string; file: string }[] = []): string {
+  const mine = passing.filter(({ id }) => id === "FR-A-01").map(({ scenario }) => ({ name: scenario, bdd: "pass" }));
+  const others = passing.filter(({ id }) => id !== "FR-A-01").map(({ id, scenario }) => ({ id, title: id, status: "done", scenarios: [{ name: scenario, bdd: "pass" }] }));
   return committedRepo("project", {
     ".outside-in.json": JSON.stringify({ version: 1, stack: "typescript", paths: PATHS, commands: COMMANDS }),
     ".gitignore": ".outside-in/\n",
     "progress.json": JSON.stringify({
       current_focus: null,
-      features: [{ id: "FR-A-01", title: "One", status: "in_progress", cycle_step: "bdd_red", scenarios: [] }, ...passing.map(({ id, scenario }) => ({ id, title: id, status: "done", scenarios: [{ name: scenario, bdd: "pass" }] }))],
+      features: [{ id: "FR-A-01", title: "One", status: "in_progress", cycle_step: "bdd_red", scenarios: mine }, ...others],
     }),
     ...Object.fromEntries(passing.map(({ id, scenario, file }) => [file, `@${id}\nFeature: Old\n  Scenario: ${scenario}\n    When it works\n`])),
     "features/pay.feature": "@FR-A-01\nFeature: Pay\n  Scenario: Pay\n    When I pay\n",
@@ -99,8 +103,19 @@ describe("the gate of BDD Red", () => {
       { uri: "features/pay.feature", name: "Pay", status: "FAILED", message: missing },
       { uri: "features/old.feature", name: "Old", status: "FAILED", message: "Error: broken" },
     ]);
-    const repo = project(runner, [{ id: "FR-B-01", scenario: "Old", file: "features/old.feature" }]);
+    const repo = project(runner, [{ id: "FR-A-01", scenario: "Old", file: "features/old.feature" }]);
     const gate = bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {});
     expect(gate).toMatchObject({ kind: "problem", problem: { failed: "scenarios that passed no longer pass", evidence: expect.stringContaining("features/old.feature:3 Old"), next: expect.stringContaining("try tool") } });
+  });
+
+  it("asks the runner for the scenario and the passing scenarios of its feature, not for those of other features", () => {
+    const missing = "Error: Cannot find module '<cwd>/src/cart.js' imported from <cwd>/features/steps/pay.steps.ts";
+    const recording = `require("node:fs").writeFileSync("asked.json", JSON.stringify(process.argv.filter((arg) => /:\\d+$/.test(arg))));\n`;
+    const repo = project(recording + failingRunner(missing), [
+      { id: "FR-B-01", scenario: "Other", file: "features/other.feature" },
+      { id: "FR-A-01", scenario: "Mine", file: "features/mine.feature" },
+    ]);
+    bddRedGate(repo, { file: "features/pay.feature", line: 3, name: "Pay" }, {});
+    expect(JSON.parse(readFileSync(join(repo, "asked.json"), "utf8"))).toEqual(["features/pay.feature:3", "features/mine.feature:3"]);
   });
 });

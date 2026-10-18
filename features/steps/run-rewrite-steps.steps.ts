@@ -9,6 +9,8 @@ import { expect } from "./run-loop.steps.js";
 const ADD_A_LINE = "Add a line";
 const FAILS_WITHOUT_CODE = "bdd-missing-implementation";
 const PASSES_WITH_CODE = "bdd-add-line-green";
+/** The run of the gate of BDD Red for a scenario that passes: the scenario and the passing scenarios of its feature, not those of other features. */
+const PASSES_IN_FEATURE = "bdd-add-line-green-in-feature";
 
 /** The steps of "Add a line" written again: the first ones with a comment that tells the attempts apart. */
 const rewritten = (attempt: number) => [{ path: STEP_FILE, content: `${STEP_ROUNDS[0]}\n// written again, attempt ${attempt}\n` }];
@@ -21,13 +23,13 @@ function writesRewritten(world: OidWorld, rounds: number): void {
 Given("the step-writing agent's rewritten steps for {string} pass with the cart code and fail without it", function (this: OidWorld, scenario: string) {
   assert.equal(scenario, ADD_A_LINE);
   writesRewritten(this, 1);
-  expect(this, { bdd: [PASSES_WITH_CODE, FAILS_WITHOUT_CODE, PASSES_WITH_CODE, "bdd-remove-line-missing"] });
+  expect(this, { bdd: [PASSES_IN_FEATURE, FAILS_WITHOUT_CODE, PASSES_WITH_CODE, "bdd-remove-line-missing"] });
 });
 
 Given("the step-writing agent's rewritten steps for {string} pass with the cart code and also without it, in every attempt", function (this: OidWorld, scenario: string) {
   assert.equal(scenario, ADD_A_LINE);
   writesRewritten(this, 2);
-  expect(this, { bdd: [PASSES_WITH_CODE, PASSES_WITH_CODE, PASSES_WITH_CODE, PASSES_WITH_CODE] });
+  expect(this, { bdd: [PASSES_IN_FEATURE, PASSES_IN_FEATURE, PASSES_IN_FEATURE, PASSES_IN_FEATURE] });
 });
 
 Given("the step-writing agent's rewritten steps for {string} fail because the cart code does not exist yet", function (this: OidWorld, scenario: string) {

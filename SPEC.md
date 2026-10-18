@@ -274,7 +274,7 @@ An agent writes the feature files for the requirement; a human approves, edits o
 
 ### FR-RUN-03: BDD Red
 
-An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario still passes. Approved feature files cannot change. A scenario that passes at once is put to the human, who can accept it as a guard, with a reason.
+An agent writes the step definitions for one scenario; the scenario must load and fail validly while every passing scenario of the same feature still passes. The scenarios of other features are run by the quality gate, not at each step, because their cost grows with the project. Approved feature files cannot change. A scenario that passes at once is put to the human, who can accept it as a guard, with a reason.
 
 ### FR-RUN-04: TDD inner loop
 

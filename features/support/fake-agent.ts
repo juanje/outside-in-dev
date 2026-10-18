@@ -1,5 +1,13 @@
 import { createWriteTool } from "@earendil-works/pi-coding-agent";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { PiSdk } from "../../src/agents/runner.js";
+
+/** How many calls the replay runners have logged in the directory `cwd` (the log is append-only, one line per call). */
+function loggedCalls(cwd: string): number {
+  const log = join(cwd, ".outside-in", "replay-calls.ndjson");
+  return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((line) => line !== "").length : 0;
+}
 
 export type AgentFile = { path: string; content: string };
 type Task = { fr: string; text: string };
@@ -81,6 +89,8 @@ export class FakeAgent {
   stepAttempts: string[] = [];
   stepRefused: string[] = [];
   stepTasks: string[] = [];
+  /** For each task of the step-writing agent, the number of calls the replay runners of its worktree had logged when the task began: the calls that follow are the run's answer to what the agent wrote. */
+  stepCallMarks: number[] = [];
   stepBypass: AgentFile[] = [];
   stepUnreported: AgentFile[] = [];
   stepBlocked: { reason: string; detail: string } | undefined;
@@ -211,6 +221,7 @@ export class FakeAgent {
   private async workSteps(session: OpenedSession, cwd: string, text: string): Promise<Report> {
     const round = this.stepRounds[this.stepTasks.length];
     this.stepTasks.push(text);
+    this.stepCallMarks.push(loggedCalls(cwd));
     for (const path of this.stepAttempts) await this.write(session, cwd, { path, content: "// not allowed\n" }, this.stepRefused);
     if (this.stepBlocked !== undefined) return { status: "blocked", ...this.stepBlocked };
     const written = round ?? this.stepFiles;

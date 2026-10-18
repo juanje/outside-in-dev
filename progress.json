@@ -2514,79 +2514,84 @@
         {
           "name": "An agent that is blocked asks the human what to do",
           "bdd": "pass"
+        },
+        {
+          "name": "The scenarios of other features are not run when the steps are written",
+          "bdd": "pass"
         }
       ]
     },
     {
       "id": "FR-RUN-04",
       "title": "TDD inner loop",
-      "status": "done",
+      "status": "in_progress",
       "scenarios": [
         {
           "name": "A failing unit test and the code that passes it turn the scenario green, and the run goes on to the next scenario",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "The test-writing agent gets the scenario and its failure, and works with the tools and the sandbox of TDD Red",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A unit test that is not a valid Red stops the run",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A unit test failure oid cannot classify is put to the human, who decides it is a valid Red",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "The human decides that the failure is a bug in the unit test",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "The coding agent gets the failing unit test and the code it imports, and works with the shell and the sandbox of Code Green",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Code that is not a valid Green stops the run",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A scenario that is still red after the code is written starts another iteration",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "Code that breaks a scenario that passed is a failure of Code Green",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "An agent with no unit logic left sends the run to Code Green with the failure of the scenario",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "An agent with no unit logic left is refused when the scenario has no unit test yet",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "When every scenario of the requirement passes, each has its checkpoint and the progress file records them",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A unit test rejected in the iteration after a scenario was still red does not lose the move back to TDD Red",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A unit test that passes at once tells the next attempt to test a behaviour the code lacks",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "A scenario that is still red after the last iteration asks the human what to do",
-          "bdd": "pass"
+          "bdd": "pending"
         },
         {
           "name": "An agent whose provider fails stops the run",
-          "bdd": "pass"
+          "bdd": "pending"
         }
-      ]
+      ],
+      "cycle_step": "bdd_red"
     },
     {
       "id": "FR-RUN-05",

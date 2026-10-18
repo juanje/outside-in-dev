@@ -1,17 +1,18 @@
 import { Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { STEP_ROUNDS } from "../support/cart-files.js";
 import type { AgentFile } from "../support/fake-agent.js";
 import { git } from "../support/run-project.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
+import { expect, planOf } from "./run-loop.steps.js";
 import { change, DEFAULT_REPLAY, session, transitions } from "./run.steps.js";
 
 const STEP_FILE = "features/steps/cart-lines.steps.ts";
-const CART_FILE = "features/steps/cart.steps.ts";
 const FEATURE_FIRST_LINE = 3;
 
 export const CART_LINES_FEATURE =(id: string, first: string, second: string): string =>
@@ -64,10 +65,17 @@ Given("the step-writing agent also tries to write {string} and {string}", functi
   agentOf(this).stepAttempts = [first, second];
 });
 
-Given("the step-writing agent also changes the step {string} so that it fails", function (this: OidWorld, step: string) {
-  const content = `import { Given, Then, When } from "@cucumber/cucumber";\nGiven("a cart", function () {});\nWhen("a product is added", function () {});\nThen("${step}", function () {\n  throw new Error("the cart is empty");\n});\n`;
-  agentOf(this).stepFiles.push({ path: CART_FILE, content });
-  replaying(this, "regression");
+/** The scenario the step-writing agent writes the steps of when it breaks a step of an earlier one: the second of the feature. */
+const SECOND_SCENARIO = "Remove a line";
+
+Given("the step-writing agent, when it writes the steps of {string}, also changes the step {string} so that it fails", function (this: OidWorld, scenario: string, step: string) {
+  assert.equal(scenario, SECOND_SCENARIO);
+  const broken = STEP_ROUNDS[1]!.replace(new RegExp(`(When\\("${step}", async function \\(\\) \\{\\n)[^]*?(\\n\\}\\);)`), `$1  throw new Error("the cart cannot take a line");$2`);
+  assert.notEqual(broken, STEP_ROUNDS[1], `the steps have no step "${step}"`);
+  agentOf(this).stepRounds[1] = [{ path: STEP_FILE, content: broken }];
+  const plan = planOf(this);
+  plan.bdd = plan.bdd.map((recording) => (recording === "bdd-remove-line-missing" ? "bdd-remove-line-regression" : recording));
+  expect(this, {});
 });
 
 Given(/^the step-writing agent writes steps where (.+)$/, function (this: OidWorld, problem: string) {
@@ -156,6 +164,34 @@ Then("the feature file of {string} is as it was approved", function (this: OidWo
   const file = `features/${id}.feature`;
   const hash = `sha256:${createHash("sha256").update(worktreeText(this, file)).digest("hex")}`;
   assert.equal(session(this).featureHashes?.[file], hash);
+});
+
+/** `file:line` of the scenario called `name` among the feature files of the worktree. */
+function locationOf(world: OidWorld, name: string): string {
+  const dir = join(worktreePath(world), "features");
+  for (const file of readdirSync(dir).filter((entry) => entry.endsWith(".feature"))) {
+    const line = readFileSync(join(dir, file), "utf8").split("\n").findIndex((text) => text.trim() === `Scenario: ${name}`);
+    if (line >= 0) return `features/${file}:${line + 1}`;
+  }
+  return assert.fail(`no feature file of the worktree has the scenario "${name}"`);
+}
+
+type LoggedCall = { kind: string; request: { locations?: string[] } };
+
+/** The scenarios the BDD runner of the worktree was asked to run in the first call it got after the step-writing agent began its task for `scenario`: the run that judges the steps the agent wrote. */
+function scenariosAskedWhileWriting(world: OidWorld, scenario: string): string[] {
+  const agent = agentOf(world);
+  const task = agent.stepTasks.findIndex((text) => text.includes(`Scenario: ${scenario}`));
+  assert.ok(task >= 0, `the step-writing agent was not asked for "${scenario}"`);
+  const calls = readFileSync(join(worktreePath(world), ".outside-in", "replay-calls.ndjson"), "utf8").split("\n").filter((line) => line !== "").map((line) => JSON.parse(line) as LoggedCall);
+  const asked = calls.slice(agent.stepCallMarks[task]).find((call) => call.kind === "bdd");
+  assert.ok(asked, `the BDD runner was not asked anything after the task for "${scenario}"`);
+  return asked.request.locations ?? [];
+}
+
+Then(/^the BDD runner was asked to run, while the steps of "([^"]+)" were written, only the scenarios? "([^"]+)"(?: and "([^"]+)")?$/, function (this: OidWorld, written: string, first: string, second: string | null | undefined) {
+  const wanted = [first, ...(second == null ? [] : [second])].map((name) => locationOf(this, name));
+  assert.deepEqual([...scenariosAskedWhileWriting(this, written)].sort(), wanted.sort());
 });
 
 Then("the run never reaches {string}", function (this: OidWorld, state: string) {
