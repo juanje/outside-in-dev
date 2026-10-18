@@ -58,7 +58,7 @@ Its behavioural constraints are part of the MVP, not extras: only the agents tha
 
 ### FR-PROG-04: Advance the cycle step
 
-`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. Going back to a Red is always allowed; from `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`, because a gap seen at the gate becomes a new Red. A feature revised with no code to write may leave `bdd_red` for `quality_gate`, and only when nothing under `src/` or among the steps changed since the revise, its scenarios were only removed or moved, and a green ran every remaining scenario with nothing changed since. Skipping steps is the most common silent failure of prompt-driven agents.
+`oid progress step FR-xxx <cycle_step>` moves a feature to another step of the cycle and rejects any transition that the two loops of the methodology do not allow. Going back to a Red is always allowed; from `quality_gate` a feature can only go back to `bdd_red` or `tdd_red`, because a gap seen at the gate becomes a new Red. A feature revised with no code to write may leave `bdd_red` for `quality_gate`, and only when nothing under `src/` or among the steps changed since the revise, its scenarios were only removed or moved, and a green ran every remaining scenario with nothing changed since. With a cause in `OID_OVERRIDE` (the orchestrating session's last resort, ADR-045), a feature may leave `bdd_red` for `quality_gate` without those conditions, and the output names the cause. Skipping steps is the most common silent failure of prompt-driven agents.
 
 ### FR-PROG-05: Record scenario status
 
