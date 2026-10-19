@@ -288,6 +288,7 @@ Most entries are decisions about the product, oid. An entry with a **Scope.** li
 - The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.config/oid`. The `agentDir` defaults to `<config dir>/agent`; `OID_AGENT_DIR` overrides it.
 - `.outside-in.json` has no `models` key; a project that has one gets an error that names `oid setup`.
 - `oid setup` writes this configuration; `oid init` offers it when it is missing; `oid doctor` only checks; `oid run` and `oid resume` check the same before they start and refuse with what is missing.
+- The effort an agent starts at may be set per state in `<config dir>/config.json` (`effort`: a reasoning level, and a model role, never a model id); it is the user's for the same reason as the models: it is spent on their account and depends on their provider. Without it, every state starts as §6.10 says.
 **Consequences.** A project runs with whatever account each user has. Jev becomes one more role, sharing the credential store.
 
 ## ADR-049: A scenario that passes at once can be accepted by the human as a guard

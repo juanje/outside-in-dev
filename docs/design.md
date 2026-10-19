@@ -441,9 +441,11 @@ Each retry starts from the last checkpoint, without the failed attempt's code, a
 
 | Attempt | Model / `thinkingLevel` |
 |:--|:--|
-| The first | `models.default` at `medium`. **Planned (FR-DEC-01):** effort scoring chooses it (§8.4). |
+| The first | The model role and reasoning level the user's `effort` sets for the state (§16.1), by default `models.default` at `medium`. **Planned (FR-DEC-01):** effort scoring chooses it (§8.4). |
 | Each intermediate one | One level higher, up to `high` |
 | The last | `models.strong` at `high` |
+
+Retries go one level higher from the first attempt's level, on its model role; the last is always `models.strong` at `high`.
 
 With `max_retries: 0` the first failure ends the run with its error. When retries run out, the run asks the human (FR-RUN-11). **Planned (FR-DEC-04):** a stuck loop (the same root cause in the last failures) asks before the retries run out.
 
@@ -937,6 +939,7 @@ The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.confi
 ```
 
 - Each role is `provider/id`, resolved with Pi's `ModelRuntime`. The `decisions` role is reserved for Jev (FR-DEC).
+- `effort` (optional): for each state (`FEATURE_WRITE`, `BDD_RED`, `TDD_RED`, `CODE_GREEN`, `REFACTOR`, `QUALITY_FIX`), the reasoning level (`minimal`, `low`, `medium`, `high`) and optionally the model role (`fast`, `default`, `strong`) of its first attempt.
 - `notify_command` (optional, FR-TUI-06): a shell command oid runs when the run asks the person, finishes or fails. It is the user's, like the models: a project does not decide how its collaborators are notified. The command receives the kind of event in `OID_EVENT` (`waiting_input`, `finished` or `failed`) and a one-line description in `OID_MESSAGE`.
 - Credentials live in `<config dir>/agent/auth.json`, oid's `agentDir` (`OID_AGENT_DIR` overrides it), written through Pi's `ModelRuntime.login`: the provider's own login flow or an API key from standard input. Provider variables (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`…) still work. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked, merging them per provider, atomically and with mode 0600; imported OAuth entries share their refresh token with Pi, and oid says so.
 
