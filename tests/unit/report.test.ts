@@ -48,6 +48,13 @@ describe("the refusal of the report tool", () => {
     expect(text).toMatch(/\nNext: .*status: blocked.*reason.*detail/);
   });
 
+  it("names every blocked reason in the form of a blocked report", async () => {
+    const text = await refusal({ status: "blocked", reason: "spec_gap" });
+    for (const reason of ["spec_conflict", "spec_gap", "cannot_test", "wrong_test", "wrong_step", "other"]) {
+      expect(text.split("\nNext: ")[1]).toContain(reason);
+    }
+  });
+
   it("refuses in the test-writing step a test that is not of the form test file and test name, and takes it in the other steps", async () => {
     const report = { status: "done", files: ["tests/unit/cart.test.ts"], summary: "Added a test.", test: "adds a line" };
     const text = await refusal(report, "TDD_RED");

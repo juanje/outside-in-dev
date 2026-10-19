@@ -13,7 +13,8 @@ const TEXT_CONTENT = "text";
 const DONE = z.literal(DONE_STATUS);
 const done = z.object({ status: DONE, files: z.array(text), summary: text, test: text.optional() }).strict();
 const doneWithoutFiles = z.object({ status: DONE, files: z.array(text).length(0), summary: text, reason: z.literal("no_unit_logic_left") }).strict();
-const blocked = z.object({ status: z.literal(BLOCKED_STATUS), reason: z.enum(["spec_conflict", "spec_gap", "cannot_test", "wrong_test", "wrong_step", "other"]), detail: text }).strict();
+const BLOCKED_REASONS = ["spec_conflict", "spec_gap", "cannot_test", "wrong_test", "wrong_step", "other"] as const;
+const blocked = z.object({ status: z.literal(BLOCKED_STATUS), reason: z.enum(BLOCKED_REASONS), detail: text }).strict();
 const reportShape = z.union([done, doneWithoutFiles, blocked]);
 
 /** What an agent states when it ends: that it finished and which files it changed, or that it is blocked and why. */
@@ -27,7 +28,7 @@ export function parseReport(args: unknown): AgentReport | undefined {
 
 const NO_LOGIC_REASON = "no_unit_logic_left";
 const NO_LOGIC_FORM = `status: done, files: [], summary and reason: ${NO_LOGIC_REASON}`;
-const BLOCKED_FORM = "status: blocked, reason (spec_conflict, spec_gap, cannot_test or other) and detail";
+const BLOCKED_FORM = `status: blocked, reason (${BLOCKED_REASONS.slice(0, -1).join(", ")} or ${BLOCKED_REASONS[BLOCKED_REASONS.length - 1]}) and detail`;
 const DONE_FORM = "status: done, files (every file you changed), summary, and test in a test step";
 
 /** The form a report is meant to have, by what it says: blocked, no unit logic left, or done with files. */
