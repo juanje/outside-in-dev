@@ -58,3 +58,16 @@ Feature: Rewrite or skip when retries run out or an agent is blocked
     And the event log of the run records a transition from "TDD_RED" to "TDD_RED" whose reason mentions "written again" and "the report names no unit test"
     And the third task of the test-writing agent includes "write the test for countLines of src/lines.ts" and "Add a line"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
+
+  Scenario: A coding agent blocked by a wrong step definition puts its diagnosis to the human, and rewriting the steps passes it on
+    Given the coding agent reports that it is blocked by a wrong step definition with the detail "the Then compares the cart with a value its Given never set"
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "rewrite_steps" and "abort", and gives the note "keep the Given as it is"
+    Then the question about the blocked agent names the reason "wrong_step" and mentions "the Then compares the cart with a value its Given never set"
+    And the next task of the step-writing agent includes "the Then compares the cart with a value its Given never set" and "keep the Given as it is"
+
+  Scenario: A coding agent blocked by a wrong unit test puts its diagnosis to the human, and rewriting the test passes it on
+    Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet, and, after the rewrite, writes it again
+    And the coding agent reports that it is blocked by a wrong unit test with the detail "the test expects 3 lines after adding 2"
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "rewrite" and "abort"
+    Then the question about the blocked agent names the reason "wrong_test" and mentions "the test expects 3 lines after adding 2"
+    And the second task of the test-writing agent includes "the test expects 3 lines after adding 2"

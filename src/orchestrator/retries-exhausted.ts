@@ -20,26 +20,35 @@ const NOTE_PROMPTS: Record<string, string> = {
 };
 
 /** A state that cannot go on: the question's id, its text, the state, whose it is and why it cannot (what a redirect carries). */
-export type StuckState = { id: string; prompt: string; state: string; label: string; reason: string };
+export type StuckState = { id: string; prompt: string; state: string; label: string; reason: string; diagnosis?: { action: string; detail: string } };
+
+/** The note a rewrite carries to its writer: the agent's diagnosis when the action is the one that answers it, then the person's note. */
+function withDiagnosis(action: string, diagnosis: StuckState["diagnosis"], note: string): string {
+  return diagnosis?.action === action ? [diagnosis.detail, note].filter((part) => part !== "").join("\n\n") : note;
+}
 
 /** Puts a state that cannot go on to the person: returns the exit code the process ends with, or the note of the person who has the agent try once more; the other actions throw a `Redirect` for whoever owns the scenario or the feature. */
-export async function askWhatNext(bus: Started["bus"], input: ReviewInput, { id, prompt, state, label, reason }: StuckState): Promise<number | { note: string }> {
+export async function askWhatNext(bus: Started["bus"], input: ReviewInput, { id, prompt, state, label, reason, diagnosis }: StuckState): Promise<number | { note: string }> {
   const left = NOT_OFFERED[state] ?? [];
   const actions = STUCK_ACTIONS.filter(({ key }) => !left.includes(key));
   if (!input.isTTY) return bus.emit({ type: WAITING_INPUT, request: { id, prompt, actions } }) ?? 1;
   const answer = await input.choose(prompt, actions.map(({ key }) => key));
   if (!actions.some(({ key }) => key === answer)) return bus.emit({ type: ERROR_EVENT, message: `${label}: "${answer}" is not an answer: ${prompt}` }) ?? 1;
   if (answer === RETRY) return { note: await input.line("What should the agent know for one more attempt?") };
-  if (answer !== ABORT) throw new Redirect(answer as RedirectAction, reason, answer in NOTE_PROMPTS ? await input.line(NOTE_PROMPTS[answer]!) : "");
+  if (answer !== ABORT) throw new Redirect(answer as RedirectAction, reason, withDiagnosis(answer, diagnosis, answer in NOTE_PROMPTS ? await input.line(NOTE_PROMPTS[answer]!) : ""));
   return transition(bus, state, STATE.aborted, `${label}: the person chose to ${ABORT}`) ?? 1;
 }
 
 /** An agent that reported it is blocked: the state, whose it is and the sentence that says why. */
-export type BlockedAgent = { state: string; label: string; problem: string };
+export type BlockedAgent = { state: string; label: string; problem: string; agent?: { reason: string; detail: string } };
 
-/** Puts an agent that is blocked to the person, with the actions of a state that ran out of retries. */
-export async function askAboutBlocked(bus: Started["bus"], input: ReviewInput, { state, label, problem }: BlockedAgent): Promise<number | { note: string }> {
-  return askWhatNext(bus, input, { id: "agent-blocked", prompt: `${state}: ${problem}`, state, label, reason: problem });
+/** The rewrite that answers a blocked agent's diagnosis of a wrong unit test or a wrong step definition. */
+const DIAGNOSED_BY: Record<string, string> = { wrong_test: REWRITE, wrong_step: REWRITE_STEPS };
+
+/** Puts an agent that is blocked to the person, with the actions of a state that ran out of retries; the diagnosis of a wrong unit test or step goes to the matching rewrite. */
+export async function askAboutBlocked(bus: Started["bus"], input: ReviewInput, { state, label, problem, agent }: BlockedAgent): Promise<number | { note: string }> {
+  const action = agent === undefined ? undefined : DIAGNOSED_BY[agent.reason];
+  return askWhatNext(bus, input, { id: "agent-blocked", prompt: `${state}: ${problem}`, state, label, reason: problem, ...(action === undefined ? {} : { diagnosis: { action, detail: agent!.detail } }) });
 }
 
 /** A state whose attempts all failed: the state, whose it is, how many attempts there were and why the last one was rejected. */

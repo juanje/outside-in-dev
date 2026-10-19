@@ -3472,6 +3472,14 @@
         {
           "name": "Before any code, rewriting the steps restarts the scenario: its unit tests are gone and TDD Red follows once the steps fail validly",
           "bdd": "pass"
+        },
+        {
+          "name": "A coding agent blocked by a wrong step definition puts its diagnosis to the human, and rewriting the steps passes it on",
+          "bdd": "pass"
+        },
+        {
+          "name": "A coding agent blocked by a wrong unit test puts its diagnosis to the human, and rewriting the test passes it on",
+          "bdd": "pass"
         }
       ]
     },

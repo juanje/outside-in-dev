@@ -20,7 +20,7 @@ export type RedirectAction = typeof REWRITE | typeof REWRITE_STEPS | typeof SKIP
 
 /** Thrown out of an attempt whose agent reported that it is blocked: the sentence that says why, for the person to read. */
 export class Blocked extends Error {
-  constructor(readonly problem: string) {
+  constructor(readonly problem: string, readonly agent?: { reason: string; detail: string }) {
     super(problem);
   }
 }

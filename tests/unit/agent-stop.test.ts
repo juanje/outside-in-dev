@@ -11,4 +11,14 @@ describe("agentStop", () => {
     expect(stop).toThrow(Blocked);
     expect(stop).toThrow('FR-A-01 "Pay": the agent is blocked (spec_gap): the rounding is not defined');
   });
+
+  it("keeps the reason and the detail of the agent in what it throws", () => {
+    let thrown: unknown;
+    try {
+      agentStop(started, 'FR-A-01 "Pay"', { status: "blocked", reason: "wrong_test", detail: "the test expects 3 lines" });
+    } catch (error) {
+      thrown = error;
+    }
+    expect((thrown as Blocked).agent).toEqual({ reason: "wrong_test", detail: "the test expects 3 lines" });
+  });
 });

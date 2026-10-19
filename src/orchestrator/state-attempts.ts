@@ -23,7 +23,7 @@ export function attemptTask(state: CycleState, prompt: string, { note, effort }:
 
 /** What stops an attempt whose agent did not finish with a report: the rejection of the attempt when the agent failed, the exit code of the process when the agent is blocked or the provider failed; nothing when the agent is done. */
 export function agentStop({ bus }: Started, label: string, outcome: AttemptOutcome): Rejection | number | undefined {
-  if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(label, outcome)!);
+  if (outcome.status === BLOCKED) throw new Blocked(outcomeProblem(label, outcome)!, { reason: outcome.reason, detail: outcome.detail });
   const stopped = outcomeStop(label, outcome);
   if (stopped === undefined || isRejection(stopped)) return stopped;
   return bus.emit({ type: ERROR_EVENT, message: stopped.stop }) ?? 1;
@@ -71,7 +71,7 @@ function savedAttempts(cwd: string, state: string, label: string) {
 async function answerStop(error: unknown, bus: Started["bus"], input: ReviewInput, { state, label }: { state: string; label: string }): Promise<number | { note: string }> {
   if (error instanceof TryAgain) return { note: error.note };
   if (!(error instanceof Blocked)) throw error;
-  return askAboutBlocked(bus, input, { state, label, problem: error.problem });
+  return askAboutBlocked(bus, input, { state, label, problem: error.problem, agent: error.agent });
 }
 
 /** Runs the attempts of a state that retries a rejected attempt from the last checkpoint. A project that allows no retries ends the run with the rejection, as the first failure; otherwise, when the retries run out, the person is asked, and a retry with a note is one more attempt. Returns what an attempt came to, or the exit code of the process. */
