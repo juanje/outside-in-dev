@@ -236,7 +236,7 @@ Files matching the secret patterns (environment files, keys, credential stores, 
 
 ### FR-AGENT-04: Completion report
 
-Every agent ends by calling a report tool that states whether it finished or is blocked (a specification conflict, a gap, something it cannot test) and which files it changed. Without a report, the attempt fails; the report is checked against the actual diff.
+Every agent ends by calling a report tool that states whether it finished or is blocked (a specification conflict, a gap, something it cannot test, or a unit test or step definition it was given that no correct code can make pass) and which files it changed. Without a report, the attempt fails; the report is checked against the actual diff.
 
 ### FR-AGENT-05: Detect provider failures
 
@@ -306,7 +306,7 @@ Limits on time, turns, iterations and cost are checked before each billable call
 
 ### FR-RUN-11: Rewrite or skip when retries run out or an agent is blocked
 
-When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log.
+When the retries of a scenario run out, or an agent reports that it is blocked (with its reason), the human can also have the last unit test rewritten from the checkpoint before it, have the step definitions of the scenario rewritten (back to BDD Red, with a note; the code already written stays), skip the scenario (it is tagged `@wip`, left out of regression, and its partial work kept in a `wip` commit, so the feature cannot be done), or skip the feature (its changes are discarded, it goes back to `pending`, and the run continues with the next one). A blocked agent's question also offers to retry with a note. The reason is recorded in the event log. When an agent is blocked because a unit test or a step definition is wrong, the question says which and gives the agent's diagnosis, and the matching rewrite passes that diagnosis to the writer together with the person's note.
 
 ### FR-RUN-12: Clean up finished runs
 
