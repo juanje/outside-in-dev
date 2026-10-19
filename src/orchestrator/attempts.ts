@@ -1,7 +1,7 @@
 import { AGENT_START, ATTEMPT_REJECTED, type OIEventBody } from "../events/types.js";
 import { isRejection, type Rejection, renderRejection } from "../artifacts/rejection.js";
 import { attemptEffort, type Effort } from "./attempt-effort.js";
-import type { Models } from "../artifacts/user-config.js";
+import type { Models, StartEffort } from "../artifacts/user-config.js";
 
 export { isRejection, type Rejection };
 
@@ -18,6 +18,8 @@ export type AttemptSpec<T> = {
   role: string;
   retries: number;
   models?: Models;
+  /** The effort the user set for the first attempt of each state. */
+  effort?: Record<string, StartEffort>;
   restore: () => void;
   /** Set when the person asked for one more attempt after the retries ran out: its number and what the person said. */
   afterAsking?: { attempt: number; note: string };
@@ -31,8 +33,8 @@ export type AttemptSpec<T> = {
 };
 
 /** Announces the start of an agent's attempt (the first, with no retries, by default) and returns the effort to run it with. */
-export function announceAgent(bus: AttemptSpec<unknown>["bus"], { state, role, models, attempt = 1, retries = 0 }: { state: string; role: string; models?: Models; attempt?: number; retries?: number }): Effort {
-  const effort = attemptEffort({ attempt, retries, models });
+export function announceAgent(bus: AttemptSpec<unknown>["bus"], { state, role, models, effort: start, attempt = 1, retries = 0 }: { state: string; role: string; models?: Models; effort?: Record<string, StartEffort>; attempt?: number; retries?: number }): Effort {
+  const effort = attemptEffort({ attempt, retries, models, start: start?.[state] });
   bus.emit({ type: AGENT_START, state, role, attempt, model: effort.model, thinkingLevel: effort.thinkingLevel });
   return effort;
 }

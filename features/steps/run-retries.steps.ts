@@ -1,5 +1,6 @@
 import { Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { CART_CODE, STEP_FILE, STEP_ROUNDS } from "../support/cart-files.js";
 import { terminalOf } from "../support/terminal.js";
 import type { OidWorld } from "../support/world.js";
@@ -32,6 +33,25 @@ Given("the user's setup assigns the models {string}, {string} and {string}", fun
   // The scratch directory of this scenario, never the user's real configuration directory.
   this.write("config/config.json", JSON.stringify({ models: { fast, default: byDefault, strong } }));
   this.services = { ...this.services!, configDir: this.path("config") };
+});
+
+/** Adds the effort of one state to the configuration that the models step wrote in this scenario's scratch directory. */
+function setEffort(world: OidWorld, state: string, entry: { thinking: string; model?: string }): void {
+  const file = "config/config.json";
+  const config = JSON.parse(readFileSync(world.path(file), "utf8")) as Record<string, unknown>;
+  world.write(file, JSON.stringify({ ...config, effort: { [state]: entry } }));
+}
+
+Given("the user's setup sets the effort of {string} to the thinking level {string} and the model {string}", function (this: OidWorld, state: string, thinking: string, model: string) {
+  setEffort(this, state, { thinking, model });
+});
+
+Given("the user's setup sets the effort of {string} to the thinking level {string}", function (this: OidWorld, state: string, thinking: string) {
+  setEffort(this, state, { thinking });
+});
+
+Then("the error mentions {string}, {string} and {string}", function (this: OidWorld, first: string, second: string, third: string) {
+  for (const text of [first, second, third]) assert.ok(this.stderr.includes(text), this.stderr);
 });
 
 Given("the project's {string} has a {string} key", function (this: OidWorld, file: string, key: string) {

@@ -15,4 +15,16 @@ describe("attemptEffort", () => {
   it("runs the last attempt on the strong model at the high thinking level", () => {
     expect(attemptEffort({ attempt: 3, retries: 2, models: MODELS })).toEqual({ model: "p/large", thinkingLevel: "high" });
   });
+
+  it("starts the first attempt at the level and on the model role that the user set", () => {
+    expect(attemptEffort({ attempt: 1, retries: 2, models: MODELS, start: { thinking: "high", model: "strong" } })).toEqual({ model: "p/large", thinkingLevel: "high" });
+  });
+
+  it("starts on the default model when the user set only a level", () => {
+    expect(attemptEffort({ attempt: 1, retries: 2, models: MODELS, start: { thinking: "low" } })).toEqual({ model: "p/medium", thinkingLevel: "low" });
+  });
+
+  it("raises a retry one level from the configured start, on the configured model role", () => {
+    expect(attemptEffort({ attempt: 2, retries: 3, models: MODELS, start: { thinking: "minimal", model: "fast" } })).toEqual({ model: "p/small", thinkingLevel: "low" });
+  });
 });

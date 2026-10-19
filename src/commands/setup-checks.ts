@@ -81,6 +81,11 @@ export async function connectChecks(models: Record<string, string | undefined>, 
   );
 }
 
+/** One failed check for each state whose effort in the user's configuration is not valid, naming the state and what is wrong. */
+export function effortChecks(problems: { state: string; note: string }[]): Check[] {
+  return problems.map(({ state, note }) => ({ status: STATUS.failed, subject: `effort ${state}`, note }));
+}
+
 /** One check for each role that has a model, or needs one: ok when the catalogue holds the model, else what is wrong and the command that assigns another. */
 export function modelChecks(models: Record<string, string | undefined>, catalogue: Catalogue): Check[] {
   return MODEL_ROLES.flatMap((role): Check[] => {

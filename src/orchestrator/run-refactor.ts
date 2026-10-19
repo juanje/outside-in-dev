@@ -10,7 +10,8 @@ import { CYCLE_STEP } from "../artifacts/progress.js";
 import { loadProjectConfig } from "../artifacts/project-config.js";
 import { isRejection, type Rejection, rejection, renderRejection } from "../artifacts/rejection.js";
 import { rejectingTimeout } from "./command-timeout.js";
-import { loadUserModels } from "../artifacts/user-config.js";
+import { loadUserEffort, loadUserModels } from "../artifacts/user-config.js";
+import type { Effort } from "./attempt-effort.js";
 import { NEWLINE } from "../artifacts/lines.js";
 import { readText } from "../artifacts/project-json.js";
 import { outcomeProblem } from "./agent-run.js";
@@ -72,7 +73,7 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   updateSession(cwd, { state: STATE.refactor });
   transition(bus, STATE.codeGreen, STATE.refactor, `${listed.length} finding${listed.length === 1 ? "" : "s"} on the lines Code Green changed: the agent fixes them`);
   const prompt = `${refactorPrompt(fr!)}${NEWLINE}${NEWLINE}${refactorContext(worktree, listed)}`;
-  const announce = () => announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadUserModels(services.configDir) });
+  const announce = () => announceRefactor(bus, services.configDir);
   await settleBudget(started, services, REFACTOR);
   const effort = announce();
   const outcome = await runBillable(started, services, { state: REFACTOR, prompt, model: effort.model, thinkingLevel: effort.thinkingLevel }, { fr: fr!, announce: () => void announce() });
@@ -86,6 +87,11 @@ export async function runRefactor(started: Started, services: FeatureServices, s
   rollback(workspace, green, loadProjectConfig(worktree).paths.source);
   keepPendingFindings(cwd, runId, listed);
   return { from: STATE.refactor, note: renderRejection(rolledBack(rejected)) };
+}
+
+/** Announces the refactor agent at the effort the user set for REFACTOR, and returns that effort. */
+export function announceRefactor(bus: Parameters<typeof announceAgent>[0], configDir: string | undefined): Effort {
+  return announceAgent(bus, { state: REFACTOR, role: "coder-agent", models: loadUserModels(configDir), effort: loadUserEffort(configDir).effort });
 }
 
 /** The rejection of a refactor that is rolled back: what it broke, and where its findings wait. */

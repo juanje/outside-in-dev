@@ -2777,6 +2777,22 @@
         {
           "name": "The question about the Red of a retried unit test says which attempt it is and which files it changed",
           "bdd": "pass"
+        },
+        {
+          "name": "The user sets the effort of the first attempt of a state, and the other states start as before",
+          "bdd": "pass"
+        },
+        {
+          "name": "A configured start below high still escalates on the retries",
+          "bdd": "pass"
+        },
+        {
+          "name": "An effort with an unknown level is refused before the run starts",
+          "bdd": "pass"
+        },
+        {
+          "name": "An effort that names a level that does not exist is reported by oid doctor",
+          "bdd": "pass"
         }
       ]
     },

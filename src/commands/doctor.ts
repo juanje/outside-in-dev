@@ -5,9 +5,9 @@ import { readOnlyCredentials } from "../artifacts/pi-credentials.js";
 import { ProgressError } from "../artifacts/progress.js";
 import { CONFIG_FILE, loadProjectConfig } from "../artifacts/project-config.js";
 import { missingTools, toolsOf } from "../artifacts/project-tools.js";
-import { AUTH_FILE, loadAssignedModels, MODELS_FILE } from "../artifacts/user-config.js";
+import { AUTH_FILE, loadAssignedModels, loadUserEffort, MODELS_FILE } from "../artifacts/user-config.js";
 import type { CliIo } from "../cli-io.js";
-import { type Check, connectChecks, credentialChecks, formatCheck, modelChecks, providersWithCredential, STATUS } from "./setup-checks.js";
+import { type Check, connectChecks, credentialChecks, effortChecks, formatCheck, modelChecks, providersWithCredential, STATUS } from "./setup-checks.js";
 
 /** What `oid doctor` and the start of `oid run` and `oid resume` take from outside: the user's configuration directory, oid's agent directory, and the Pi SDK (the real one without it). */
 export type DoctorServices = { configDir: string; agentDir: string; sdk?: Pick<PiSdk, "ModelRuntime"> };
@@ -59,5 +59,5 @@ export async function checkSetup(cwd: string, services: DoctorServices, options:
   const models = loadAssignedModels(services.configDir);
   const credentials = await credentialChecks(models, runtime);
   const calls = options.connect ? await connection(sdk, services, models, providersWithCredential(credentials)) : [];
-  return [...projectChecks(cwd), ...modelChecks(models, runtime), ...credentials, ...calls];
+  return [...projectChecks(cwd), ...modelChecks(models, runtime), ...effortChecks(loadUserEffort(services.configDir).problems), ...credentials, ...calls];
 }

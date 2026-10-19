@@ -32,6 +32,33 @@ export function loadUserModels(configDir: string | undefined): Models | undefine
   const document = configDir === undefined ? undefined : readJson(configDir, USER_CONFIG_FILE);  return document === undefined ? undefined : userConfigSchema.parse(document).models;
 }
 
+/** The states whose first attempt the user may set the effort of. */
+const EFFORT_STATES = ["FEATURE_WRITE", "BDD_RED", "TDD_RED", "CODE_GREEN", "REFACTOR", "QUALITY_FIX"];
+
+/** The reasoning levels, from the lowest. */
+export const THINKING_LEVELS = ["minimal", "low", "medium", "high"] as const;
+
+const effortSchema = z.object({ thinking: z.enum(THINKING_LEVELS), model: z.enum(["fast", "default", "strong"]).optional() });
+
+/** The reasoning level, and optionally the model role, of the first attempt of a state. */
+export type StartEffort = z.infer<typeof effortSchema>;
+
+/** What is wrong with the effort of one state, in the user's configuration. */
+export type EffortProblem = { state: string; note: string };
+
+/** The `effort` of the user's configuration, state by state, and what is wrong with the entries that are left out; none without the directory, the file or the key. */
+export function loadUserEffort(configDir: string | undefined): { effort: Record<string, StartEffort>; problems: EffortProblem[] } {
+  const document = configDir === undefined ? undefined : (readJson(configDir, USER_CONFIG_FILE) as { effort?: Record<string, unknown> } | undefined);
+  const effort: Record<string, StartEffort> = {};
+  const problems: EffortProblem[] = [];
+  for (const [state, entry] of Object.entries(document?.effort ?? {})) {
+    const parsed = EFFORT_STATES.includes(state) ? effortSchema.safeParse(entry) : undefined;
+    if (parsed?.success) effort[state] = parsed.data;
+    else problems.push({ state, note: parsed === undefined ? `not a state with an effort; valid states: ${EFFORT_STATES.join(LIST_SEPARATOR)}` : `${JSON.stringify(entry)} is not valid: ${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join(LIST_SEPARATOR)}` });
+  }
+  return { effort, problems };
+}
+
 const storedConfigSchema = z.object({ models: z.record(z.string(), z.string()).optional() }).passthrough();
 
 /** The models the user's configuration assigns, whichever roles it leaves out: none without the directory or the file. */

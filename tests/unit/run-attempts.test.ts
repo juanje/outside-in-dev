@@ -20,6 +20,13 @@ describe("announceAgent", () => {
     expect(effort).toEqual({ model: "p/medium", thinkingLevel: "medium" });
     expect(events).toEqual([{ type: "agent_start", state: "REFACTOR", role: "coder-agent", attempt: 1, model: "p/medium", thinkingLevel: "medium" }]);
   });
+
+  it("starts at the effort the user set for the state, and leaves the other states alone", () => {
+    const { bus } = setup();
+    const effort = { REFACTOR: { thinking: "low" as const, model: "fast" as const } };
+    expect(announceAgent(bus, { state: "REFACTOR", role: "coder-agent", models: MODELS, effort })).toEqual({ model: "p/small", thinkingLevel: "low" });
+    expect(announceAgent(bus, { state: "BDD_RED", role: "bdd-agent", models: MODELS, effort })).toEqual({ model: "p/medium", thinkingLevel: "medium" });
+  });
 });
 
 describe("runAttempts", () => {

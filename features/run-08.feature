@@ -153,3 +153,48 @@ Feature: Retries and escalation
     And the test-writing agent's first and second attempts each write a unit test that fails with an error that is not an assertion
     When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "bug", "bug" and "abort"
     Then the second question about the Red mentions "attempt 2" and "tests/unit/cart-lines.test.ts"
+
+  Scenario: The user sets the effort of the first attempt of a state, and the other states start as before
+    Given the project allows 0 retries for each state
+    And the user's setup assigns the models "fake/fast", "fake/default" and "fake/strong"
+    And the user's setup sets the effort of "BDD_RED" to the thinking level "high" and the model "strong"
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
+    Then the event log of the run records an "agent_start" of "BDD_RED" with the attempt 1, the model "fake/strong" and the thinking level "high"
+    And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 1, the model "fake/default" and the thinking level "medium"
+
+  Scenario: A configured start below high still escalates on the retries
+    Given the project allows 2 retries for each state
+    And the user's setup assigns the models "fake/fast", "fake/default" and "fake/strong"
+    And the user's setup sets the effort of "TDD_RED" to the thinking level "low"
+    And the test-writing agent writes no unit test in any attempt
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve" and then "abort"
+    Then the event log of the run records an "agent_start" of "TDD_RED" with the attempt 1, the model "fake/default" and the thinking level "low"
+    And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 2, the model "fake/default" and the thinking level "medium"
+    And the event log of the run records an "agent_start" of "TDD_RED" with the attempt 3, the model "fake/strong" and the thinking level "high"
+
+  Scenario: An effort with an unknown level is refused before the run starts
+    Given a user who has not set up oid
+    And the environment holds no key for any provider
+    And the configuration of oid contains:
+      """
+      { "models": { "fast": "anthropic/claude-haiku-4-5", "default": "anthropic/claude-sonnet-4-5", "strong": "anthropic/claude-opus-5" }, "effort": { "BDD_RED": { "thinking": "extreme" } } }
+      """
+    And oid holds the API key "sk-test-anthropic-4711" for "anthropic"
+    And oid checks the user's setup before it runs a scripted agent
+    When I run "oid run --fr FR-CART-02"
+    Then the command fails
+    And the error mentions "effort", "BDD_RED" and "extreme"
+    And no worktree or branch was created
+
+  Scenario: An effort that names a level that does not exist is reported by oid doctor
+    Given a user who has not set up oid
+    And the environment holds no key for any provider
+    And the configuration of oid contains:
+      """
+      { "models": { "fast": "anthropic/claude-haiku-4-5", "default": "anthropic/claude-sonnet-4-5", "strong": "anthropic/claude-opus-5" }, "effort": { "BDD_RED": { "thinking": "extreme" } } }
+      """
+    And oid holds the API key "sk-test-anthropic-4711" for "anthropic"
+    And a project that configures the commands "node unit.mjs", "node bdd.mjs" and "node check.mjs"
+    When I run "oid doctor"
+    Then the command fails
+    And the output reports "effort BDD_RED" as failed, saying "extreme"

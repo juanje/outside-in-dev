@@ -8,7 +8,7 @@ import { NEWLINE } from "../artifacts/lines.js";
 import { renderRejection } from "../artifacts/rejection.js";
 import { loadProjectConfig, loadRetryLimit } from "../artifacts/project-config.js";
 import { attemptsUsedBy, clearAttemptsUsed, recordAttemptsUsed } from "./session.js";
-import { loadUserModels } from "../artifacts/user-config.js";
+import { loadUserEffort, loadUserModels } from "../artifacts/user-config.js";
 import { ERROR_EVENT } from "../events/types.js";
 import { type AttemptInfo, type AttemptSpec, type Exhausted, isExhausted, isRejection, type Rejection, runAttempts } from "./attempts.js";
 import { isExitCode, type Started } from "./begin.js";
@@ -45,7 +45,7 @@ export function attemptSpec<T>(started: Started, services: FeatureServices, { st
   const config = loadProjectConfig(workspace.path);
   const base = headCommit(workspace.path);
   const restore = () => rollback(workspace, base, [...config.paths.source, ...config.paths.unit_tests, ...config.paths.bdd_steps]);
-  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: loadUserModels(services.configDir), restore, beforeCall: () => settleBudget(started, services, state), run };
+  return { bus, state, role, retries: loadRetryLimit(workspace.path), models: loadUserModels(services.configDir), effort: loadUserEffort(services.configDir).effort, restore, beforeCall: () => settleBudget(started, services, state), run };
 }
 
 /** What follows when the retries ran out: the exit code of the process (a project that allows no retries ends the run with the rejection, as the first failure; otherwise the person is asked), or the note of the person who has the agent try once more. */
