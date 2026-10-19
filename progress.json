@@ -2121,6 +2121,10 @@
         {
           "name": "Every step is offered the report tool",
           "bdd": "pass"
+        },
+        {
+          "name": "A report can say that a unit test or a step definition is wrong",
+          "bdd": "pass"
         }
       ]
     },

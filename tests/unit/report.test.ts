@@ -13,6 +13,15 @@ describe("parseReport", () => {
     expect(parseReport({ status: "done", files: ["src/a.ts"], summary: "x", reason: "no_unit_logic_left" })).toBeUndefined();
     expect(parseReport("done")).toBeUndefined();
   });
+
+  it("accepts a blocked report that says a unit test or a step definition is wrong, and offers both reasons to the agent", async () => {
+    const { reportTool } = await import("../../src/agents/tools/report.js");
+    for (const reason of ["wrong_test", "wrong_step"]) {
+      expect(parseReport({ status: "blocked", reason, detail: "It can never pass." })).toEqual({ status: "blocked", reason, detail: "It can never pass." });
+      expect(JSON.stringify(reportTool.parameters)).toContain(reason);
+      expect(reportTool.description).toContain(reason);
+    }
+  });
 });
 
 /** The message of the error the report tool throws for a report, empty when it accepts it. */

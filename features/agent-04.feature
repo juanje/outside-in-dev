@@ -38,6 +38,16 @@ Feature: Completion report
     When oid runs the agent for the step CODE_GREEN
     Then the attempt is blocked with the reason "spec_conflict" and the detail "FR-CART-01 and FR-CART-04 disagree on the rounding"
 
+  Scenario Outline: A report can say that a unit test or a step definition is wrong
+    Given the agent ends by reporting it is blocked by a "<reason>" with the detail "<detail>"
+    When oid runs the agent for the step CODE_GREEN
+    Then the attempt is blocked with the reason "<reason>" and the detail "<detail>"
+
+    Examples:
+      | reason     | detail                                                              |
+      | wrong_step | features/steps/cart.steps.ts:12 matches the letters r and n, not a line break |
+      | wrong_test | tests/unit/cart-lines.test.ts expects 3 lines after adding 2        |
+
   Scenario Outline: Every step is offered the report tool
     Given oid opened an agent session for the step <step>
     Then the session offers the tool "report"
