@@ -211,6 +211,13 @@ Then("the human was asked twice about the Red of {string}, with the actions {str
   }
 });
 
+Then("the human was asked once about the Red of {string}, with the actions {string}, {string} and {string}", function (this: OidWorld, scenario: string, first: string, second: string, third: string) {
+  const asked = redQuestions(this);
+  assert.equal(asked.length, 1, JSON.stringify(asked));
+  assert.ok(asked[0]!.prompt.includes(scenario), asked[0]!.prompt);
+  assert.deepEqual(asked[0]!.actions, [first, second, third]);
+});
+
 Then("the first question about the Red names the step {string} at line {int} of {string}", function (this: OidWorld, step: string, line: number, file: string) {
   const [first] = redQuestions(this);
   assert.ok(first, "the Red was not asked");

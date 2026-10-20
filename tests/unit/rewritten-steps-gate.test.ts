@@ -19,16 +19,17 @@ const FAILURES = {
 };
 
 /** A BDD runner whose scenario "Pay" passes when `src/pay.ts` exists, and when `always` is set whatever the source is; it fails with a missing module otherwise. */
-const runner = (always: boolean | "never" | "assertion") => `
+const runner = (always: boolean | "never" | "assertion" | "undefined") => `
 const { existsSync, writeFileSync } = require("node:fs");
 const out = process.argv[process.argv.indexOf("--format") + 1].slice(8);
-const passes = ${always === "never" || always === "assertion" ? "false" : always ? "true" : 'existsSync("src/pay.ts")'};
+const passes = ${always === "never" || always === "assertion" || always === "undefined" ? "false" : always ? "true" : 'existsSync("src/pay.ts")'};
 const message = ${FAILURES[always === "assertion" || always === "never" ? always : "missing"]};
+const status = ${always === "undefined" ? '{ status: "UNDEFINED" }' : 'passes ? { status: "PASSED" } : { status: "FAILED", message }'};
 const lines = [
   { pickle: { id: "p", uri: "features/pay.feature", name: "Pay", steps: [{ id: "ps", text: "I pay" }] } },
   { testCase: { id: "c", pickleId: "p", testSteps: [{ id: "s", pickleStepId: "ps" }] } },
   { testCaseStarted: { id: "r", testCaseId: "c" } },
-  { testStepFinished: { testCaseStartedId: "r", testStepId: "s", testStepResult: passes ? { status: "PASSED" } : { status: "FAILED", message } } },
+  { testStepFinished: { testCaseStartedId: "r", testStepId: "s", testStepResult: status } },
 ];
 writeFileSync(out, lines.map((line) => JSON.stringify(line)).join("\\n") + "\\n");
 `;
@@ -69,11 +70,22 @@ describe("the gate of steps written again after the code exists", () => {
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });
 
-  it("rejects steps that fail with the code written so far because a step breaks, without removing the code", () => {
-    const { repo, base } = projectWithCode(runner("never"));
+  it("rejects steps that fail with the code written so far because the run is broken (a step without definition), without removing the code", () => {
+    const { repo, base } = projectWithCode(runner("undefined"));
     expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toMatchObject({
       kind: "problem",
-      problem: { failed: "the scenario does not pass with the code written so far", evidence: expect.stringContaining("the step could not be set up"), next: expect.stringContaining("passes with the code that exists") },
+      problem: { failed: "the scenario does not pass with the code written so far", evidence: expect.stringContaining("Pay"), next: expect.stringContaining("passes with the code that exists") },
+    });
+    expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
+  });
+
+  it("puts to the person steps that fail with the code written so far on an error oid cannot classify, marked as failing with the code, and keeps the code", () => {
+    const { repo, base } = projectWithCode(runner("never"));
+    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toMatchObject({
+      kind: "decision",
+      reason: "the test failed with an error that is not an assertion",
+      message: expect.stringContaining("the step could not be set up"),
+      withCode: true,
     });
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });

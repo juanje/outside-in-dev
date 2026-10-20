@@ -5,6 +5,7 @@ import { git } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
 import { expect, writesTest } from "./run-loop.steps.js";
+import { NOT_AN_ASSERTION_STEP } from "./run-retries.steps.js";
 import { session } from "./run.steps.js";
 
 const ADD_A_LINE = "Add a line";
@@ -79,6 +80,20 @@ Then("the task of the test-writing agent after the rewrite includes {string} and
   assert.ok(task && tasks.length > 3, `the test-writing agent was asked ${tasks.length} times`);
   assert.ok(task.includes(scenario), task);
   assert.ok(task.includes("Expected values to be strictly equal"), task);
+});
+
+Given("the step-writing agent's rewritten steps for {string} fail with the cart code on an error that is not an assertion", function (this: OidWorld, scenario: string) {
+  assert.equal(scenario, ADD_A_LINE);
+  agentOf(this).stepRounds = [[{ path: STEP_FILE, content: STEP_ROUNDS[0]! }], [{ path: STEP_FILE, content: NOT_AN_ASSERTION_STEP }], [{ path: STEP_FILE, content: STEP_ROUNDS[1]! }]];
+  expect(this, { bdd: ["not-an-assertion"] });
+});
+
+Then("the task of the test-writing agent after the rewrite includes {string} and {string}", function (this: OidWorld, scenario: string, failure: string) {
+  const tasks = agentOf(this).testRoute.tasks;
+  const task = tasks[tasks.length - 1];
+  assert.ok(task && tasks.length > 3, `the test-writing agent was asked ${tasks.length} times`);
+  assert.ok(task.includes(scenario), task);
+  assert.ok(task.includes(failure), task);
 });
 
 Then("the saved session of the run keeps the unit test {string} for {string}", function (this: OidWorld, test: string, scenario: string) {

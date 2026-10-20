@@ -3504,6 +3504,10 @@
         {
           "name": "After code exists, rewritten steps that still fail with that code on an assertion of the scenario are a Red, and the run goes on to TDD Red with the code kept",
           "bdd": "pass"
+        },
+        {
+          "name": "After code exists, rewritten steps that fail with that code on an error oid cannot classify are put to the human, who accepts the Red, and the run goes on to TDD Red with the code kept",
+          "bdd": "pass"
         }
       ]
     },

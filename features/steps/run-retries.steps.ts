@@ -12,7 +12,7 @@ const STEP_IMPORTS = `import assert from "node:assert/strict";\nimport { Then, W
 const UNDEFINED_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {});\n`;
 const STRAY_CONTENT = "// stray\n";
 
-const NOT_AN_ASSERTION_STEP = `${STEP_IMPORTS}\nWhen("a line is added", function () {\n  throw new Error("the cart could not be built");\n});\n`;
+export const NOT_AN_ASSERTION_STEP =`${STEP_IMPORTS}\nWhen("a line is added", function () {\n  throw new Error("the cart could not be built");\n});\n`;
 
 type AgentStart = { type: string; state?: string; attempt?: number; model?: string; thinkingLevel?: string; reason?: string };
 
