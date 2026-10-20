@@ -177,7 +177,7 @@ A methodology artifact, versioned. It answers "what is built and what is left?" 
 | `cycle_step` | `select`, `bdd_red`, `tdd_red`, `tdd_green`, `refactor`, `quality_gate` |
 | `scenarios[].bdd` | `pending`, `fail`, `pass` |
 
-`scenarios` and `cycle_step` appear only on started features; `cycle_step` disappears on `done`. A scenario accepted as a guard (ADR-049) carries its reason.
+`scenarios` and `cycle_step` appear only on started features; `cycle_step` disappears on `done`. A scenario accepted as a guard (ADR-049) carries its reason; one proved by a mutant (ADR-056) carries the diff.
 
 **Transitions.** They follow the article's two loops:
 
@@ -187,7 +187,7 @@ select → bdd_red → tdd_red → tdd_green → refactor ─┬─→ tdd_red  
                                                     └─→ quality_gate   (all scenarios green)
 ```
 
-From `tdd_green` the same three moves are allowed directly, when there is no refactor. Going back to a Red is always allowed: `tdd_red → bdd_red`, and from `quality_gate` only to `bdd_red` or `tdd_red` (a gap seen at the gate becomes a new Red). Going back from a later step records a **return** (ADR-038, ADR-044). `bdd_red → quality_gate` exists only after `oid progress revise`, when no code is needed (ADR-041). Anything else is rejected.
+From `tdd_green` the same three moves are allowed directly, when there is no refactor. Going back to a Red is always allowed: `tdd_red → bdd_red`, and from `quality_gate` only to `bdd_red` or `tdd_red` (a gap seen at the gate becomes a new Red). Going back from a later step records a **return** (ADR-038, ADR-044). `bdd_red → quality_gate` exists only after `oid progress revise`, when no code is needed (ADR-041), with a mutant for each scenario that changed. Anything else is rejected.
 
 **Moving to `done`.** `oid progress done` checks what the files can prove: at least one scenario, every scenario in `pass`, every scenario tagged with the feature recorded, and the evidence of a green that ran them with nothing changed since (ADR-030). In `oid run`, the rest follows from the control flow: `FR_COMMIT` comes only after `QUALITY_GATE`, and every scenario but an accepted guard has at least one unit test (§6.6).
 
@@ -827,7 +827,7 @@ oid's agents run on Pi today (ADR-002). Some people will want them to run in Cla
 | `oid progress <subcommand>` | Reads and writes `progress.json` (below). |
 | `oid check [--json]` | Consistency of `SPEC.md`, traceability and progress (§4.3), without running anything else (FR-CHECK). |
 | `oid metrics [--changed] [--baseline]` | Code-health findings and snapshot (§6.8, FR-MET). |
-| `oid verify red <target> [--decide <class>]` | The Red gate (§6.4) on a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or its name). |
+| `oid verify red <target> [--decide <class> \| --mutant <file\|->]` | The Red gate (§6.4) on a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or its name). `--mutant` proves a test with no possible Red with a mutant oid applies and restores (ADR-056). |
 | `oid verify green [<target>…]` | A green of the features it verifies (ADR-030). |
 | `oid verify integrity [--step S] [--path FILE]` | Integrity (§6.5); `--path` answers before a file is changed. |
 | `oid try <target> [--dry-run]` | Runs one test or scenario, then the type check and the linter on the changed files; records nothing (FR-VERIFY-09). |
