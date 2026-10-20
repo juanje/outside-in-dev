@@ -228,7 +228,7 @@ Every task runs in a new Pi session with oid's own agent directory and system pr
 
 ### FR-AGENT-02: Tools and paths per step
 
-Each step grants a fixed set of tools and a set of readable and writable paths; any other access is blocked before it happens and reported to the agent. Only the steps that implement or debug include a shell, and its commands are contained in the run's worktree and cannot change the files only the orchestrator writes; every other step has none. Repeated violations end the session.
+Each step grants a fixed set of tools and a set of writable paths, and every step may read the whole repository except secrets (FR-AGENT-03); any other access is blocked before it happens and reported to the agent. Only the steps that implement or debug include a shell, and its commands are contained in the run's worktree and cannot change the files only the orchestrator writes; every other step has none. Repeated violations end the session.
 
 ### FR-AGENT-03: Secrets are never readable
 

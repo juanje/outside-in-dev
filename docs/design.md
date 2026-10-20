@@ -24,7 +24,7 @@ Coding agents fail in four predictable ways: they build the wrong thing, they do
 ### Goals
 
 - **Shape the conditions, not the steps.** The methodology holds because of the environment the agents work in (what they see, what they can reach, what counts as done), not because of how many rules they are told. The model cannot skip the Red because it is not the one deciding the transition.
-- **Context isolation.** Each agent receives only what it needs for its immediate task and dies when it finishes.
+- **Context isolation.** Each agent receives only what it needs for its immediate task, may read the rest of the repository when it needs it (ADR-058), and dies when it finishes.
 - **Token efficiency.** Everything deterministic is done by Node.js, git, parsers and the stack's tools; micro-decisions go to a decision model; generative models only write specs, tests and code.
 - **Autonomy after human review.** Once the design artifacts are defined and the features reviewed, the cycle completes without intervention unless it asks.
 - **Contain code drift.** Duplication, complexity, dead code, hard-coded values and stale documentation are detected and cleaned as part of the cycle, at three scales (§6.8).
@@ -493,9 +493,9 @@ Permissions depend on the state, not only on the role: the same kind of agent wr
 
 | State | Agent | Tools | Write | Read |
 |:--|:--|:--|:--|:--|
-| `FEATURE_WRITE` | feature writer | read, grep, find, ls, write, edit, `report` | `bdd_features` | the spec and design documents (`paths.design`), `bdd_features`, conventions |
-| `BDD_RED` | step writer | same, plus `try`, `request_dependency` | `bdd_steps` | `bdd_features`, `bdd_steps`, `DOMAIN.md`, conventions |
-| `TDD_RED` | test writer | same as `BDD_RED` | `unit_tests` | unit tests, feature files, steps, conventions |
+| `FEATURE_WRITE` | feature writer | read, grep, find, ls, write, edit, `report` | `bdd_features` | the whole repo, except secrets (ADR-058) |
+| `BDD_RED` | step writer | same, plus `try`, `request_dependency` | `bdd_steps` | the whole repo, except secrets (ADR-058) |
+| `TDD_RED` | test writer | same as `BDD_RED` | `unit_tests` | the whole repo, except secrets (ADR-058) |
 | `CODE_GREEN`, `REFACTOR` | coding agent | same, plus `bash` | `source` | the whole repo |
 | `QUALITY_FIX` | the owner of each file | the owner's profile | the owner's | the owner's |
 | Phase 0 — Planned (FR-SPEC-01) | spec agent | read, grep, find, ls, write, edit | `paths.design` | the whole repo |
@@ -505,7 +505,7 @@ Common rules:
 - Only the coding agent has `bash` (ADR-029).
 - Nobody writes `progress.json`, `package.json`, lockfiles, `tsconfig*.json`, the vitest and cucumber configuration, `.outside-in*` or `.git/**`.
 - Nobody reads secrets: environment files, keys and credential stores (`.env`, `.env.*`, `**/*.pem`, `**/*.key`, `**/secrets/**`, `**/auth.json`) and `~/.ssh`, `~/.aws`, `~/.gnupg`. A fixed list, with no override and no confirmation; that content never reaches a model provider (FR-AGENT-03).
-- Test agents get the public signatures of `src/`, not its bodies (FR-AGENT-09).
+- Test agents get the public signatures of `src/` in their task, not its bodies (FR-AGENT-09); they may read the bodies when they need them (ADR-058).
 
 ### 7.3. Tools and sandbox
 
@@ -518,7 +518,7 @@ Common rules:
 - **Path argument table (`TOOL_PATH_ARGS`).** Which arguments of each tool hold a path. A test fails if a registered tool has a path-like parameter missing from the table, so adding a tool cannot silently bypass the sandbox.
 - **A single containment authority (`containment.ts`).** It resolves symlinks on both sides (the requested path and the root), and for a path that does not exist yet, its nearest existing ancestor. String comparison is not enough: `features/../.git/config` passes a `startsWith`.
 
-`grep`, `find` and `ls` without a path are treated as asking for the worktree root, which only the coding agent may read.
+`grep`, `find` and `ls` without a path are treated as asking for the worktree root, which every agent may read (ADR-058).
 
 **The coding agent's shell** (ADR-029) goes through three checks in the same hook:
 
