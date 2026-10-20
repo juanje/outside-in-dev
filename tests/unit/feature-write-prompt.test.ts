@@ -18,8 +18,8 @@ describe("the instructions of the agent that writes the feature files", () => {
     expect(instructions).not.toContain("`try`");
   });
 
-  it("generate the access it states from its profile, which reads the design notes", () => {
+  it("generate the access it states from its profile, which reads the whole repository", () => {
     expectAccess("FEATURE_WRITE", (profile) => featureWritePrompt("FR-A-02", profile));
-    expect(profileOf("FEATURE_WRITE").read).toContain("docs/design.md");
+    expect(profileOf("FEATURE_WRITE").read).toEqual(["**"]);
   });
 });

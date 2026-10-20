@@ -19,16 +19,17 @@ const config = parseProjectConfig({
   commands: { bdd: "run-bdd", unit: "run-unit", typecheck: "run-types", format: "run-format", lint: null, coverage: "run-coverage", extra_checks: ["run-extra"] },
 });
 
-describe("profileFor with design notes", () => {
-  it("lets the feature writer read the files the project lists as design notes, and no other step gets them for free", () => {
-    const withDesign = { ...config, paths: { ...config.paths, design: ["docs/design.md", "DECISIONS.md"] } };
-    expect(profileFor("FEATURE_WRITE", withDesign).read).toEqual(expect.arrayContaining(["docs/design.md", "DECISIONS.md"]));
-    expect(profileFor("TDD_RED", withDesign).read).not.toContain("docs/design.md");
+describe("profileFor read grants", () => {
+  it("lets every step read the whole repository, the design notes and the conventions files included", () => {
+    const withFiles = { ...config, paths: { ...config.paths, design: ["docs/design.md", "DECISIONS.md"], conventions: ["docs/RULES.md"] } };
+    for (const state of CYCLE_STATES) {
+      expect(profileFor(state, withFiles).read, state).toEqual(["**"]);
+    }
   });
 
-  it("names each path once in a step's read and write lists, keeping the first occurrence and the order", () => {
-    const overlapping = { ...config, paths: { ...config.paths, design: ["REQS.md", "DOMAIN.md", "DECISIONS.md"] } };
-    expect(profileFor("FEATURE_WRITE", overlapping).read).toEqual(["REQS.md", "DOMAIN.md", "DECISIONS.md", "bdd/**/*.feature"]);
+  it("names each path once in a step's write list, keeping the first occurrence and the order", () => {
+    const overlapping = { ...config, paths: { ...config.paths, bdd_features: ["bdd/a.feature", "bdd/b.feature", "bdd/a.feature"] } };
+    expect(profileFor("FEATURE_WRITE", overlapping).write).toEqual(["bdd/a.feature", "bdd/b.feature"]);
   });
 });
 
@@ -39,16 +40,15 @@ describe("profileFor", () => {
 
     const features = profileFor("FEATURE_WRITE", config);
     expect(features).toMatchObject({ builtins: tools, shell: false, write: ["bdd/**/*.feature"], commands: [] });
-    expect(features.read).toEqual(expect.arrayContaining(["REQS.md", "DOMAIN.md", "bdd/**/*.feature"]));
+    expect(features.read).toEqual(["**"]);
 
     const steps = profileFor("BDD_RED", config);
     expect(steps).toMatchObject({ builtins: tools, shell: false, write: ["bdd/steps/**"] });
-    expect(steps.read).toEqual(expect.arrayContaining(["bdd/**/*.feature", "bdd/steps/**", "DOMAIN.md"]));
+    expect(steps.read).toEqual(["**"]);
 
     const tests = profileFor("TDD_RED", config);
     expect(tests).toMatchObject({ builtins: tools, shell: false, write: ["spec/**/*.spec.ts"] });
-    expect(tests.read).toEqual(expect.arrayContaining(["spec/**/*.spec.ts", "bdd/**/*.feature", "bdd/steps/**"]));
-    expect(tests.read).not.toContain("**");
+    expect(tests.read).toEqual(["**"]);
 
     for (const state of ["CODE_GREEN", "REFACTOR"] as const) {
       expect(profileFor(state, config)).toMatchObject({
@@ -75,25 +75,10 @@ describe("profileFor", () => {
 });
 
 describe("profileFor unit test area", () => {
-  it("lets the test writer read every file under the directories of the unit tests, and write only the tests", () => {
+  it("lets the test writer read the whole repository, and write only the tests", () => {
     const tests = profileFor("TDD_RED", config);
-    expect(tests.read).toContain("spec/**");
+    expect(tests.read).toEqual(["**"]);
     expect(tests.write).toEqual(["spec/**/*.spec.ts"]);
-  });
-
-  it("does not widen the directory of tests that sit next to the source: it would grant the source", () => {
-    const together = { ...config, paths: { ...config.paths, source: ["lib/**/*.ts"], unit_tests: ["lib/**/*.spec.ts"] } };
-    const { read } = profileFor("TDD_RED", together);
-    expect(read).toContain("lib/**/*.spec.ts");
-    expect(read).not.toContain("lib/**");
-  });
-
-  it("does not widen a glob that starts with a wildcard: it would grant the whole worktree", () => {
-    const anywhere = { ...config, paths: { ...config.paths, unit_tests: ["**/*.spec.ts"] } };
-    const { read } = profileFor("TDD_RED", anywhere);
-    expect(read).toContain("**/*.spec.ts");
-    expect(read).not.toContain("**");
-    expect(read).not.toContain("/**");
   });
 });
 
@@ -112,6 +97,5 @@ describe("profileFor with conventions files", () => {
       const read = profileFor(state, withConventions).read;
       expect(read.includes("docs/RULES.md") || read.includes("**"), state).toBe(true);
     }
-    expect(profileFor("TDD_RED", config).read).not.toContain("docs/RULES.md");
   });
 });

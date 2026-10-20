@@ -24,12 +24,6 @@ const READ_TOOLS = names("read grep find ls");
 const EDIT_TOOLS = [...READ_TOOLS, ...names("write edit")];
 const SHELL_TOOLS = [...EDIT_TOOLS, ...names("bash")];
 const WHOLE_REPO = ["**"];
-const DOMAIN = "DOMAIN.md";
-
-/** The conventions files the project lists: the prompt of a step tells its agent to read them, so its read grant holds them. */
-function conventionFiles(config: ProjectConfig): string[] {
-  return config.paths.conventions ?? [];
-}
 
 /** The orchestrator's own state: the progress file, its local folder and git. */
 function orchestratorState(config: ProjectConfig): string[] {
@@ -46,39 +40,17 @@ function gateCommands(config: ProjectConfig): string[] {
   return [unit, bdd, typecheck, format, lint, ...extra_checks].filter((command): command is string => command !== null);
 }
 
-const SLASH = "/";
-const WILDCARD = /[*?[]/;
-
-/** The directory a glob starts in: what comes before its first wildcard segment, or the folder of a glob that names one file. */
-function directoryOf(glob: string): string {
-  const segments = glob.split(SLASH);
-  const wild = segments.findIndex((segment) => WILDCARD.test(segment));
-  return segments.slice(0, wild < 0 ? -1 : wild).join(SLASH);
-}
-
-/** Whether two directories are the same or one holds the other. */
-function overlap(first: string, second: string): boolean {
-  return `${first}${SLASH}`.startsWith(`${second}${SLASH}`) || `${second}${SLASH}`.startsWith(`${first}${SLASH}`);
-}
-
-/** Everything under the directory each test glob starts in (the helpers and fixtures next to the tests, not only the files that match the glob), except a directory that is, holds or lies in the source's, and a glob that starts with a wildcard. */
-function wholeDirectories(globs: string[], source: string[]): string[] {
-  const sourceDirectories = source.map(directoryOf);
-  const directories = globs.map(directoryOf).filter((directory) => directory !== "" && !sourceDirectories.some((other) => overlap(directory, other)));
-  return directories.map((directory) => `${directory}${SLASH}**`);
-}
-
 type Grant = { write: string[]; read: string[]; shell: boolean };
 
 function grantFor(state: CycleState, config: ProjectConfig): Grant {
   const { paths } = config;
   switch (state) {
     case FEATURE_WRITE:
-      return { write: paths.bdd_features, read: [paths.spec, DOMAIN, ...paths.design, ...paths.bdd_features, ...conventionFiles(config)], shell: false };
+      return { write: paths.bdd_features, read: WHOLE_REPO, shell: false };
     case BDD_RED:
-      return { write: paths.bdd_steps, read: [...paths.bdd_features, ...paths.bdd_steps, DOMAIN, ...conventionFiles(config)], shell: false };
+      return { write: paths.bdd_steps, read: WHOLE_REPO, shell: false };
     case TDD_RED:
-      return { write: paths.unit_tests, read: [...paths.unit_tests, ...wholeDirectories(paths.unit_tests, paths.source), ...paths.bdd_features, ...paths.bdd_steps, ...conventionFiles(config)], shell: false };
+      return { write: paths.unit_tests, read: WHOLE_REPO, shell: false };
     case CODE_GREEN:
     case REFACTOR:
       return { write: paths.source, read: WHOLE_REPO, shell: true };

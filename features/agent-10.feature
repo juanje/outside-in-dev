@@ -293,11 +293,3 @@ Feature: Every rejection says what to do next
       Then the report is refused
       And the report refusal has the evidence "Evidence:" naming "adds a line"
       And the report refusal has a "Next:" that names "<test file> > <test name>"
-
-    Scenario: A read the sandbox blocks gets a Next that lists what the step may read, not what it may write
-      Given oid opened an agent session for the step FEATURE_WRITE
-      When the agent calls "read" on "features/steps/setup.steps.ts"
-      Then the call is blocked
-      And the reason names "features/steps/setup.steps.ts"
-      And the reason has a "Next:" that begins with "You may read:" and names "SPEC.md"
-      And the reason has a "Next:" that does not name "You may write"

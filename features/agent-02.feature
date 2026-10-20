@@ -20,18 +20,27 @@ Feature: Tools and paths per step
     Then the call is blocked
     And the reason names the writable paths "tests/unit/**/*.test.ts"
 
-  Scenario: A test-writing step cannot read source
-    Given oid opened an agent session for the step TDD_RED
+  Scenario Outline: Every step that writes feature files, steps or tests may read the source of the project
+    Given oid opened an agent session for the step <step>
     When the agent calls "read" on "src/cart.ts"
-    Then the call is blocked
-    And the reason names the readable paths "features/**/*.feature"
-    And the reason names the readable paths "tests/unit/**/*.test.ts"
+    Then the call is allowed
 
-  Scenario: A search without a path is treated as a search of the whole worktree
-    Given oid opened an agent session for the step TDD_RED
+    Examples:
+      | step          |
+      | FEATURE_WRITE |
+      | BDD_RED       |
+      | TDD_RED       |
+
+  Scenario Outline: A search without a path searches the whole worktree, in any step
+    Given oid opened an agent session for the step <step>
     When the agent calls "grep" without a path
-    Then the call is blocked
-    And the reason names the readable paths "features/**/*.feature"
+    Then the call is allowed
+
+    Examples:
+      | step          |
+      | FEATURE_WRITE |
+      | BDD_RED       |
+      | TDD_RED       |
 
   Scenario Outline: Only the steps that implement or debug have a shell
     Given oid opened an agent session for the step <step>

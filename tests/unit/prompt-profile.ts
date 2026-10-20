@@ -24,12 +24,12 @@ const config = parseProjectConfig({
   commands: { bdd: "run-bdd", unit: "run-unit", typecheck: "run-types", format: null, lint: null, coverage: null, extra_checks: [] },
 });
 
-/** Asserts that the access text of a prompt is generated from the profile it is built with: it holds the text `accessStatement` makes from the real profile of the step once, every glob the profile grants (the conventions file among the readable ones), and a profile with other globs gives a prompt with the text of that profile instead. */
+/** Asserts that the access text of a prompt is generated from the profile it is built with: it holds the text `accessStatement` makes from the real profile of the step once, every glob the profile grants (the whole repository to read), and a profile with other globs gives a prompt with the text of that profile instead. */
 export function expectAccess(state: CycleState, promptOf: (profile: Profile) => string): void {
   const profile = profileOf(state);
   const prompt = promptOf(profile);
   expect(prompt.split(accessStatement(profile))).toHaveLength(2);
-  expect(profile.read).toContain(CONVENTIONS_FILE);
+  expect(profile.read).toEqual(["**"]);
   for (const glob of [...profile.write, ...profile.read]) expect(prompt).toContain(glob);
   const other = { ...profile, write: ["other/write/**"], read: ["other/read/**", CONVENTIONS_FILE] };
   const changed = promptOf(other);
