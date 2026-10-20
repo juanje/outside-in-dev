@@ -68,12 +68,12 @@ async function innerLoop(started: Started, services: FeatureServices, red: RedSc
 const GATE = "gate";
 const SKIPPED = "skipped";
 
-/** Writes the steps of the current scenario again, as the person asked: when code exists for the scenario and the new steps pass with it and fail without it, the inner loop goes on at the BDD Check, which says where the run came from; with no code, the scenario starts again from TDD Red. Returns the exit code of the process when the run ends there, or what follows the scenario. */
+/** Writes the steps of the current scenario again, as the person asked: when code exists for the scenario and the new steps pass with it and fail without it, the inner loop goes on at the BDD Check, which says where the run came from; with no code, or when the steps fail with the code on an assertion of the scenario, the scenario goes on from TDD Red. Returns the exit code of the process when the run ends there, or what follows the scenario. */
 async function runRewrittenSteps(started: Started, services: FeatureServices, featureHashes: Record<string, string>, entry: LoopEntry & { steps: StepsRewrite }) {
   const red = await runBddRed(started, services, readSession(started.cwd)?.featureHashes ?? featureHashes, entry.steps);
   if (isExitCode(red)) return red;
   if ("guardAccepted" in red) return afterGuard(red);
-  if (entry.steps.base === undefined) return innerLoop(started, services, red);
+  if (entry.steps.base === undefined || red.failsWithCode === true) return innerLoop(started, services, red);
   const origin = { from: STATE.bddRed, note: `the steps of "${red.current.name}" were written again: the scenario passes with the code and fails without it` };
   return innerLoop(started, services, red, { state: STATE.bddCheck, red, iteration: entry.iteration, origin });
 }

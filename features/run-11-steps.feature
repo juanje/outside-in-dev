@@ -24,6 +24,17 @@ Feature: Rewrite the steps of a scenario when retries run out or an agent is blo
     And the event log of the run records a transition from "BDD_CHECK" to "BDD_RED" whose reason mentions "Add a line" and "passes"
     And progress.json of the worktree records "Add a line" as "pass"
 
+  Scenario: After code exists, rewritten steps that still fail with that code on an assertion of the scenario are a Red, and the run goes on to TDD Red with the code kept
+    Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
+    And the coding agent writes the cart code that passes the unit test, but the scenario still fails
+    And the step-writing agent's rewritten steps for "Add a line" fail with the cart code on an assertion of the scenario
+    And the test-writing agent then writes the unit test "cart lines > counts the lines it holds", and it fails because the cart code does not count them
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "rewrite_steps" and "abort", and gives the note "build the cart with the lines it is given"
+    Then the event log of the run records 2 transitions from "BDD_RED" to "TDD_RED"
+    And the worktree still has "src/cart.ts" as the coding agent wrote it
+    And the task of the test-writing agent after the rewrite includes "Add a line" and the failure of the scenario
+    And the saved session of the run keeps the unit test "cart lines > adds a line" for "Add a line"
+
   Scenario: Steps that also pass without the code of the scenario are rejected, and the retries of BDD Red run out
     Given the test-writing agent writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
     And the coding agent writes the cart code that passes the unit test, but the scenario still fails

@@ -10,6 +10,7 @@ const VITEST_IMPORT = `import { describe, expect, it } from "vitest";\nimport { 
 const ADDS_A_LINE = `  it("adds a line", () => {\n    expect(countLines(addLine([], "tea"))).toBe(1);\n  });\n`;
 const REMOVES_A_LINE = `  it("removes a line", () => {\n    expect(countLines(removeLine(["tea"], "tea"))).toBe(0);\n  });\n`;
 const CLEARS_THE_CART = `  it("clears the cart", () => {\n    expect(countLines(clearCart(["tea"]))).toBe(0);\n  });\n`;
+const COUNTS_THE_LINES = `  it("counts the lines it holds", () => {\n    expect(countLines(addLine(["tea"], "tea"))).toBe(1);\n  });\n`;
 const ADDS_A_SECOND_LINE = `  it("adds a second line", () => {\n    expect(addLine(["tea"], "tea")).toEqual(["tea"]);\n  });\n`;
 
 /** A unit test file: the imports of the cart code it uses, and the tests of its `describe`. */
@@ -23,6 +24,7 @@ export const UNIT_TESTS = {
   "removes a line": testFile(["addLine", "removeLine"], [ADDS_A_LINE, REMOVES_A_LINE]),
   "clears the cart": testFile(["addLine", "removeLine", "clearCart"], [ADDS_A_LINE, REMOVES_A_LINE, CLEARS_THE_CART]),
   "adds a second line": testFile(["addLine"], [ADDS_A_LINE, ADDS_A_SECOND_LINE]),
+  "counts the lines it holds": testFile(["addLine"], [ADDS_A_LINE, COUNTS_THE_LINES]),
   "fails with an error": `${VITEST_IMPORT}\ndescribe("cart lines", () => {\n  it("adds a line", () => {\n    throw new Error("the cart could not be built");\n  });\n});\n`,
   "passes at once": `${VITEST_IMPORT}\ndescribe("cart lines", () => {\n  it("adds a line", () => {\n    expect(countLines(["tea"])).toBe(1);\n  });\n});\n`,
 } as const;
@@ -34,6 +36,12 @@ const ADD_STEPS = `When("a line is added", async function () {\n  ${IMPORT_CART}
 const COUNT_STEP = `Then("the cart has {int} line(s)", async function (count: number) {\n  const { countCartLines } = await import("../../src/cart.js");\n  assert.equal(countCartLines(this.lines), count);\n});\n`;
 const REMOVE_STEPS = `Given("a cart with {int} line(s)", function (count: number) {\n  this.lines = Array.from({ length: count }, () => "tea");\n});\n\nWhen("the line is removed", async function () {\n  const { removeLine } = await import("../../src/cart.js");\n  this.lines = removeLine(this.lines, "tea");\n});\n`;
 const STEP_IMPORTS = (names: string[]): string => `import assert from "node:assert/strict";\nimport { ${names.join(", ")} } from "@cucumber/cucumber";\n`;
+
+/** The steps of the first scenario written again, for a cart that already holds the line: they fail on an assertion with the first cart code, which adds the line twice. */
+const ADD_TO_HELD_STEPS = `When("a line is added", async function () {\n  ${IMPORT_CART}\n  this.lines = addLine(["tea"], "tea");\n});\n`;
+const COUNT_HELD_STEP = `Then("the cart has {int} line(s)", function (count: number) {\n  assert.equal(this.lines.length, count);\n});\n`;
+/** The step file of "Add a line" written again so that it fails on an assertion, not on a missing function, with `CART_CODE.unitOnly`. */
+export const ASSERTING_STEP_ROUND = `${STEP_IMPORTS(["Then", "When"])}\n${ADD_TO_HELD_STEPS}\n${COUNT_HELD_STEP}`;
 
 /** The step files the step-writing agent writes: round 0 for "Add a line", round 1 for "Remove a line" (the whole file again). */
 export const STEP_ROUNDS = [`${STEP_IMPORTS(["Then", "When"])}\n${ADD_STEPS}\n${COUNT_STEP}`, `${STEP_IMPORTS(["Given", "Then", "When"])}\n${ADD_STEPS}\n${REMOVE_STEPS}\n${COUNT_STEP}`];

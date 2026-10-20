@@ -11,12 +11,19 @@ useTempDir();
 
 const SCENARIO = { file: "features/pay.feature", line: 3, name: "Pay" };
 
+/** The failure message each runner gives, as the source of the expression that builds it: a missing module, an assertion of the scenario, a step that breaks. */
+const FAILURES = {
+  missing: `"Error: Cannot find module '" + process.cwd() + "/src/pay.js' imported from " + process.cwd() + "/features/steps/pay.steps.ts"`,
+  assertion: `"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n\\n2 !== 1\\n\\n    at World.<anonymous> (" + process.cwd() + "/features/steps/pay.steps.ts:5:10)"`,
+  never: `"Error: the step could not be set up"`,
+};
+
 /** A BDD runner whose scenario "Pay" passes when `src/pay.ts` exists, and when `always` is set whatever the source is; it fails with a missing module otherwise. */
-const runner = (always: boolean | "never") => `
+const runner = (always: boolean | "never" | "assertion") => `
 const { existsSync, writeFileSync } = require("node:fs");
 const out = process.argv[process.argv.indexOf("--format") + 1].slice(8);
-const passes = ${always === "never" ? "false" : always ? "true" : 'existsSync("src/pay.ts")'};
-const message = "Error: Cannot find module '" + process.cwd() + "/src/pay.js' imported from " + process.cwd() + "/features/steps/pay.steps.ts";
+const passes = ${always === "never" || always === "assertion" ? "false" : always ? "true" : 'existsSync("src/pay.ts")'};
+const message = ${FAILURES[always === "assertion" || always === "never" ? always : "missing"]};
 const lines = [
   { pickle: { id: "p", uri: "features/pay.feature", name: "Pay", steps: [{ id: "ps", text: "I pay" }] } },
   { testCase: { id: "c", pickleId: "p", testSteps: [{ id: "s", pickleStepId: "ps" }] } },
@@ -62,11 +69,23 @@ describe("the gate of steps written again after the code exists", () => {
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });
 
-  it("rejects steps that do not pass with the code written so far, without removing the code", () => {
+  it("rejects steps that fail with the code written so far because a step breaks, without removing the code", () => {
     const { repo, base } = projectWithCode(runner("never"));
     expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toMatchObject({
       kind: "problem",
-      problem: { failed: "the scenario does not pass with the code written so far", evidence: expect.stringContaining("Cannot find module"), next: expect.stringContaining("passes with the code that exists") },
+      problem: { failed: "the scenario does not pass with the code written so far", evidence: expect.stringContaining("the step could not be set up"), next: expect.stringContaining("passes with the code that exists") },
+    });
+    expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
+  });
+
+  it("accepts steps that fail with the code written so far on an assertion of the scenario as a Red, and keeps the code", () => {
+    const { repo, base } = projectWithCode(runner("assertion"));
+    write("project/features/steps/pay.steps.ts", "// the steps written again\n\n\n\nassert.equal(lines, 1);\n");
+    expect(rewrittenStepsGate(repo, SCENARIO, {}, base)).toEqual({
+      kind: "valid",
+      reason: "the rewritten steps fail with the code written so far on an assertion of the scenario: the steps are right and the code is not",
+      message: expect.stringContaining("2 !== 1"),
+      withCode: true,
     });
     expect(existsSync(join(repo, "src/pay.ts"))).toBe(true);
   });

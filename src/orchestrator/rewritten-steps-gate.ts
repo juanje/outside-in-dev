@@ -6,14 +6,18 @@ import { classifyObservation, failureMessage, observeBddRun } from "../commands/
 import { rejection } from "../artifacts/rejection.js";
 import { type CurrentScenario, PROBLEM, type RedGate, runScenarioChecked, scenarioSubject, TRY_AGAIN } from "./bdd-red-gate.js";
 
-/** Judges the steps an agent wrote again for a scenario whose code exists, the way a return to BDD Red is judged: the cheap gates first, then the scenario must pass with the code written for it since `base` (the commit the scenario started from), and must fail with that code taken out. The code is put back byte for byte, also when a run throws. A scenario that fails without the code is a Red whatever the class of its failure; only a run that shows nothing about the scenario (a broken run) is rejected. */
+/** Judges the steps an agent wrote again for a scenario whose code exists, the way a return to BDD Red is judged: the cheap gates first, then the scenario must pass with the code written for it since `base` (the commit the scenario started from), and must fail with that code taken out. The code is put back byte for byte, also when a run throws. A scenario that fails without the code is a Red whatever the class of its failure; only a run that shows nothing about the scenario (a broken run) is rejected. Steps that fail with the code on an assertion of the scenario (a valid Red) are accepted at once, marked `withCode`: the steps are right and the code is not, so the code is kept and fixed in TDD Red. */
 export function rewrittenStepsGate(worktree: string, scenario: CurrentScenario, featureHashes: Record<string, string>, base: string, runners: Runners = REAL_RUNNERS): RedGate {
   const runs = runScenarioChecked(worktree, scenario, featureHashes, runners);
   if (runs.kind === PROBLEM) return runs;
   const { config } = runs;
-  const { failure } = observeBddRun(worktree, config, scenario, runs.first);
+  const observation = observeBddRun(worktree, config, scenario, runs.first);
+  const { failure } = observation;
   const subject = scenarioSubject(scenario);
   if (failure.kind !== FAILURE.passed) {
+    if (classifyObservation(worktree, config, observation).outcome === OUTCOME.valid) {
+      return { kind: OUTCOME.valid, reason: "the rewritten steps fail with the code written so far on an assertion of the scenario: the steps are right and the code is not", message: failureMessage(failure), withCode: true };
+    }
     return {
       kind: PROBLEM,
       problem: rejection({ failed: "the scenario does not pass with the code written so far", evidence: failureMessage(failure) || subject, next: `fix the steps so that the scenario passes with the code that exists, then ${TRY_AGAIN}` }),

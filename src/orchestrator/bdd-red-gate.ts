@@ -28,7 +28,7 @@ export const TRY_AGAIN = "check it with the try tool";
 export const PROBLEM = "problem";
 
 /** What the gate of BDD Red decided about the steps an agent wrote: a valid Red, a problem that stops the run, or a failure that a person has to classify. */
-export type RedGate = { kind: typeof OUTCOME.valid; reason: string; message: string } | { kind: typeof PROBLEM; problem: Rejection } | { kind: typeof OUTCOME.decision; reason: string; message: string; detail?: string; step?: string };
+export type RedGate = { kind: typeof OUTCOME.valid; reason: string; message: string; withCode?: true } | { kind: typeof PROBLEM; problem: Rejection } | { kind: typeof OUTCOME.decision; reason: string; message: string; detail?: string; step?: string };
 
 /** The kind of a result for a scenario that passes before any code: a possible guard, which only a person can accept (ADR-049). */
 export const GUARD = "guard";

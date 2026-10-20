@@ -62,7 +62,7 @@ export function fail({ bus }: Started, message: string): number {
 }
 
 /** A scenario whose steps fail validly: the scenario, how to name it in a message, and the failure the runner showed. */
-export type RedScenario = { current: CurrentScenario; label: string; failure: string };
+export type RedScenario = { current: CurrentScenario; label: string; failure: string; failsWithCode?: true };
 
 /** The person asked for the steps of the scenario to be written again: what they said, the failure the scenario showed, and the commit the scenario started from when code was written for it since (the steps must then pass with that code and fail without it). */
 export type StepsRewrite = { note: string; failure: string; base?: string };
@@ -131,14 +131,21 @@ export async function runBddRed(started: Started, services: FeatureServices, fea
   if (isExitCode(gate)) return gate;
   if (gate.kind === ACCEPTED_GUARD) return { guardAccepted: acceptGuard(started, { name: current.name, names, reason: gate.reason }) };
   clearReturn(workspace.path, fr!);
-  if (rewrite?.base !== undefined) {
-    updateFeature(workspace.path, fr!, (feature) => advanceStep(feature, CYCLE_STEP.tddGreen, [CYCLE_STEP.tddGreen]));
-    checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
+  return settleRed(started, { current, names, label }, gate, rewrite);
+}
+
+/** Records the Red the gate accepted: after a rewrite with code that the steps pass with, the scenario goes back to where the code is; otherwise (also when the rewritten steps fail with the code) the Red is checkpointed and the scenario goes on to TDD Red. */
+function settleRed({ cwd, bus, workspace, targets }: Started, { current, names, label }: { current: CurrentScenario; names: string[]; label: string }, gate: { kind: string; reason: string; message: string; withCode?: true }, rewrite?: StepsRewrite): RedScenario {
+  const [fr] = targets as [string];
+  const failsWithCode = gate.withCode === true;
+  if (rewrite?.base !== undefined && !failsWithCode) {
+    updateFeature(workspace.path, fr, (feature) => advanceStep(feature, CYCLE_STEP.tddGreen, [CYCLE_STEP.tddGreen]));
+    checkpoint(workspace, { fr, state: STATE.bddRed, scenario: current.name });
     return { current, label, failure: rewrite.failure };
   }
-  recordRed(workspace.path, fr!, { current: current.name, names });
-  checkpoint(workspace, { fr: fr!, state: STATE.bddRed, scenario: current.name });
+  recordRed(workspace.path, fr, { current: current.name, names });
+  checkpoint(workspace, { fr, state: STATE.bddRed, scenario: current.name });
   updateSession(cwd, { state: STATE.tddRed, scenarioFailure: gate.message });
   transition(bus, STATE.bddRed, STATE.tddRed, `the scenario "${current.name}" fails validly: ${gate.kind === OUTCOME.valid ? gate.reason : "the person decided that it is a valid Red"}`);
-  return { current, label, failure: gate.message };
+  return { current, label, failure: gate.message, ...(failsWithCode ? { failsWithCode: true as const } : {}) };
 }

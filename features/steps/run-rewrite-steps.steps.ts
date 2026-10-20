@@ -1,10 +1,11 @@
 import { Given, Then } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
-import { CART_CODE, CART_FILE, STEP_FILE, STEP_ROUNDS } from "../support/cart-files.js";
+import { ASSERTING_STEP_ROUND, CART_CODE, CART_FILE, STEP_FILE, STEP_ROUNDS, TEST_FILE } from "../support/cart-files.js";
 import { git } from "../support/run-project.js";
 import type { OidWorld } from "../support/world.js";
 import { agentOf, worktreePath, worktreeText } from "./run-features.steps.js";
-import { expect } from "./run-loop.steps.js";
+import { expect, writesTest } from "./run-loop.steps.js";
+import { session } from "./run.steps.js";
 
 const ADD_A_LINE = "Add a line";
 const FAILS_WITHOUT_CODE = "bdd-missing-implementation";
@@ -58,4 +59,29 @@ Then("the run's branch holds the commit {string} twice", function (this: OidWorl
 Then("the worktree still has {string} as the coding agent wrote it", function (this: OidWorld, file: string) {
   assert.equal(file, CART_FILE);
   assert.equal(worktreeText(this, file), CART_CODE.unitOnly);
+});
+
+Given("the step-writing agent's rewritten steps for {string} fail with the cart code on an assertion of the scenario", function (this: OidWorld, scenario: string) {
+  assert.equal(scenario, ADD_A_LINE);
+  agentOf(this).stepRounds = [[{ path: STEP_FILE, content: STEP_ROUNDS[0]! }], [{ path: STEP_FILE, content: ASSERTING_STEP_ROUND }], [{ path: STEP_FILE, content: STEP_ROUNDS[1]! }]];
+  expect(this, { bdd: ["bdd-add-line-assertion"] });
+});
+
+Given("the test-writing agent then writes the unit test {string}, and it fails because the cart code does not count them", function (this: OidWorld, name: string) {
+  /** The two attempts of the second iteration write nothing, so the human is asked; the test is written after the rewrite. */
+  agentOf(this).testRoute.rounds.push({ files: [] }, { files: [] }, writesTest(name));
+  expect(this, { unit: ["unit-red-count"] });
+});
+
+Then("the task of the test-writing agent after the rewrite includes {string} and the failure of the scenario", function (this: OidWorld, scenario: string) {
+  const tasks = agentOf(this).testRoute.tasks;
+  const task = tasks[tasks.length - 1];
+  assert.ok(task && tasks.length > 3, `the test-writing agent was asked ${tasks.length} times`);
+  assert.ok(task.includes(scenario), task);
+  assert.ok(task.includes("Expected values to be strictly equal"), task);
+});
+
+Then("the saved session of the run keeps the unit test {string} for {string}", function (this: OidWorld, test: string, scenario: string) {
+  const recorded = (session(this) as { scenarioUnitTests?: Record<string, string[]> }).scenarioUnitTests ?? {};
+  assert.ok(recorded[scenario]?.includes(`${TEST_FILE} > ${test}`), JSON.stringify(recorded));
 });

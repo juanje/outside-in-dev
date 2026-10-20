@@ -36,7 +36,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const RECORDED = join(ROOT, "features/support/recorded");
 const EXIT_CODES = join(RECORDED, "exit-codes.json");
-const { STEP_ROUNDS, CLEAR_STEP_ROUND, CLEAR_FEATURE, CART_CODE } = await import(pathToFileURL(join(ROOT, "features/support/cart-files.ts")).href);
+const { STEP_ROUNDS, ASSERTING_STEP_ROUND, CLEAR_STEP_ROUND, CLEAR_FEATURE, CART_CODE } = await import(pathToFileURL(join(ROOT, "features/support/cart-files.ts")).href);
 
 const FIRST_SCENARIO = "features/FR-CART-02.feature:3";
 const SECOND_SCENARIO = "features/FR-CART-02.feature:8";
@@ -68,6 +68,7 @@ const CASES = {
   "bdd-clear-missing": { steps: CLEAR_STEP_ROUND, cart: CART_CODE.withRemove, clear: true, request: [CLEAR_SCENARIO] },
   "bdd-add-line-green": { steps: STEP_ROUNDS[0], cart: CART_CODE.withCount, request: [FIRST_SCENARIO] },
   "bdd-add-line-still-red": { steps: STEP_ROUNDS[0], cart: CART_CODE.unitOnly, request: [FIRST_SCENARIO] },
+  "bdd-add-line-assertion": { steps: ASSERTING_STEP_ROUND, cart: CART_CODE.unitOnly, request: [FIRST_SCENARIO] },
   "bdd-remove-line-green": { steps: STEP_ROUNDS[1], cart: CART_CODE.withRemove, request: [SECOND_SCENARIO] },
   "bdd-add-line-regression": { steps: BROKEN, cart: CART_CODE.withCount, request: [FIRST_SCENARIO] },
   "bdd-clear-green": { steps: CLEAR_STEP_ROUND, cart: CART_CODE.withClear, clear: true, request: [CLEAR_SCENARIO] },

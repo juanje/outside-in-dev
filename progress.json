@@ -3500,6 +3500,10 @@
         {
           "name": "A coding agent blocked by a wrong unit test puts its diagnosis to the human, and rewriting the test passes it on",
           "bdd": "pass"
+        },
+        {
+          "name": "After code exists, rewritten steps that still fail with that code on an assertion of the scenario are a Red, and the run goes on to TDD Red with the code kept",
+          "bdd": "pass"
         }
       ]
     },
