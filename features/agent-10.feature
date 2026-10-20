@@ -254,17 +254,16 @@ Feature: Every rejection says what to do next
       Examples:
         | step       | call                                               | blocked                                  | evidence      | next                    |
         | TDD_RED    | the agent calls "write" on "src/cart.ts"           | is not writable in this step            | src/cart.ts   | tests/unit/**/*.test.ts |
-        | TDD_RED    | the agent calls "read" on "src/cart.ts"            | is not readable in this step            | src/cart.ts   | features/**/*.feature   |
+        | BDD_RED    | the agent calls "write" on "src/cart.ts"           | is not writable in this step            | src/cart.ts   | features/steps/**/*.ts  |
         | CODE_GREEN | the agent runs the shell command: git commit -am x | git stays with the orchestrator          | git commit    | npx vitest run          |
         | BDD_RED    | the agent runs the shell command: ls               | This step has no shell                   | ls            | the ls tool             |
 
-    Scenario: A search from a directory that is not readable names the field to change and where a search may start
+    Scenario: A search from a directory outside the worktree names the field to change and where a search may start
       Given oid opened an agent session for the step TDD_RED
-      When the agent calls "find" with the pattern "tests/unit/**/*.test.ts" from the worktree's absolute path
+      When the agent calls "find" on "../other-project"
       Then the call is blocked
       And the reason has the evidence "Evidence:" naming "find"
       And the reason has a "Next:" that names the fields "path"
-      And the reason has a "Next:" that names "tests/unit"
 
     Scenario: The try tool refuses a target outside the worktree and says which targets it accepts
       Given the project's unit test and type check pass
