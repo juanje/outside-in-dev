@@ -141,6 +141,14 @@ Feature: Retries and escalation
     And the second task of the test-writing agent includes "attempt 2" and "the cart is built with createCart, not with new Cart"
     And the event log of the run records a transition from "TDD_RED" to "CODE_GREEN"
 
+  Scenario: The note of a bug is the next action of the rejection, not a generic one
+    Given the project allows 1 retry for each state
+    And the test-writing agent's first attempt writes a unit test that fails with an error that is not an assertion, and its second attempt writes the unit test "cart lines > adds a line", and it fails because the cart code does not exist yet
+    And the coding agent writes the cart code that passes the unit test and the scenario
+    When I run "oid run --fr FR-CART-02" with a terminal where the human answers "approve", "bug" and "abort", and gives the note "report blocked with the reason wrong_step"
+    Then the second task of the test-writing agent has a "Next:" line that includes "report blocked with the reason wrong_step"
+    And that "Next:" line does not include "fails because the behaviour is missing"
+
   Scenario: The question about the Red of a retried attempt says which attempt it is and which files it changed
     Given the project allows 1 retry for each state
     And the step-writing agent's first attempt writes steps that fail with the error "the cart could not be built", and its second attempt writes steps that fail with the error "the cart lines could not be loaded"

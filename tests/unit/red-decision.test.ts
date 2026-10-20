@@ -80,7 +80,7 @@ describe("the decision about a Red oid cannot classify", () => {
       withNote: {
         failed: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test: the cart is built with createCart',
         evidence: "the failure: Error: boom",
-        next: "fix the unit test so that it fails because the behaviour is missing, then check it with the try tool",
+        next: "follow the person's note (the cart is built with createCart), then check your work with the try tool",
       },
       withoutNote: {
         failed: 'FR-A-01 "Pay": the person judged the failure to be a bug in the unit test',

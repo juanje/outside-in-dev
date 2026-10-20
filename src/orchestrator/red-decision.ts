@@ -50,7 +50,7 @@ function bugRejection({ label, message, step, subject = STEP_DEFINITIONS }: Uncl
   return labelled(label, {
     failed: note === "" ? judged : `${judged}: ${note}`,
     evidence: [`the failure: ${trimFailure(message)}`, ...(step === undefined ? [] : [`failing step: ${step}`])].join(NEWLINE),
-    next: `fix the ${subject} so that ${subject === STEP_DEFINITIONS ? "the scenario" : "it"} fails because the behaviour is missing, then check it with the try tool`,
+    next: note === "" ? `fix the ${subject} so that ${subject === STEP_DEFINITIONS ? "the scenario" : "it"} fails because the behaviour is missing, then check it with the try tool` : `follow the person's note (${note}), then check your work with the try tool`,
   });
 }
 

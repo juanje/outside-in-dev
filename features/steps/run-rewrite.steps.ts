@@ -73,6 +73,23 @@ Then("the second task of the test-writing agent includes {string}", function (th
   assert.ok(task.includes(text), `the task does not include "${text}"`);
 });
 
+const nextLines = new WeakMap<OidWorld, string>();
+
+Then('the second task of the test-writing agent has a "Next:" line that includes {string}', function (this: OidWorld, text: string) {
+  const task = agentOf(this).testRoute.tasks[1];
+  assert.ok(task, "the test-writing agent was asked once");
+  const line = task.split("\n").find((candidate) => candidate.startsWith("Next:"));
+  assert.ok(line !== undefined, `the task has no "Next:" line: ${task}`);
+  nextLines.set(this, line);
+  assert.ok(line.includes(text), line);
+});
+
+Then('that "Next:" line does not include {string}', function (this: OidWorld, text: string) {
+  const line = nextLines.get(this);
+  assert.ok(line !== undefined, 'no "Next:" line was read');
+  assert.ok(!line.includes(text), line);
+});
+
 Then("the run's branch holds the commit {string} once", function (this: OidWorld, subject: string) {
   const subjects = git(worktreePath(this), "log", "--format=%s").split("\n");
   assert.equal(subjects.filter((candidate) => candidate === subject).length, 1, subjects.join("\n"));

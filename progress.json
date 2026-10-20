@@ -2793,6 +2793,10 @@
         {
           "name": "An effort that names a level that does not exist is reported by oid doctor",
           "bdd": "pass"
+        },
+        {
+          "name": "The note of a bug is the next action of the rejection, not a generic one",
+          "bdd": "pass"
         }
       ]
     },
