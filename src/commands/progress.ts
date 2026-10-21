@@ -67,11 +67,10 @@ const RETURN_FROM: Record<string, string[]> = {
   [CYCLE_STEP.tddRed]: [CYCLE_STEP.tddGreen, CYCLE_STEP.refactor, CYCLE_STEP.qualityGate],
 };
 
-function stepFeature(progress: Progress, io: Context, id: string, step: string, cause: string): void {
+function stepFeature(progress: Progress, io: Context, id: string, step: string): void {
   const feature = requireFeature(progress, id, io.paths.progress);
   const reviseExit = feature.cycle_step === CYCLE_STEP.bddRed && step === CYCLE_STEP.qualityGate;
-  if (reviseExit && cause === "") requireReviseExit(io.cwd, io.paths, feature);
-  if (reviseExit && cause !== "") io.stdout(`${id}: ${step} by override: ${cause}\n`);
+  if (reviseExit) requireReviseExit(io.cwd, io.paths, feature);
   progress.features[progress.features.indexOf(feature)] = advanceStep(feature, step, reviseExit ? [CYCLE_STEP.qualityGate] : []);
   saveProgress(io.cwd, progress, io.paths.progress);
   forgetRecords(io.cwd, id);
@@ -203,11 +202,10 @@ export function progressHelp(): string {
   return `\nSubcommands:\n${entries.join("")}`;
 }
 
-/** What `oid progress` takes from the process: its environment, where the orchestrating session's last-resort cause is (ADR-045). */
+/** What a caller may hand to `oid progress`: its environment, which no subcommand reads (oid ignores `OID_OVERRIDE`, ADR-045). */
 export type ProgressServices = { env: Record<string, string | undefined> };
-const OVERRIDE_VARIABLE = "OID_OVERRIDE";
 
-type Action = (progress: Progress, io: Context, operands: string[], env: ProgressServices["env"]) => void;
+type Action =(progress: Progress, io: Context, operands: string[]) => void;
 /** What each subcommand does once its operands are known to be complete; has the same keys as SUBCOMMAND_HELP. */
 const ACTIONS: Record<string, Action> = {
   current: (progress, io) => showCurrent(progress, io),
@@ -215,7 +213,7 @@ const ACTIONS: Record<string, Action> = {
   show: (progress, io, [id]) => showFeature(progress, io, id),
   add: (progress, io, [id, title]) => addFeature(progress, io, id!, title!),
   focus: (progress, io, [id]) => focusFeature(progress, io, id!),
-  step: (progress, io, [id, step], env) => stepFeature(progress, io, id!, step!, (env[OVERRIDE_VARIABLE] ?? "").trim()),
+  step: (progress, io, [id, step]) => stepFeature(progress, io, id!, step!),
   scenario: (progress, io, [status, id, name]) => recordFeatureScenario(progress, io, status!, id!, name!),
   done: (progress, io, [id]) => doneFeature(progress, io, id!),
   unfocus: (progress, io) => unfocus(progress, io),
@@ -223,7 +221,7 @@ const ACTIONS: Record<string, Action> = {
   reopen: (progress, io, operands) => reopenForReview(progress, io, operands.find((operand) => operand !== NO_FOCUS_FLAG)!, operands.includes(NO_FOCUS_FLAG)),
 };
 
-export function runProgress(args: string[], cli: CliIo, services?: ProgressServices): void {
+export function runProgress(args: string[], cli: CliIo): void {
   const [command, ...operands] = args;
   if (!SUBCOMMANDS.includes(command!)) {
     throw commandError("subcommand", command, SUBCOMMANDS);
@@ -237,5 +235,5 @@ export function runProgress(args: string[], cli: CliIo, services?: ProgressServi
   }
   const io: Context = { ...cli, paths: loadProjectPaths(cli.cwd) };
   const progress = loadProgress(io.cwd, io.paths.progress);
-  ACTIONS[command]!(progress, io, operands, services?.env ?? {});
+  ACTIONS[command]!(progress, io, operands);
 }

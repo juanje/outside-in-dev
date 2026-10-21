@@ -176,11 +176,11 @@
           "bdd": "pass"
         },
         {
-          "name": "An override lets a feature with no revise record leave bdd_red for the quality gate",
+          "name": "The variable OID_OVERRIDE does not let a feature with no revise record leave bdd_red for the quality gate",
           "bdd": "pass"
         },
         {
-          "name": "A blank cause in OID_OVERRIDE is not an override",
+          "name": "A scenario added after a return from the quality gate passes at once and is proved with a mutant",
           "bdd": "pass"
         }
       ]

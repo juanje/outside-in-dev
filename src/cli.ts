@@ -40,7 +40,6 @@ const SERVICES: Record<string, () => Promise<Parameters<typeof runCli>[2]>> = {
   doctor: doctorServices,
   run: runServices,
   resume: runServices,
-  progress: async () => ({ env: process.env }),
   verify: async () => ({ pid: process.pid, readStdinSync: () => readFileSync(process.stdin.fd, "utf8") }),
   abort: async () => ({ signal: (pid: number) => process.kill(pid, "SIGTERM") }),
 };
