@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import type { RunServices } from "./orchestrator/services.js";
 import { runCli } from "./run-cli.js";
 import { watchUnsettled } from "./unsettled-exit.js";
@@ -40,7 +41,7 @@ const SERVICES: Record<string, () => Promise<Parameters<typeof runCli>[2]>> = {
   run: runServices,
   resume: runServices,
   progress: async () => ({ env: process.env }),
-  verify: async () => ({ pid: process.pid }),
+  verify: async () => ({ pid: process.pid, readStdinSync: () => readFileSync(process.stdin.fd, "utf8") }),
   abort: async () => ({ signal: (pid: number) => process.kill(pid, "SIGTERM") }),
 };
 

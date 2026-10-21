@@ -19,7 +19,7 @@ const BUILT_CLI = join(REPO_ROOT, "dist", "cli.js");
 /** The terminal an in-process run is given: none, or one that answers the review. */
 export type TerminalInput = { isTTY: false } | { isTTY: true; choose(prompt: string, actions: string[]): Promise<string>; line(prompt: string): Promise<string>; secret?(prompt: string): Promise<string> };
 /** What an in-process `oid run` or `oid setup` is given in place of the real agent, the real terminal, the standard input and the Pi directory. */
-export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; configDir?: string; piAgentDir?: string; readStdin?: () => Promise<string>; detect?: (worktree: string) => FindingDraft[]; runners?: Runners; preflight?: { configDir: string; agentDir: string; sdk?: PiSdk }; signal?: (pid: number) => void; aborted?: () => boolean; env?: Record<string, string | undefined> };
+export type RunServices = { sdk?: PiSdk; input?: TerminalInput; pid: number; agentDir: string; configDir?: string; piAgentDir?: string; readStdin?: () => Promise<string>; readStdinSync?: () => string; detect?: (worktree: string) => FindingDraft[]; runners?: Runners; preflight?: { configDir: string; agentDir: string; sdk?: PiSdk }; signal?: (pid: number) => void; aborted?: () => boolean; env?: Record<string, string | undefined> };
 
 /** `runCli` as the scenarios call it: with the services of the run. */
 const runWithServices: (args: string[], io: CliIo, services?: RunServices) => Promise<number> = runCli;

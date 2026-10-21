@@ -3823,7 +3823,73 @@
     {
       "id": "FR-VERIFY-10",
       "title": "Prove a fixed test with a mutant",
-      "status": "pending"
+      "status": "done",
+      "scenarios": [
+        {
+          "name": "A step fixed with no code of this cycle to remove is proved with a mutant, and the feature returns to where it came from",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test fixed with no code of this cycle to remove is proved with a mutant, and its Red records the diff",
+          "bdd": "pass"
+        },
+        {
+          "name": "The mutant can be given on standard input",
+          "bdd": "pass"
+        },
+        {
+          "name": "A diff that does not apply is refused and nothing changes",
+          "bdd": "pass"
+        },
+        {
+          "name": "A test that still passes with the mutant is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "A failure that is not an assertion of the test is refused",
+          "bdd": "pass"
+        },
+        {
+          "name": "The source is restored when the run of the test does not end",
+          "bdd": "pass"
+        },
+        {
+          "name": "A unit test with no return to a Red is not a fix, and its mutant has nowhere to be recorded",
+          "bdd": "pass"
+        },
+        {
+          "name": "A mutant cannot be given together with a decision",
+          "bdd": "pass"
+        },
+        {
+          "name": "A mutant file that does not exist is a usage error",
+          "bdd": "pass"
+        },
+        {
+          "name": "After a revise, a scenario whose text changed is proved with a mutant and the feature can leave bdd_red",
+          "bdd": "pass"
+        },
+        {
+          "name": "After a revise, a new scenario is proved with a mutant too",
+          "bdd": "pass"
+        },
+        {
+          "name": "After a revise, a scenario whose text changed and has no mutant keeps the feature at bdd_red, and the refusal names it",
+          "bdd": "pass"
+        },
+        {
+          "name": "A mutant counts only for the scenario text it was proved on",
+          "bdd": "pass"
+        },
+        {
+          "name": "A diff that changes anything but the source is refused before it is applied",
+          "bdd": "pass"
+        },
+        {
+          "name": "oid verify --help shows the mutant option",
+          "bdd": "pass"
+        }
+      ]
     },
     {
       "id": "FR-AGENT-10",

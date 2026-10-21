@@ -35,7 +35,8 @@ export interface EvidenceScenario {
 export interface CheckpointDetails {
   step: string;
   feature: string | null;
-  verify: { kind: string; target: string };
+  /** What was verified; `mutant` is the diff that proved a fixed test (ADR-056). */
+  verify: { kind: string; target: string; mutant?: string };
   /** Whether a person or an agent outside oid took the decision that the verification rests on. */
   external: boolean;
   /** The scenarios the verification ran and that passed; none for a Red, which is never evidence of pass. */

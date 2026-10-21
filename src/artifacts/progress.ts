@@ -9,10 +9,17 @@ interface Guard {
   reason: string;
 }
 
+/** A mutant that made a scenario fail on one of its own assertions (ADR-056): the diff, and the normalised text of the scenario it was proved on. */
+export interface Mutant {
+  diff: string;
+  text: string;
+}
+
 interface ScenarioProgress {
   name: string;
   bdd: string;
   guard?: Guard;
+  mutant?: Mutant;
 }
 
 export interface FeatureProgress {
@@ -113,7 +120,7 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
   }
   const existing = feature.scenarios ?? [];
   const scenarios = existing.some((s) => s.name === name)
-    ? existing.map((s) => (s.name === name ? { name, bdd } : s))
+    ? existing.map((s) => (s.name === name ? { name, bdd, ...(s.mutant === undefined ? {} : { mutant: s.mutant }) } : s))
     : [...existing, { name, bdd }];
   return { ...feature, scenarios };
 }
@@ -122,6 +129,13 @@ export function recordScenario(feature: FeatureProgress, name: string, bdd: stri
 export function recordGuard(feature: FeatureProgress, name: string, reason: string): FeatureProgress {
   const passing = recordScenario(feature, name, SCENARIO_STATUS.pass);
   return { ...passing, scenarios: passing.scenarios!.map((scenario) => (scenario.name === name ? { ...scenario, guard: { reason } } : scenario)) };
+}
+
+/** Returns the feature with the mutant recorded next to the status of the scenario, which is added as pending when it is not registered; the input is not modified. */
+export function recordMutant(feature: FeatureProgress, name: string, mutant: Mutant): FeatureProgress {
+  const registered = (feature.scenarios ?? []).some((scenario) => scenario.name === name);
+  const withScenario = registered ? feature : recordScenario(feature, name, SCENARIO_STATUS.pending);
+  return { ...withScenario, scenarios: withScenario.scenarios!.map((scenario) => (scenario.name === name ? { ...scenario, mutant } : scenario)) };
 }
 
 /** Returns the feature back at `bdd_red` with every scenario pending, or the same feature when it is already at `bdd_red`; the input is not modified. */
@@ -166,7 +180,7 @@ const FEATURE_ID_PATTERN = new RegExp(`^${FR_ID_SOURCE}$`);
 const FEATURE_STATUSES: string[] = Object.values(FEATURE_STATUS);
 const REQUIRED_FEATURE_FIELDS = ["id", "title", "status"];
 export const FEATURE_FIELDS = ["id", "title", "status", "cycle_step", "scenarios"];
-export const SCENARIO_FIELDS = ["name", "bdd", "guard"];
+export const SCENARIO_FIELDS = ["name", "bdd", "guard", "mutant"];
 
 /** Whether the value is a JSON object: not null, not a list. */
 export function isObject(value: unknown): value is object {
@@ -196,6 +210,7 @@ function validateScenario(scenario: unknown, path: string): string[] {
     violations.push(`${path}.bdd: invalid value "${bdd}" (allowed: ${SCENARIO_STATUSES.join(", ")})`);
   }
   if ("guard" in scenario) violations.push(...validateGuard(scenario as ScenarioProgress, path));
+  if ("mutant" in scenario) violations.push(...validateMutant((scenario as ScenarioProgress).mutant, `${path}.mutant`));
   return violations;
 }
 
@@ -209,6 +224,20 @@ function validateGuard({ guard, bdd }: ScenarioProgress, path: string): string[]
   if (typeof reason !== TEXT_TYPE) violations.push(`${path}.guard.reason: wrong type (expected string)`);
   else if (reason === "") violations.push(`${path}.guard.reason: must not be empty`);
   if (bdd !== PASSING) violations.push(`${path}.guard: only a passing scenario can be a guard`);
+  return violations;
+}
+
+const MUTANT_PARTS = Object.keys({ diff: true, text: true } satisfies Record<keyof Mutant, true>) as Array<keyof Mutant>;
+
+/** The violations of a mutant: its diff and its scenario text are strings that are not empty. */
+function validateMutant(mutant: unknown, path: string): string[] {
+  if (!isObject(mutant)) return [notAnObject(path)];
+  const violations = unknownFields(mutant, MUTANT_PARTS, `${path}.`);
+  for (const part of MUTANT_PARTS) {
+    const value = (mutant as Mutant)[part];
+    if (typeof value !== TEXT_TYPE) violations.push(`${path}.${part}: wrong type (expected string)`);
+    else if (value === "") violations.push(`${path}.${part}: must not be empty`);
+  }
   return violations;
 }
 

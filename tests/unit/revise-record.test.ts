@@ -4,14 +4,11 @@ import { type FeatureProgress } from "../../src/artifacts/progress.js";
 import { loadProjectPaths } from "../../src/artifacts/project-paths.js";
 import { clearRevise, readRevise, recordRevise, requireReviseExit } from "../../src/artifacts/revise-record.js";
 import { commitAll } from "./git-fixture.js";
+import { FEATURE_FILE, featureText, ID, scenario } from "./revise-fixture.js";
 import { dir, REAL_PROCESS_TIMEOUT_MS, useTempDir, write } from "./temp-project.js";
 
 useTempDir();
 
-const ID = "FR-X-01";
-const FEATURE_FILE = "features/x.feature";
-const scenario = (name: string, step = "Given a thing") => `  Scenario: ${name}\n    ${step}\n`;
-const featureText = (...scenarios: string[]) => `@${ID}\nFeature: Alpha\n\n${scenarios.join("\n")}`;
 const progressOf = (...names: string[]): FeatureProgress => ({ id: ID, title: "Alpha", status: "in_progress", cycle_step: "bdd_red", scenarios: names.map((name) => ({ name, bdd: "pending" })) });
 const ran = (...names: string[]) => names.map((name) => ({ feature: ID, name }));
 

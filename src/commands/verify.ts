@@ -24,12 +24,15 @@ import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, 
 import { commandError } from "../cli-usage.js";
 import { answerReturn, assertNewBehaviour, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type Refusal, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, REFUSED, refuse, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
 import { GREEN, runGreen } from "./verify-green.js";
+import { runMutant } from "./verify-mutant.js";
 import { INTEGRITY, runIntegrity } from "./verify-integrity.js";
 import type { CliIo } from "../cli-io.js";
 
 const RED = "red";
 const SUBCOMMANDS = [RED, GREEN, INTEGRITY];
 const DECIDE_FLAG = "--decide";
+const MUTANT_FLAG = "--mutant";
+const STDIN = "-";
 const DECISIONS: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation, RED_CLASS.testBug, RED_CLASS.environment];
 const VALID_RED_CLASSES: RedClass[] = [RED_CLASS.businessAssertion, RED_CLASS.missingImplementation];
 const LIST_SEPARATOR = ", ";
@@ -91,8 +94,17 @@ function renderDecision(target: string, message: string, { reason, candidate }: 
   ].join(NEWLINE);
 }
 
-/** The test to verify and the class a person or an agent decided, if any. */
-function parseArgs(args: string[]): { target: string; decision: RedClass | undefined } {
+/** The file after `--mutant`, or `-` for standard input; undefined when the option is not given. */
+function mutantSource(options: string[]): string | undefined {
+  const at = options.indexOf(MUTANT_FLAG);
+  if (at < 0) return undefined;
+  const source = options[at + 1];
+  if (source === undefined || (source !== STDIN && source.startsWith("--"))) throw new ProgressError(`${MUTANT_FLAG} needs a file, or ${STDIN} for standard input`);
+  return source;
+}
+
+/** The test to verify, the class a person or an agent decided, if any, and where the mutant is, if one is given. */
+function parseArgs(args: string[]): { target: string; decision: RedClass | undefined; mutant: string | undefined } {
   const [subcommand, target, ...options] = args;
   if (subcommand !== RED) throw commandError("subcommand", subcommand, SUBCOMMANDS);
   if (target === undefined) throw new ProgressError(`missing test: oid verify red "<test file> > <test name>"`);
@@ -101,7 +113,20 @@ function parseArgs(args: string[]): { target: string; decision: RedClass | undef
   if (decision !== undefined && !DECISIONS.includes(decision as RedClass)) {
     throw new ProgressError(`unknown decision ${decision}; valid decisions: ${DECISIONS.join(LIST_SEPARATOR)}`);
   }
-  return { target, decision: decision as RedClass | undefined };
+  const mutant = mutantSource(options);
+  if (mutant !== undefined && decideAt >= 0) throw new ProgressError(`${MUTANT_FLAG} cannot be used with ${DECIDE_FLAG}`);
+  return { target, decision: decision as RedClass | undefined, mutant };
+}
+
+/** The diff of the mutant: the file given, or standard input for `-`. */
+function readMutant(io: CliIo, source: string, services: VerifyServices | undefined): string {
+  if (source === STDIN) {
+    if (services?.readStdinSync === undefined) throw new ProgressError(`${MUTANT_FLAG} ${STDIN}: standard input is not available`);
+    return services.readStdinSync();
+  }
+  const diff = readText(io.cwd, source);
+  if (diff === undefined) throw new ProgressError(`mutant file ${source} not found`);
+  return diff;
 }
 
 /** A verdict that says whether the failure is a valid Red. */
@@ -324,14 +349,14 @@ function answerBeforeRunning(io: CliIo, config: ProjectConfig, parsed: Target, t
 /** Runs one unit test or one scenario and says whether it is a valid Red: exit 0 when it is, 1 when it is not, 2 when a decision is needed. With `--decide`, answers the failure the last run recorded instead. */
 export function runVerify(io: CliIo, args: string[], services?: VerifyServices): number {
   if (args[0] === INTEGRITY) return runIntegrity(io, args.slice(1));
-  return services === undefined ? runVerifying(io, args) : withVerifyLock(io.cwd, services, () => runVerifying(io, args));
+  return services === undefined ? runVerifying(io, args) : withVerifyLock(io.cwd, services, () => runVerifying(io, args, services));
 }
 
 /** Runs a green or a red, which hold the verify lock of the working copy. */
-function runVerifying(io: CliIo, args: string[]): number {
+function runVerifying(io: CliIo, args: string[], services?: VerifyServices): number {
   if (args[0] === GREEN) return runGreen(io, args.slice(1));
   try {
-    return runRed(io, args);
+    return runRed(io, args, services);
   } catch (error) {
     if (!(error instanceof CommandTimeoutError)) throw error;
     const target = args[1] ?? "";
@@ -342,10 +367,12 @@ function runVerifying(io: CliIo, args: string[]): number {
 }
 
 /** Runs one unit test or one scenario for `oid verify red`, or answers the failure it recorded. */
-function runRed(io: CliIo, args: string[]): number {
-  const { target, decision } = parseArgs(args);
+function runRed(io: CliIo, args: string[], services?: VerifyServices): number {
+  const { target, decision, mutant } = parseArgs(args);
+  const diff = mutant === undefined ? undefined : readMutant(io, mutant, services);
   const parsed = parseTarget(io.cwd, target);
   const config = loadVerifyConfig(io.cwd);
+  if (diff !== undefined) return runMutant({ io, config, target, parsed, diff, observe: (what) => (what.kind === TARGET.test ? observeUnit(io.cwd, config, what.test) : observeBdd(io.cwd, config, what.scenario)) });
   if (decision !== undefined) return answerRecorded(io, config, target, decision);
   const step = parsed.kind === TARGET.test ? TDD_RED : BDD_RED;
   const early = answerBeforeRunning(io, config, parsed, target);

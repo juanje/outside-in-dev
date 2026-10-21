@@ -45,11 +45,13 @@ function recordedPids(world: OidWorld): number[] {
   return existsSync(file) ? readFileSync(file, "utf8").trim().split(/\s+/).filter(Boolean).map(Number) : [];
 }
 
-Before({ tags: "@FR-VERIFY-07" }, function (this: OidWorld) {
+const RUNNER_TAGS = "@FR-VERIFY-07 or @FR-VERIFY-10";
+
+Before({ tags: RUNNER_TAGS }, function (this: OidWorld) {
   recordings.set(this, mkdtempSync(join(tmpdir(), "oid-hang-")));
 });
 
-After({ tags: "@FR-VERIFY-07" }, function (this: OidWorld) {
+After({ tags: RUNNER_TAGS }, function (this: OidWorld) {
   for (const pid of recordedPids(this)) if (isRunning(pid)) process.kill(pid, "SIGKILL");
   rmSync(recordings.get(this)!, { recursive: true, force: true });
 });

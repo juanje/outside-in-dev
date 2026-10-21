@@ -56,13 +56,22 @@ export function clearRevise(cwd: string, feature: string): void {
 
 const LIST_SEPARATOR = ", ";
 
-/** What differs between the scenarios at the revise and now: each one added, or changed in text or tags. Removing is not a difference. */
-function differences(before: ScenarioState[], now: ScenarioState[]): string[] {
+/** The normalised text of the scenario `name` of `feature` as the feature files hold it now; undefined when they hold none by that name. */
+export function scenarioText(cwd: string, paths: ProjectPaths, feature: FeatureProgress, name: string): string | undefined {
+  const found = scenariosOf(cwd, paths, feature).find((scenario) => scenario.name === name);
+  return found === undefined || found.text === "" ? undefined : found.text;
+}
+
+/** What differs between the scenarios at the revise and now: each one added, or changed in text or tags, unless a mutant proved on its text now stands for it. Removing is not a difference. */
+function differences(before: ScenarioState[], now: ScenarioState[], feature: FeatureProgress): string[] {
   return now.flatMap((scenario) => {
     const was = before.find(({ name }) => name === scenario.name);
-    if (was === undefined) return [`"${scenario.name}" was added`];
-    const same = was.text === scenario.text && JSON.stringify([...was.tags].sort()) === JSON.stringify([...scenario.tags].sort());
-    return same ? [] : [`"${scenario.name}" changed`];
+    const same = was !== undefined && was.text === scenario.text && JSON.stringify([...was.tags].sort()) === JSON.stringify([...scenario.tags].sort());
+    if (same) return [];
+    const what = was === undefined ? "was added" : "changed";
+    const mutant = feature.scenarios?.find(({ name }) => name === scenario.name)?.mutant;
+    if (mutant === undefined) return [`"${scenario.name}" ${what} and has no mutant`];
+    return mutant.text === scenario.text ? [] : [`"${scenario.name}" ${what} after its mutant was proved`];
   });
 }
 
@@ -85,7 +94,7 @@ export function requireReviseExit(cwd: string, paths: ProjectPaths, feature: Fea
   const code = changedSince(cwd, record).filter((file) => isInsideSource(paths.source, file) || isInsideSource(paths.steps, file));
   if (code.length > 0) throw new ProgressError(`${refusal}: source or step files changed since the revise: ${code.join(LIST_SEPARATOR)}`);
   const now = scenariosOf(cwd, paths, feature);
-  const changed = differences(record.scenarios, now);
-  if (changed.length > 0) throw new ProgressError(`${refusal}: scenarios differ from the revise (they may only be removed): ${changed.join(LIST_SEPARATOR)}`);
+  const changed = differences(record.scenarios, now, feature);
+  if (changed.length > 0) throw new ProgressError(`${refusal}: scenarios differ from the revise (they may only be removed, unless a mutant proves them): ${changed.join(LIST_SEPARATOR)}`);
   requireGreenRan(cwd, feature.id, now.map(({ name }) => name), refusal, greenCommand(cwd, paths, feature.id));
 }

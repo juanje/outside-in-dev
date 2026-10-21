@@ -7,8 +7,8 @@ import { readText } from "./project-json.js";
 
 const LOCK_FILE = ".outside-in/verify.lock";
 
-/** What a verification takes from the process that runs it: its id, and how to tell whether another process is running. */
-export type VerifyServices = { pid: number; isRunning?: (pid: number) => boolean };
+/** What a verification takes from the process that runs it: its id, how to tell whether another process is running, and how to read its standard input (a mutant given with `--mutant -`). */
+export type VerifyServices = { pid: number; isRunning?: (pid: number) => boolean; readStdinSync?: () => string };
 
 /** Runs `work` holding the verify lock of the working copy, so that one `oid verify` runs at a time; a lock whose process is gone is removed, and the lock is released when the work throws. */
 export function withVerifyLock<T>(cwd: string, { pid, isRunning = processExists }: VerifyServices, work: () => T): T {

@@ -96,15 +96,16 @@ export function returnedFeature(cwd: string, progressFile: string, step: string 
 }
 
 /** Prints what judging the scenario or test found and, when the feature returns, records the checkpoint and moves it: exit 0 when it returned, 1 when it did not. */
-export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: typeof NO_CODE }>, subject: ReturnKind = SCENARIO_RETURN): number {
+export function answerReturn(io: CliIo, progressFile: string, feature: string, target: string, judged: Exclude<Judgement, { kind: typeof NO_CODE }>, subject: ReturnKind = SCENARIO_RETURN, mutant?: string): number {
   if (judged.kind === REFUSED) {
     const refusal = rejection({ failed: `red: not returned: ${judged.reason}`, evidence: `feature ${feature}: ${subject.noun} ${target}`, next: `${judged.action}, then run oid verify red "${target}" again` });
     io.stdout(`${renderRejection(refusal)}\n`);
     return 1;
   }
-  recordCheckpoint(io.cwd, { step: subject.step, feature, verify: { kind: "red", target }, external: false, date: new Date(), returned: true });
+  recordCheckpoint(io.cwd, { step: subject.step, feature, verify: { kind: "red", target, ...(mutant === undefined ? {} : { mutant }) }, external: false, date: new Date(), returned: true });
   moveFeature(io.cwd, progressFile, feature, judged.to);
-  io.stdout(`red: returned to ${judged.to}: the ${subject.noun} passes, src/ is as it was at the return, and it fails without this cycle's code (${judged.files.join(LIST_SEPARATOR)})\n`);
+  const fails = mutant === undefined ? "without this cycle's code" : "with the mutant on an assertion";
+  io.stdout(`red: returned to ${judged.to}: the ${subject.noun} passes, src/ is as it was at the return, and it fails ${fails} (${judged.files.join(LIST_SEPARATOR)})\n`);
   return 0;
 }
 
