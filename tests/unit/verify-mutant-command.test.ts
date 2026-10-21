@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { recordCheckpoint } from "../../src/artifacts/checkpoint.js";
@@ -27,11 +27,11 @@ const diff = (name: string, from: string, to: string): string => `--- a/${name}\
 const MUTANT = diff("src/a.ts", "export const a = 2;", "export const a = 3;");
 
 /** A project whose code of an earlier cycle makes the test pass, and whose feature went back to tdd_red from tdd_green with the test fixed. */
-async function fixedTestOfAnEarlierCycle(step = "tdd_red"): Promise<void> {
+async function fixedTestOfAnEarlierCycle(step = "tdd_red", code = "export const a = 2;\n"): Promise<void> {
   writeMinimalConfig({ commands: COMMANDS, paths: PATHS });
   write("runner.mjs", runner);
   write("tests/unit/a.test.ts", "// the test\n");
-  write("src/a.ts", "export const a = 2;\n");
+  write("src/a.ts", code);
   writeProgressFile({ current_focus: FEATURE, features: [{ id: FEATURE, title: "Alpha", status: "in_progress", cycle_step: "tdd_green", scenarios: [] }] });
   commitAll();
   recordCheckpoint(dir, RED);
@@ -93,6 +93,36 @@ describe("oid verify red <test> --mutant", () => {
     expect(run.exitCode).toBe(1);
     expect(run.stdout).toContain("red: mutant refused: tests/unit/a.test.ts is not source: the mutant may change only the source");
     expect(read("tests/unit/a.test.ts")).toBe("// the fixed test\n");
+  });
+
+  it("refuses a diff that renames a test file into the source, naming the old path, and leaves both files as they were", { timeout: REAL_PROCESS_TIMEOUT_MS }, async () => {
+    await fixedTestOfAnEarlierCycle();
+    write("rename.diff", "diff --git a/tests/unit/a.test.ts b/src/b.ts\nsimilarity index 100%\nrename from tests/unit/a.test.ts\nrename to src/b.ts\n");
+    const run = await verify("--mutant", "rename.diff");
+    expect(run.exitCode).toBe(1);
+    expect(run.stdout).toContain("red: mutant refused: tests/unit/a.test.ts is not source: the mutant may change only the source");
+    expect([read("tests/unit/a.test.ts"), existsSync(join(dir, "src/b.ts"))]).toEqual(["// the fixed test\n", false]);
+  });
+
+  it("refuses a target that fails as it is, also when it fails on an assertion with the mutant, recording nothing", { timeout: REAL_PROCESS_TIMEOUT_MS }, async () => {
+    await fixedTestOfAnEarlierCycle("tdd_red", "export const a = 1;\n");
+    write("mutant.diff", diff("src/a.ts", "export const a = 1;", "export const a = 3;"));
+    const run = await verify("--mutant", "mutant.diff");
+    expect(run.exitCode).toBe(1);
+    expect(run.stdout).toContain("red: mutant refused: the test does not pass");
+    expect(cycleStep()).toBe("tdd_red");
+    expect(read(`.outside-in/checkpoints/${FEATURE}.json`)).not.toContain("mutant");
+    expect(read("src/a.ts")).toBe("export const a = 1;\n");
+  });
+
+  it("refuses a mutant when source changed since the return to a Red, naming the file, recording nothing", { timeout: REAL_PROCESS_TIMEOUT_MS }, async () => {
+    await fixedTestOfAnEarlierCycle();
+    write("src/a.ts", "export const a = 2; // changed after the return\n");
+    const run = await verify("--mutant", "mutant.diff");
+    expect(run.exitCode).toBe(1);
+    expect(run.stdout).toContain("red: mutant refused: src/a.ts changed since the return");
+    expect(cycleStep()).toBe("tdd_red");
+    expect(read(`.outside-in/checkpoints/${FEATURE}.json`)).not.toContain("mutant");
   });
 
   it("refuses a test of a feature that did not go back to a Red, without running it", { timeout: REAL_PROCESS_TIMEOUT_MS }, async () => {

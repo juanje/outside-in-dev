@@ -7,27 +7,35 @@ import { NEWLINE } from "./lines.js";
 /** A mutant that cannot be applied, with the reason. */
 export class MutantError extends Error {}
 
-const OLD_HEADER = "--- ";
-const NEW_HEADER = "+++ ";
-const NO_FILE = "/dev/null";
-const SIDE_PREFIX = /^[ab]\//;
 const TAB = "\t";
+const NUL = "\0";
+const NUMSTAT_FIELDS = 3;
+const NAME_FIELD = 2;
+/** After a numstat record with an empty name, the old and the new name are the next two tokens. */
+const OLD_NAME = 1;
+const NEW_NAME = 2;
+const SOURCE_OF_MOVE = /^(?:rename|copy) from /;
 
-/** The path a diff header names, without its `a/` or `b/` and without the timestamp some tools append. */
-function headerPath(header: string, marker: string): string {
-  return header.slice(marker.length).split(TAB)[0]!.replace(SIDE_PREFIX, "");
+/** The paths git itself says a diff touches (`git apply --numstat -z`), a rename's new path included and a binary patch too; nothing when git rejects the text. */
+function numstatPaths(cwd: string, diff: string): string[] {
+  const listed = runGit(cwd, ["apply", "--numstat", "-z", "-"], diff);
+  if (!listed.ok) return [];
+  const tokens = listed.text.split(NUL);
+  const names: string[] = [];
+  for (let at = 0; at < tokens.length; at++) {
+    const fields = tokens[at]!.split(TAB);
+    if (fields.length < NUMSTAT_FIELDS) continue;
+    const name = fields.slice(NAME_FIELD).join(TAB);
+    if (name === "") names.push(tokens[at + OLD_NAME] ?? "", tokens[at + NEW_NAME] ?? "");
+    else names.push(name);
+  }
+  return names.filter((name) => name !== "");
 }
 
-/** The files a diff changes, in the order it names them, each once: a file it creates and a file it deletes included. */
-export function mutantFiles(diff: string): string[] {
-  const lines = diff.split(NEWLINE);
-  const names = lines.flatMap((line, at) => {
-    const next = lines[at + 1] ?? "";
-    if (!line.startsWith(OLD_HEADER) || !next.startsWith(NEW_HEADER)) return [];
-    const created = headerPath(next, NEW_HEADER);
-    return [created === NO_FILE ? headerPath(line, OLD_HEADER) : created];
-  });
-  return [...new Set(names)];
+/** The files a diff changes, each once: the paths git lists, then the old path of each rename and the source of each copy, which git lists only for the new one. */
+export function mutantFiles(diff: string, cwd: string): string[] {
+  const moved = diff.split(NEWLINE).filter((line) => SOURCE_OF_MOVE.test(line)).map((line) => line.replace(SOURCE_OF_MOVE, ""));
+  return [...new Set([...numstatPaths(cwd, diff), ...moved])];
 }
 
 /** Puts `bytes` back in `name`, or removes the file when there were none. */
@@ -43,7 +51,7 @@ function put(cwd: string, name: string, bytes: Buffer | undefined): void {
 
 /** Runs `run` with the diff applied to the project and puts the files it names back byte for byte afterwards, also when `run` throws; a diff that does not apply is a `MutantError` and `run` does not start. */
 export function withMutant<T>(cwd: string, diff: string, run: () => T): T {
-  const originals = mutantFiles(diff).map((name) => ({ name, bytes: existsSync(join(cwd, name)) ? readFileSync(join(cwd, name)) : undefined }));
+  const originals = mutantFiles(diff, cwd).map((name) => ({ name, bytes: existsSync(join(cwd, name)) ? readFileSync(join(cwd, name)) : undefined }));
   try {
     if (!runGit(cwd, ["apply", "--whitespace=nowarn", "-"], diff).ok) throw new MutantError("the diff does not apply");
     return run();

@@ -13,13 +13,34 @@ const CHANGE = ["--- a/src/a.ts", "+++ b/src/a.ts", "@@ -1 +1 @@", "-export cons
 const CREATE = ["--- /dev/null", "+++ b/src/new.ts", "@@ -0,0 +1 @@", "+export const n = 1;", ""].join("\n");
 const DELETE = ["--- a/src/b.ts", "+++ /dev/null", "@@ -1 +0,0 @@", "-export const b = 1;", ""].join("\n");
 
+const PURE_RENAME = ["diff --git a/tests/t.ts b/src/t.ts", "similarity index 100%", "rename from tests/t.ts", "rename to src/t.ts", ""].join("\n");
+const RENAME_WITH_CHANGE = [
+  "diff --git a/tests/u.ts b/src/u.ts",
+  "similarity index 50%",
+  "rename from tests/u.ts",
+  "rename to src/u.ts",
+  "--- a/tests/u.ts",
+  "+++ b/src/u.ts",
+  "@@ -1 +1 @@",
+  "-export const u = 1;",
+  "+export const u = 2;",
+  "",
+].join("\n");
+
 describe("mutantFiles", () => {
   it("lists each file the diff changes once, the new one and the deleted one included", () => {
-    expect(mutantFiles(`${CHANGE}${CREATE}${DELETE}${CHANGE}`)).toEqual(["src/a.ts", "src/new.ts", "src/b.ts"]);
+    expect(mutantFiles(`${CHANGE}${CREATE}${DELETE}${CHANGE}`, dir)).toEqual(["src/a.ts", "src/new.ts", "src/b.ts"]);
   });
 
   it("lists nothing for a text that holds no diff", () => {
-    expect(mutantFiles("not a diff\n")).toEqual([]);
+    expect(mutantFiles("not a diff\n", dir)).toEqual([]);
+  });
+
+  it("lists both the old and the new path of a rename, with or without a change of content", () => {
+    expect([PURE_RENAME, RENAME_WITH_CHANGE].map((diff) => mutantFiles(diff, dir).sort())).toEqual([
+      ["src/t.ts", "tests/t.ts"],
+      ["src/u.ts", "tests/u.ts"],
+    ]);
   });
 });
 
@@ -45,6 +66,15 @@ describe("withMutant", () => {
     const seen = withMutant(dir, `${CREATE}${DELETE}`, () => [existsSync(join(dir, "src/new.ts")), existsSync(join(dir, "src/b.ts"))]);
     expect(seen).toEqual([true, false]);
     expect([existsSync(join(dir, "src/new.ts")), read("src/b.ts")]).toEqual([false, "export const b = 1;\n"]);
+  });
+
+  it("brings back the old path of a rename and removes the new one", { timeout: REAL_PROCESS_TIMEOUT_MS }, () => {
+    write("tests/t.ts", "export const t = 1;\n");
+    write("tests/u.ts", "export const u = 1;\n");
+    const seen = withMutant(dir, `${PURE_RENAME}${RENAME_WITH_CHANGE}`, () => ["tests/t.ts", "src/t.ts", "tests/u.ts", "src/u.ts"].map((name) => existsSync(join(dir, name))));
+    expect(seen).toEqual([false, true, false, true]);
+    expect(["tests/t.ts", "src/t.ts", "tests/u.ts", "src/u.ts"].map((name) => existsSync(join(dir, name)))).toEqual([true, false, true, false]);
+    expect([read("tests/t.ts"), read("tests/u.ts")]).toEqual(["export const t = 1;\n", "export const u = 1;\n"]);
   });
 
   it("refuses a diff that does not apply, without running anything and leaving the source as it was", { timeout: REAL_PROCESS_TIMEOUT_MS }, () => {

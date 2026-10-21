@@ -71,7 +71,7 @@ function recordForScenario(request: MutantRequest, feature: string, scenario: { 
 /** Why the proof cannot go on before anything runs: the diff is not fit, the feature did not go back to a Red, or source changed since it did. */
 function refusalBeforeRunning(request: MutantRequest, returned: string | undefined): { reason: string; action: string } | undefined {
   const { config, parsed, io } = request;
-  const unfitDiff = unfit(mutantFiles(request.diff), config.paths.source);
+  const unfitDiff = unfit(mutantFiles(request.diff, io.cwd),config.paths.source);
   if (unfitDiff !== undefined) return unfitDiff;
   if (returned === undefined) {
     return parsed.kind === TARGET.test ? { reason: "the feature did not go back to a Red", action: "go back with oid progress step <FR> tdd_red, fix the test, then run this again" } : undefined;
@@ -114,7 +114,7 @@ export function runMutant(request: MutantRequest): number {
 /** Records the proof of a target that passes and fails on an assertion with the mutant: the move back for a feature that went back to a Red, the diff in the progress for a scenario. */
 function prove(request: MutantRequest, returned: string | undefined): number {
   const { io, config, parsed, target, diff } = request;
-  const files = mutantFiles(diff);
+  const files = mutantFiles(diff, io.cwd);
   const comeBack = (feature: string, subject: ReturnKind): number =>
     answerReturn(io, config.paths.progress, feature, target, { kind: RETURNED, to: readReturn(io.cwd, feature)!.from, files }, subject, diff);
   if (parsed.kind === TARGET.test) return comeBack(returned!, TEST_RETURN);
