@@ -150,7 +150,7 @@ Report unused exports, files and dependencies, unused locals and commented-out c
 
 ### FR-MET-04: Detect magic values
 
-Report numeric literals and repeated strings that should be named constants, excluding trivial values, test files and Node encoding names (`utf8`, `hex`, `base64`...), which are not repeated values.
+Report numeric literals and repeated strings that should be named constants, excluding trivial values, test files, Node encoding names (`utf8`, `hex`, `base64`...) and the values of Node's process options (`ignore`, `pipe`, `inherit` for stdio; signal names such as `SIGTERM`), which name what Node's API accepts and are not repeated values.
 
 ### FR-MET-05: Detect documentation drift
 

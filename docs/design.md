@@ -379,7 +379,7 @@ Bundled with oid; they do not depend on the project's own tools.
 | `complexity` | Cyclomatic complexity or nesting above the limit (10 and 4 by default) | Own analysis, compiler API |
 | `duplication` | Duplicated blocks, across files too (6 lines and 50 tokens by default) | `jscpd` |
 | `dead_code` | Unused exports, files and dependencies; unused locals; commented-out code | `knip`; own analysis |
-| `magic_value` | Numeric literals and repeated strings that should be named constants (not 0, 1, -1, tests or encoding names; strings repeated 3 times) | Own analysis on the AST |
+| `magic_value` | Numeric literals and repeated strings that should be named constants (not 0, 1, -1, tests, encoding names or Node's process option values such as stdio modes and signal names; strings repeated 3 times) | Own analysis on the AST |
 | `doc_drift` | JSDoc `@param` that does not match the signature; names cited in `README.md` and `docs/` that no longer exist | Own analysis |
 
 A finding is `{ id, category, file, range, symbol?, detail, related? }`; `related` links the parts of a duplication. Limits are configurable in `refactor.detectors` (§16). Findings present at the start are the baseline (§6.14): the cycle only deals with what it adds; existing debt is `oid tidy`'s.
