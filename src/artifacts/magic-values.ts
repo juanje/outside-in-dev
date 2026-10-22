@@ -75,6 +75,12 @@ interface Occurrence {
 /** The Node encoding names: they name a format, so repeating one is not a magic value. */
 const ENCODING_NAMES = new Set("utf8 utf-8 ascii base64 base64url hex latin1 binary ucs2 ucs-2 utf16le utf-16le".split(/\s/));
 
+/** The values of Node's process options (stdio modes, signal names): they name what Node's API accepts, so repeating one is not a magic value. */
+const PROCESS_OPTION_VALUES = new Set(
+  ("ignore pipe inherit overlapped " +
+    "SIGHUP SIGINT SIGQUIT SIGILL SIGTRAP SIGABRT SIGIOT SIGBUS SIGFPE SIGKILL SIGUSR1 SIGSEGV SIGUSR2 SIGPIPE SIGALRM SIGTERM SIGCHLD SIGSTKFLT SIGCONT SIGSTOP SIGTSTP SIGTTIN SIGTTOU SIGURG SIGXCPU SIGXFSZ SIGVTALRM SIGPROF SIGWINCH SIGIO SIGPOLL SIGPWR SIGSYS").split(" "),
+);
+
 /** A letter or a digit of any script: a string without one (a separator, punctuation) is formatting, not a value. */
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
@@ -84,7 +90,7 @@ function stringsOf(text: string): (LineRange & { value: string })[] {
   const found: (LineRange & { value: string })[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isLiteralTypeNode(node)) return;
-    if (ts.isStringLiteral(node) && LETTER_OR_DIGIT.test(node.text) && !ENCODING_NAMES.has(node.text) && !isName(node) && !isNamedConstant(node) && !isTypeofComparison(node)) found.push({ value: node.text, ...linesOf(file, node) });
+    if (ts.isStringLiteral(node) && LETTER_OR_DIGIT.test(node.text) && !ENCODING_NAMES.has(node.text) && !PROCESS_OPTION_VALUES.has(node.text) &&!isName(node) && !isNamedConstant(node) && !isTypeofComparison(node)) found.push({ value: node.text, ...linesOf(file, node) });
     ts.forEachChild(node, visit);
   };
   visit(file);

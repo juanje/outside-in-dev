@@ -98,6 +98,13 @@ describe("findRepeatedStrings", () => {
     expect(findRepeatedStrings(files, 2).map(({ detail }) => detail)).toEqual(['string "x" repeated 2 times']);
   });
 
+  it("does not count the values of Node's process options: stdio modes and signal names", () => {
+    const names = ["ignore", "pipe", "inherit", "overlapped", "SIGTERM", "SIGKILL", "SIGINT", "SIGHUP", "SIGQUIT", "SIGUSR1", "SIGUSR2"];
+    const text = `export const f = [${names.map((n) => `"${n}"`).join(", ")}, "x"];\n`;
+    const files = [{ file: "src/a.ts", text }, { file: "src/b.ts", text }, { file: "src/c.ts", text }];
+    expect(findRepeatedStrings(files, 3).map(({ detail }) => detail)).toEqual(['string "x" repeated 3 times']);
+  });
+
   it("does not count the direct initializer of a const", () => {
     const files = [{ file: "src/a.ts", text: 'const A = "k";\nconst B = "k";\nconst C = "k";\nexport const list = ["x", "x", "x"];\n' }];
     expect(findRepeatedStrings(files, 3).map(({ detail }) => detail)).toEqual(['string "x" repeated 3 times']);
