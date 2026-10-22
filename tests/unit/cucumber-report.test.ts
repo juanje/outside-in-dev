@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failingFile, normalizeCucumberReport } from "../../src/artifacts/cucumber-report.js";
+import { failingFile, failingFrame, normalizeCucumberReport } from "../../src/artifacts/cucumber-report.js";
 import { scenarioMessages } from "./cucumber-messages.js";
 
 describe("normalizeCucumberReport", () => {
@@ -19,6 +19,26 @@ describe("normalizeCucumberReport", () => {
     const [first, second] = normalizeCucumberReport(scenarioMessages([typed, coded]));
     expect(first!.message).toBe("AssertionError\n    at World.<anonymous> (/p/features/steps/s.ts:4:10)");
     expect(second).toEqual(first);
+  });
+});
+
+describe("failingFrame", () => {
+  const chaiFrames = (modules: string) =>
+    [
+      "AssertionError: expected [] to have a length of 1 but got +0",
+      `    at Proxy.<anonymous> (file://${modules}/@vitest/expect/dist/index.js:1257:20)`,
+      `    at Proxy.<anonymous> (file://${modules}/@vitest/expect/dist/index.js:1029:14)`,
+      `    at Proxy.methodWrapper (${modules}/chai/index.js:1686:25)`,
+      "    at /home/u/proj/tests/unit/event-bus.test.ts:47:25",
+      `    at file://${modules}/@vitest/runner/dist/chunk-hooks.js:155:11`,
+    ].join("\n");
+
+  it("skips the frames of node_modules inside the project and gives the test line", () => {
+    expect(failingFrame(chaiFrames("/home/u/proj/node_modules"), "/home/u/proj")).toEqual({ file: "tests/unit/event-bus.test.ts", line: 47 });
+  });
+
+  it("skips the frames of a node_modules outside the project and gives the test line", () => {
+    expect(failingFrame(chaiFrames("/home/u/shared/node_modules"), "/home/u/proj")).toEqual({ file: "tests/unit/event-bus.test.ts", line: 47 });
   });
 });
 

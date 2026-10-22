@@ -1,4 +1,4 @@
-import { relative } from "node:path";
+import { relative, sep } from "node:path";
 import { z } from "zod";
 import { ProgressError } from "./progress.js";
 import { firstLine, NEWLINE } from "./lines.js";
@@ -169,13 +169,17 @@ export function observeScenario(steps: ScenarioStep[], target: { file: string; l
   return failed === undefined ? { kind: FAILURE.passed } : { kind: FAILURE.error, message: failed.message };
 }
 
-const STACK_FRAME = /^\s+at .*?\(?(?<path>\/[^():]+):(?<line>\d+):\d+\)?$/m;
+const STACK_FRAME = /^\s+at .*?\(?(?:file:\/\/)?(?<path>\/[^():]+):(?<line>\d+):\d+\)?$/gm;
 
-/** The file, relative to the project, and the line of the first stack frame of a failure message; undefined when it has none or the file is outside the project. */
+const DEPENDENCY_DIRECTORY = "node_modules";
+
+/** The file, relative to the project, and the line of the first stack frame of a failure message that is in the project and not in node_modules (the first frames of a chai matcher are the library's own); undefined when there is none. */
 export function failingFrame(message: string, cwd: string): { file: string; line: number } | undefined {
-  const { path, line } = STACK_FRAME.exec(message)?.groups ?? {};
-  const file = path === undefined ? undefined : relative(cwd, path);
-  return file === undefined || file.startsWith("..") ? undefined : { file, line: Number(line) };
+  for (const { groups } of message.matchAll(STACK_FRAME)) {
+    const file = relative(cwd, groups!.path!);
+    if (!file.startsWith("..") && !file.split(sep).includes(DEPENDENCY_DIRECTORY)) return { file, line: Number(groups!.line) };
+  }
+  return undefined;
 }
 
 /** The file of the first stack frame of a failure message, relative to the project; undefined when it has none or the file is outside the project. */
