@@ -827,7 +827,7 @@ oid's agents run on Pi today (ADR-002). Some people will want them to run in Cla
 | `oid progress <subcommand>` | Reads and writes `progress.json` (below). |
 | `oid check [--json]` | Consistency of `SPEC.md`, traceability and progress (§4.3), without running anything else (FR-CHECK). |
 | `oid metrics [--changed] [--baseline]` | Code-health findings and snapshot (§6.8, FR-MET). |
-| `oid verify red <target> [--decide <class> \| --mutant <file\|->]` | The Red gate (§6.4) on a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>` or its name). `--mutant` proves a test with no possible Red with a mutant oid applies and restores (ADR-056). |
+| `oid verify red <target> [--decide <class> \| --mutant <file\|->]` | The Red gate (§6.4) on a unit test (`"<file> > <name>"`) or a scenario (`<file>:<line>`, its name, or `"<feature file> > <name>"`). `--mutant` proves a test with no possible Red with a mutant oid applies and restores (ADR-056). |
 | `oid verify green [<target>…]` | A green of the features it verifies (ADR-030). |
 | `oid verify integrity [--step S] [--path FILE]` | Integrity (§6.5); `--path` answers before a file is changed. |
 | `oid try <target> [--dry-run]` | Runs one test or scenario, then the type check and the linter on the changed files; records nothing (FR-VERIFY-09). |

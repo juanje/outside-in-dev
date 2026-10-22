@@ -172,7 +172,7 @@ Findings present when a run starts are recorded as a baseline; checks then judge
 
 ### FR-VERIFY-02: Verify a BDD Red
 
-`oid verify red <feature>:<line>` (or `oid verify red "<scenario name>"`, when one scenario has that name) does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way. A `<feature>:<line>` where no scenario starts is a usage error: exit 1 with the message, no classification and no observation recorded. Only one `oid verify` runs at a time per working copy: it holds `.outside-in/verify.lock` with its PID, a second one is refused naming the PID and the file, and a lock whose process no longer exists is removed.
+`oid verify red <feature>:<line>` (or `oid verify red "<scenario name>"`, when one scenario has that name, or `oid verify red "<feature> > <scenario name>"`, the scenario of that name in that feature file) does the same for a scenario. Undefined, pending or ambiguous steps are not Red: the steps must run and fail. `--decide` answers the recorded failure of the scenario in the same way. A `<feature>:<line>` where no scenario starts is a usage error: exit 1 with the message, no classification and no observation recorded. Only one `oid verify` runs at a time per working copy: it holds `.outside-in/verify.lock` with its PID, a second one is refused naming the PID and the file, and a lock whose process no longer exists is removed.
 
 ### FR-VERIFY-03: Check that steps load
 
