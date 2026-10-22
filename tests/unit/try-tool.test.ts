@@ -52,6 +52,18 @@ describe("tryTool", () => {
     expect(calls).toEqual(["tests/a.test.ts > adds up"]);
   });
 
+  it("runs the scenario of a target with a feature file and a scenario name, not a unit test, and says a name the file does not hold is a mistake in the target", async () => {
+    write("features/x.feature", "Feature: X\n\n  Scenario: Adds up\n    Given a sum\n");
+    const scenarios: unknown[] = [];
+    const runners: Runners = { ...passingRunners(), tryBddScenario: (_cwd, _command, scenario) => (scenarios.push(scenario), { exitCode: 1, report: undefined, stderr: "" }) };
+    const config = { paths: { ...PATHS, bdd_features: ["features/**/*.feature"] } };
+    await answerTo(runners, { target: "features/x.feature > Adds up" }, config);
+    const missing = await answerTo(runners, { target: "features/x.feature > Subtracts" }, config);
+    expect(scenarios).toEqual([{ file: "features/x.feature", line: 3 }]);
+    expect(missing).toContain('no scenario named "Subtracts" in features/x.feature');
+    expect(missing).not.toContain("no test named");
+  });
+
   it("refuses a test file or a scenario file outside the worktree, and runs nothing", async () => {
     const calls: string[] = [];
     for (const target of ["../outside.test.ts > adds up", "/etc/hosts.test.ts > adds up", "../outside.feature:3"]) {

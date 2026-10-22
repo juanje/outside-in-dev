@@ -45,6 +45,18 @@ describe("scenarioTarget", () => {
     ]);
   });
 
+  it("locates a scenario named by its feature file and its name in that file, also when another file has a scenario of that name", () => {
+    expect([scenarioTarget("features/b.feature > Subtracts", located), scenarioTarget("./features/a.feature > Subtracts", located)]).toEqual([
+      { file: "features/b.feature", line: 3 },
+      { file: "features/a.feature", line: 9 },
+    ]);
+  });
+
+  it("refuses a feature file and name that the file does not hold, naming the file and the name", () => {
+    expect(() => scenarioTarget("features/a.feature > Divides", located)).toThrow(new ProgressError('no scenario named "Divides" in features/a.feature'));
+    expect(() => scenarioTarget("features/missing.feature > Adds", located)).toThrow(new ProgressError('no scenario named "Adds" in features/missing.feature'));
+  });
+
   it("refuses a name that several scenarios have, naming their locations", () => {
     expect(() => scenarioTarget("Subtracts", located)).toThrow(
       new ProgressError('several scenarios are named "Subtracts"; give the location of one of them: features/a.feature:9, features/b.feature:3'),

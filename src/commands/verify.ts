@@ -19,7 +19,7 @@ import { isInsideSource } from "../artifacts/source-roots.js";
 import { withVerifyLock, type VerifyServices } from "../artifacts/verify-lock.js";
 import { CommandTimeoutError, runBddScenario, runUnitTest } from "../artifacts/verify-runner.js";
 import { type LocatedScenario, listLocatedScenarios, readFeatureSources } from "../artifacts/traceability.js";
-import { parseBddTarget, TARGET, parseUnitTarget, requireScenarioStart, scenarioTarget, UNIT_SEPARATOR } from "../artifacts/verify-target.js";
+import { parseBddTarget, TARGET, parseUnitTarget, requireScenarioStart, scenarioTarget } from "../artifacts/verify-target.js";
 import { filesWithTest, normalizeVitestReport, selectTest, severalFilesRefusal, type UnitFileResult } from "../artifacts/vitest-report.js";
 import { commandError } from "../cli-usage.js";
 import { answerReturn, assertNewBehaviour, judgeReturn, NO_CODE, SCENARIO_RETURN, type Judgement, type Refusal, type ReturnKind, moveFeature, moveToUnitRed, passedAtOnce, REFUSED, refuse, returnedFeature, TEST_RETURN, type ReturnSubject } from "./verify-return.js";
@@ -147,15 +147,15 @@ export interface Observation {
 /** The unit test or the scenario to verify. */
 export type Target = { kind: typeof TARGET.test; test: { file: string; name: string } } | { kind: typeof TARGET.scenario; scenario: { file: string; line: number } };
 
-/** The scenarios of the project, to look a target up by name; none when the target has the form of a unit test or the project has no configuration. */
-function scenariosToName(cwd: string, target: string): LocatedScenario[] {
-  if (target.includes(UNIT_SEPARATOR) || !existsSync(join(cwd, CONFIG_FILE))) return [];
+/** The scenarios of the project, to look a target up by name; none when the project has no configuration. */
+function scenariosToName(cwd: string): LocatedScenario[] {
+  if (!existsSync(join(cwd, CONFIG_FILE))) return [];
   return listLocatedScenarios(readFeatureSources(cwd, loadVerifyConfig(cwd).paths.bdd_features));
 }
 
 /** Reads the target as a scenario when it is the location or the name of one, and as a unit test otherwise. */
 export function parseTarget(cwd: string, target: string): Target {
-  const scenario = scenarioTarget(target, scenariosToName(cwd, target));
+  const scenario = scenarioTarget(target, scenariosToName(cwd));
   const text = scenario !== undefined && parseBddTarget(target) !== undefined ? readText(cwd, scenario.file) : undefined;
   if (scenario !== undefined && text !== undefined) requireScenarioStart(scenario, listLocatedScenarios([{ path: scenario.file.replace(/^\.\//, ""), text }]));
   return scenario === undefined ? { kind: TARGET.test, test: parseUnitTarget(target) } : { kind: TARGET.scenario, scenario };

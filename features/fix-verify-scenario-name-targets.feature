@@ -82,3 +82,37 @@ Feature: A scenario can be named by its name as well as by its location
     Then the command fails
     And the output contains "Greet Carol"
     And no checkpoint is recorded
+
+  @FR-VERIFY-02
+  Scenario: A Red names the scenario by its feature file and its name
+    Given the feature file "features/shout.feature" containing:
+      """
+      Feature: Shout
+
+        Scenario: Shout a greeting
+          Given the shout for Ann
+      """
+    And the step definitions file "features/steps/shout.steps.ts" containing:
+      """
+      import { Given } from "@cucumber/cucumber";
+      import assert from "node:assert/strict";
+
+      Given("the shout for Ann", async function () {
+        const { shout } = await import("../../src/shout.js");
+        assert.equal(shout("Ann"), "HELLO, ANN");
+      });
+      """
+    When I run "oid verify red \"features/shout.feature > Shout a greeting\""
+    Then the command succeeds
+    And the output starts with "red: valid (missing_implementation)"
+    And the checkpoint records the step "bdd_red"
+
+  @FR-VERIFY-02
+  Scenario: A Red names a scenario that its feature file does not hold
+    When I run "oid verify red \"features/greeting.feature > Greet Carol\""
+    Then the command fails
+    And the error output contains "features/greeting.feature"
+    And the error output contains "Greet Carol"
+    And the output does not contain "no test named"
+    And no observation is recorded
+    And no checkpoint is recorded

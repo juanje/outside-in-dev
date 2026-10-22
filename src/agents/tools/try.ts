@@ -2,6 +2,7 @@ import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { parseBddTarget, parseUnitTarget, UNIT_SEPARATOR } from "../../artifacts/verify-target.js";
 import { CommandAbortedError, type Runners } from "../../artifacts/verify-runner.js";
+import { ProgressError } from "../../artifacts/progress.js";
 import { loadProjectConfig } from "../../artifacts/project-config.js";
 import { type Rejection, rejection, renderRejection } from "../../artifacts/rejection.js";
 import { runTry } from "../../commands/try.js";
@@ -77,6 +78,7 @@ export function tryTool(context: TryContext) {
         () => text,
         (error: unknown) => {
           if (error instanceof CommandAbortedError) return undefined;
+          if (error instanceof ProgressError) return `${error.message}\n`;
           throw error;
         },
       );

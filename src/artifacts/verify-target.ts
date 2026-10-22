@@ -46,9 +46,23 @@ export function parseBddTarget(target: string): { file: string; line: number } |
   return { file: file!, line: Number(line) };
 }
 
-/** The location of the scenario a target names: its `<feature>:<line>`, or its exact name when one scenario has it; undefined when it is neither, refused when several scenarios have the name. */
+const FEATURE_FILE = /\.feature$/;
+const LEADING_DOT_SLASH = /^\.\//;
+
+/** The scenario of a `<feature file> > <scenario name>` target, when its file is a feature file (it ends in `.feature` or holds located scenarios); refused when that file holds no scenario of that name. */
+function scenarioInFile(target: string, located: ScenarioLocation[]): { file: string; line: number } | undefined {
+  if (!target.includes(UNIT_SEPARATOR)) return undefined;
+  const { file, name } = parseUnitTarget(target);
+  const path = file.replace(LEADING_DOT_SLASH, "");
+  if (!FEATURE_FILE.test(path) && !located.some((scenario) => scenario.file === path)) return undefined;
+  const found = located.find((scenario) => scenario.file === path && scenario.name === name);
+  if (found === undefined) throw new ProgressError(`no scenario named "${name}" in ${file}`);
+  return { file: found.file, line: found.line };
+}
+
+/** The location of the scenario a target names: its `<feature>:<line>`, its name in its feature file, or its exact name when one scenario has it; undefined when it is none of these, refused when several scenarios have the name. */
 export function scenarioTarget(target: string, located: ScenarioLocation[]): { file: string; line: number } | undefined {
-  const location = parseBddTarget(target);
+  const location = parseBddTarget(target) ?? scenarioInFile(target, located);
   if (location !== undefined) return location;
   const named = located.filter(({ name }) => name === target);
   if (named.length > 1) {

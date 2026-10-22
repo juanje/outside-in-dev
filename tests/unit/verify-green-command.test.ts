@@ -66,6 +66,18 @@ describe("oid verify green", () => {
     ]);
   });
 
+  it("takes a target named by its feature file and its scenario name, and names the file and the name of one the file does not hold", async () => {
+    const passed = { uri: "features/b.feature", name: "Bs", steps: [{ text: "it bs", status: "PASSED" }] };
+    projectWithRunners({ bddReport: runMessages([passed]) });
+    write("features/b.feature", "@FR-B-01\nFeature: B\n\n  Scenario: Bs\n    Given it bs\n");
+    commitAll();
+    const results = [await runInProject(["verify", "green", "features/b.feature > Bs"]), await runInProject(["verify", "green", "features/b.feature > Cs"])];
+    expect(results.map(({ exitCode, stdout }) => ({ exitCode, stdout }))).toEqual([
+      { exitCode: 0, stdout: "green: ok\n" },
+      { exitCode: 1, stdout: printedGreen(['target features/b.feature > Cs: no scenario named "Cs" in features/b.feature']) },
+    ]);
+  });
+
   it("rejects a failing unit test: exit 1, the count of problems, the test and the first line of its failure, and no checkpoint", async () => {
     const failing = { fullName: "adds", title: "adds", status: "failed", failureMessages: ["AssertionError: expected 3 to be 4\n    at x"] };
     projectWithRunners({ unitReport: { testResults: [{ name: `${dir}/tests/unit/a.test.ts`, message: "", assertionResults: [failing] }] } });
