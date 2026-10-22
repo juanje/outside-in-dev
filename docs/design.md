@@ -753,7 +753,7 @@ Cost is the sum of `usage.cost.total` on every assistant `message_end`, plus Jev
 
 Everything is written to `.outside-in/runs/<runId>/events.jsonl` (NFR-08), whether there is an interface or not. Each event carries `ts` and `runId`. Today's types (`src/events/types.ts`): `state_change`, `agent_start`, `attempt_rejected`, `waiting_input`, `human_edit`, `guard_accepted`, `resumed` and `error`. Every view is built over this stream and holds no state the orchestrator needs (ADR-014).
 
-**Direction:** events for test runs, checkpoints and rollbacks, sandbox denials, integrity violations, dependencies, Jev's decisions and refactor findings, as the views and the report need them. A `tool_execution_end` event carries no arguments, so a tool call's path comes from pairing it with its start by `toolCallId`.
+**Direction:** a `notification_failed` event when the notification command fails or exceeds its time limit (FR-TUI-06); events for test runs, checkpoints and rollbacks, sandbox denials, integrity violations, dependencies, Jev's decisions and refactor findings, as the views and the report need them. A `tool_execution_end` event carries no arguments, so a tool call's path comes from pairing it with its start by `toolCallId`.
 
 ### 12.2. Terminal interface
 
@@ -940,7 +940,7 @@ The config dir is `$OID_CONFIG_DIR`, else `$XDG_CONFIG_HOME/oid`, else `~/.confi
 
 - Each role is `provider/id`, resolved with Pi's `ModelRuntime`. The `decisions` role is reserved for Jev (FR-DEC).
 - `effort` (optional): for each state (`FEATURE_WRITE`, `BDD_RED`, `TDD_RED`, `CODE_GREEN`, `REFACTOR`, `QUALITY_FIX`), the reasoning level (`minimal`, `low`, `medium`, `high`) and optionally the model role (`fast`, `default`, `strong`) of its first attempt.
-- `notify_command` (optional, FR-TUI-06): a shell command oid runs when the run asks the person, finishes or fails. It is the user's, like the models: a project does not decide how its collaborators are notified. The command receives the kind of event in `OID_EVENT` (`waiting_input`, `finished` or `failed`) and a one-line description in `OID_MESSAGE`.
+- `notify_command` (optional, FR-TUI-06): a shell command oid runs when the run asks the person, finishes or fails. It is the user's, like the models: a project does not decide how its collaborators are notified. The command receives the kind of event in `OID_EVENT` (`waiting_input`, `finished` or `failed`) and a one-line description in `OID_MESSAGE`. oid waits for it at most 10 seconds, then stops it. A command that fails or is stopped is recorded as a `notification_failed` event, with its exit code or the time limit, and the run goes on: a notification never changes or stops the run.
 - Credentials live in `<config dir>/agent/auth.json`, oid's `agentDir` (`OID_AGENT_DIR` overrides it), written through Pi's `ModelRuntime.login`: the provider's own login flow or an API key from standard input. Provider variables (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`…) still work. oid never reads `~/.pi`; `oid setup --import-pi` copies its credentials once, when asked, merging them per provider, atomically and with mode 0600; imported OAuth entries share their refresh token with Pi, and oid says so.
 
 ---
